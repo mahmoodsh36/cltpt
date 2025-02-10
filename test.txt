@@ -1,0 +1,21 @@
+#(header 1) this is a header of level 1
+#(header 2) this is a header of level 2
+#(h 3) this is a header of level 3, using the alias 'h' of 'header'
+#(h1) this is a header of level 1, using the function 'h1' which simply calls '(header 1)'
+
+#(block :type quote)
+  this is a quote
+  #(block :type quote)
+    this is another quote within that quote
+  #(block-end)
+  #(b :type quote)
+    this is a quote within a quote, but we use the shorter aliases for the functions.
+  #(/b)
+  more of the first quote
+#(block-end)
+
+
+#(olet ((var1 "mystring") (var2 'mysymbol)))
+  the value of the 'var1' is ##var1, the value of 'var2' is ##var2, here is another value
+  that is computed from them: #(format nil "(~A, ~A)" var1 var2). nice, right?
+#(/olet)
