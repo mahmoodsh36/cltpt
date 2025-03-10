@@ -44,3 +44,15 @@
           (print-cons rest))))
      (format t ")"))
     (t (princ x))))
+
+(defun last-atom (seq)
+  (car (last seq)))
+
+(defun compose (&rest funcs)
+  (reduce
+   (lambda (f g)
+     (lambda (x)
+       (funcall f (funcall g x))))
+   funcs))
+;; example usage
+;; (mapcar (compose #'1+ #'sqrt #'identity) '(4 6 25))
