@@ -73,8 +73,13 @@
 
 (defgeneric text-object-init (text-obj str1 opening-region closing-region)
   (:documentation "this function is invoked by the parser,
-`str1' is the string (or buffer) being parsed, `opening-macro' is the macro from `str1'
-that resulted in this object being constructed."))
+STR1 is the string (or buffer) being parsed, OPENING-REGION is the region from STR1
+that resulted in this object being constructed, if the object was matched by a pair-matching
+algorithm, CLOSING-REGION would be the region in which the clsoing pair resides in STR1."))
+
+(defgeneric text-object-finalize (text-obj)
+  (:documentation "this function is invoked by the parser once it is done.
+the text object should finalize initialization or any other functionality."))
 
 (defgeneric text-object-ends-by (text-obj value)
   (:documentation "should return whether the value indicates the ending of the object's
@@ -151,15 +156,19 @@ region. you should just make it return a symbol like `end-type'."))
 ;; this is actually the worst way to traverse siblings
 (defmethod text-object-next-sibling ((obj text-object))
   (with-slots (parent) obj
-    (let ((idx (find obj (text-object-children parent))))
+    (let ((idx (position obj (text-object-children parent))))
       (when (< idx (1- (length (text-object-children parent))))
         (elt (text-object-children parent) (1+ idx))))))
 
 (defmethod text-object-prev-sibling ((obj text-object))
   (with-slots (parent) obj
-    (let ((idx (find obj (text-object-children parent))))
+    (let ((idx (position obj (text-object-children parent))))
       (when (> 0 idx)
         (elt (text-object-children parent) (1- idx))))))
+
+(defmethod text-object-finalize ((obj text-object))
+  "default finalize function, does nothing."
+  )
 
 (defclass document (text-object)
   ()

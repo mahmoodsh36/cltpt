@@ -143,7 +143,9 @@
                                     collect (list (text-object-begin o)
                                                   (text-object-end o)
                                                   o)))))
+      ;; discard region indicies
       (setf forest (mapcar-forest forest 'caddr))
+      ;; set child and parents properly
       (map-forest
        forest
        (lambda (tree)
@@ -165,6 +167,12 @@
                  (text-object-adjust-to-parent entry doc))
                top-level)
               (setf (text-object-children doc) top-level)
+              ;; finalize objects
+              (mapcar-forest
+               forest
+               (lambda (obj)
+                 (when obj
+                   (text-object-finalize obj))))
               doc)
             top-level)))))
 

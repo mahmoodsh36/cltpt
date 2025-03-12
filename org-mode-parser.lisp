@@ -101,7 +101,9 @@ its value is NIL."
   ;; of :keyword value up to the next newline character
   (let* ((begin (region-begin opening-region))
          (newline-pos (+ begin
-                         (position (string #\newline) (subseq str1 begin) :test 'string=)))
+                         (position (string #\newline)
+                                   (subseq str1 begin)
+                                   :test 'string=)))
          (space-pos (+ begin (position " " (subseq str1 begin) :test 'string=)))
          (line (when (< space-pos newline-pos)
                  (subseq str1 space-pos newline-pos)))
@@ -111,6 +113,30 @@ its value is NIL."
             (or (cdr entry) t)))
     (when (< space-pos newline-pos)
       (setf (region-end (text-object-opening-region obj)) newline-pos))))
+
+;; this isnt accurate, it only checks line number with respect to parent's text
+(defun text-object-fake-line-num (obj)
+  (count #\Newline
+         (text-object-text (text-object-parent obj))
+         :end (region-begin (text-object-opening-region obj))))
+(defun text-object-fake-line-num-distance (obj1 obj2)
+  (abs (- (text-object-fake-line-num obj1) (text-object-fake-line-num obj2))))
+
+;; one issue si that siblings might not be set properly if there's no parent document (parser was called with `:as-doc nil')
+(defmethod text-object-finalize ((obj org-block))
+  "finalize an org-mode block, grabs #+name and other possible keywords."
+  (loop for sibling = (text-object-prev-sibling obj) while sibling
+        do (if (and (typep sibling 'org-keyword)
+                    (equal (text-object-fake-line-num-distance obj sibling) 1))
+               ;; as long as #+keyword: val precedes the current line by 1 line, we continue
+               ;; grabbing keywords.
+               (let ((kw (intern (text-object-property sibling :keyword)
+                                 "KEYWORD"))
+                     (val (text-object-property sibling :value)))
+                 (setf (text-object-property obj kw) val)
+                 (setf sibling (text-object-prev-sibling sibling)))
+               ;; stop
+               (setf sibling nil))))
 
 (defmethod text-object-export ((obj org-keyword) backend)
   (format nil
@@ -177,6 +203,31 @@ its value is NIL."
            :reparse t))
     ('html
      (concatenate 'string "org-html-doc" (string #\newline) (text-object-text obj)) t)))
+
+
+;; initial org-table parser, we need to get this sort of parsing integrated into the parser
+;; somehow
+(defun split-table-line (line)
+  "splits a table row into individual cells."
+  (let ((cells (remove-if (lambda (s) (string= s ""))
+                            (uiop:split-string line :separator (string #\|)))))
+    (mapcar (lambda (cell) (string-trim " " cell)) cells)))
+(defun org-table-parse (text)
+  "parses an org-mode table from a string into a list of lists."
+  (let* ((lines (uiop:split-string text :separator (string #\newline)))
+         (rows (remove-if (lambda (line)
+                            (or (string= line "")
+                                (char= (char line 0) #\+)))
+                          lines)))
+    (mapcar #'split-line rows)))
+(let ((table
+        "| head1 | head2 | head3 |
++------+-------+-------+
+|  foo |  bar  |  baz  |
+| 123  | 456   | 789   |
++------+-------+-------+
+| end  | row   | test  |"))
+  (org-table-parse table))
 
 (defun parse-org-file (filepath)
   (dolist (mytype *org-mode-text-object-types*)

@@ -16,16 +16,20 @@
 
 ;; code for the simplest 'line-regex method
 (defun find-lines-matching-regex (text patterns &optional ids)
+  "finds regex matches across lines for multiple patterns."
   (let ((matches)
         (ids (or ids patterns))
-        (pos 0))
-    (loop for pattern in patterns for id in ids
-          do (loop while (cl-ppcre:scan pattern text :start pos)
-                   do (multiple-value-bind (start end)
-                          (cl-ppcre:scan pattern text :start pos)
-                        (when start
-                          (push (list start end (subseq text start end) id) matches)
-                          (setf pos end)))))
+        (lines (str:split (string #\newline) text))
+        (line-pos 0))
+    (loop for line in lines
+          do (loop for pattern in patterns for id in ids
+                   do (loop for (start end) on (cl-ppcre:all-matches pattern line) by #'cddr
+                            do (push (list (+ line-pos start)
+                                           (+ line-pos end)
+                                           (subseq line start end)
+                                           id)
+                                     matches)))
+             (incf line-pos (1+ (length line))))
     (nreverse matches)))
 
 ;; code for 'pair method
