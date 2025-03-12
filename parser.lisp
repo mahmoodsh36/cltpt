@@ -1,7 +1,17 @@
-(defpackage :cltpt
-  (:use :cl))
 (in-package :cltpt)
-(asdf:load-system :cl-ppcre)
+
+(defun filter-text-object-types-by-method (text-object-types method)
+  (remove-if-not
+   (lambda (type1)
+     (let ((rule (text-object-rule-from-subclass type1)))
+       (equal (getf rule :method) method)))
+   text-object-types))
+
+(defun text-object-types-data (text-object-types)
+  (mapcar
+   (lambda (type1)
+     (getf (text-object-rule-from-subclass type1) :data))
+   text-object-types))
 
 ;; todo: optimize
 (defun parse (str1
@@ -19,30 +29,47 @@
                   collect (let ((rule (text-object-rule-from-subclass type1)))
                             (when (equal (getf rule :method) 'pair)
                               (append (getf rule :data) (list :id type1)))))))
-         (regex-method-types
-           (remove-if-not
+         (line-pair-method-types
+           (filter-text-object-types-by-method text-object-types 'line-pair))
+         (line-pair-method-data
+           (mapcar
             (lambda (type1)
               (let ((rule (text-object-rule-from-subclass type1)))
-                (equal (getf rule :method) 'regex)))
-            text-object-types))
+                (append (getf rule :data) (list :id type1))))
+            line-pair-method-types))
+         (regex-method-types
+           (filter-text-object-types-by-method text-object-types 'regex))
          (regex-method-data
            (mapcar
             (lambda (type1)
               (getf (text-object-rule-from-subclass type1) :data))
             regex-method-types))
+         (line-regex-method-types
+           (filter-text-object-types-by-method text-object-types 'line-regex))
+         (line-regex-method-data (text-object-types-data line-regex-method-types))
          ;; we apply multiple passes for different methods. this is perhaps not the best
          ;; way to do it, but for now it is simpler.
          (pair-matches (find-multiple-pairs str1 pair-method-data))
          ;; for regexes we apply even more passes, one pass per regex..
-         (regex-matches (find-regex-multiple str1 regex-method-data regex-method-types)))
-    (loop for match in pair-matches
-          do (let* ((match-opening-string (caddr match))
-                    (match-closing-string (cadddr match))
-                    (match-opening-begin (car match))
+         (regex-matches (find-regex-multiple str1 regex-method-data regex-method-types))
+         (line-regex-matches (find-lines-matching-regex str1
+                                                        line-regex-method-data
+                                                        line-regex-method-types))
+         (line-pair-matches (find-line-pairs str1 line-pair-method-data))
+         (all-pair-matches-sorted
+           (sort (concatenate 'list pair-matches line-pair-matches)
+                 #'< :key #'first))
+         (all-regex-matches
+           (sort (concatenate 'list regex-matches line-regex-matches)
+                 #'< :key #'first)) )
+    (loop for match1 in all-pair-matches-sorted
+          do (let* ((match-opening-string (caddr match1))
+                    (match-closing-string (cadddr match1))
+                    (match-opening-begin (car match1))
                     (match-opening-end (+ match-opening-begin (length match-opening-string)))
-                    (match-closing-end (cadr match))
+                    (match-closing-end (cadr match1))
                     (match-closing-begin (- match-closing-end (length match-closing-string)))
-                    (type1 (last-atom match))
+                    (type1 (last-atom match1))
                     (is-macro (equal type1 'text-macro))
                     (match-text (subseq str1 match-opening-begin match-closing-end))
                     (macro-eval-result)
@@ -101,10 +128,10 @@
                        (unless done
                          (push new-text-object text-objects)))
                      (push new-text-object text-objects)))))
-    (loop for match in regex-matches
-          do (let* ((match-begin (car match))
-                    (match-end (cadr match))
-                    (match-type (cadddr match))
+    (loop for match1 in all-regex-matches
+          do (let* ((match-begin (car match1))
+                    (match-end (cadr match1))
+                    (match-type (cadddr match1))
                     (new-text-object (make-instance match-type)))
                (text-object-init new-text-object
                                  str1

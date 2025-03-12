@@ -46,10 +46,6 @@
     :initarg :text
     :accessor text-object-text
     :documentation "the text that the element corresponds to.")
-   (id
-    :initarg :id
-    :accessor text-object-id
-    :documentation "a unique string identifying this text object (in text files).")
    (children
     :initarg :children
     :accessor text-object-children
@@ -239,7 +235,8 @@ region. you should just make it return a symbol like `end-type'."))
     :allocation :class
     :initform '(:method pair
                 :data (:begin (:string "\\(")
-                       :end (:string "\\)"))))))
+                       :end (:string "\\)")
+                       :recurse nil)))))
 (sb-mop:finalize-inheritance (find-class 'inline-math))
 
 (defun text-object-rule-from-subclass (subclass)
