@@ -59,9 +59,27 @@
          (all-pair-matches-sorted
            (sort (concatenate 'list pair-matches line-pair-matches)
                  #'< :key #'first))
+         (line-region-method-types
+           (filter-text-object-types-by-method text-object-types 'line-region))
+         (line-region-method-data (text-object-types-data line-region-method-types))
+         (line-region-method-matches
+           (find-line-regions-matching-regex str1
+                                             line-region-method-data
+                                             line-region-method-types))
          (all-regex-matches
-           (sort (concatenate 'list regex-matches line-regex-matches)
-                 #'< :key #'first)) )
+           (sort (concatenate 'list regex-matches line-regex-matches line-region-method-matches)
+                 #'< :key #'first))
+         (custom-method-types
+           (filter-text-object-types-by-method text-object-types 'custom))
+         (custom-method-matches
+           (mapcar
+            (lambda (type1)
+              (let ((func (getf (text-object-rule-from-subclass type1) :data)))
+                (mapcar
+                 (lambda (match)
+                   (append match (list type1)))
+                 (funcall func str1))))
+            custom-method-types)))
     (loop for match1 in all-pair-matches-sorted
           do (let* ((match-opening-string (caddr match1))
                     (match-closing-string (cadddr match1))
@@ -128,7 +146,7 @@
                        (unless done
                          (push new-text-object text-objects)))
                      (push new-text-object text-objects)))))
-    (loop for match1 in all-regex-matches
+    (loop for match1 in (concatenate 'list all-regex-matches custom-method-matches)
           do (let* ((match-begin (car match1))
                     (match-end (cadr match1))
                     (match-type (cadddr match1))
@@ -175,48 +193,3 @@
                    (text-object-finalize obj))))
               doc)
             top-level)))))
-
-(defun export-tree (text-obj backend text-object-types &key reparse)
-  (let* ((result (text-object-export text-obj backend))
-         (result-is-string (typep result 'string))
-         (export-text
-           (if result-is-string
-               result
-               (getf result :text)))
-         (to-reparse (or reparse (unless result-is-string (getf result :reparse))))
-         (to-recurse (or result-is-string (getf result :recurse) to-reparse))
-         (region-to-reparse (when to-reparse (getf result :reparse-region)))
-         (text-to-reparse (when to-reparse
-                            (if region-to-reparse
-                                (region-text region-to-reparse export-text)
-                                export-text))))
-    (if to-recurse
-        (let ((final-result "")
-              (idx 0)
-              (children (sort-text-objects
-                         (if to-reparse
-                             (parse text-to-reparse
-                                    text-object-types
-                                    :as-doc nil
-                                    :relative-positions t)
-                             (text-object-children text-obj)))))
-          (loop for child in children
-                do (let ((child-result (export-tree child
-                                                    backend
-                                                    text-object-types
-                                                    :reparse reparse))
-                         (child-offset (if region-to-reparse
-                                           (region-begin region-to-reparse)
-                                           0)))
-                     ;; if we reparsed only a specific region, we need to offset the regions of children
-                     (setf final-result
-                           (concatenate 'string
-                                        final-result
-                                        (subseq export-text
-                                                (+ child-offset idx)
-                                                (+ child-offset (text-object-begin child)))
-                                        child-result))
-                     (setf idx (text-object-end child))))
-          (setf final-result (concatenate 'string final-result (subseq export-text idx)))
-          final-result)
-        export-text)))

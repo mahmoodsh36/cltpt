@@ -1,15 +1,4 @@
-(defpackage :cltpt
-  (:use :cl))
 (in-package :cltpt)
-
-;; this isnt currently used but kept as a reference
-(defconstant *matching-methods*
-  ;; matching methods
-  '(pair ;; e.g. for latex's \( \), \[ \], \begin,\end etc.
-    regex ;; e.g. to easily match org's `#+alias: log`
-    indentation ;; have the same indentation (python code?)
-    ;; match the current index, expand the text tested for matching until it no longer matches, the last match (which is the largest one) should be used, this is slow but can be used for syntax that is completely different/custom (maybe tables?)
-    position))
 
 (defstruct region
   (begin 0)
@@ -29,12 +18,6 @@
 (defmethod region-length ((r region))
   (with-slots (begin end) r
     (- end begin)))
-
-;; (defstruct text-match
-;;   (region nil :type region)
-;;   text-object
-;;   eval-result ;; eval-result is only set when the text-match is for a text macro that renders a text-object
-;;   )
 
 (defclass text-object ()
   ((properties
@@ -69,7 +52,7 @@
     :accessor text-object-rule
     :allocation :class
     :documentation "the matching method from `*matching-methods*' used to match against the text object."))
-  (:documentation "cl-text objects base class"))
+  (:documentation "cltpt objects base class"))
 
 (defgeneric text-object-init (text-obj str1 opening-region closing-region)
   (:documentation "this function is invoked by the parser,
@@ -235,8 +218,6 @@ region. you should just make it return a symbol like `end-type'."))
                            (format nil "~A(" *text-macro-seq*) :string
                            ")" :string)
                     :nestable nil))))
-;; we need to "finalize" the class to be able to use MOP
-(sb-mop:finalize-inheritance (find-class 'text-macro))
 
 ;; define the inline-math subclass with its own default rule
 (defclass inline-math (text-object)
@@ -246,7 +227,49 @@ region. you should just make it return a symbol like `end-type'."))
                 :data (:begin (:string "\\(")
                        :end (:string "\\)")
                        :recurse nil)))))
-(sb-mop:finalize-inheritance (find-class 'inline-math))
+
+(defmethod text-object-export ((obj inline-math) backend)
+  (list :text (text-object-text obj)
+        :reparse nil
+        :recurse nil
+        :escape nil))
+
+(defclass display-math (text-object)
+  ((rule
+    :allocation :class
+    :initform '(:method pair
+                :data (:begin (:string "\\[")
+                       :end (:string "\\]")
+                       :recurse nil)))))
+
+(defmethod text-object-export ((obj display-math) backend)
+  (list :text (text-object-text obj)
+        :reparse nil
+        :recurse nil
+        :escape nil))
+
+(defclass latex-env (text-object)
+  ((rule
+    :allocation :class
+    :initform
+    (list :method 'pair
+          :data (list :begin '(:regex "\\\\begin{[a-z\\*]+}")
+                      :end '(:regex "\\\\end{[a-z\\*]+}")
+                      ;; we need to make sure the text after begin_ and end_ is the same
+                      :predicate (lambda (begin end)
+                                   (string= (subseq begin (length "\\begin{"))
+                                            (subseq end (length "\\end{"))))))))
+  (:documentation "latex environment."))
+
+(defmethod text-object-export ((obj latex-env) backend)
+  (list :text (text-object-text obj)
+        :reparse nil
+        :recurse nil
+        :escape nil))
 
 (defun text-object-rule-from-subclass (subclass)
   (slot-value (sb-mop:class-prototype (find-class subclass)) 'rule))
+
+(defun map-text-object (text-obj func)
+  "traverse the text object tree starting at TEXT-OBJ."
+  )
