@@ -1,7 +1,4 @@
-(defpackage :cltpt
-  (:use :cl))
 (in-package :cltpt)
-(asdf:load-system :lparallel)
 
 (setf lparallel:*kernel* (lparallel:make-kernel 4))
 

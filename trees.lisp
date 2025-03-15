@@ -1,5 +1,3 @@
-(defpackage :cltpt
-  (:use :cl))
 (in-package :cltpt)
 
 (defun make-node (interval)
@@ -15,12 +13,12 @@ Each interval is a list of the form (start end id).
 Assumes intervals are strictly nested and sorted by start."
   (let ((forest nil)
         (stack nil))
-    ;; Sort intervals by the start value.
+    ;; sort intervals by the start value.
     (setq intervals (sort intervals (lambda (a b)
                                        (< (first a) (first b)))))
     (dolist (interval intervals)
       (let ((node (make-node interval)))
-        ;; While there is a node on the stack that does NOT enclose the current interval,
+        ;; while there is a node on the stack that does NOT enclose the current interval,
         ;; pop it off the stack.
         (loop while (and stack
                          (let* ((parent (first stack))
@@ -31,22 +29,14 @@ Assumes intervals are strictly nested and sorted by start."
                                      (>= pend (second interval))))))
               do (pop stack))
         (if stack
-            ;; If the stack is non-empty, the top is a valid parent.
+            ;; if the stack is non-empty, the top is a valid parent.
             (push node (cdr (first stack)))
-            ;; Otherwise, this node is a top-level interval.
+            ;; otherwise, this node is a top-level interval.
             (push node forest))
-        ;; Push the current node onto the stack.
+        ;; push the current node onto the stack.
         (push node stack)))
-    ;; Reverse forest to preserve original order.
+    ;; reverse forest to preserve original order.
     (nreverse forest)))
-
-;; example usage
-(let ((tree (build-tree '((0 29 id1)
-                          (2 27 id2)
-                          (10 20 id3)
-                          (13 17 id4)
-                          (22 25 id5)))))
-  (format t "~%Tree: ~a~%" tree))
 
 (defun print-node (node &optional (indent 0))
   "recursively prints a node and its children with indentation."
@@ -58,14 +48,6 @@ Assumes intervals are strictly nested and sorted by start."
   "prints all trees in the forest."
   (dolist (node forest)
     (print-node node 0)))
-
-;; example usage
-(let ((tree (build-tree '((0 29 id1)
-                          (2 27 id2)
-                          (10 20 id3)
-                          (13 17 id4)
-                          (22 25 id5)))))
-  (print-forest tree))
 
 (defun mapcar-tree (node func)
   (cons (funcall func (car node))

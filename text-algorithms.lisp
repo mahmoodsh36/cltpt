@@ -1,6 +1,7 @@
 (in-package :cltpt)
 
 ;; code for the simplest 'regex method
+;; A
 (defun find-regex-multiple (text patterns &optional ids)
   (let ((matches)
         (ids (or ids patterns))
@@ -14,7 +15,8 @@
                           (setf pos end)))))
     (nreverse matches)))
 
-;; code for the simplest 'line-regex method
+;; code for the 'line-regex method
+;; A
 (defun find-lines-matching-regex (text patterns &optional ids)
   "finds regex matches across lines for multiple patterns."
   (let ((matches)
@@ -32,87 +34,200 @@
              (incf line-pos (1+ (length line))))
     (nreverse matches)))
 
-;; code for 'pair method
-(defun match-at (spec str i)
-  "attempt to match SPEC at position i in STR.
-SPEC is a two-element list: (type pattern) where type is either :string or :regex.
-for :string, if the substring starting at i equals the pattern, it returns that match.
-if not--and if the pattern does not begin with a colon--it also checks whether the
-character at i is a colon and the substring starting at i+1 equals the pattern.
-FOr :regex, it uses cl-ppcre:scan and requires the match to start at i.
-returns three values: the match start, the match end, and the matched substring, or nil."
+;; code for the 'line-region method for regions of consecutive lines sharing a
+;; common pattern.
+;; A
+(defun find-line-regions-matching-regex (text patterns &optional ids)
+  "finds contiguous regions of lines where each line matches the given regex.
+for each pattern in PATTERNS (using the corresponding identifier from IDS, if provided),
+this function returns a list of regions as (start-pos end-pos region-text id).
+START-POS is the offset of the first line in the region and END-POS is the offset
+immediately after the last matching line, while REGION-TEXT is the concatenated
+text of all lines in the region."
+  (let ((matches)
+        (lines (str:split (string #\newline) text)))
+    (dotimes (i (length patterns))
+      (let ((line-pos 0)
+            (pattern (nth i patterns))
+            (id (if ids (nth i ids) pattern))
+            (region-start-pos)
+            (region-lines))
+        (loop for j from 0 below (length lines)
+              for line = (nth j lines)
+              do (if (cl-ppcre:scan pattern line)
+                     (progn
+                       (unless region-start-pos
+                         (setf region-start-pos line-pos))
+                       (push line region-lines))
+                     (when region-lines
+                       (let ((region-text (format nil "~{~a~^~%~}" (nreverse region-lines))))
+                         (push (list region-start-pos
+                                     (+ region-start-pos (length region-text))
+                                     region-text
+                                     id)
+                               matches))
+                       (setf region-lines nil)
+                       (setf region-start-pos nil)))
+                 (incf line-pos (if (< j (1- (length lines)))
+                                    (1+ (length line))
+                                    (length line))))
+        (when region-lines
+          (let ((region-text (format nil "~{~a~^~%~}" (nreverse region-lines))))
+            (push (list region-start-pos
+                        (+ region-start-pos (length region-text))
+                        region-text
+                        id)
+                  matches)))))
+    (nreverse matches)))
+
+;; code for 'pair method, this is by far the slowest of the bunch
+;; A
+(defun scan-events-for-spec (spec str)
+  "scan STR for all occurrences of SPEC.
+returns a list of events, each as (start-index end-index matched-string)."
   (destructuring-bind (type pattern) spec
     (cond
-      ((eq type :string)
-       (let ((plen (length pattern)))
-         (cond
-           ((and (<= (+ i plen) (length str))
-                 (string= pattern (subseq str i (+ i plen))))
-            (values i (+ i plen) (subseq str i (+ i plen))))
-           ((and (< i (length str))
-                 (not (char= (char pattern 0) #\:)) ; only try optional colon if pattern doesn't start with one
-                 (char= (char str i) #\:)
-                 (<= (+ i 1 plen) (length str))
-                 (string= pattern (subseq str (1+ i) (+ i 1 plen))))
-            (values i (+ i 1 plen) (subseq str i (+ i 1 plen))))
-           (t nil))))
       ((eq type :regex)
-       (multiple-value-bind (m-start m-end)
-           (cl-ppcre:scan pattern str :start i)
-         (if (and m-start (= m-start i))
-             (values m-start m-end (subseq str m-start m-end))
-             nil)))
+       (let ((matches (cl-ppcre:all-matches pattern str)))
+         ;; matches is a flat list: (start1 end1 start2 end2 …)
+         (let ((events))
+           (loop for (s e) on matches by #'cddr do
+             (push (list s e (subseq str s e)) events))
+           (nreverse events))))
+      ((eq type :string)
+       (let ((direct)
+             (colon)
+             (plen (length pattern))
+             (slen (length str)))
+         ;; scan for direct occurrences.
+         (loop for i from 0 below slen do
+           (when (and (<= (+ i plen) slen)
+                      (string= pattern (subseq str i (+ i plen))))
+             (push (list i (+ i plen) (subseq str i (+ i plen))) direct)))
+         ;; for patterns not starting with colon, also scan for colon-prefixed occurrences.
+         (unless (char= (char pattern 0) #\:)
+           (let ((colon-pattern (concatenate 'string ":" pattern))
+                 (cplen (1+ plen)))
+             (loop for i from 0 below slen do
+               (when (and (<= (+ i cplen) slen)
+                          (string= colon-pattern (subseq str i (+ i cplen))))
+                 (push (list i (+ i cplen) (subseq str i (+ i cplen))) colon))))
+           ;; merge both lists. If events occur at the same index, choose the one with the smaller end index.
+           (let ((all (append direct colon)))
+             (setf all (sort all (lambda (a b)
+                                   (if (= (first a) (first b))
+                                       (< (second a) (second b))
+                                       (< (first a) (first b))))))
+             all))))
       (t nil))))
 
-(defun find-multiple-pairs (str rules &optional (pos 0))
-  "find nested delimiter pairs in STR based on RULES.
-RULES is a list of property lists. each rule has:
-  :begin     -- a two-element list specifying the begin pattern,
-               e.g. (:regex \":[a-zA-Z]+:\") or (:string \":begin:\")
-  :end       -- a two-element list specifying the end pattern,
-               e.g. (:string \":end:\") or (:regex \"(?i):end:\")
-  :predicate -- an optional function taking the begin-match and end-match that returns T if they should be paired.
-  :id        -- an optional identifier.
+;; struct to hold per-rule pre-scanned events
+(defstruct rule-info
+  rule              ;; the original rule plist
+  begin-events      ;; list of events for the :begin spec
+  end-events        ;; list of events for the :end spec
+  begin-index       ;; pointer into begin-events (integer)
+  end-index)        ;; pointer into end-events (integer)
+
+;; A
+(defun find-multiple-pairs (str rules)
+  "find nested delimiter pairs in STR based on RULES using pre-scanned events.
+RULES is a list of plists, each with keys:
+  :begin  -- a two-element spec for the begin marker,
+  :end    -- a two-element spec for the end marker,
+  :predicate (optional) -- a function of (begin-match end-match),
+  :id     (optional) -- an identifier.
 returns a list of quintuples:
   (begin-index end-index begin-match end-match rule-id)."
-  (let ((pairs)
-        (stack)
-        (i pos)
-        (len (length str)))
-    (loop while (< i len) do
+  (let* ((slen (length str))
+         ;; build rule-info for each rule.
+         (rule-infos
+           (mapcar (lambda (r)
+                     (make-rule-info
+                      :rule r
+                      :begin-events (scan-events-for-spec (getf r :begin) str)
+                      :end-events   (scan-events-for-spec (getf r :end) str)
+                      :begin-index 0
+                      :end-index 0))
+                   rules))
+         (pairs)
+         ;; the stack holds open begin markers. each element is a plist with keys:
+         ;; :event (the begin event, a triple (start end match))
+         ;; :rule-info (the associated rule-info structure)
+         (stack)
+         (pos 0))
+    (loop while (< pos slen) do
       (if stack
-          (let* ((top (first stack)) ;; top is of the form (begin-index rule begin-match)
-                 (rule (second top))
-                 (end-spec (getf rule :end)))
-            (multiple-value-bind (ms me match) (match-at end-spec str i)
-              (if ms
-                  (progn
-                    (push (list (first top) me (third top) match (getf rule :id)) pairs)
-                    (pop stack)
-                    (setf i me))
-                  (let ((found))
-                    (dolist (r rules found)
-                      (multiple-value-bind (msb meb matchb) (match-at (getf r :begin) str i)
-                        (when msb
-                          (push (list i r matchb) stack)
-                          (setf i meb)
-                          (setf found t)
-                          (return))))
-                    (unless found
-                      (incf i 1))))))
-          (let ((found))
-            (dolist (r rules found)
-              (multiple-value-bind (ms me match) (match-at (getf r :begin) str i)
-                (when ms
-                  (push (list i r match) stack)
-                  (setf i me)
+          ;; there is an open begin marker.
+          (let* ((top (first stack))
+                 (ri (getf top :rule-info))
+                 (open-event (getf top :event)) ;; (start end match)
+                 (open-pos (first open-event))
+                 (begin-match (third open-event))
+                 (end-evs (rule-info-end-events ri))
+                 (ei (rule-info-end-index ri)))
+            (if (and (< ei (length end-evs))
+                     (= (first (nth ei end-evs)) pos))
+                ;; an end event for the top rule is found at pos.
+                (let ((end-event (nth ei end-evs))
+                      (pred (getf (rule-info-rule ri) :predicate)))
+                  (if (or (null pred)
+                          (funcall pred begin-match (third end-event)))
+                      (progn
+                        (push (list open-pos (second end-event)
+                                    begin-match (third end-event)
+                                    (getf (rule-info-rule ri) :id))
+                              pairs)
+                        (pop stack)
+                        (setf (rule-info-end-index ri) (1+ ei))
+                        (setf pos (second end-event)))
+                      (pop stack)))
+                ;; no matching end event at pos; try to find a new begin event.
+                (let ((found nil))
+                  (dolist (ri rule-infos found)
+                    (let* ((bev (rule-info-begin-events ri))
+                           (bi (rule-info-begin-index ri)))
+                      (when (and (< bi (length bev))
+                                 (= (first (nth bi bev)) pos))
+                        (push (list :event (nth bi bev)
+                                    :rule-info ri)
+                              stack)
+                        (setf pos (second (nth bi bev)))
+                        (setf (rule-info-begin-index ri) (1+ bi))
+                        (setf found t)
+                        (return))))
+                  (unless found (incf pos 1)))))
+          ;; stack is empty: look for a begin event at pos.
+          (let ((found nil))
+            (dolist (ri rule-infos found)
+              (let* ((bev (rule-info-begin-events ri))
+                     (bi (rule-info-begin-index ri)))
+                (when (and (< bi (length bev))
+                           (= (first (nth bi bev)) pos))
+                  (push (list :event (nth bi bev)
+                              :rule-info ri)
+                        stack)
+                  (setf pos (second (nth bi bev)))
+                  (setf (rule-info-begin-index ri) (1+ bi))
                   (setf found t)
                   (return))))
             (unless found
-              (incf i 1)))))
+              ;; no event at pos; jump to the next available begin event.
+              (let ((next-pos nil))
+                (dolist (ri rule-infos)
+                  (let* ((bev (rule-info-begin-events ri))
+                         (bi (rule-info-begin-index ri)))
+                    (when (< bi (length bev))
+                      (let ((candidate (first (nth bi bev))))
+                        (when (or (null next-pos) (< candidate next-pos))
+                          (setf next-pos candidate))))))
+                (if next-pos
+                    (setf pos next-pos)
+                    (setf pos slen)))))))
     (sort pairs #'< :key #'first)))
 
 ;; code for line-pair method
+;; A
 (defun line-boundaries (str)
   "return a list of cons cells (start . end) representing the boundaries of each line in STR."
   (let ((boundaries)
@@ -125,14 +240,10 @@ returns a list of quintuples:
           finally (push (cons start len) boundaries))
     (nreverse boundaries)))
 
+;; A
 (defun match-in-line (spec line)
-  "search LINE for SPEC, a two-element list of the form (type pattern).
-TYPE can be:
-  :string     -- uses `search` to find the substring anywhere in LINE.
-  :regex      -- uses cl-ppcre:scan to search LINE for the pattern.
-  :line-regex -- treated the same as :regex here.
-returns three values: match-start, match-end, and the matched substring,
-or NIL if no match is found."
+  "search LINE for SPEC, a two-element list (type pattern).
+returns three values: match-start, match-end, and the matched substring, or NIL if no match."
   (destructuring-bind (type pattern) spec
     (cond
       ((eq type :string)
@@ -148,70 +259,94 @@ or NIL if no match is found."
              nil)))
       (t nil))))
 
+;; A
 (defun find-line-pairs (str rules)
   "find delimiter pairs in STR on a per-line basis for a list of RULES.
 each RULE is a property list with keys:
   :begin -- a two-element list specifying the begin pattern.
-            the type can be :string, :regex, or :line-regex.
   :end   -- a two-element list specifying the end pattern.
-            the type can be :string, :regex, or :line-regex.
+  :predicate -- an optional function taking the begin-match and end-match that returns T if they should be paired.
   :id    -- (optional) an identifier.
 returns a list of quintuples:
-  (begin-index end-index begin-match end-match rule-id)
-with indices relative to the original STR.
-for each rule, if a begin delimiter is found (via `match-in-line`)
-and later an end delimiter is found on the same or a subsequent line,
-a pair is recorded. If both begin and end occur on the same line and the
-end match follows the begin match, the pair is recorded immediately."
-  (let ((pairs)
-        ;; ACTIVE is an association list mapping a rule to its active begin info.
-        ;; each active begin info is a list:
-        ;; (global-begin-index, begin-match, local-begin-index, begin-line-start)
-        (active))
+  (begin-index end-index begin-match end-match rule-id)"
+  (let ((tokens))
+    ;; collect tokens from each line.
     (dolist (bounds (line-boundaries str))
-      (let* ((line-start (car bounds))
-             (line-end (cdr bounds))
-             (line (subseq str line-start line-end)))
+      (let ((line-start (car bounds))
+            (line (subseq str (car bounds) (cdr bounds))))
         (dolist (rule rules)
-          (let* ((rule-id (getf rule :id))
-                 (begin-spec (getf rule :begin))
-                 (end-spec (getf rule :end))
-                 (active-info (assoc rule active)))
-            (if active-info
-                ;; we already have a begin match for this rule.
-                (multiple-value-bind (ems eme end-match) (match-in-line end-spec line)
-                  (when ems
-                    (let* ((info (cdr active-info))
-                           (global-begin (nth 0 info))
-                           (begin-match (nth 1 info))
-                           (local-begin (nth 2 info))
-                           (begin-line  (nth 3 info)))
-                      ;; if the begin was on the same line, ensure the end match comes later.
-                      (when (or (/= begin-line line-start)
-                                (> ems local-begin))
-                        (push (list global-begin
-                                    (+ line-start eme)
-                                    begin-match
-                                    end-match
-                                    rule-id)
-                              pairs)
-                        (setf active (remove active-info active :test #'eq))))))
-                ;; no active begin exists for this rule; try to match the begin delimiter.
-                (multiple-value-bind (bms bme begin-match) (match-in-line begin-spec line)
-                  (when bms
-                    (let ((global-begin (+ line-start bms))
-                          (global-end (+ line-start bme)))
-                      ;; check if an end match also exists on this same line after the begin match.
-                      (multiple-value-bind (ems eme end-match)
-                          (match-in-line end-spec line)
-                        (if (and ems (> ems bme))
-                            (push (list global-begin
-                                        (+ line-start eme)
-                                        begin-match
-                                        end-match
-                                        rule-id)
-                                  pairs)
-                            ;; otherwise, record this begin match as active for later pairing.
-                            (push (cons rule (list global-begin begin-match bms line-start))
-                                  active)))))))))))
-    (nreverse pairs)))
+          (dolist (type '(begin end))
+            (let ((spec (if (eq type 'begin)
+                            (getf rule :begin)
+                            (getf rule :end)))
+                  (pos 0))
+              (loop while (< pos (length line)) do
+                (multiple-value-bind (ms me token)
+                    (match-in-line spec (subseq line pos))
+                  (if ms
+                      (progn
+                        (push (list (+ line-start ms)
+                                    (+ line-start me)
+                                    token
+                                    type
+                                    rule)
+                              tokens)
+                        (setf pos (+ pos me)))
+                      (setf pos (length line))))))))))
+    ;; sort tokens by their global start.
+    (setf tokens (sort tokens (lambda (a b) (< (first a) (first b)))))
+    ;; process tokens using a per-rule stack.
+    (let ((pairs)
+          (active (make-hash-table :test 'eq)))
+      (dolist (tok tokens)
+        (destructuring-bind (gstart gend token type rule) tok
+          (cond
+            ((eq type 'begin)
+             (setf (gethash rule active)
+                   (cons tok (gethash rule active))))
+            ((eq type 'end)
+             (let ((stack (gethash rule active)))
+               (when stack
+                 (let ((begin-token (first stack)))
+                   (setf (gethash rule active) (rest stack))
+                   (when (or (null (getf rule :predicate))
+                             (funcall (getf rule :predicate)
+                                      (third begin-token) token))
+                     (push (list (first begin-token)
+                                 gend
+                                 (third begin-token)
+                                 token
+                                 (getf rule :id))
+                           pairs)))))))))
+      (nreverse pairs))))
+
+(defun modify-substring (str1 func main-region &optional small-region)
+  "modify the string in SMALL-REGION of MAIN-REGION of string STR1. SMALL-REGION is relative
+to MAIN-REGION."
+  (let ((small-begin (if small-region
+                         (+ (region-begin main-region) (region-begin small-region))
+                         (region-begin main-region)))
+        (small-end (if small-region
+                       (+ (region-begin main-region) (region-end small-region))
+                       (region-end main-region))))
+    (concatenate 'string
+                 (subseq str1 (region-begin main-region) small-begin)
+                 (funcall func (subseq str1 small-begin small-end))
+                 (subseq str1 small-end (region-end main-region)))))
+
+(defun extract-modified-substring (str1 func main-region modification-region)
+  "extract and modify the substring in MODIFICATION-REGION contained in MAIN-REGION of
+string STR1. notice that MODIFICATION-REGION can be wider and even disjoint from MAIN-REGION."
+  (let ((modification-begin (max (region-begin main-region)
+                                 (region-begin modification-region)))
+        (modification-end (min (region-end main-region)
+                               (region-end modification-region))))
+    (if (and (<= (region-begin modification-region)
+                 (region-end main-region))
+             (>= (region-end modification-region)
+                 (region-begin main-region)))
+        (concatenate 'string
+                     (subseq str1 (region-begin main-region) modification-begin)
+                     (funcall func (subseq str1 modification-begin modification-end))
+                     (subseq str1 modification-end (region-end main-region)))
+        str1)))

@@ -18,3 +18,45 @@
   the value of the 'var1' is ##var1, the value of 'var2' is ##var2, here is another value
   that is computed from them: #(format nil "(~A, ~A)" var1 var2). nice, right?
 #(/olet)
+
+#(b :name "block")
+  this block can be referred to by "block".
+#(/b)
+
+#(b :name "block1" :exports "none")
+we have x=#(identity x) consider the following formula:
+\begin{equation}
+x = myotherfunc(myfunc(#(identity x))) + y + 1. \quad \text{#(latexref "block")}
+\end{equation}
+#(/b)
+
+#(transclude :name "block1" :bind '((x . "\\sqrt{y}")))
+
+refer to #(ref :name "src1') to see how we can use code.
+
+today the date is #(date-str)
+
+org syntax and our "macros" can be used together:
+#+begin_src bash :name src1
+  ls | grep thing | grep '*.jpg'
+#+end_src
+
+#+results:
+: file1
+: file2
+
+the results of the last code blocks are #(find :func 'prev-sibling), but we can use them too,
+like so: #(let ((results (find :func 'prev-sibling))) (subseq 1 (text-object-text results))).
+
+we have a list
+- #(call "src1") is the first option
+- *something here* is the second option
+
+#(let ((mylist (find :func 'prev-sibling)))
+   (concatenate 'string
+                "the values in the list are: "
+                (str:join "," (text-object-property mylist :list))
+                "."))
+
+the results are #(call "src1"). we can do things
+like #(str:join "," (str:split (string #\newline) (call src1))).
