@@ -72,6 +72,7 @@
                      (setf idx (+ child-offset (text-object-end child)))))
           ;; we need to handle region-to-reparse properly on the remaining text after
           ;; the region of the last child
+          (format t "herec ~A~%" text-obj)
           (let ((final-text-in-between
                   (if to-escape
                       (if region-to-escape
