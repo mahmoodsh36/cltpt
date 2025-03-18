@@ -22,53 +22,34 @@
                 (doc-type 'document))
   "parse a string, returns an object tree."
   (let* ((text-objects)
-         (pair-method-data
+         (data
            (remove-if-not
             'identity
+            ;; (text-object-rule-from-subclass type1) is really slow for some reason
             (loop for type1 in text-object-types
                   collect (let ((rule (text-object-rule-from-subclass type1)))
-                            (when (equal (getf rule :method) 'pair)
-                              (append (getf rule :data) (list :id type1)))))))
-         (line-pair-method-types
-           (filter-text-object-types-by-method text-object-types 'line-pair))
-         (line-pair-method-data
-           (mapcar
-            (lambda (type1)
-              (let ((rule (text-object-rule-from-subclass type1)))
-                (append (getf rule :data) (list :id type1))))
-            line-pair-method-types))
-         (regex-method-types
-           (filter-text-object-types-by-method text-object-types 'regex))
-         (regex-method-data
-           (mapcar
-            (lambda (type1)
-              (getf (text-object-rule-from-subclass type1) :data))
-            regex-method-types))
-         (line-regex-method-types
-           (filter-text-object-types-by-method text-object-types 'line-regex))
-         (line-regex-method-data (text-object-types-data line-regex-method-types))
+                            (append (getf rule :data) (list :id type1))))))
          ;; we apply multiple passes for different methods. this is perhaps not the best
          ;; way to do it, but for now it is simpler.
-         (pair-matches (find-multiple-pairs str1 pair-method-data))
-         ;; for regexes we apply even more passes, one pass per regex..
-         (regex-matches (find-regex-multiple str1 regex-method-data regex-method-types))
-         (line-regex-matches (find-lines-matching-regex str1
-                                                        line-regex-method-data
-                                                        line-regex-method-types))
-         (line-pair-matches (find-line-pairs str1 line-pair-method-data))
-         (all-pair-matches-sorted
-           (sort (concatenate 'list pair-matches line-pair-matches)
-                 #'< :key #'first))
-         (line-region-method-types
-           (filter-text-object-types-by-method text-object-types 'line-region))
-         (line-region-method-data (text-object-types-data line-region-method-types))
-         (line-region-method-matches
-           (find-line-regions-matching-regex str1
-                                             line-region-method-data
-                                             line-region-method-types))
-         (all-regex-matches
-           (sort (concatenate 'list regex-matches line-regex-matches line-region-method-matches)
-                 #'< :key #'first))
+         (matches (find-with-rules str1 data))
+         ;; (line-region-method-types
+         ;;   (filter-text-object-types-by-method text-object-types 'line-region))
+         ;; (line-region-method-data (text-object-types-data line-region-method-types))
+         ;; (line-region-method-matches
+         ;;   (find-line-regions-matching-regex str1
+         ;;                                     line-region-method-data
+         ;;                                     line-region-method-types))
+         ;; (all-region-matches line-region-method-matches)
+         (pair-matches
+           (remove-if-not
+            (lambda (x)
+              (stringp (cadddr x)))
+            matches))
+         (region-matches
+           (remove-if-not
+            (lambda (x)
+              (not (stringp (cadddr x))))
+            matches))
          (custom-method-types
            (filter-text-object-types-by-method text-object-types 'custom))
          (custom-method-matches
@@ -80,7 +61,7 @@
                    (append match (list type1)))
                  (funcall func str1))))
             custom-method-types)))
-    (loop for match1 in all-pair-matches-sorted
+    (loop for match1 in pair-matches
           do (let* ((match-opening-string (caddr match1))
                     (match-closing-string (cadddr match1))
                     (match-opening-begin (car match1))
@@ -89,11 +70,10 @@
                     (match-closing-begin (- match-closing-end (length match-closing-string)))
                     (type1 (last-atom match1))
                     (is-macro (equal type1 'text-macro))
-                    (match-text (subseq str1 match-opening-begin match-closing-end))
                     (macro-eval-result)
                     (new-text-object))
                (if is-macro
-                   (progn
+                   (let ((match-text (subseq str1 match-opening-begin match-closing-end)))
                      (handler-case
                          (eval (read-from-string
                                 (subseq match-text (length *text-macro-seq*))))
@@ -146,7 +126,7 @@
                        (unless done
                          (push new-text-object text-objects)))
                      (push new-text-object text-objects)))))
-    (loop for match1 in (concatenate 'list all-regex-matches custom-method-matches)
+    (loop for match1 in (concatenate 'list region-matches custom-method-matches)
           do (let* ((match-begin (car match1))
                     (match-end (cadr match1))
                     (match-type (cadddr match1))

@@ -1,8 +1,19 @@
 (in-package :cltpt)
 
-(defvar *org-mode-text-object-types*
-  '(org-block org-keyword inline-math org-header org-link org-drawer org-list org-table
-    display-math latex-env))
+(defvar *org-mode-text-object-types*)
+
+(defmethod asdf:perform :after ((op asdf:load-op) (system (eql (asdf:find-system "cltpt"))))
+  ;; eval-when wouldnt be enough here..
+  (setf *org-mode-text-object-types*
+        (mapcar 'find-class
+                '(;; org-header
+                  ;; org-list org-table
+                  org-keyword
+                  org-link
+                  org-block org-drawer
+                  display-math inline-math
+                  latex-env
+                  ))))
 
 (defvar *org-dir* (uiop:native-namestring "~/brain/notes/"))
 
@@ -22,18 +33,29 @@ its value is NIL."
           (progn
             (setf current-key (intern (string-upcase token) :keyword))
             (push (cons current-key nil) result))
-          (when current-key
-            (setf (cdr (assoc current-key result :test #'eq)) token)
-            (setf current-key nil))))
+        (when current-key
+          (setf (cdr (assoc current-key result :test #'eq)) token)
+          (setf current-key nil))))
     (nreverse result)))
 
-(defclass org-block (text-object)
+(defclass org-block-slow (text-object)
   ((rule
     :allocation :class
     :initform
     (list :method 'line-pair
           :data (list :begin (list :regex (format nil "^#\\+begin_~A" *org-symbol-regex*))
                       :end (list :regex (format nil "^#\\+end_~A" *org-symbol-regex*))
+                      ;; we need to make sure the text after begin_ and end_ is the same
+                      :predicate (lambda (b e)
+                                   (string= (subseq b 8) (subseq e 6)))))))
+  (:documentation "org-mode block."))
+
+(defclass org-block (text-object)
+  ((rule
+    :allocation :class
+    :initform
+    (list :data (list :begin (list :pattern "#+begin_(%w)")
+                      :end (list :pattern "#+end_(%w)")
                       ;; we need to make sure the text after begin_ and end_ is the same
                       :predicate (lambda (b e)
                                    (string= (subseq b 8) (subseq e 6)))))))
@@ -72,8 +94,8 @@ its value is NIL."
 (defclass org-keyword (text-object)
   ((rule
     :allocation :class
-    :initform (list :method 'line-regex
-                    :data (format nil "^#\\+~A: .*" *org-symbol-regex*))))
+    :initform (list :data (list :text '(:pattern "#+(%w): (%w)")
+                                :conditions '(begin-of-line)))))
   (:documentation "org-mode file-level keyword."))
 
 ;; i need to think of a good way to do this.
@@ -87,21 +109,12 @@ its value is NIL."
                 :data 'extract-babel-results-blocks)))
   (:documentation "org-babel evaluation results."))
 
-;; unused
-(defclass org-drawer-slow (text-object)
-  ((rule
-    :allocation :class
-    :initform '(:method pair
-                :data (:begin (:regex "(?m):[a-zA-Z]+:$") ;; we need multiline mode (?m) to match end of line ($)
-                       :end (:regex "(?i):end:")))))
-  (:documentation "org-mode drawer."))
-
 (defclass org-drawer (text-object)
   ((rule
     :allocation :class
-    :initform '(:method line-pair
-                :data (:begin (:regex "^:[a-zA-Z]+:$")
-                       :end (:regex "(?i)^:end:$")))))
+    :initform (list :data '(:begin (:pattern ":(%w):")
+                            :begin-conditions (end-of-line)
+                            :end (:pattern ":END:"))))) ;; we need to handle lowercase :end:
   (:documentation "org-mode drawer."))
 
 ;; simply dont export drawers
@@ -122,7 +135,7 @@ its value is NIL."
                          (position (string #\newline)
                                    (subseq str1 begin)
                                    :test 'string=)))
-         (space-pos (+ begin (position " " (subseq str1 begin) :test 'string=)))
+         (space-pos (+ begin (or (position " " (subseq str1 begin) :test 'string=) 0)))
          (line (when (< space-pos newline-pos)
                  (subseq str1 space-pos newline-pos)))
          (entries (unless (str:emptyp line) (parse-keyword-string line))))
@@ -212,8 +225,7 @@ its value is NIL."
 (defclass org-link (text-object)
   ((rule
     :allocation :class
-    :initform '(:method regex
-                :data "\\[\\[.*?\\]\\]")))
+    :initform '(:data (:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz )]]")))))
   (:documentation "org-mode link."))
 
 (defmethod text-object-init :after ((obj org-link) str1 opening-region closing-region)
@@ -229,7 +241,8 @@ its value is NIL."
 (defmethod text-object-export ((obj org-link) backend)
   (cond
     ((string= backend 'latex)
-     (format nil "~A" (text-object-property obj :dest)))
+     (list :text (format nil "\\ref{~A}" (text-object-property obj :dest))
+           :escape nil))
     ((string= backend 'html)
      (format nil "<a href='~A'></a>" (text-object-property obj :dest)))))
 
@@ -294,8 +307,6 @@ its value is NIL."
        (setf my-list
              (mapcar
               (lambda (row)
-                ;; (format t "here ~A~%" row)
-                ;; (format t "here ~A~%" my-list)
                 (mapcar
                  (lambda (list-entry-text)
                    (export-tree (parse list-entry-text
@@ -408,7 +419,7 @@ returns NIL if no marker is found."
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
   (dolist (mytype *org-mode-text-object-types*)
-    (sb-mop:finalize-inheritance (find-class mytype)))
+    (sb-mop:finalize-inheritance mytype))
   (let* ((result (parse (uiop:read-file-string filepath)
                         *org-mode-text-object-types*
                         :as-doc t

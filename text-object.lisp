@@ -97,7 +97,9 @@ region. you should just make it return a symbol like `end-type'."))
       (format nil "~A" (text-object-property obj :eval-result))
       (text-object-text obj)))
 
-;; default parsing function will just set the text slot of the object
+;; default init function will just set the text slot of the object
+;; we are currently using `subseq' to extract the region from the text and store
+;; a new sequence for every object, this is both slow and memory-consuming
 (defmethod text-object-init ((text-obj text-object) str1 opening-region closing-region)
   (setf (text-object-opening-region text-obj) opening-region)
   (setf (text-object-closing-region text-obj) closing-region)
@@ -248,7 +250,7 @@ region. you should just make it return a symbol like `end-type'."))
         :recurse nil
         :escape nil))
 
-(defclass latex-env (text-object)
+(defclass latex-env-slow (text-object)
   ((rule
     :allocation :class
     :initform
@@ -261,14 +263,28 @@ region. you should just make it return a symbol like `end-type'."))
                                             (subseq end (length "\\end{"))))))))
   (:documentation "latex environment."))
 
+(defclass latex-env (text-object)
+  ((rule
+    :allocation :class
+    :initform
+    (list :data (list :begin '(:pattern "\\begin{(%w)}")
+                      :end '(:pattern "\\end{(%w)}")
+                      ;; we need to make sure the text after begin_ and end_ is the same
+                      :predicate (lambda (begin end)
+                                   (string= (subseq begin (length "\\begin{"))
+                                            (subseq end (length "\\end{"))))))))
+  (:documentation "latex environment."))
+
 (defmethod text-object-export ((obj latex-env) backend)
   (list :text (text-object-text obj)
         :reparse nil
         :recurse nil
         :escape nil))
 
+;; (defun text-object-rule-from-subclass (subclass)
+;;   (slot-value (sb-mop:class-prototype (find-class subclass)) 'rule))
 (defun text-object-rule-from-subclass (subclass)
-  (slot-value (sb-mop:class-prototype (find-class subclass)) 'rule))
+  (slot-value (sb-mop:class-prototype subclass) 'rule))
 
 (defun map-text-object (text-obj func)
   "traverse the text object tree starting at TEXT-OBJ."

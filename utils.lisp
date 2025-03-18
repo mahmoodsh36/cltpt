@@ -15,15 +15,6 @@
   (ensure-kernel num-threads)  ; make sure the kernel is set up with correct threads
   (lparallel:pmap 'vector fn inputs))
 
-(defun example-fn (x)
-  (handler-case
-      (if (= x 3)
-          (error "error on input ~A" x)
-          (* x x))
-    (error (c)
-      (format t "caught error: ~A~%" c)
-      nil)))
-
 ;; print list of conses properly
 (defun print-cons (x)
   (cond
@@ -44,12 +35,3 @@
 
 (defun last-atom (seq)
   (car (last seq)))
-
-(defun compose (&rest funcs)
-  (reduce
-   (lambda (f g)
-     (lambda (x)
-       (funcall f (funcall g x))))
-   funcs))
-;; example usage
-;; (mapcar (compose #'1+ #'sqrt #'identity) '(4 6 25))

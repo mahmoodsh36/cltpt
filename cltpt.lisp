@@ -1,3 +1,3 @@
 (defpackage :cltpt
-  (:use :common-lisp :asdf))
+  (:use :common-lisp))
 (in-package :cltpt)
