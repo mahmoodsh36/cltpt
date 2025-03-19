@@ -144,28 +144,28 @@ Some text
 
 ;; extensive example for testing combined rules
 (defun test20 ()
-  (let ((test-str (concatenate 'string
-                               "hello, this is a test." (string #\newline)
-                               "  - item 1" (string #\newline)
-                               "  - item 2 [[my-link-here:more123][moretext1]]" (string #\newline)
-                               "test [[blk:1683060983][multilayer perceptrons]]" (string #\newline)
-                               "not a dash." (string #\newline)
-                               "BEGIN CODE" (string #\newline)
-                               "print('hello')" (string #\newline)
-                               "print('world')" (string #\newline)
-                               "END CODE" (string #\newline)
-                               "more text." (string #\newline)
-                               "  - item A" (string #\newline)
-                               "  - item B" (string #\newline)
-                               "  - item C" (string #\newline)
-                               "ERROR: this is an error message." (string #\newline)
-                               "some footer text." (string #\newline))))
+  (let ((test-str "
+hello, this is a test.
+  - item 1
+  - item 2 [[my-link-here:more123][moretext1]]
+test [[blk:1683060983][multilayer perceptrons]]
+not a dash.
+BEGIN CODE
+print('hello')
+print('world')
+END CODE
+more text.
+  - item A
+  - item B
+  - item C
+ERROR: this is an error message.
+some footer text."))
     (format t "test string:~%~a~%" test-str)
     (let ((result (find-with-rules test-str
                                    (list
                                     ;; region rule: contiguous lines that, after skipping spaces, start with a dash.
-                                    '(:region (:string "-")
-                                      :ignore " "    ;; ignore spaces at beginning of each line
+                                    '(:region (:pattern "(%C:- )")
+                                      ;; :ignore " "    ;; ignore spaces at beginning of each line
                                       :id 'dash-region)
                                     ;; begin/end rule: a code block.
                                     '(:begin (:string "BEGIN CODE")
@@ -174,7 +174,7 @@ Some text
                                     ;; text rule: lines containing "ERROR:".
                                     '(:text (:string "ERROR:")
                                       :id 'error-text)
-                                    '(:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz )]]")
+                                    '(:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz123 )]]")
                                       :id 'link)))))
           (format t "result: ~a~%" result)
           result)))

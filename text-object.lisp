@@ -267,8 +267,8 @@ region. you should just make it return a symbol like `end-type'."))
   ((rule
     :allocation :class
     :initform
-    (list :data (list :begin '(:pattern "\\begin{(%w)}")
-                      :end '(:pattern "\\end{(%w)}")
+    (list :data (list :begin '(:pattern "\\begin{(%E:{})}")
+                      :end '(:pattern "\\end{(%E:{})}")
                       ;; we need to make sure the text after begin_ and end_ is the same
                       :predicate (lambda (begin end)
                                    (string= (subseq begin (length "\\begin{"))
