@@ -29,19 +29,42 @@
     :flag
     :description "list titles from org files."
     :long-name "list-titles"
-    :key :dir)))
+    :key :list-titles)))
 
 (defun top-level-handler (cmd)
   (let ((args (clingon:command-arguments cmd))
         (my-dir (clingon:getopt cmd :dir))
-        (to-list-titles (clingon:getopt cmd :dir))
+        (to-list-titles (clingon:getopt cmd :list-titles))
         (to-help (clingon:getopt cmd :help))
         (app (clingon:command-parent cmd)))
     (if to-help
         (clingon:print-usage cmd t)
-        (when to-list-titles
-          (mapcar 'print (grab-titles))))))
+        (progn
+          (when to-list-titles
+            (mapcar 'print (list-org-titles my-dir)))))))
 
 (defun commandline-main (argv)
   (let ((app (top-level-command)))
     (clingon:run app argv)))
+
+(defun list-org-files (dir)
+  (directory (format nil "~A*.org" dir)))
+
+(defun list-org-titles (dir)
+  (time
+   (let ((object-types (list (find-class 'org-keyword))))
+     ;; needed for MOP to work
+     (mapcar 'sb-mop:finalize-inheritance object-types)
+     (remove-if-not
+      'identity
+      (loop for org-file in (list-org-files dir)
+            collect (let* ((result (parse (uiop:read-file-string org-file)
+                                          object-types
+                                          :as-doc nil))
+                           (title))
+                      (mapc
+                       (lambda (entry)
+                         (when (string= (text-object-property entry :keyword) "title")
+                           (setf title (text-object-property entry :value))))
+                       result)
+                      title))))))

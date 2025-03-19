@@ -1,0 +1,49 @@
+* dependencies
+the project depends on the following packages which could be installed using quicklisp.
+
+- cl-ppcre
+- str
+- uiop
+- cl-fad
+- lparallel (not yet in actual use)
+- clingon
+
+the code uses some sbcl-specific libraries for now, so it is unlikely that it will run on other dialects.
+
+* example usage
+#+begin_src sh :eval no
+  cltpt λ ./main.lisp --list-titles -d ~/brain/notes/ | head
+  Evaluation took:
+    0.335 seconds of real time
+    0.347137 seconds of total run time (0.302956 user, 0.044181 system)
+    [ Real times consist of 0.005 seconds GC time, and 0.330 seconds non-GC time. ]
+    [ Run times consist of 0.018 seconds GC time, and 0.330 seconds non-GC time. ]
+    103.58% CPU
+    105 lambdas converted
+    836,071,478 processor cycles
+    238,518,736 bytes consed
+#+end_src
+
+the execution took 0.3 seconds to list titles from more than 2k org files with 100k+ lines of text, this may seem fast but (imho) it isnt at all fast enough, i expect to have that time reduced.
+
+* goals
+
+- [ ] an org-mode-like experience for lem - this is one of the main goals, it is essential
+      that the project supports most if not all features of org so that people can just
+      try lem with org-mode (if they wish to do so) without much hassle.
+- [ ] org-agenda support
+- [ ] org-babel support
+- [ ] use a unified interface for both markdown and org (and perhaps even other formats)
+- [ ] org-roam-like functionality (links by ids, navigation by titles), as well as transclusions.
+- [ ] an ideal way of mixing inline common lisp code with arbitrary text, and the ability
+      to have custom definitions of syntax.
+- [ ] a commandline interface for your text files that supports actions such as exporting
+      to latex and fetching various kinds of metadata for external use.
+
+i should note that i am yet not very familiar with lem and i expect that porting this to lem will take more time than the other tasks.
+
+* contributions
+
+- contributions are welcome.
+- the code is subject to heavy changes.
+- the code as it is right now handles some of org-mode's syntax and allows for partially functional exports to latex, my idea was to not write an "org parser", but a parser that parses different types of text that follows certain patterns, and use this functionality to provide a builtin org-mode functionality, so that we may easily choose to parse different formats aswell and have a partially uniform interface for both markdown and org-mode in the future.

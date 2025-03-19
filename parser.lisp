@@ -61,6 +61,7 @@
                    (append match (list type1)))
                  (funcall func str1))))
             custom-method-types)))
+    ;; this takes more time than `find-with-rules'..
     (loop for match1 in pair-matches
           do (let* ((match-opening-string (caddr match1))
                     (match-closing-string (cadddr match1))
@@ -90,6 +91,7 @@
                        (setf new-text-object (make-instance 'text-object)))
                      (setf (text-object-property new-text-object :open-macro) t))
                    (progn
+                     ;; this could be whats taking the most time
                      (setf new-text-object (make-instance type1))))
                (let ((opening-text-region
                        (make-region :begin match-opening-begin :end match-opening-end))

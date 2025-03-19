@@ -6,16 +6,14 @@
   ;; eval-when wouldnt be enough here..
   (setf *org-mode-text-object-types*
         (mapcar 'find-class
-                '(;; org-header
-                  ;; org-list org-table
+                '(org-header
+                  org-list ;; org-table
                   org-keyword
                   org-link
                   org-block org-drawer
                   display-math inline-math
                   latex-env
                   ))))
-
-(defvar *org-dir* (uiop:native-namestring "~/brain/notes/"))
 
 (defvar *org-symbol-regex* "[a-zA-Z\\-_]+")
 
@@ -54,8 +52,10 @@ its value is NIL."
   ((rule
     :allocation :class
     :initform
-    (list :data (list :begin (list :pattern "#+begin_(%w)")
-                      :end (list :pattern "#+end_(%w)")
+    (list :data (list :begin '(:pattern "#+begin_(%w)")
+                      :begin-conditions '(begin-of-line)
+                      :end '(:pattern "#+end_(%w)")
+                      :end-conditions '(begin-of-line)
                       ;; we need to make sure the text after begin_ and end_ is the same
                       :predicate (lambda (b e)
                                    (string= (subseq b 8) (subseq e 6)))))))
@@ -64,8 +64,8 @@ its value is NIL."
 (defclass org-header (text-object)
   ((rule
     :allocation :class
-    :initform '(:method line-regex
-                :data "^\\*+\\s.*")))
+    :initform '(:data (:text (:pattern "(%C:*) ")
+                       :conditions '(begin-of-line)))))
   (:documentation "org-mode header."))
 
 (defmethod text-object-init :after ((obj org-header) str1 opening-region closing-region)
@@ -94,7 +94,7 @@ its value is NIL."
 (defclass org-keyword (text-object)
   ((rule
     :allocation :class
-    :initform (list :data (list :text '(:pattern "#+(%w): (%w)")
+    :initform (list :data (list :text '(:pattern "#+(%W-): (%a)")
                                 :conditions '(begin-of-line)))))
   (:documentation "org-mode file-level keyword."))
 
@@ -193,13 +193,13 @@ its value is NIL."
                :reparse-region inner-region
                :escape-region inner-region)))
       ((string= backend 'html)
-       (let ((open-tag (format nil "<~A>" block-type))
-             (close-tag (format nil "</~A>" block-type))
-             (text (format nil
-                           "~A~A~A"
-                           open-tag
-                           (text-object-contents obj)
-                           close-tag)))
+       (let* ((open-tag (format nil "<~A>" block-type))
+              (close-tag (format nil "</~A>" block-type))
+              (text (format nil
+                            "~A~A~A"
+                            open-tag
+                            (text-object-contents obj)
+                            close-tag)))
          (list :text text
                :recurse t
                :reparse-region (make-region :begin (length open-tag)
@@ -217,10 +217,15 @@ its value is NIL."
     (setf (text-object-property obj :keyword) keyword)))
 
 (defmethod text-object-export ((obj org-keyword) backend)
+  ;; was used for debugging
+  #+nil
   (format nil
           "keyword: ~A, val: ~A"
           (text-object-property obj :keyword)
-          (text-object-property obj :value)))
+          (text-object-property obj :value))
+  (format nil
+          ""
+          :recurse nil))
 
 (defclass org-link (text-object)
   ((rule
@@ -249,8 +254,9 @@ its value is NIL."
 (defclass org-list (text-object)
   ((rule
     :allocation :class
-    :initform '(:method line-region
-                :data (:regex "^-.*"))))
+    ;; match region of lines beginning with space or hyphen
+    :initform '(:data (:region (:string "-")
+                       :ignore " "))))
   (:documentation "org-mode list."))
 
 (defmethod text-object-init :after ((obj org-list) str1 opening-region closing-region)
@@ -438,25 +444,6 @@ returns NIL if no marker is found."
                      :if-exists :supersede
                      :if-does-not-exist :create)
     (write-sequence (export-org-doc (parse-org-file src) backend) f)))
-
-(defun list-org-files ()
-  (directory (format nil "~A*.org" *org-dir*)))
-
-(defun grab-titles ()
-  (remove-if-not
-   'identity
-   (loop for org-file in (list-org-files)
-         collect (let* ((result (parse (uiop:read-file-string org-file)
-                                       (list 'org-keyword)
-                                       :as-doc nil
-                                       :relative-positions t))
-                        (title))
-                   (mapc
-                    (lambda (entry)
-                      (when (string= (text-object-property entry :keyword) "title")
-                        (setf title (text-object-property entry :value))))
-                    result)
-                   title))))
 
 ;; code for parsing lsits
 ;; A
