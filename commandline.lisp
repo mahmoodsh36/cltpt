@@ -5,7 +5,7 @@
    :name "cltpt"
    :description "common lisp text processing tools."
    :version "0.1.0"
-   :license "GPL-3.0-or-later"
+   :license "MIT"
    :authors '("Mahmood Sheikh <mahmod.m2015@gmail.com>")
    :handler #'top-level-handler
    :options (cli-options)))
