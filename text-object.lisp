@@ -211,24 +211,23 @@ region. you should just make it return a symbol like `end-type'."))
 ;; for macros (code executions that return objects)
 (defvar *text-macro-seq* "#")
 
+;; this isnt used or written properly yet
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform (list :name 'text-macro
-                    :method 'pair
-                    :data (list
-                           (format nil "~A(" *text-macro-seq*) :string
-                           ")" :string)
-                    :nestable nil))))
+    :initform (list
+               (format nil "~A(" *text-macro-seq*) :string
+               ")" :string))))
 
 ;; define the inline-math subclass with its own default rule
 (defclass inline-math (text-object)
   ((rule
     :allocation :class
-    :initform '(:method pair
-                :data (:begin (:string "\\(")
-                       :end (:string "\\)")
-                       :recurse nil)))))
+    :initform '(:begin (:string "\\(")
+                :end (:string "\\)")
+                :begin-to-hash t
+                :end-to-hash t
+                :recurse nil))))
 
 (defmethod text-object-export ((obj inline-math) backend)
   (list :text (text-object-text obj)
@@ -239,10 +238,12 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass display-math (text-object)
   ((rule
     :allocation :class
-    :initform '(:method pair
-                :data (:begin (:string "\\[")
-                       :end (:string "\\]")
-                       :recurse nil)))))
+    :initform '(:to-hash t
+                :begin (:string "\\[")
+                :end (:string "\\]")
+                :begin-to-hash t
+                :end-to-hash t
+                :recurse nil))))
 
 (defmethod text-object-export ((obj display-math) backend)
   (list :text (text-object-text obj)
@@ -254,29 +255,30 @@ region. you should just make it return a symbol like `end-type'."))
   ((rule
     :allocation :class
     :initform
-    (list :method 'pair
-          :data (list :begin '(:regex "\\\\begin{[a-z\\*]+}")
-                      :end '(:regex "\\\\end{[a-z\\*]+}")
-                      ;; we need to make sure the text after begin_ and end_ is the same
-                      :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                                        (let ((begin-str (subseq str b-idx b-end))
-                                              (end-str (subseq str e-idx e-end)))
-                                          (string= (subseq begin-str (length "\\begin{"))
-                                                   (subseq end-str (length "\\end{")))))))))
+    (list :begin '(:regex "\\\\begin{[a-z\\*]+}")
+          :end '(:regex "\\\\end{[a-z\\*]+}")
+          ;; we need to make sure the text after begin_ and end_ is the same
+          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
+                            (let ((begin-str (subseq str b-idx b-end))
+                                  (end-str (subseq str e-idx e-end)))
+                              (string= (subseq begin-str (length "\\begin{"))
+                                       (subseq end-str (length "\\end{"))))))))
   (:documentation "latex environment."))
 
 (defclass latex-env (text-object)
   ((rule
     :allocation :class
     :initform
-    (list :data (list :begin '(:pattern "\\begin{(%E:{})}")
-                      :end '(:pattern "\\end{(%E:{})}")
-                      ;; we need to make sure the text after begin_ and end_ is the same
-                      :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                                        (let ((begin-str (subseq str b-idx b-end))
-                                              (end-str (subseq str e-idx e-end)))
-                                          (string= (subseq begin-str (length "\\begin{"))
-                                                   (subseq end-str (length "\\end{")))))))))
+    (list :begin '(:pattern "\\begin{(%E:{})}")
+          :end '(:pattern "\\end{(%E:{})}")
+          :begin-to-hash t
+          :end-to-hash t
+          ;; we need to make sure the text after begin_ and end_ is the same
+          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
+                            (let ((begin-str (subseq str b-idx b-end))
+                                  (end-str (subseq str e-idx e-end)))
+                              (string= (subseq begin-str (length "\\begin{"))
+                                       (subseq end-str (length "\\end{"))))))))
   (:documentation "latex environment."))
 
 (defmethod text-object-export ((obj latex-env) backend)

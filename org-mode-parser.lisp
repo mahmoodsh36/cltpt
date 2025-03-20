@@ -41,68 +41,92 @@ its value is NIL."
   ((rule
     :allocation :class
     :initform
-    (list :method 'line-pair
-          :data (list :begin (list :regex (format nil "^#\\+begin_~A" *org-symbol-regex*))
-                      :end (list :regex (format nil "^#\\+end_~A" *org-symbol-regex*))
-                      ;; we need to make sure the text after begin_ and end_ is the same
-                      :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                                        (let ((begin-str (subseq str b-idx b-end))
-                                              (end-str (subseq str e-idx e-end)))
-                                          (string= (subseq begin-str 8)
-                                                   (subseq end-str 6))))))))
+    (list :begin (list :regex (format nil "^#\\+begin_~A" *org-symbol-regex*))
+          :end (list :regex (format nil "^#\\+end_~A" *org-symbol-regex*))
+          ;; we need to make sure the text after begin_ and end_ is the same
+          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
+                            (let ((begin-str (subseq str b-idx b-end))
+                                  (end-str (subseq str e-idx e-end)))
+                              (string= (subseq begin-str 8)
+                                       (subseq end-str 6)))))))
   (:documentation "org-mode block."))
 
 (defclass org-block (text-object)
   ((rule
     :allocation :class
     :initform
-    (list :data (list :begin '(:pattern "#+begin_(%w)")
-                      :begin-conditions '(begin-of-line)
-                      :end '(:pattern "#+end_(%w)")
-                      :end-conditions '(begin-of-line)
-                      ;; we need to make sure the text after begin_ and end_ is the same
-                      :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                                        (let ((begin-str (subseq str b-idx b-end))
-                                              (end-str (subseq str e-idx e-end)))
-                                          (string= (subseq begin-str 8)
-                                                   (subseq end-str 6))))))))
+    (list :begin '(:pattern "#+begin_(%w)")
+          :begin-to-hash t
+          :begin-conditions '(begin-of-line)
+          :end '(:pattern "#+end_(%w)")
+          :end-conditions '(begin-of-line)
+          :end-to-hash t
+          ;; we need to make sure the text after begin_ and end_ is the same
+          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
+                            (let ((begin-str (subseq str b-idx b-end))
+                                  (end-str (subseq str e-idx e-end)))
+                              (string= (subseq begin-str 8)
+                                       (subseq end-str 6)))))))
   (:documentation "org-mode block."))
 
 (defclass org-header (text-object)
   ((rule
     :allocation :class
-    :initform '(:data (:text (:pattern "(%C:*) ")
-                       :conditions '(begin-of-line)))))
+    :initform '(:text (:pattern "(%C:*) ")
+                :text-conditions (begin-of-line))))
   (:documentation "org-mode header."))
 
 (defmethod text-object-init :after ((obj org-header) str1 opening-region closing-region)
-  (let ((count 0))
+  (let* ((count 0)
+         (begin (region-begin opening-region))
+         (space-pos (position #\space
+                              str1
+                              :start begin
+                              :test 'char=))
+         (newline-pos (position #\newline
+                                str1
+                                :start begin
+                                :test 'char=))
+         (header-text (when (< space-pos newline-pos)
+                        (subseq str1 (1+ space-pos) newline-pos))))
     (loop for ch across (text-object-text obj)
           while (char= ch #\*)
           do (incf count))
     (setf (text-object-property obj :level) count)
     (setf (text-object-property obj :title)
-          (subseq (text-object-contents obj) (1+ count)))))
+          header-text)
+    (setf (region-end (text-object-opening-region obj)) newline-pos)))
 
 (defmethod text-object-export ((obj org-header) backend)
   (case backend
     ('latex
-     (list :text (format
-                  nil
-                  "\\~Asection{~A}"
-                  (str:join "" (loop for i from 1 to (text-object-property obj :level) collect "sub"))
-                  (text-object-property obj :title))
-           :escape nil
-           :reparse nil
-           :recurse nil))
+     (let* ((begin-text (format
+                         nil
+                         "\\~Asection{"
+                         (str:join ""
+                                   (loop for i from 1 to (text-object-property obj :level)
+                                         collect "sub"))))
+            (end-text "}")
+            (inner-text (text-object-property obj :title))
+            (final-text (concatenate 'string begin-text inner-text end-text))
+            (outter-region
+              (make-region :begin (length begin-text)
+                           :end (- (length final-text) (length end-text)))))
+       (list :text final-text
+             :escape t
+             :escape-region outter-region
+             :reparse t
+             :reparse-region outter-region
+             :recurse t)))
     ('html
      "")))
 
 (defclass org-keyword (text-object)
   ((rule
     :allocation :class
-    :initform (list :data (list :text '(:pattern "#+(%W-): (%a)")
-                                :conditions '(begin-of-line)))))
+    :initform (list :text '(:pattern "#+(%W-): (%a)")
+                    :text-to-hash t
+                    :conditions '(begin-of-line))))
   (:documentation "org-mode file-level keyword."))
 
 ;; i need to think of a good way to do this.
@@ -112,16 +136,17 @@ its value is NIL."
 (defclass org-babel-results (text-object)
   ((rule
     :allocation :class
-    :initform '(:method custom
-                :data 'extract-babel-results-blocks)))
+    :initform '(:func 'extract-babel-results-blocks)))
   (:documentation "org-babel evaluation results."))
 
 (defclass org-drawer (text-object)
   ((rule
     :allocation :class
-    :initform (list :data '(:begin (:pattern ":(%w):")
-                            :begin-conditions (end-of-line)
-                            :end (:pattern ":END:"))))) ;; we need to handle lowercase :end:
+    :initform '(:begin (:pattern ":(%w):")
+                :begin-to-hash t
+                :begin-conditions (end-of-line)
+                :end (:pattern (%or (:string ":END:")
+                                (:string ":end:"))))))
   (:documentation "org-mode drawer."))
 
 ;; simply dont export drawers
@@ -237,7 +262,8 @@ its value is NIL."
 (defclass org-link (text-object)
   ((rule
     :allocation :class
-    :initform '(:data (:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz )]]")))))
+    :initform '(:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz )]]")
+                :text-to-hash t)))
   (:documentation "org-mode link."))
 
 (defmethod text-object-init :after ((obj org-link) str1 opening-region closing-region)
@@ -262,10 +288,10 @@ its value is NIL."
   ((rule
     :allocation :class
     ;; match region of lines beginning with space or hyphen
-    :initform '(:data (:region (:pattern (%or (:string "-")
-                                              (:pattern "%(1234567890).")
-                                              (:pattern "(%C:abcdefghijklmnopqrstuv).")))
-                       :ignore " "))))
+    :initform '(:region (:pattern (%or (:string "-")
+                                   (:pattern "%(1234567890).")
+                                   (:pattern "(%C:abcdefghijklmnopqrstuv).")))
+                :ignore " ")))
   (:documentation "org-mode list."))
 
 (defmethod text-object-init :after ((obj org-list) str1 opening-region closing-region)
@@ -286,16 +312,19 @@ its value is NIL."
 (defmethod text-object-export ((obj org-list) backend)
   (cond
     ((string= backend 'latex)
-     (let ((my-list (deep-copy-org-forest (text-object-property obj :list))))
+     (let ((my-list (deep-copy-org-forest (text-object-property obj :list)))
+           (possible-children-types (intersection *org-mode-text-object-types*
+                                                  (mapcar 'find-class
+                                                          '(org-link inline-math)))))
        (mapcar-forest
         my-list
         (lambda (list-entry)
           (let ((list-entry-text (getf list-entry :text)))
             (setf (getf list-entry :text)
                   (export-tree (parse list-entry-text
-                                      *org-mode-text-object-types*)
+                                      possible-children-types)
                                'latex
-                               *org-mode-text-object-types*)))))
+                               possible-children-types)))))
        (list :text (org-list-to-latex my-list)
              :recurse nil
              :reparse nil
@@ -307,8 +336,7 @@ its value is NIL."
 (defclass org-table (text-object)
   ((rule
     :allocation :class
-    :initform '(:method line-region
-                :data (:regex "^\\s*[\\|\\+].*[\\|\\+]$"))))
+    :initform '(:regex "^\\s*[\\|\\+].*[\\|\\+]$")))
   (:documentation "org-mode table."))
 
 (defmethod text-object-init :after ((obj org-table) str1 opening-region closing-region)

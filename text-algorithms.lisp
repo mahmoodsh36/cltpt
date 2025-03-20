@@ -203,6 +203,11 @@ returns a list of segments, each of which is one of:
                   (setf start plen)))))
         (nreverse segments))))
 
+(defun substring-equal (str1 other begin end)
+  (loop for i from 0 below (- end begin)
+        always (char= (char str1 (+ begin i))
+                      (char other i))))
+
 ;; "restricted" patterns that allow some arbitrarity but not as complex as regex - matching
 ;; them is alot faster
 (defun match-restricted-pattern (compiled-pattern str pos)
@@ -214,7 +219,8 @@ return the total length of the match if successful, or NIL otherwise."
         ((eq (first seg) 'literal)
          (let ((lit (second seg)))
            (unless (and (<= (+ pos (length lit)) (length str))
-                        (string= lit (subseq str pos (+ pos (length lit)))))
+                        (substring-equal str lit pos (+ pos (length lit)))
+                        )
              (return-from match-restricted-pattern nil))
            (setf pos (+ pos (length lit)))))
         ((eq (first seg) 'word)
@@ -359,7 +365,12 @@ returns a list of marker records (plists)."
                                (:begin :begin-conditions)
                                (:end   :end-conditions)
                                (:text  :text-conditions)
-                               (:region :region-conditions))))
+                               (:region :region-conditions)))
+                   (to-hash-key (case key
+                                  (:begin :begin-to-hash)
+                                  (:end   :end-to-hash)
+                                  (:text  :text-to-hash)
+                                  (:region :region-to-hash))))
               (cond
                 ((eq kind :string)
                  (setf record (append record (list :match-type :literal
@@ -376,25 +387,18 @@ returns a list of marker records (plists)."
                 (setf record (append record (list cond-key (getf r cond-key)))))
               (when (getf r :ignore)
                 (setf record (append record (list :ignore (getf r :ignore)))))
+              (when (getf r to-hash-key)
+                (setf record (append record (list :to-hash (getf r to-hash-key)))))
               (push record markers))))))
     markers))
 
-;; hash table & optimized scanning for non-regex markers
-(defun marker-first-char (marker)
-  "return the first character used for hashing from MARKER.
-for literal and restricted markers, use the first character of the pattern string."
-  (char (getf marker :pattern) 0))
-
 (defun build-marker-hash (markers)
-  "build a hash table mapping marker keys to marker records for non-regex markers.
-for region markers, the key is the special keyword :region.
-for others, the key is the first character of their pattern."
+  "build a hash table mapping specific characters to markers. makes lookup/matching faster.
+the key is the first character of the pattern."
   (let ((ht (make-hash-table :test 'eql)))
     (dolist (marker markers)
-      (when (not (eq (getf marker :match-type) :regex))
-        (let ((key (if (eq (getf marker :marker-type) :region)
-                       :region
-                       (char (getf marker :pattern) 0))))
+      (when (getf marker :to-hash)
+        (let ((key (char (getf marker :pattern) 0)))
           (push marker (gethash key ht)))))
     ht))
 
@@ -405,13 +409,16 @@ for others, the key is the first character of their pattern."
          (cond-key (marker-condition-key marker)))
     (cond
       ((eq ptype :literal)
-       (let ((plen (getf marker :length)))
-         (when (and (<= (+ idx plen) str1-length)
-                    (string= pattern (subseq str1 idx (+ idx plen))))
-           (let ((match-str (subseq str1 idx (+ idx plen))))
-             (when (apply-condition (getf marker cond-key) str1 idx match-str)
-               (list :pos idx :end (+ idx plen)
-                     :match match-str :marker marker))))))
+       (let* ((plen (getf marker :length))
+              (end (+ idx plen)))
+         (when (and (<= end str1-length)
+                    (loop for i from 0 below plen
+                          always (char= (char str1 (+ idx i))
+                                        (char pattern i))))
+           (when (apply-condition (getf marker cond-key) str1 idx end)
+             (list :pos idx :end end
+                   :match (subseq str1 idx end)
+                   :marker marker)))))
       ((eq ptype :pattern)
        (let ((mlen (match-restricted-pattern (getf marker :compiled) str1 idx)))
          (when mlen
@@ -421,40 +428,62 @@ for others, the key is the first character of their pattern."
                      :match match-str :marker marker)))))))))
 
 ;; "marker" matching (finding matching candidate locations), note
-;; that these are only initial candidates and may be filtered later
-(defun scan-all-optimized-markers (str marker-hash)
-  "scan STR for non-regex markers using MARKER-HASH in one pass.
+;; that these are only initial candidates and may be filtered later.
+;; regions are currently not "hashed" properly.
+;; the hashmap is just a lookup table that maps a specific character to the markers
+;; that the text starting at the character could be used to match, this is to speed up
+;; traversal and not have to apply the matching predicates for each rule/marker at each position
+;; and reduce the number of operations we need to make per position.
+(defun scan-all-optimized-markers (str markers marker-hash)
+  "scan STR for non-regex markers in one pass.
 returns a list of event plists with keys :pos, :end, :match, and :marker.
-for literal and pattern markers, matching is done by a hash lookup by first character.
 for region markers, we check at each beginning-of-line.
 to allow overlapping/nested events from different rules yet avoid multiple overlapping
 events from the same rule, we track active region events in a hash table."
-  (let ((events)
-        (n (length str))
-        (active-regions (make-hash-table :test 'equal)))
+  (let ((n (length str))
+        (region-markers
+          (remove-if-not
+           (lambda (m)
+             (eq (getf m :marker-type) :region))
+           markers))
+        (nonregion-nonhashed-markers
+          (remove-if
+           (lambda (m)
+             (or (eq (getf m :marker-type) :region)
+                 (getf m :to-hash)))
+           markers))
+        (active-regions)
+        (events))
     (dotimes (i n)
       ;; region markers: check at beginning-of-line.
       (when (or (= i 0) (char= (elt str (1- i)) #\newline))
-        (when (gethash :region marker-hash)
-          (dolist (marker (gethash :region marker-hash))
-            (let* ((rule-id (getf marker :id))
-                   (active-end (gethash rule-id active-regions)))
-              (unless (and active-end (< i active-end))
-                (let ((rlen (match-region-with-ignore str i marker)))
-                  (when rlen
-                    (push (list :pos i :end (+ i rlen)
-                                :match (subseq str i (+ i rlen))
-                                :marker marker)
-                          events)
-                    (setf (gethash rule-id active-regions) (+ i rlen)))))))))
+        (dolist (marker region-markers)
+          (let* ((rule-id (getf marker :id))
+                 (active (assoc rule-id active-regions)))
+            ;; only try matching if theres no active region overlapping.
+            (unless (and active (< i (cdr active)))
+              (let ((rlen (match-region-with-ignore str i marker)))
+                (when rlen
+                  (push (list :pos i :end (+ i rlen)
+                              :match (subseq str i (+ i rlen))
+                              :marker marker)
+                        events)
+                  (setf active-regions
+                        (acons rule-id (+ i rlen)
+                               (remove-if (lambda (pair)
+                                            (eq (car pair) rule-id))
+                                          active-regions)))))))))
       ;; process literal and pattern markers.
-      (let ((c (elt str i)))
-        (when (gethash c marker-hash)
-          (dolist (marker (gethash c marker-hash))
-            (unless (eq (getf marker :marker-type) :region)
-              (let ((match-result (marker-match str n marker i)))
-                (when match-result
-                  (push match-result events))))))))
+      ;; hashed ones (according to a specific char) make our job easier/faster.
+      (let ((c (char str i)))
+        (dolist (marker (gethash c marker-hash))
+          (let ((match-result (marker-match str n marker i)))
+            (when match-result
+              (push match-result events)))))
+      (dolist (marker nonregion-nonhashed-markers)
+        (let ((match-result (marker-match str n marker i)))
+          (when match-result
+            (push match-result events)))))
     (nreverse events)))
 
 ;; regex scanning fallback (only if specified by rules), this applies its own pass
@@ -485,7 +514,7 @@ and a separate pass for regex markers."
          (regex-markers (remove-if-not (lambda (m) (eq (getf m :match-type) :regex))
                                        markers))
          (marker-hash (build-marker-hash opt-markers))
-         (opt-events (scan-all-optimized-markers str marker-hash))
+         (opt-events (scan-all-optimized-markers str markers marker-hash))
          (regex-events (scan-all-regex-markers str regex-markers)))
     (append opt-events regex-events)))
 
