@@ -12,7 +12,7 @@ the code uses some sbcl-specific libraries for now, so it is unlikely that it wi
 
 * example usage
 #+begin_src sh :eval no
-  cltpt λ ./main.lisp --list-titles -d ~/brain/notes/ | head
+  cltpt λ ./run.sh --list-titles -d ~/brain/notes/
   Evaluation took:
     0.335 seconds of real time
     0.347137 seconds of total run time (0.302956 user, 0.044181 system)
@@ -22,6 +22,9 @@ the code uses some sbcl-specific libraries for now, so it is unlikely that it wi
     105 lambdas converted
     836,071,478 processor cycles
     238,518,736 bytes consed
+
+  # titles will be shown here
+  ...
 #+end_src
 
 the execution took 0.3 seconds to list titles from more than 2k org files with 100k+ lines of text, this may seem fast but (imho) it isnt at all fast enough, i expect to have that time reduced.
