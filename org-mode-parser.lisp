@@ -519,7 +519,7 @@ and the remaining lines."
   (multiple-value-bind (valid marker text)
       (org-list-parse-bullet-line (first lines) current-indent)
     (unless valid
-      (error "Expected bullet at indent ~A: ~A" current-indent (first lines)))
+      (error "expected bullet at indent ~A: ~A" current-indent (first lines)))
     (let ((remaining (rest lines)))
       ;; collect extra lines that are attached to this bullet.
       (multiple-value-bind (extra-lines rem)
