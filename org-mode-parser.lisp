@@ -36,6 +36,7 @@ its value is NIL."
           (setf current-key nil))))
     (nreverse result)))
 
+;; keeping this here for now as an example of a slow text-object definition (it uses :regex)
 (defclass org-block-slow (text-object)
   ((rule
     :allocation :class
@@ -44,8 +45,11 @@ its value is NIL."
           :data (list :begin (list :regex (format nil "^#\\+begin_~A" *org-symbol-regex*))
                       :end (list :regex (format nil "^#\\+end_~A" *org-symbol-regex*))
                       ;; we need to make sure the text after begin_ and end_ is the same
-                      :predicate (lambda (b e)
-                                   (string= (subseq b 8) (subseq e 6)))))))
+                      :pair-predicate (lambda (str b-idx e-idx b-end e-end)
+                                        (let ((begin-str (subseq str b-idx b-end))
+                                              (end-str (subseq str e-idx e-end)))
+                                          (string= (subseq begin-str 8)
+                                                   (subseq end-str 6))))))))
   (:documentation "org-mode block."))
 
 (defclass org-block (text-object)
@@ -57,8 +61,11 @@ its value is NIL."
                       :end '(:pattern "#+end_(%w)")
                       :end-conditions '(begin-of-line)
                       ;; we need to make sure the text after begin_ and end_ is the same
-                      :predicate (lambda (b e)
-                                   (string= (subseq b 8) (subseq e 6)))))))
+                      :pair-predicate (lambda (str b-idx e-idx b-end e-end)
+                                        (let ((begin-str (subseq str b-idx b-end))
+                                              (end-str (subseq str e-idx e-end)))
+                                          (string= (subseq begin-str 8)
+                                                   (subseq end-str 6))))))))
   (:documentation "org-mode block."))
 
 (defclass org-header (text-object)
@@ -255,7 +262,9 @@ its value is NIL."
   ((rule
     :allocation :class
     ;; match region of lines beginning with space or hyphen
-    :initform '(:data (:region (:string "-")
+    :initform '(:data (:region (:pattern (%or (:string "-")
+                                              (:pattern "%(1234567890).")
+                                              (:pattern "(%C:abcdefghijklmnopqrstuv).")))
                        :ignore " "))))
   (:documentation "org-mode list."))
 

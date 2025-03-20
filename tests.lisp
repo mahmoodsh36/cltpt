@@ -57,33 +57,9 @@
                             (22 25 id5)))))
     (print-forest tree)))
 
+;; this is an edge case, it fails
 (defun test8 ()
-  (find-multiple-pairs
-   "
-#+begin_comment
-#+begin_test
-# #+include: /home/mahmooz/brain/notes/20230520175032-convolutional_neural_network.org
-# #+include: /home/mahmooz/brain/notes/20230224163920-common_lisp.org
-# #+include: /home/mahmooz/brain/notes/20230503204107-common_lisp_math.org
-#+end_test
-#+begin_test
-#+end_test
-#+end_comment
-#+include: test
-:properties:
-:id: hello
-:end:
-"
-   (list
-    `(:begin (:regex "#\\+begin_[a-z]+")
-      :end   (:regex "#\\+end_[a-z]+")
-      :predicate ,(lambda (b e)
-                    (string= (subseq b 8) (subseq e 6)))
-      :id 'org-block))))
-
-;; this fails, its an edge case
-(defun test9 ()
-  (find-multiple-pairs
+  (find-with-rules
    "#+begin_comment
 #+begin_comment
 Some text
@@ -91,10 +67,12 @@ Some text
 #+end_comment
 #+end_comment"
    (list
-    `(:begin (:regex "#\\+begin_[a-z]+")
-      :end   (:regex "#\\+end_[a-z]+")
-      :predicate ,(lambda (b e)
-                    (string= (subseq b 8) (subseq e 6)))))))
+    `(:begin (:pattern "#+begin_(%w)")
+      :end   (:pattern "#+end_(%w)")
+      :pair-predicate ,(lambda (b e)
+                    (format t "here ~A~%" b)
+                    (string= (subseq b 8) (subseq e 6)))
+      :id 'org-block))))
 
 (defun test11 ()
   (find-with-rules
@@ -118,15 +96,21 @@ Some text
    (list
     `(:begin (:string "#+begin_src")
       :end   (:string "#+end_src")
-      :predicate ,(lambda (b e)
-                    (string= (subseq b 8) (subseq e 6)))
+      :pair-predicate ,(lambda (str b-idx e-idx b-end e-end)
+                         (let ((begin-str (subseq str b-idx b-end))
+                               (end-str (subseq str e-idx e-end)))
+                           (string= (subseq begin-str 8)
+                                    (subseq end-str 6))))
       :id 'org-block)
     `(:begin (:pattern "#+begin_(%w)")
       :end   (:pattern "#+end_(%w)")
       :begin-conditions (begin-of-line)
       :end-conditions (begin-of-line)
-      :predicate ,(lambda (b e)
-                    (string= (subseq b 8) (subseq e 6)))
+      :pair-predicate ,(lambda (str b-idx e-idx b-end e-end)
+                         (let ((begin-str (subseq str b-idx b-end))
+                               (end-str (subseq str e-idx e-end)))
+                           (string= (subseq begin-str 8)
+                                    (subseq end-str 6))))
       :id 'org-blockk)
     (list :text '(:pattern "#+(%w): (%w)")
           :conditions '(begin-of-line)
@@ -176,5 +160,5 @@ some footer text."))
                                       :id 'error-text)
                                     '(:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz123 )]]")
                                       :id 'link)))))
-          (format t "result: ~a~%" result)
-          result)))
+      (format t "result: ~a~%" result)
+      result)))

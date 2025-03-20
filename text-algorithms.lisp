@@ -68,7 +68,6 @@ return the first position where IGNORE is not found."
       pos))
 
 ;; this is used to match "regions" - continguous sets of lines, for lists and tables
-;; the with-ignore thing i ended up not using so i should probably refactor this and `skip-ignore'
 (defun match-region-with-ignore (str1 pos marker)
   "if the line at POS (assumed to be at the start of a line) matches the region marker,
 return the total length of the contiguous region.
@@ -102,6 +101,21 @@ returns the total length (from the initial POS) if at least one line matches, or
                 (if nl (setf pos (1+ nl)) (setf pos n))))
             (return (if matched (- pos start) nil)))))))
 
+;; this is used for %or which is a special kind of rule, since its provided as a list and
+;; not just a string
+(defun compile-marker-pattern (rule)
+  "compile an alternative marker rule.
+if RULE is a string, treat it as a pattern string.
+if RULE is a plist, then it must have either a :pattern or a :string key."
+  (cond
+    ((stringp rule)
+     (compile-restricted-pattern rule))
+    ((getf rule :pattern)
+     (compile-restricted-pattern (getf rule :pattern)))
+    ((getf rule :string)
+     (list (list 'literal (getf rule :string))))
+    (t (error "each cell in a special rule must be a string or a plist with :pattern or :string: ~A" rule))))
+
 (defun compile-restricted-pattern (pattern)
   "compile a restricted pattern containing literal parts and tokens.
 supported tokens are:
@@ -117,73 +131,77 @@ returns a list of segments, each of which is one of:
   (word-digits %W)
   (word-digits-hyphen %W-)
   (custom-chars <allowed-string>)"
-  (let ((segments)
-        (start 0)
-        (plen (length pattern)))
-    (loop while (< start plen) do
-      (let* ((pos-w        (search "(%w)" pattern :start2 start :end2 plen :test #'char=))
-             (pos-w-up     (search "(%W)" pattern :start2 start :end2 plen :test #'char=))
-             (pos-w-hyphen (search "(%w-)" pattern :start2 start :end2 plen :test #'char=))
-             (pos-C        (search "(%C:" pattern :start2 start :end2 plen :test #'char=))
-             (pos-E        (search "(%E:" pattern :start2 start :end2 plen :test #'char=))
-             (pos-a        (search "(%a)" pattern :start2 start :end2 plen :test #'char=))
-             (pos-w-up-hyphen (search "(%W-)" pattern :start2 start :end2 plen :test #'char=))
-             (candidates   (remove-if-not #'identity
-                                          (list (and pos-w        (cons pos-w "(%w)"))
-                                                (and pos-w-hyphen (cons pos-w-hyphen "(%w-)"))
-                                                (and pos-w-up     (cons pos-w-up "(%W)"))
-                                                (and pos-C        (cons pos-C "(%C:"))
-                                                (and pos-E        (cons pos-E "(%E:"))
-                                                (and pos-a        (cons pos-a "(%a)"))
-                                                (and pos-w-up-hyphen
-                                                     (cons pos-w-up-hyphen "(%W-)")))))
-             (next (if candidates
-                       (car (sort candidates
-                                  (lambda (a b)
-                                    (< (car a) (car b)))))
-                       nil)))
-        (if next
-            (let* ((pos-token (car next))
-                   (token     (cdr next))
-                   (token-length (length token)))
-              (when (< start pos-token)
-                (push (list 'literal (subseq pattern start pos-token)) segments))
-              (cond
-                ((string= token "(%w)")
-                 (push (list 'word '%w) segments)
-                 (setf start (+ pos-token token-length)))
-                ((string= token "(%w-)")
-                 (push (list 'word-hyphen '%w-) segments)
-                 (setf start (+ pos-token token-length)))
-                ((string= token "(%W)")
-                 (push (list 'word-digits '%W) segments)
-                 (setf start (+ pos-token token-length)))
-                ((string= token "(%W-)")
-                 (push (list 'word-digits-hyphen '%W-) segments)
-                 (setf start (+ pos-token token-length)))
-                ((string= token "(%a)")
-                 (push (list 'all '%a) segments)
-                 (setf start (+ pos-token token-length)))
-                ((string= token "(%C:")
-                 (let ((end (position #\) pattern :start (+ pos-token 4)
-                                                  :end plen :test #'char=)))
-                   (unless end
-                     (error "unterminated custom token in pattern: ~A" pattern))
-                   (let ((allowed (subseq pattern (+ pos-token 4) end)))
-                     (push (list 'custom-chars allowed) segments)
-                     (setf start (1+ end)))))
-                ((string= token "(%E:")
-                 (let ((end (position #\) pattern :start (+ pos-token 4)
-                                                  :end plen :test #'char=)))
-                   (unless end
-                     (error "unterminated disallowed custom token in pattern: ~A" pattern))
-                   (let ((disallowed (subseq pattern (+ pos-token 4) end)))
-                     (push (list 'disallowed-chars disallowed) segments)
-                     (setf start (1+ end)))))))
-            (progn
-              (push (list 'literal (subseq pattern start)) segments)
-              (setf start plen)))))
-    (nreverse segments)))
+  ;; if an %or rule is requested compile each alternative recursively and return an or-segment.
+  (if (and (listp pattern) (eq (car pattern) '%or))
+      (list (list 'choices (mapcar #'compile-marker-pattern (cdr pattern))))
+      ;; otherwise, pattern is a string, so use your original code:
+      (let ((segments)
+            (start 0)
+            (plen (length pattern)))
+        (loop while (< start plen) do
+          (let* ((pos-w        (search "(%w)" pattern :start2 start :end2 plen :test #'char=))
+                 (pos-w-up     (search "(%W)" pattern :start2 start :end2 plen :test #'char=))
+                 (pos-w-hyphen (search "(%w-)" pattern :start2 start :end2 plen :test #'char=))
+                 (pos-C        (search "(%C:" pattern :start2 start :end2 plen :test #'char=))
+                 (pos-E        (search "(%E:" pattern :start2 start :end2 plen :test #'char=))
+                 (pos-a        (search "(%a)" pattern :start2 start :end2 plen :test #'char=))
+                 (pos-w-up-hyphen (search "(%W-)" pattern :start2 start :end2 plen :test #'char=))
+                 (candidates   (remove-if-not #'identity
+                                              (list (and pos-w        (cons pos-w "(%w)"))
+                                                    (and pos-w-hyphen (cons pos-w-hyphen "(%w-)"))
+                                                    (and pos-w-up     (cons pos-w-up "(%W)"))
+                                                    (and pos-C        (cons pos-C "(%C:"))
+                                                    (and pos-E        (cons pos-E "(%E:"))
+                                                    (and pos-a        (cons pos-a "(%a)"))
+                                                    (and pos-w-up-hyphen
+                                                         (cons pos-w-up-hyphen "(%W-)")))))
+                 (next (if candidates
+                           (car (sort candidates
+                                      (lambda (a b)
+                                        (< (car a) (car b)))))
+                           nil)))
+            (if next
+                (let* ((pos-token (car next))
+                       (token     (cdr next))
+                       (token-length (length token)))
+                  (when (< start pos-token)
+                    (push (list 'literal (subseq pattern start pos-token)) segments))
+                  (cond
+                    ((string= token "(%w)")
+                     (push (list 'word '%w) segments)
+                     (setf start (+ pos-token token-length)))
+                    ((string= token "(%w-)")
+                     (push (list 'word-hyphen '%w-) segments)
+                     (setf start (+ pos-token token-length)))
+                    ((string= token "(%W)")
+                     (push (list 'word-digits '%W) segments)
+                     (setf start (+ pos-token token-length)))
+                    ((string= token "(%W-)")
+                     (push (list 'word-digits-hyphen '%W-) segments)
+                     (setf start (+ pos-token token-length)))
+                    ((string= token "(%a)")
+                     (push (list 'all '%a) segments)
+                     (setf start (+ pos-token token-length)))
+                    ((string= token "(%C:")
+                     (let ((end (position #\) pattern :start (+ pos-token 4)
+                                                      :end plen :test #'char=)))
+                       (unless end
+                         (error "unterminated custom token in pattern: ~A" pattern))
+                       (let ((allowed (subseq pattern (+ pos-token 4) end)))
+                         (push (list 'custom-chars allowed) segments)
+                         (setf start (1+ end)))))
+                    ((string= token "(%E:")
+                     (let ((end (position #\) pattern :start (+ pos-token 4)
+                                                      :end plen :test #'char=)))
+                       (unless end
+                         (error "unterminated disallowed custom token in pattern: ~A" pattern))
+                       (let ((disallowed (subseq pattern (+ pos-token 4) end)))
+                         (push (list 'disallowed-chars disallowed) segments)
+                         (setf start (1+ end)))))))
+                (progn
+                  (push (list 'literal (subseq pattern start)) segments)
+                  (setf start plen)))))
+        (nreverse segments))))
 
 ;; "restricted" patterns that allow some arbitrarity but not as complex as regex - matching
 ;; them is alot faster
@@ -266,6 +284,16 @@ return the total length of the match if successful, or NIL otherwise."
                  for c = (char str pos)
                  while (find c allowed :test #'char=)
                  do (incf pos))))
+        ((eq (first seg) 'choices)
+         (let ((matched-length nil))
+           (dolist (alt (second seg))
+             (let ((len (match-restricted-pattern alt str pos)))
+               (when len
+                 (setf matched-length len)
+                 (return))))
+           (unless matched-length
+             (return-from match-restricted-pattern nil))
+           (incf pos matched-length)))
         ((eq (first seg) 'disallowed-chars)
          ;; (%E:<chars>) matches all except the chars from the disallowed set, and newlines.
          (let ((disallowed (second seg)))
@@ -313,7 +341,7 @@ if it is a symbol or a function, call it."
   "process RULES to build marker records supporting :begin, :end, :text, and :region markers.
 each marker spec is a two-element list (kind pattern) where KIND is one of
 :string, :pattern, or :regex.
-a rule may also include a :predicate for pairing and an :id.
+a rule may also include a :pair-predicate for pairing and an :id.
 if the rule has an :ignore key, that value is attached to the marker record.
 returns a list of marker records (plists)."
   (let (markers)
@@ -471,7 +499,7 @@ RULES is a list of plists that may specify marker types:
   - :region for region markers.
 each marker spec is a two-element list (kind pattern), where KIND is one of
 :string, :pattern, or :regex.
-a rule may also include a :predicate and an :id.
+a rule may also include a :pair-predicate and an :id.
 for paired markers the result is a list of quintuples:
   (begin-index end-index begin-match end-match rule-id).
 for text and region markers the event is a list:
@@ -496,17 +524,29 @@ for text and region markers the event is a list:
           ((eq ev-type :end)
            (let ((stack (gethash rule-id active-begins)))
              (when stack
-               ;; remove any begin events that don't leave a gap.
+               ;; remove any begin events that don't leave a gap. (should i be doing it
+               ;; the other way around? remove end events that overlap begin events of the same
+               ;; rule?)
                (loop while (and stack (not (< (getf (car stack) :end) (getf ev :pos))))
                      do (pop stack))
                (when stack
-                 (let ((begin-ev (pop stack)))
-                   (push (list (getf begin-ev :pos)
-                               (getf ev :end)
-                               (getf begin-ev :match)
-                               (getf ev :match)
-                               rule-id)
-                         pairs)
+                 (let ((begin-ev (pop stack))
+                       (pair-predicate (getf (getf ev-marker :rule) :pair-predicate)))
+                   ;; we need to call the :pair-predicate if existent before deciding
+                   ;; whether to match the pair
+                   (when (or (not pair-predicate)
+                             (funcall pair-predicate
+                                      str
+                                      (getf begin-ev :pos)
+                                      (getf ev :pos)
+                                      (getf begin-ev :end)
+                                      (getf ev :end)))
+                     (push (list (getf begin-ev :pos)
+                                 (getf ev :end)
+                                 (getf begin-ev :match)
+                                 (getf ev :match)
+                                 rule-id)
+                           pairs))
                    (setf (gethash rule-id active-begins) stack))))))
           ((or (eq ev-type :text) (eq ev-type :region))
            (push (list (getf ev :pos)
