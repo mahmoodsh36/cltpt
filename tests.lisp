@@ -10,6 +10,12 @@
     ;; "/home/mahmooz/work/cltpt/test.org"
     "/home/mahmooz/work/cltpt/test.out")))
 
+(defun test2 ()
+  (time
+   (export-org-file
+    "test.org"
+    "test.out")))
+
 (defun test10 ()
   (time
    (parse-org-file "/home/mahmooz/brain/notes/1684594232.org")))
