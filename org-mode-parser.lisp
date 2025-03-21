@@ -13,6 +13,7 @@
                   org-block org-drawer
                   display-math inline-math
                   latex-env
+                  org-babel-results
                   ))))
 
 (defvar *org-symbol-regex* "[a-zA-Z\\-_]+")
@@ -126,18 +127,60 @@ its value is NIL."
     :allocation :class
     :initform (list :text '(:pattern "#+(%W-): (%a)")
                     :text-to-hash t
-                    :conditions '(begin-of-line))))
+                    :text-conditions '(begin-of-line))))
   (:documentation "org-mode file-level keyword."))
 
-;; i need to think of a good way to do this.
-;; org-babel results could contain a drawer which itself contains newlines. if we simply look
-;; for text started by #+results and ended by a newline it wont be sufficient. actually
-;; sometimes #+results dont end with a newline but with a new element (header, block, etc..)
 (defclass org-babel-results (text-object)
   ((rule
     :allocation :class
-    :initform '(:func 'extract-babel-results-blocks)))
+    :initform (list :text '(:string "#+RESULTS:")
+                    :text-conditions '(begin-of-line)
+                    :text-to-hash t)))
   (:documentation "org-babel evaluation results."))
+
+;; this does what is necessary to actually make the object contain the element after
+;; #+results because initially its only matched as a "keyword".
+;; (defmethod text-object-init :after ((obj org-babel-results) str1 opening-region closing-region)
+;; the output of a src block may be a table, a drawer, a block, or a region of lines
+;; preceded by " :".
+(defmethod text-object-finalize ((obj org-babel-results))
+  "finalize an org-mode block, grabs #+name and other possible keywords."
+  (let ((parent (text-object-parent obj))
+        (next-sibling (text-object-next-sibling obj))
+        (newline-idx)
+        (handled))
+    (when parent
+      (setq newline-idx (position #\newline
+                                  (text-object-text (text-object-parent obj))
+                                  :start (region-begin (text-object-opening-region obj)))))
+    (if (and next-sibling
+             (member (type-of next-sibling)
+                   (list 'org-drawer org-table 'org-block)
+                   :test string=)
+             (< (text-object-fake-line-num-distance obj sibling) 2))
+        (setf (text-object-property obj :value) next-sibling)
+        (when parent
+          (let ((str-list))
+            (loop while newline-idx
+                  for current = (1+ newline-idx)
+                  while (< (1+ current) (length (text-object-text parent)))
+                  for current-beginning = (subseq (text-object-text parent)
+                                                  current
+                                                  (+ 2 current))
+                  while (string= current-beginning ": ")
+                  do (setf newline-idx
+                           (position #\newline
+                                     (text-object-text parent)
+                                     :test 'char=
+                                     :start current))
+                     (push (subseq (text-object-text parent)
+                                   (+ 2 current)
+                                   (if newline-idx
+                                       newline-idx
+                                       (length (text-object-text parent))))
+                           str-list))
+            (setf (text-object-property obj :value)
+                  (str:join (string #\newline) str-list)))))))
 
 (defclass org-drawer (text-object)
   ((rule

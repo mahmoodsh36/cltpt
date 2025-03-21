@@ -91,8 +91,6 @@ returns the total length (from the initial POS) if at least one line matches, or
       (let ((line-pos (if ignore (skip-ignore str1 pos ignore) pos)))
         (if (and (< line-pos n)
                  (<= (+ line-pos plen) n)
-                 #+nil
-                 (string= pattern (subseq str line-pos (+ line-pos plen)))
                  (marker-match str1 n marker line-pos))
             (progn
               (setf matched t)
