@@ -119,7 +119,7 @@ Some text
                                     (subseq end-str 6))))
       :id 'org-blockk)
     (list :text '(:pattern "#+(%w): (%w)")
-          :conditions '(begin-of-line)
+          :text-conditions '(begin-of-line)
           :id 'keyword)
     `(:text (:pattern "[[(%w):(%w)]]")
       :id 'org-link))))
@@ -129,7 +129,7 @@ Some text
    "#+mykeyword: myvalue"
    (list
     (list :text '(:pattern "#+(%w): (%w)")
-          :conditions '(begin-of-line)
+          :text-conditions '(begin-of-line)
           :id 'keyword))))
 
 ;; extensive example for testing combined rules
