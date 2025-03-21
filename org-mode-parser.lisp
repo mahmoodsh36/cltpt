@@ -2,8 +2,10 @@
 
 (defvar *org-mode-text-object-types*)
 
+;; eval-when wouldnt be enough here..
 (defmethod asdf:perform :after ((op asdf:load-op) (system (eql (asdf:find-system "cltpt"))))
-  ;; eval-when wouldnt be enough here..
+  ;; we store the classes themselves instead of the symbols so we dont have to
+  ;; run find-class (which is really costly) in other places.
   (setf *org-mode-text-object-types*
         (mapcar 'find-class
                 '(org-header
@@ -147,8 +149,7 @@ its value is NIL."
   "finalize an org-mode block, grabs #+name and other possible keywords."
   (let ((parent (text-object-parent obj))
         (next-sibling (text-object-next-sibling obj))
-        (newline-idx)
-        (handled))
+        (newline-idx))
     (when parent
       (setq newline-idx (position #\newline
                                   (text-object-text (text-object-parent obj))
@@ -189,7 +190,6 @@ its value is NIL."
                   (or newline-idx (+ 2 (length (text-object-text parent))))))))))
 
 (defmethod text-object-export ((obj org-babel-results) backend)
-  (format t "here3 ~A~%" obj)
   (let ((results (text-object-property obj :value)))
     (format nil
             ""
