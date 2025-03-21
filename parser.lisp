@@ -1,19 +1,5 @@
 (in-package :cltpt)
 
-;; (defun filter-text-object-types-by-method (text-object-types method)
-;;   (remove-if-not
-;;    (lambda (type1)
-;;      (let ((rule (text-object-rule-from-subclass type1)))
-;;        (equal (getf rule :method) method)))
-;;    text-object-types))
-
-;; (defun text-object-types-data (text-object-types)
-;;   (mapcar
-;;    (lambda (type1)
-;;      (text-object-rule-from-subclass type1))
-;;    text-object-types))
-
-;; todo: optimize
 (defun parse (str1
               text-object-types
               &key
@@ -25,21 +11,12 @@
          (data
            (remove-if-not
             'identity
-            ;; (text-object-rule-from-subclass type1) is really slow for some reason
             (loop for type1 in text-object-types
                   collect (let ((rule (text-object-rule-from-subclass type1)))
                             (append rule (list :id type1))))))
          ;; we apply multiple passes for different methods. this is perhaps not the best
          ;; way to do it, but for now it is simpler.
          (matches (find-with-rules str1 data))
-         ;; (line-region-method-types
-         ;;   (filter-text-object-types-by-method text-object-types 'line-region))
-         ;; (line-region-method-data (text-object-types-data line-region-method-types))
-         ;; (line-region-method-matches
-         ;;   (find-line-regions-matching-regex str1
-         ;;                                     line-region-method-data
-         ;;                                     line-region-method-types))
-         ;; (all-region-matches line-region-method-matches)
          (pair-matches
            (remove-if-not
             (lambda (x)
@@ -49,19 +26,7 @@
            (remove-if-not
             (lambda (x)
               (not (stringp (cadddr x))))
-            matches))
-         ;; (custom-method-types
-         ;;   (filter-text-object-types-by-method text-object-types 'custom))
-         ;; (custom-method-matches
-         ;;   (mapcar
-         ;;    (lambda (type1)
-         ;;      (let ((func (getf (text-object-rule-from-subclass type1) :data)))
-         ;;        (mapcar
-         ;;         (lambda (match)
-         ;;           (append match (list type1)))
-         ;;         (funcall func str1))))
-         ;;    custom-method-types))
-         )
+            matches)))
     ;; this takes more time than `find-with-rules'..
     (loop for match1 in pair-matches
           do (let* ((match-opening-string (caddr match1))
