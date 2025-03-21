@@ -32,9 +32,9 @@ its value is NIL."
           (progn
             (setf current-key (intern (string-upcase token) :keyword))
             (push (cons current-key nil) result))
-        (when current-key
-          (setf (cdr (assoc current-key result :test #'eq)) token)
-          (setf current-key nil))))
+          (when current-key
+            (setf (cdr (assoc current-key result :test #'eq)) token)
+            (setf current-key nil))))
     (nreverse result)))
 
 ;; keeping this here for now as an example of a slow text-object definition (it uses :regex)
@@ -155,10 +155,14 @@ its value is NIL."
                                   :start (region-begin (text-object-opening-region obj)))))
     (if (and next-sibling
              (member (type-of next-sibling)
-                   (list 'org-drawer org-table 'org-block)
-                   :test string=)
+                     (list 'org-drawer org-table 'org-block)
+                     :test string=)
              (< (text-object-fake-line-num-distance obj sibling) 2))
-        (setf (text-object-property obj :value) next-sibling)
+        ;; next child is the result of the results (could be drawer or some other org-element)
+        ;; we need to make it the child of this object
+        (progn
+          (setf (text-object-property obj :value) next-sibling)
+          (text-object-set-parent next-sibling obj))
         (when parent
           (let ((str-list))
             (loop while newline-idx
@@ -180,7 +184,16 @@ its value is NIL."
                                        (length (text-object-text parent))))
                            str-list))
             (setf (text-object-property obj :value)
-                  (str:join (string #\newline) str-list)))))))
+                  (str:join (string #\newline) str-list))
+            (setf (region-end (text-object-opening-region obj))
+                  (or newline-idx (+ 2 (length (text-object-text parent))))))))))
+
+(defmethod text-object-export ((obj org-babel-results) backend)
+  (format t "here3 ~A~%" obj)
+  (let ((results (text-object-property obj :value)))
+    (format nil
+            ""
+            :recurse nil)))
 
 (defclass org-drawer (text-object)
   ((rule

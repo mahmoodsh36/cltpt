@@ -129,6 +129,8 @@ region. you should just make it return a symbol like `end-type'."))
       (region-end (text-object-opening-region text-obj))))
 
 (defmethod text-object-set-parent ((child text-object) (parent text-object))
+  (if (text-object-parent child)
+      (remove child (text-object-parent child)))
   (setf (text-object-parent child) parent)
   (push child (text-object-children parent)))
 
@@ -138,18 +140,20 @@ region. you should just make it return a symbol like `end-type'."))
               (text-object-opening-region obj)
               (text-object-closing-region obj))))
 
-;; this is actually the worst way to traverse siblings
+;; this is actually the slowest way to traverse siblings
 (defmethod text-object-next-sibling ((obj text-object))
   (with-slots (parent) obj
-    (let ((idx (position obj (text-object-children parent))))
-      (when (< idx (1- (length (text-object-children parent))))
-        (elt (text-object-children parent) (1+ idx))))))
+    (when parent
+      (let ((idx (position obj (text-object-children parent))))
+        (when (< idx (1- (length (text-object-children parent))))
+          (elt (text-object-children parent) (1+ idx)))))))
 
 (defmethod text-object-prev-sibling ((obj text-object))
   (with-slots (parent) obj
-    (let ((idx (position obj (text-object-children parent))))
-      (when (> 0 idx)
-        (elt (text-object-children parent) (1- idx))))))
+    (when parent
+      (let ((idx (position obj (text-object-children parent))))
+        (when (> 0 idx)
+          (elt (text-object-children parent) (1- idx)))))))
 
 (defmethod text-object-finalize ((obj text-object))
   "default finalize function, does nothing."

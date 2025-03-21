@@ -1,51 +1,5 @@
 (in-package :cltpt)
 
-;; code for the 'line-region method for regions of consecutive lines sharing a
-;; common pattern.
-;; A
-(defun find-line-regions-matching-regex (text patterns &optional ids)
-  "finds contiguous regions of lines where each line matches the given regex.
-for each pattern in PATTERNS (using the corresponding identifier from IDS, if provided),
-this function returns a list of regions as (start-pos end-pos region-text id).
-START-POS is the offset of the first line in the region and END-POS is the offset
-immediately after the last matching line, while REGION-TEXT is the concatenated
-text of all lines in the region."
-  (let ((matches)
-        (lines (str:split (string #\newline) text)))
-    (dotimes (i (length patterns))
-      (let ((line-pos 0)
-            (pattern (nth i patterns))
-            (id (if ids (nth i ids) pattern))
-            (region-start-pos)
-            (region-lines))
-        (loop for j from 0 below (length lines)
-              for line = (nth j lines)
-              do (if (cl-ppcre:scan pattern line)
-                     (progn
-                       (unless region-start-pos
-                         (setf region-start-pos line-pos))
-                       (push line region-lines))
-                     (when region-lines
-                       (let ((region-text (format nil "~{~a~^~%~}" (nreverse region-lines))))
-                         (push (list region-start-pos
-                                     (+ region-start-pos (length region-text))
-                                     region-text
-                                     id)
-                               matches))
-                       (setf region-lines nil)
-                       (setf region-start-pos nil)))
-                 (incf line-pos (if (< j (1- (length lines)))
-                                    (1+ (length line))
-                                    (length line))))
-        (when region-lines
-          (let ((region-text (format nil "~{~a~^~%~}" (nreverse region-lines))))
-            (push (list region-start-pos
-                        (+ region-start-pos (length region-text))
-                        region-text
-                        id)
-                  matches)))))
-    (nreverse matches)))
-
 (defun begin-of-line (str pos match-str)
   "return T if POS is at the beginning of STR or immediately after a newline."
   (or (= pos 0)
