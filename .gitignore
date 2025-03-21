@@ -1,4 +1,4 @@
 test.out
-test.org
+test.out.tex
+test.out.html
 tests2.lisp
-pair-without-recurse.lisp

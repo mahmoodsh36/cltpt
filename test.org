@@ -1,0 +1,24 @@
+* my main header
+properties here
+:properties:
+:id: hello
+:end:
+
+comment here
+#+begin_comment
+this is a comment
+#+end_comment
+
+latex here
+\[ x = \sqrt{x^2} \]
+
+code here
+#+begin_src python :results output
+  import requests
+  print('whatever')
+  print('whatever2')
+#+end_src
+
+#+RESULTS:
+: whatever
+: whatever2

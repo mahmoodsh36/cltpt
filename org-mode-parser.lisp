@@ -112,17 +112,35 @@ its value is NIL."
             (end-text "}")
             (inner-text (text-object-property obj :title))
             (final-text (concatenate 'string begin-text inner-text end-text))
-            (outter-region
+            (inner-region
               (make-region :begin (length begin-text)
                            :end (- (length final-text) (length end-text)))))
        (list :text final-text
              :escape t
-             :escape-region outter-region
+             :escape-region inner-region
              :reparse t
-             :reparse-region outter-region
+             :reparse-region inner-region
              :recurse t)))
     ('html
-     "")))
+     (let* ((begin-text (format
+                         nil
+                         "<h~A>"
+                         (text-object-property obj :level)))
+            (end-text (format
+                         nil
+                         "</h~A>"
+                         (text-object-property obj :level)))
+            (inner-text (text-object-property obj :title))
+            (final-text (concatenate 'string begin-text inner-text end-text))
+            (inner-region
+              (make-region :begin (length begin-text)
+                           :end (- (length final-text) (length end-text)))))
+       (list :text final-text
+             :escape t
+             :escape-region inner-region
+             :reparse t
+             :reparse-region inner-region
+             :recurse t)))))
 
 (defclass org-keyword (text-object)
   ((rule
@@ -447,11 +465,31 @@ its value is NIL."
              :reparse t
              :recurse t
              :reparse-region inner-region
-             ;; dont escape the commands in the preamble
              :escape t
+             ;; dont escape the commands in the preamble
              :escape-region inner-region)))
     ('html
-     (concatenate 'string "org-html-doc" (string #\newline) (text-object-text obj)) t)))
+     (let* ((my-preamble
+              (concatenate 'string
+                           (generate-html-preamble "authorhere" "datehere" "titlehere")
+                           (string #\newline)
+                           "<div id='content'>"
+                           (string #\newline)))
+            (my-postamble (concatenate 'string
+                                       (string #\newline)
+                                       "</div>"))
+            (my-text (concatenate 'string
+                                  my-preamble
+                                  (text-object-text obj)
+                                  my-postamble))
+            (inner-region (make-region :begin (length my-preamble)
+                                       :end (- (length my-text) (length my-postamble)))))
+       (list :text my-text
+             :reparse t
+             :recurse t
+             :reparse-region inner-region
+             :escape t
+             :escape-region inner-region)))))
 
 ;; org-table parser
 ;; A
