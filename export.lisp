@@ -20,18 +20,18 @@
          (region-to-escape (when (and to-escape (not result-is-string))
                              (getf result :escape-region)))
          (to-recurse (or result-is-string (getf result :recurse) to-reparse)))
-    ;; (region-text region-to-reparse (getf result :text))
     (if to-recurse
         (let ((final-result "")
               (idx 0)
               (children (sort-text-objects
                          (if to-reparse
-                             (parse (if region-to-reparse
-                                        (region-text region-to-reparse export-text)
-                                        export-text)
-                                    text-object-types
-                                    :as-doc nil
-                                    :relative-positions t)
+                             (text-object-children
+                              (parse (if region-to-reparse
+                                         (region-text region-to-reparse export-text)
+                                         export-text)
+                                     text-object-types
+                                     :as-doc t
+                                     :relative-positions t))
                              (text-object-children text-obj))))
               (child-offset (if region-to-reparse
                                 (region-begin region-to-reparse)

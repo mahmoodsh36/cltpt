@@ -161,18 +161,25 @@
         ;;       top-level)
         (if as-doc
             (let ((doc (make-instance doc-type :text str1)))
-              (setf (text-object-opening-region doc) (make-region :begin 0 :end (length str1)))
+              (setf (text-object-opening-region doc)
+                    (make-region :begin 0 :end (length str1)))
               (mapc
                (lambda (entry)
                  (text-object-set-parent entry doc)
                  (text-object-adjust-to-parent entry doc))
                top-level)
               (setf (text-object-children doc) top-level)
-              ;; finalize objects
-              (mapcar-forest
-               forest
-               (lambda (obj)
-                 (when obj
-                   (text-object-finalize obj))))
+              ;; we need to finalize only after the top-level doc object has been set as parent
+              (finalize-text-object-forest forest)
               doc)
-            top-level)))))
+            (progn
+              (finalize-text-object-forest forest)
+              top-level))))))
+
+;; just a DRY shortcut
+(defun finalize-text-object-forest (forest)
+  (mapcar-forest
+   forest
+   (lambda (obj)
+     (when obj
+       (text-object-finalize obj)))))
