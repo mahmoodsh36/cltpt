@@ -12,9 +12,14 @@
 
 (defun test2 ()
   (time
-   (export-org-file
-    "test.org"
-    "test.out")))
+   (progn
+     (export-org-file
+      "test.org"
+      "test.out.tex")
+     (export-org-file
+      "test.org"
+      "test.out.html"
+      'html))))
 
 (defun test10 ()
   (time

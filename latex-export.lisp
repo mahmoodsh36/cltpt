@@ -18,19 +18,15 @@
  pdflang={English}}"
           *latex-preamble* author date title author title))
 
-(defun latex-escape-chars (s &optional (escape-table '((#\& . "\\&")
-                                                       (#\~ . "\\textasciitilde{}")
-                                                       (#\\ . "\\\\")
-                                                       (#\_ . "\\_")
-                                                       (#\# . "\\#"))))
-  "return a new string where every character in S that is a key in ESCAPE-TABLE is replaced by its associated string.
-ESCAPE-TABLE is an association list mapping characters to replacement strings."
-  (with-output-to-string (out)
-    (loop for ch across s do
-      (let ((replacement (cdr (assoc ch escape-table :test #'char=))))
-        (if replacement
-            (write-string replacement out)
-            (write-char ch out))))))
+(defvar *latex-escape-table*
+  '((#\& . "\\&")
+    (#\~ . "\\textasciitilde{}")
+    (#\\ . "\\\\")
+    (#\_ . "\\_")
+    (#\# . "\\#")))
+
+(defun latex-escape-chars (s)
+  (replace-chars s *latex-escape-table*))
 
 ;; A
 (defun org-list-to-latex (org-forest)

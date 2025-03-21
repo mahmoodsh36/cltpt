@@ -566,3 +566,13 @@ string STR1. notice that MODIFICATION-REGION can be wider and even disjoint from
                      (funcall func (subseq str1 modification-begin modification-end))
                      (subseq str1 modification-end (region-end main-region)))
         str1)))
+
+(defun replace-chars (s replace-table)
+  "return a new string where every character in S that is a key in REPLACE-TABLE is
+replaced by its associated string."
+  (with-output-to-string (out)
+    (loop for ch across s do
+      (let ((replacement (cdr (assoc ch replace-table :test #'char=))))
+        (if replacement
+            (write-string replacement out)
+            (write-char ch out))))))

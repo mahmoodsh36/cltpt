@@ -1,5 +1,17 @@
 (in-package :cltpt)
 
+(defvar *html-preamble*
+  "")
+
+(defvar *html-escape-table*
+  )
+
+(defun generate-html-preamble (author date title)
+  "")
+
+(defun html-escape-chars (s)
+  s)
+
 ;; A
 (defun org-list-to-html (org-forest)
   (org-list-to-html-list org-forest))

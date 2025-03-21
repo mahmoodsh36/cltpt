@@ -3,10 +3,11 @@
 (defun escape-text (text backend)
   (case backend
     ('latex (latex-escape-chars text))
-    ('html text)
+    ('html (html-escape-chars text))
     (t text)))
 
 (defun export-tree (text-obj backend text-object-types)
+  (format t "here ~A~%" text-obj)
   (let* ((result (text-object-export text-obj backend))
          (result-is-string (typep result 'string))
          (to-escape (or result-is-string (getf result :escape t)))
