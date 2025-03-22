@@ -4,6 +4,10 @@ properties here
 :id: hello
 :end:
 
+some [[mylink1-2:here1][testmore1- 2]] text
+[[attachment:sliding.gif]]
+[[attachment:sliding]]
+
 comment here
 #+begin_comment
 this is a comment
