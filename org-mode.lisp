@@ -341,8 +341,9 @@ its value is NIL."
 (defclass org-link (text-object)
   ((rule
     :allocation :class
-    :initform '(:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz )]]")
-                :text-to-hash t)))
+    :initform '(:text (:pattern (%or (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
+                                     (:pattern "[[(%W-)]]")
+                                     (:pattern "[[(%W-):(%E:[])]]"))))))
   (:documentation "org-mode link."))
 
 (defmethod text-object-init :after ((obj org-link) str1 opening-region closing-region)
@@ -368,8 +369,8 @@ its value is NIL."
     :allocation :class
     ;; match region of lines beginning with space or hyphen
     :initform '(:region (:pattern (%or (:string "-")
-                                   (:pattern "%(1234567890).")
-                                   (:pattern "(%C:abcdefghijklmnopqrstuv).")))
+                                       (:pattern "(%C:1234567890).")
+                                       (:pattern "(%C:abcdefghijklmnopqrstuv).")))
                 :ignore " ")))
   (:documentation "org-mode list."))
 
@@ -387,7 +388,6 @@ its value is NIL."
          (copy-seq tree))
         (t tree)))
 
-;; we need to fix this
 (defmethod text-object-export ((obj org-list) backend)
   (cond
     ((string= backend 'latex)

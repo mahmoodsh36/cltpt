@@ -4,13 +4,10 @@
 (defvar *html-export-with-latex-method*
   'svg)
 
-(defvar *html-preamble*
-  "")
-
 (defvar *html-escape-table*
   )
 
-(defun generate-html-heads (author date title)
+(defun generate-html-header (author date title)
   "<head></head>")
 
 (defun html-escape-chars (s)

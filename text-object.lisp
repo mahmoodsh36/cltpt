@@ -94,8 +94,8 @@ region. you should just make it return a symbol like `end-type'."))
 (defmethod text-object-export ((obj text-object) backend)
   "default export function."
   (if (text-object-property obj :eval-result)
-      (format nil "~A" (text-object-property obj :eval-result))
-      (text-object-text obj)))
+      (list :text (format nil "~A" (text-object-property obj :eval-result)))
+      (list :text (text-object-text obj))))
 
 ;; default init function will just set the text slot of the object
 ;; we are currently using `subseq' to extract the region from the text and store

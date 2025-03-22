@@ -21,7 +21,7 @@
                (getf result :text)))
          (region-to-escape (when (and to-escape (not result-is-string))
                              (getf result :escape-region)))
-         (to-recurse (or result-is-string (getf result :recurse) to-reparse)))
+         (to-recurse (or (unless result-is-string (getf result :recurse)) to-reparse)))
     (if to-recurse
         (let ((final-result "")
               (idx 0)
