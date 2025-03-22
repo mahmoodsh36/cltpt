@@ -1,13 +1,17 @@
 (in-package :cltpt)
 
+;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
+(defvar *html-export-with-latex-method*
+  'svg)
+
 (defvar *html-preamble*
   "")
 
 (defvar *html-escape-table*
   )
 
-(defun generate-html-preamble (author date title)
-  "")
+(defun generate-html-heads (author date title)
+  "<head></head>")
 
 (defun html-escape-chars (s)
   s)
@@ -24,3 +28,22 @@
             (if children (org-list-to-html-list children) ""))))
 (defun org-list-to-html-list (forest)
   (format nil "<ul>~{~A~}</ul>" (mapcar #'org-list-to-html-item forest)))
+
+(defun org-table-to-html (table)
+  "generate an html table from TABLE.
+TABLE is a list of rows (each row is a list of strings)."
+  (with-output-to-string (out)
+    (format out "<table border='1'>~%")
+    (dolist (row table)
+      (format out "  <tr>~%")
+      (dolist (cell row)
+        (format out "    <td>~a</td>~%" cell))
+      (format out "  </tr>~%"))
+    (format out "</table>")))
+
+(defun latex-fragment-to-html (latex-code is-inline)
+  (case *html-export-with-latex-method*
+    ('svg
+     (let ((img-filepath))
+       (let ((img-filepath (generate-svg-for-latex latex-code)))
+         (format nil "<img src='~A'></img>" img-filepath))))))
