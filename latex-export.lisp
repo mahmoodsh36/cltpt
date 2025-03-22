@@ -2,7 +2,7 @@
 
 (defvar *latex-preamble*
   "\\documentclass[11pt]{article}
-\\usepackage{\\string~/.emacs.d/common}")
+\\usepackage{amsmath}")
 
 (defun generate-latex-preamble (author date title)
   (format nil "~A

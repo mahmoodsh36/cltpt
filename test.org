@@ -22,3 +22,16 @@ code here
 #+RESULTS:
 : whatever
 : whatever2
+
+table here
+| code                             | math                  |
+|----------------------------------+-----------------------|
+| ~layer-x~                        | \(I^\ell\)            |
+| ~layer-y~                        | \(\hat Y^\ell\)       |
+| ~layer-y-unactivated~            | \(S^\ell\)            |
+| ~s-deltas~                       | \(\Delta S^\ell\)     |
+| ~x-deltas~                       | \(I^\ell\)            |
+| ~activation-function~            | \(\phi\)              |
+| ~activation-function-derivative~ | \(\phi'\)             |
+| ~propped-deltas~                 | \(\Delta I^{\ell+1}\) |
+| ~learning-rate~                  | \(\alpha\)            |

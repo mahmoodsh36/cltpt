@@ -8,7 +8,7 @@
     "/home/mahmooz/brain/notes/1684594232.org"
     ;; "/home/mahmooz/brain/notes/1707341577.org"
     ;; "/home/mahmooz/work/cltpt/test.org"
-    "/home/mahmooz/work/cltpt/test.out")))
+    "/home/mahmooz/work/cltpt/test.out.tex")))
 
 (defun test2 ()
   (time
@@ -19,7 +19,8 @@
      (export-org-file
       "test.org"
       "test.out.html"
-      'html))))
+      'html)
+     nil)))
 
 (defun test10 ()
   (time
@@ -173,3 +174,8 @@ some footer text."))
                                       :id 'link)))))
       (format t "result: ~a~%" result)
       result)))
+
+;; latex snippet compilation test
+(defun test21 ()
+  (generate-svg-for-latex
+   "\\(x=\\sqrt{y}\\)"))

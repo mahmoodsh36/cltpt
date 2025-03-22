@@ -7,6 +7,7 @@ the project depends on the following packages which could be installed using qui
 - cl-fad
 - lparallel (not yet in actual use)
 - clingon
+- ironclad
 
 the code uses some sbcl-specific libraries for now, so it is unlikely that it will run on other dialects.
 

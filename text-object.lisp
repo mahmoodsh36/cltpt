@@ -234,10 +234,17 @@ region. you should just make it return a symbol like `end-type'."))
                 :recurse nil))))
 
 (defmethod text-object-export ((obj inline-math) backend)
-  (list :text (text-object-text obj)
-        :reparse nil
-        :recurse nil
-        :escape nil))
+  (case backend
+    ('latex
+     (list :text (text-object-text obj)
+           :reparse nil
+           :recurse nil
+           :escape nil))
+    ('html
+     (list :text (latex-fragment-to-html (text-object-text obj) t)
+           :reparse nil
+           :recurse nil
+           :escape nil))))
 
 (defclass display-math (text-object)
   ((rule
@@ -250,10 +257,17 @@ region. you should just make it return a symbol like `end-type'."))
                 :recurse nil))))
 
 (defmethod text-object-export ((obj display-math) backend)
-  (list :text (text-object-text obj)
-        :reparse nil
-        :recurse nil
-        :escape nil))
+  (case backend
+    ('latex
+     (list :text (text-object-text obj)
+           :reparse nil
+           :recurse nil
+           :escape nil))
+    ('html
+     (list :text (latex-fragment-to-html (text-object-text obj) nil)
+           :reparse nil
+           :recurse nil
+           :escape nil))))
 
 (defclass latex-env-slow (text-object)
   ((rule
@@ -286,16 +300,26 @@ region. you should just make it return a symbol like `end-type'."))
   (:documentation "latex environment."))
 
 (defmethod text-object-export ((obj latex-env) backend)
-  (list :text (text-object-text obj)
-        :reparse nil
-        :recurse nil
-        :escape nil))
+  (case backend
+    ('latex
+     (list :text (text-object-text obj)
+           :reparse nil
+           :recurse nil
+           :escape nil))
+    ('html
+     (list :text (latex-fragment-to-html (text-object-text obj) nil)
+           :reparse nil
+           :recurse nil
+           :escape nil))))
 
-;; (defun text-object-rule-from-subclass (subclass)
-;;   (slot-value (sb-mop:class-prototype (find-class subclass)) 'rule))
 (defun text-object-rule-from-subclass (subclass)
   (slot-value (sb-mop:class-prototype subclass) 'rule))
 
 (defun map-text-object (text-obj func)
   "traverse the text object tree starting at TEXT-OBJ."
   )
+
+;; we need to "finalize" the classes to be able to use MOP
+(defun ensure-finalized ()
+  (dolist (mytype *org-mode-text-object-types*)
+    (sb-mop:finalize-inheritance mytype)))

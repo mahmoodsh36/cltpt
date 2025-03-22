@@ -6,8 +6,9 @@
     ('html (html-escape-chars text))
     (t text)))
 
+;; we should store the "fragments" in a list and join them in the end instead
+;; of using `concatenate' all the time
 (defun export-tree (text-obj backend text-object-types)
-  (format t "here ~A~%" text-obj)
   (let* ((result (text-object-export text-obj backend))
          (result-is-string (typep result 'string))
          (to-escape (or result-is-string (getf result :escape t)))

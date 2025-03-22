@@ -14,8 +14,6 @@
             (loop for type1 in text-object-types
                   collect (let ((rule (text-object-rule-from-subclass type1)))
                             (append rule (list :id type1))))))
-         ;; we apply multiple passes for different methods. this is perhaps not the best
-         ;; way to do it, but for now it is simpler.
          (matches (find-with-rules str1 data))
          (pair-matches
            (remove-if-not
