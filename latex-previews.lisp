@@ -13,7 +13,10 @@ uses *latex-command* and *latex-preamble*."
       (with-open-file (out preamble-file
                            :direction :output
                            :if-exists :supersede)
-        (format out "~A~%\\dump~%" *latex-preamble*))
+        (format out "~A
+\\usepackage[active,tightpage,auctex,dvips]{preview}
+\\dump~%"
+                *latex-preamble*))
       (multiple-value-bind (out-str err-str exit-code)
           (uiop:run-program
            (list *latex-command* "-ini" "-jobname=standalone"
@@ -58,9 +61,9 @@ if a snippet with the same contents was generated before, its SVG file is reused
         (with-open-file (out tex-file
                              :direction :output
                              :if-exists :supersede)
-          (format out "\\begin{document}~%")
+          (format out "\\begin{document}\\begin{preview}~%")
           (format out "~A~%" snippet)
-          (format out "\\end{document}~%"))
+          (format out "\\end{preview}\\end{document}~%"))
         ;; run latex using the cached format, use dvi output.
         (multiple-value-bind (out-str err-str exit-code)
             (uiop:run-program
@@ -73,21 +76,29 @@ if a snippet with the same contents was generated before, its SVG file is reused
                            (namestring *latex-previews-tmp-directory*))
                    (namestring tex-file))
              :output t
+             :ignore-error-status t
              :wait t)
-          (unless (and exit-code (zerop exit-code))
-            (error "latex failed to compile ~A. exit code: ~A. error: ~A"
-                   (namestring tex-file) exit-code err-str)))
+          ;; (unless (and exit-code (zerop exit-code))
+          ;;   (error "latex failed to compile ~A. exit code: ~A. error: ~A"
+          ;;          (namestring tex-file) exit-code err-str))
+          )
         ;; convert the resulting dvi file to an svg.
         (multiple-value-bind (out-str err-str exit-code)
             (uiop:run-program
              (list *dvisvgm-command*
                    (namestring dvi-file)
-                   "-n" ;; convert fonts to paths
+                   "--no-fonts"
+                   "--pages=1-"
+                   "--clipjoin"
+                   "--optimize"
+                   "--bbox=preview"
                    "-o" (namestring svg-file))
              :output t
+             :ignore-error-status t
              :wait t)
-          (unless (and exit-code (zerop exit-code))
-            (error "dvisvgm failed to convert ~A. exit code: ~A. error: ~A"
-                   (namestring dvi-file) exit-code err-str)))
+          ;; (unless (and exit-code (zerop exit-code))
+          ;;   (error "dvisvgm failed to convert ~A. exit code: ~A. error: ~A"
+          ;;          (namestring dvi-file) exit-code err-str))
+          )
         (format t "generated ~A~%" (namestring svg-file)))
       svg-file)))
