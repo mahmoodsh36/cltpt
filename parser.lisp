@@ -4,10 +4,11 @@
               text-object-types
               &key
                 (as-doc t)
-                (relative-positions t)
                 (doc-type 'document))
   "parse a string, returns an object tree."
-  (let* ((text-objects)
+  ;; find-class seems to be slow so we do it here and use it later in the loop
+  (let* ((text-macro-class (find-class 'text-macro))
+         (text-objects)
          (data
            (remove-if-not
             'identity
@@ -34,7 +35,7 @@
                     (match-closing-end (cadr match1))
                     (match-closing-begin (- match-closing-end (length match-closing-string)))
                     (type1 (last-atom match1))
-                    (is-macro (equal type1 'text-macro))
+                    (is-macro (equal type1 text-macro-class))
                     (macro-eval-result)
                     (new-text-object))
                (if is-macro

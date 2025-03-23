@@ -15,6 +15,7 @@
                   org-block org-drawer
                   display-math inline-math latex-env
                   org-babel-results
+                  text-macro
                   )))
   (setf *org-mode-inline-text-object-types*
         (intersection *org-mode-text-object-types*
@@ -526,7 +527,6 @@ its value is NIL."
   (let* ((result (parse (uiop:read-file-string filepath)
                         *org-mode-text-object-types*
                         :as-doc t
-                        :relative-positions t
                         :doc-type 'org-document)))
     result))
 

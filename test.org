@@ -27,6 +27,16 @@ code here
 : whatever
 : whatever2
 
+a value here: #(format nil "test~A" 1)
+
+#(make-block :type 'definition)
+my first block
+#(block-end)
+
+#(make-block :type 'theorem)
+  my second block
+#(block-end)
+
 table here
 | code                             | math                  |
 |----------------------------------+-----------------------|
