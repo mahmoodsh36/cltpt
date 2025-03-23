@@ -88,13 +88,12 @@ if a snippet with the same contents was generated before, its SVG file is reused
              (list *dvisvgm-command*
                    (namestring dvi-file)
                    "--no-fonts"
-                   "--pages=1-"
+                   "--page=1-"
                    "--clipjoin"
                    "--optimize"
                    "--bbox=preview"
                    "-o" (namestring svg-file))
              :output t
-             :ignore-error-status t
              :wait t)
           ;; (unless (and exit-code (zerop exit-code))
           ;;   (error "dvisvgm failed to convert ~A. exit code: ~A. error: ~A"
