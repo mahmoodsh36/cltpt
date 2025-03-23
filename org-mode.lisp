@@ -390,25 +390,29 @@ its value is NIL."
         (t tree)))
 
 (defmethod text-object-export ((obj org-list) backend)
-  (cond
-    ((string= backend 'latex)
-     (let ((my-list (deep-copy-org-forest (text-object-property obj :list)))
-           (possible-children-types *org-mode-inline-text-object-types*))
-       (mapcar-forest
-        my-list
-        (lambda (list-entry)
-          (let ((list-entry-text (getf list-entry :text)))
-            (setf (getf list-entry :text)
-                  (export-tree (parse list-entry-text
-                                      possible-children-types)
-                               'latex
-                               possible-children-types)))))
+  (let ((my-list (deep-copy-org-forest (text-object-property obj :list)))
+        (possible-children-types *org-mode-inline-text-object-types*))
+    (mapcar-forest
+     my-list
+     (lambda (list-entry)
+       (let ((list-entry-text (getf list-entry :text)))
+         (setf (getf list-entry :text)
+               (export-tree (parse list-entry-text
+                                   possible-children-types
+                                   :doc-type 'org-document)
+                            backend
+                            possible-children-types)))))
+    (cond
+      ((string= backend 'latex)
        (list :text (org-list-to-latex my-list)
              :recurse nil
              :reparse nil
-             :escape nil)))
-    ((string= backend 'html)
-     (org-list-to-html (text-object-property obj :list)))))
+             :escape nil))
+      ((string= backend 'html)
+       (list :text (org-list-to-html my-list)
+             :recurse nil
+             :reparse nil
+             :escape nil)))))
 
 (defclass org-table (text-object)
   ((rule
@@ -429,7 +433,8 @@ its value is NIL."
               (lambda (list-entry-text)
                 (export-tree
                  (parse list-entry-text
-                        *org-mode-inline-text-object-types*)
+                        *org-mode-inline-text-object-types*
+                        :doc-type 'org-document)
                  backend
                  *org-mode-inline-text-object-types*))
               row))
