@@ -167,17 +167,50 @@ region. you should just make it return a symbol like `end-type'."))
   ()
   (:documentation "a text block."))
 
-(defun make-block (&key &allow-other-keys)
-  (make-instance 'text-block))
+(defun make-block (&rest kws &key &allow-other-keys)
+  (let* ((type1 (getf kws :type))
+         (obj (make-instance 'text-block)))
+    (setf (text-object-property obj :type) type1)
+    obj))
 
 (defmethod text-object-export ((obj text-block) backend)
   (text-object-text obj))
 
+(defun block-end ()
+  'block-end)
+
+(defmethod text-object-export ((obj text-block) backend)
+  ;; use string on type to ensure its not a symbol
+  (let ((type1 (string-downcase (string (text-object-property obj :type)))))
+    (case backend
+      ('latex
+       (wrap-contents-for-export obj
+                                 (format nil "\\begin{~A}" type1)
+                                 (format nil "\\end{~A}" type1)))
+      ('html
+       (list :text "hey"
+             :reparse nil
+             :recurse nil
+             :escape nil)))))
+
 ;; aliases for blocks
 (setf (symbol-function 'b) (symbol-function 'make-block))
+(setf (symbol-function '/b) (symbol-function 'block-end))
 
 (defmethod text-object-ends-by ((text-obj text-block) value)
-  (and (symbolp value) (string= value 'end-block)))
+  (and (symbolp value) (string= value 'block-end)))
+
+;; a utility function to reduce boilerplate for `text-object-export' implementations
+(defun wrap-contents-for-export (text-obj preamble postamble)
+  (let* ((text (concatenate 'string
+                            preamble
+                            (text-object-contents text-obj)
+                            postamble))
+         (inner-region (make-region :begin (length preamble)
+                                    :end (- (length text) (length postamble)))))
+    (list :text text
+          :reparse-region inner-region
+          :escape-region inner-region)))
 
 (defun sort-text-objects (text-objects)
   "return TEXT-OBJECTS, sorted by starting point."
@@ -219,9 +252,10 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform (list
-               (format nil "~A(" *text-macro-seq*) :string
-               ")" :string))))
+    :initform (list :begin (list :string (format nil "~A(" *text-macro-seq*))
+                    :end '(:string ")")
+                    :begin-to-hash t
+                    :end-to-hash t))))
 
 ;; define the inline-math subclass with its own default rule
 (defclass inline-math (text-object)

@@ -11,8 +11,11 @@
 (defun export-tree (text-obj backend text-object-types)
   (let* ((result (text-object-export text-obj backend))
          (result-is-string (typep result 'string))
-         (to-escape (or result-is-string (getf result :escape t)))
-         (to-reparse (unless result-is-string (getf result :reparse)))
+         (to-escape (or result-is-string
+                        (getf result :escape)
+                        (getf result :escape-region)))
+         (to-reparse (unless result-is-string (or (getf result :reparse)
+                                                  (getf result :reparse-region))))
          (region-to-reparse (when (and to-reparse (not result-is-string))
                               (getf result :reparse-region)))
          (export-text
@@ -32,8 +35,7 @@
                                          (region-text region-to-reparse export-text)
                                          export-text)
                                      text-object-types
-                                     :as-doc t
-                                     :relative-positions t))
+                                     :as-doc t))
                              (text-object-children text-obj))))
               (child-offset (if region-to-reparse
                                 (region-begin region-to-reparse)
