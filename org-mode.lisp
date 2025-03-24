@@ -14,8 +14,8 @@
                   org-link
                   org-block org-drawer
                   display-math inline-math latex-env
-                  org-babel-results
-                  text-macro
+                  org-babel-results ;; org-babel-results-colon
+                  ;; text-macro
                   )))
   (setf *org-mode-inline-text-object-types*
         (intersection *org-mode-text-object-types*
@@ -219,6 +219,18 @@ its value is NIL."
             ""
             :recurse nil)))
 
+(defclass org-babel-results-colon (text-object)
+  ((rule
+    :allocation :class
+    :initform '(:region (:string ": "))))
+  (:documentation "org-babel evaluation results."))
+
+(defmethod text-object-export ((obj org-babel-results-colon) backend)
+  (let ((results (text-object-property obj :value)))
+    (format nil
+            ""
+            :recurse nil)))
+
 (defclass org-drawer (text-object)
   ((rule
     :allocation :class
@@ -285,8 +297,7 @@ its value is NIL."
   (let ((block-type (text-object-property obj :type))
         (is-verbatim))
     (when (string= block-type "src")
-      (setf is-verbatim t)
-      (setf block-type "lstlisting"))
+      (setf is-verbatim t))
     (cond
       ((member block-type (list "comment" "my_comment") :test 'string=)
        (list :text "" :reparse t))
@@ -299,19 +310,24 @@ its value is NIL."
                                     end-tag))
               (inner-region (make-region :begin (length begin-tag)
                                          :end (- (length my-text) (length end-tag)))))
+         (when (string= block-type "src")
+           (setf block-type "lstlisting"))
          (list :text my-text
                :reparse (not is-verbatim)
                :escape (not is-verbatim)
                :reparse-region inner-region
                :escape-region inner-region)))
       ((string= backend 'html)
-       (let* ((open-tag (format nil "<~A>" block-type))
-              (close-tag (format nil "</~A>" block-type))
-              (text (format nil
-                            "~A~A~A"
-                            open-tag
-                            (text-object-contents obj)
-                            close-tag)))
+       (let* ((open-tag (if (string= block-type "src")
+                            (format nil "<pre><code>" block-type)
+                            (format nil "<~A>" block-type)))
+              (close-tag (if (string= block-type "src")
+                             (format nil "</code></pre>" block-type)
+                             (format nil "<~A>" block-type)))
+              (text (concatenate 'string
+                                 open-tag
+                                 (text-object-contents obj)
+                                 close-tag)))
          (list :text text
                :recurse t
                :reparse-region (make-region :begin (length open-tag)
@@ -455,6 +471,17 @@ its value is NIL."
   ()
   (:documentation "org-mode document."))
 
+(defun ensure-latex-previews-generated (org-doc)
+  (let ((mylist))
+    (map-text-object
+     org-doc
+     (lambda (obj)
+       (when (or (typep obj 'inline-math)
+                 (typep obj 'display-math)
+                 (typep obj 'latex-env))
+         (push (text-object-text obj) mylist))))
+    (generate-svgs-for-latex mylist)))
+
 (defmethod text-object-export ((obj org-document) backend)
   (case backend
     ('latex
@@ -498,6 +525,7 @@ its value is NIL."
                                   my-postamble))
             (inner-region (make-region :begin (length my-preamble)
                                        :end (- (length my-text) (length my-postamble)))))
+       (ensure-latex-previews-generated obj)
        (list :text my-text
              :reparse t
              :recurse t

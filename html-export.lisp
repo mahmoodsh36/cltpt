@@ -42,5 +42,5 @@ TABLE is a list of rows (each row is a list of strings)."
   (case *html-export-with-latex-method*
     ('svg
      (let ((img-filepath))
-       (let ((img-filepath (generate-svg-for-latex latex-code)))
+       (let ((img-filepath (cdar (generate-svgs-for-latex (list latex-code)))))
          (format nil "<img src='~A'></img>" img-filepath))))))

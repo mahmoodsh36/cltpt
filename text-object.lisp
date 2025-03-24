@@ -135,10 +135,10 @@ region. you should just make it return a symbol like `end-type'."))
   (push child (text-object-children parent)))
 
 (defmethod print-object ((obj text-object) stream)
-    (print-unreadable-object (obj stream :type t)
-      (format stream "~A -> ~A"
-              (text-object-opening-region obj)
-              (text-object-closing-region obj))))
+  (print-unreadable-object (obj stream :type t)
+    (format stream "~A -> ~A"
+            (text-object-opening-region obj)
+            (text-object-closing-region obj))))
 
 ;; this is actually the slowest way to traverse siblings
 (defmethod text-object-next-sibling ((obj text-object))
@@ -351,7 +351,9 @@ region. you should just make it return a symbol like `end-type'."))
 
 (defun map-text-object (text-obj func)
   "traverse the text object tree starting at TEXT-OBJ."
-  )
+  (funcall func text-obj)
+  (dolist (child (text-object-children text-obj))
+    (map-text-object child func)))
 
 ;; we need to "finalize" the classes to be able to use MOP
 (defun ensure-finalized ()
