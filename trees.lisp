@@ -1,21 +1,19 @@
 (in-package :cltpt)
 
 (defun make-node (interval)
-  "create a tree node from an interval.
-the node is represented as a cons cell: (interval . children),
-where interval is a list (start end id) and children is a list of nodes."
   (cons interval nil))
 
 ;; todo: optimize
 (defun build-tree (intervals)
-  "Build a nesting tree from a list of intervals.
-Each interval is a list of the form (start end id).
-Assumes intervals are strictly nested and sorted by start."
-  (let ((forest nil)
-        (stack nil))
+  "build a nesting tree from a list of intervals.
+each interval is a list of the form (start end id).
+assumes intervals are strictly nested and sorted by start."
+  (let ((forest)
+        (stack))
     ;; sort intervals by the start value.
-    (setq intervals (sort intervals (lambda (a b)
-                                       (< (first a) (first b)))))
+    (setq intervals
+          (sort intervals (lambda (a b)
+                            (< (first a) (first b)))))
     (dolist (interval intervals)
       (let ((node (make-node interval)))
         ;; while there is a node on the stack that does NOT enclose the current interval,
@@ -42,7 +40,7 @@ Assumes intervals are strictly nested and sorted by start."
   "recursively prints a node and its children with indentation."
   (format t "~v@T~a~%" indent (car node)) ;; print the node's interval with indentation.
   (dolist (child (cdr node))
-    (print-node child (+ indent 2)))) ; increase indent for children.
+    (print-node child (+ indent 2)))) ;; increase indent for children.
 
 (defun print-forest (forest)
   "prints all trees in the forest."

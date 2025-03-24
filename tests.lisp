@@ -13,9 +13,9 @@
 (defun test2 ()
   (time
    (progn
-     (export-org-file
-      "test.org"
-      "test.out.tex")
+     ;; (export-org-file
+     ;;  "test.org"
+     ;;  "test.out.tex")
      (export-org-file
       "test.org"
       "test.out.html"
@@ -179,3 +179,34 @@ some footer text."))
 (defun test21 ()
   (generate-svg-for-latex
    "\\(x=\\sqrt{y}\\)"))
+
+(defun test22 ()
+  (find-with-rules
+   "
+#+begin_comment
+#+begin_test
+my text
+#+end_test
+#+begin_test
+some text
+#+end_test
+[[hello:hey]]
+#+end_comment
+#+include: test
+:properties:
+:id: hello
+:end:
+#+include: test
+"
+   (list
+    `(:begin (:pattern "#+begin_(%w)")
+      :end   (:pattern "#+end_(%w)")
+      :begin-conditions (begin-of-line)
+      :end-conditions (begin-of-line)
+      :exclude '(org-link)
+      :id 'org-block)
+    (list :text '(:pattern "#+(%w): (%w)")
+          :text-conditions '(begin-of-line)
+          :id 'keyword)
+    `(:text (:pattern "[[(%w):(%w)]]")
+      :id 'org-link))))
