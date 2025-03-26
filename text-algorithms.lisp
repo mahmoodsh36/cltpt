@@ -1,5 +1,6 @@
 (in-package :cltpt)
 
+;; this is better done in-place and not as an external function, before matching
 (defun begin-of-line (str pos match-str)
   "return T if POS is at the beginning of STR or immediately after a newline."
   (or (= pos 0)
@@ -491,7 +492,7 @@ for text and region markers the event is a list:
                                 (if (= (getf a :pos) (getf b :pos))
                                     (< (getf a :end) (getf b :end))
                                     (< (getf a :pos) (getf b :pos))))))
-         (pairs)
+         (results)
          (active-begins (make-hash-table :test 'equal))) ;; rule-id -> list of begin events
     (dolist (ev sorted-events)
       (let* ((ev-marker (getf ev :marker))
@@ -526,15 +527,15 @@ for text and region markers the event is a list:
                                  (getf begin-ev :match)
                                  (getf ev :match)
                                  rule-id)
-                           pairs))
+                           results))
                    (setf (gethash rule-id active-begins) stack))))))
           ((or (eq ev-type :text) (eq ev-type :region))
            (push (list (getf ev :pos)
                        (getf ev :end)
                        (getf ev :match)
                        rule-id)
-                 pairs)))))
-    (sort pairs #'< :key #'first)))
+                 results)))))
+    (sort results #'< :key #'first)))
 
 (defun modify-substring (str1 func main-region &optional small-region)
   "modify the string in SMALL-REGION of MAIN-REGION of string STR1. SMALL-REGION is relative

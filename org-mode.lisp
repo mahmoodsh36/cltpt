@@ -222,7 +222,8 @@ its value is NIL."
 (defclass org-babel-results-colon (text-object)
   ((rule
     :allocation :class
-    :initform '(:region (:string ": "))))
+    :initform '(:region (:string ": ")
+                :disallow t)))
   (:documentation "org-babel evaluation results."))
 
 (defmethod text-object-export ((obj org-babel-results-colon) backend)
@@ -238,7 +239,7 @@ its value is NIL."
                 :begin-to-hash t
                 :begin-conditions (end-of-line)
                 :end (:pattern (%or (:string ":END:")
-                                (:string ":end:"))))))
+                                    (:string ":end:"))))))
   (:documentation "org-mode drawer."))
 
 ;; simply dont export drawers (this isnt the correct org-mode behavior tho)
@@ -414,8 +415,7 @@ its value is NIL."
        (let ((list-entry-text (getf list-entry :text)))
          (setf (getf list-entry :text)
                (export-tree (parse list-entry-text
-                                   possible-children-types
-                                   :doc-type 'org-document)
+                                   possible-children-types)
                             backend
                             possible-children-types)))))
     (cond
@@ -449,8 +449,7 @@ its value is NIL."
               (lambda (list-entry-text)
                 (export-tree
                  (parse list-entry-text
-                        *org-mode-inline-text-object-types*
-                        :doc-type 'org-document)
+                        *org-mode-inline-text-object-types*)
                  backend
                  *org-mode-inline-text-object-types*))
               row))

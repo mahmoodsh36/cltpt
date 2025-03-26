@@ -13,13 +13,13 @@
 (defun test2 ()
   (time
    (progn
-     ;; (export-org-file
-     ;;  "test.org"
-     ;;  "test.out.tex")
      (export-org-file
       "test.org"
-      "test.out.html"
-      'html)
+      "test.out.tex")
+     ;; (export-org-file
+     ;;  "test.org"
+     ;;  "test.out.html"
+     ;;  'html)
      nil)))
 
 (defun test10 ()
