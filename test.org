@@ -35,7 +35,10 @@ my first block
 
 #(make-block :type 'theorem)
   my second block
+  #a
 #(block-end)
+
+#test
 
 table here
 | code                             | math                  |

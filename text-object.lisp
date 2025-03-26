@@ -95,7 +95,8 @@ region. you should just make it return a symbol like `end-type'."))
   "default export function."
   (if (text-object-property obj :eval-result)
       (list :text (format nil "~A" (text-object-property obj :eval-result)))
-      (list :text (text-object-text obj))))
+      (list :text (text-object-text obj)
+            :recurse t)))
 
 ;; default init function will just set the text slot of the object
 ;; we are currently using `subseq' to extract the region from the text and store
@@ -137,8 +138,8 @@ region. you should just make it return a symbol like `end-type'."))
 (defmethod print-object ((obj text-object) stream)
   (print-unreadable-object (obj stream :type t)
     (format stream "~A -> ~A"
-            (text-object-opening-region obj)
-            (text-object-closing-region obj))))
+            (if (slot-boundp obj 'opening-region) (text-object-opening-region obj) "")
+            (if (slot-boundp obj 'closing-region) (text-object-closing-region obj) ""))))
 
 ;; this is actually the slowest way to traverse siblings
 (defmethod text-object-next-sibling ((obj text-object))
@@ -188,10 +189,9 @@ region. you should just make it return a symbol like `end-type'."))
                                  (format nil "\\begin{~A}" type1)
                                  (format nil "\\end{~A}" type1)))
       ('html
-       (list :text "hey"
-             :reparse nil
-             :recurse nil
-             :escape nil)))))
+       (wrap-contents-for-export obj
+                                 (format nil "<~A>" type1)
+                                 (format nil "</~A>" type1))))))
 
 ;; aliases for blocks
 (setf (symbol-function 'b) (symbol-function 'make-block))
@@ -257,6 +257,11 @@ region. you should just make it return a symbol like `end-type'."))
                     :begin-to-hash t
                     :end-to-hash t))))
 
+(defclass text-macro-ref (text-object)
+  ((rule
+    :allocation :class
+    :initform (list :text (list :pattern (format nil "~A(%w)" *text-macro-seq*))))))
+
 ;; define the inline-math subclass with its own default rule
 (defclass inline-math (text-object)
   ((rule
@@ -271,8 +276,7 @@ region. you should just make it return a symbol like `end-type'."))
   (case backend
     ('latex
      (list :text (text-object-text obj)
-           :reparse nil
-           :recurse nil
+           :recurse t
            :escape nil))
     ('html
      (list :text (latex-fragment-to-html (text-object-text obj) t)
