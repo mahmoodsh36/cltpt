@@ -7,7 +7,7 @@
                 (doc-type 'document))
   "parse a string, returns an object tree."
   ;; find-class seems to be slow so we do it here and use it later in the loop
-  (let* ((text-macro-classes (mapcar 'find-class '(text-macro text-macro-ref)))
+  (let* ((text-macro-classes '(text-macro text-macro-ref))
          (text-objects)
          (data
            (remove-if-not
@@ -35,14 +35,15 @@
                     (match-closing-end (cadr match1))
                     (match-closing-begin (- match-closing-end (length match-closing-string)))
                     (type1 (last-atom match1))
-                    (is-macro (member type1 text-macro-classes))
+                    (is-lexer-macro (member type1 text-macro-classes))
                     (macro-eval-result)
                     (new-text-object))
-               (if is-macro
+               (if is-lexer-macro
                    (let ((match-text (subseq str1 match-opening-begin match-closing-end)))
                      (handler-case
                          (eval (read-from-string
-                                (subseq match-text (length *text-macro-seq*))))
+                                ;; skip first char (`*lexer-text-macro-char*')
+                                (subseq match-text 1)))
                        (error (c)
                          (format t "error while evaluating macro ~A: ~A.~%" match-text c)
                          (setf macro-eval-result 'broken))
@@ -62,11 +63,11 @@
                        (make-region :begin match-opening-begin :end match-opening-end))
                      (closing-text-region
                        (make-region :begin match-closing-begin :end match-closing-end)))
-                 (when is-macro
+                 (when is-lexer-macro
                    (setf (text-object-property new-text-object :eval-result) macro-eval-result))
                  (text-object-init new-text-object str1 opening-text-region closing-text-region)
                  ;; handle lexical scope of pair (if we found one)
-                 (if is-macro
+                 (if is-lexer-macro
                      (let ((done))
                        (loop for prev-obj in (reverse text-objects)
                              for prev-obj-idx from 0
@@ -99,13 +100,14 @@
                     (match-type (cadddr match1))
                     (new-text-object (make-instance match-type))
                     (type1 (last-atom match1))
-                    (is-macro (member type1 text-macro-classes)))
-               (when is-macro
+                    (is-lexer-macro (member type1 text-macro-classes)))
+               (when is-lexer-macro
                  (let ((match-text (subseq str1 match-begin match-end))
                        (macro-eval-result))
                    (handler-case
                        (eval (read-from-string
-                              (subseq match-text (length *text-macro-seq*))))
+                              ;; skip first char (`*lexer-text-macro-char*')
+                              (subseq match-text 1)))
                      (error (c)
                        (format t "error while evaluating macro ~A: ~A.~%" match-text c)
                        (setf macro-eval-result 'broken))
@@ -125,20 +127,14 @@
                                  nil)
                (push new-text-object text-objects)))
     ;; here we build the text object forest (collection of trees) properly
-    (let ((forest (build-tree (loop for o in text-objects
-                                    collect (list (text-object-begin o)
-                                                  (text-object-end o)
-                                                  o)))))
+    (let ((forest (build-forest (loop for o in text-objects
+                                      collect (list (text-object-begin o)
+                                                    (text-object-end o)
+                                                    o)))))
       ;; discard region indicies
       (setf forest (mapcar-forest forest 'caddr))
-      ;; set child and parents properly
-      (map-forest
-       forest
-       (lambda (tree)
-         (unless (atom tree)
-           (dolist (child (cdr tree))
-             (text-object-set-parent (car child) (car tree))
-             (text-object-adjust-to-parent (car child) (car tree))))))
+      ;; set children and parents properly
+      (build-text-object-forest forest)
       ;; (print-forest forest)
       (let ((top-level (mapcar 'car forest)))
         ;; (mapc (lambda (item)
@@ -160,6 +156,31 @@
             (progn
               (finalize-text-object-forest forest)
               top-level))))))
+
+(defun build-text-object-forest (forest)
+  ;; set child and parents properly, if their parents' rules allow it
+  (map-forest
+   forest
+   (lambda (tree)
+     (unless (atom tree)
+       (let* ((parent-rule (text-object-rule-from-subclass (class-name (class-of (car tree)))))
+              (disallowed (getf parent-rule :disallow))
+              (allowed (getf parent-rule :allow)))
+         ;; the rule could be nil in instances where a `text-object' was directly created
+         ;; which currently (atleast) happens in the case of macros
+         (when parent-rule
+           (dolist (child (cdr tree))
+             (let ((allow-child t))
+               (unless (eq disallowed t) ;; do nothing if disallowed=t
+                 (if allowed
+                     (unless (eq allowed t) ;; if allowed=t we keep allow-child=t
+                       (setf allow-child (loop for type1 in allowed thereis (typep child type1))))
+                     (if disallowed
+                         (setf allow-child
+                               (loop for type1 in allowed never (typep child type1)))))
+                 (when allow-child
+                   (text-object-set-parent (car child) (car tree))
+                   (text-object-adjust-to-parent (car child) (car tree))))))))))))
 
 ;; just a DRY shortcut
 (defun finalize-text-object-forest (forest)

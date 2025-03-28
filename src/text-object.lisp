@@ -51,6 +51,7 @@
    (rule
     :accessor text-object-rule
     :allocation :class
+    :initform nil
     :documentation "the matching method from `*matching-methods*' used to match against the text object."))
   (:documentation "cltpt objects base class"))
 
@@ -76,10 +77,10 @@ region. you should just make it return a symbol like `end-type'."))
 (defmethod text-object-ends-by ((text-obj text-object) value)
   (and (symbolp value) (string= value 'end)))
 
-(defmethod text-object-property ((obj text-object) property)
-  (getf (text-object-properties obj) property))
+(defmethod text-object-property ((obj text-object) property &optional (default nil))
+  (getf (text-object-properties obj) property default))
 
-(defmethod (setf text-object-property) (value (obj text-object) property)
+(defmethod (setf text-object-property) (value (obj text-object) property &optional default)
   (setf (getf (text-object-properties obj) property) value))
 
 ;; returns a plist or a string, if string, exported with recursion and no "reparsing", if plist, plist can contain
@@ -96,7 +97,8 @@ region. you should just make it return a symbol like `end-type'."))
   (if (text-object-property obj :eval-result)
       (list :text (format nil "~A" (text-object-property obj :eval-result)))
       (list :text (text-object-text obj)
-            :recurse t)))
+            :recurse t
+            :escape t)))
 
 ;; default init function will just set the text slot of the object
 ;; we are currently using `subseq' to extract the region from the text and store
@@ -131,15 +133,15 @@ region. you should just make it return a symbol like `end-type'."))
 
 (defmethod text-object-set-parent ((child text-object) (parent text-object))
   (if (text-object-parent child)
-      (remove child (text-object-parent child)))
+      (delete child (text-object-children (text-object-parent child))))
   (setf (text-object-parent child) parent)
   (push child (text-object-children parent)))
 
 (defmethod print-object ((obj text-object) stream)
   (print-unreadable-object (obj stream :type t)
     (format stream "~A -> ~A"
-            (if (slot-boundp obj 'opening-region) (text-object-opening-region obj) "")
-            (if (slot-boundp obj 'closing-region) (text-object-closing-region obj) ""))))
+            (if (slot-boundp obj 'opening-region) (text-object-opening-region obj) nil)
+            (if (slot-boundp obj 'closing-region) (text-object-closing-region obj) nil))))
 
 ;; this is actually the slowest way to traverse siblings
 (defmethod text-object-next-sibling ((obj text-object))
@@ -173,9 +175,6 @@ region. you should just make it return a symbol like `end-type'."))
          (obj (make-instance 'text-block)))
     (setf (text-object-property obj :type) type1)
     obj))
-
-(defmethod text-object-export ((obj text-block) backend)
-  (text-object-text obj))
 
 (defun block-end ()
   'block-end)
@@ -245,22 +244,71 @@ region. you should just make it return a symbol like `end-type'."))
           (text-object-contents-begin obj)
           (text-object-contents-end obj)))
 
-;; for macros (code executions that return objects)
-(defvar *text-macro-seq* "#")
+;; for macro executions that return objects
+(defvar *lexer-text-macro-char* #\#)
+;; for macro executions that are supposed to run the code after tree construction (text objects
+;; already constructed)
+(defvar *post-lexer-text-macro-char* #\◊)
 
-;; this isnt used or written properly yet
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform (list :begin (list :string (format nil "~A(" *text-macro-seq*))
-                    :end '(:string ")")
-                    :begin-to-hash t
-                    :end-to-hash t))))
+    :initform `(:begin (:string ,(format nil "~A(" *lexer-text-macro-char*))
+                :end (:string ")")
+                :begin-to-hash t
+                :end-to-hash t
+                :disallow t))))
 
 (defclass text-macro-ref (text-object)
   ((rule
     :allocation :class
-    :initform (list :text (list :pattern (format nil "~A(%w)" *text-macro-seq*))))))
+    :initform `(:text (:pattern ,(format nil "~A(%W-)" *lexer-text-macro-char*))
+                :disallow t))))
+
+(defclass post-lexer-text-macro (text-object)
+  ((rule
+    :allocation :class
+    :initform `(:begin (:string ,(format nil "~A(" *post-lexer-text-macro-char*))
+                :end (:string ")")
+                :begin-to-hash t
+                :end-to-hash t
+                :disallow t))))
+
+(defclass post-lexer-text-macro-ref (text-object)
+  ((rule
+    :allocation :class
+    :initform `(:text (:pattern ,(format nil "~A(%W-)" *post-lexer-text-macro-char*))
+                :disallow t))))
+
+(defun finalize-post-lexer-macro-obj (obj)
+  (let ((txt-to-eval (subseq (text-object-text obj) 1))
+        (macro-eval-result))
+    (handler-case
+        (eval (read-from-string txt-to-eval))
+      (error (c)
+        (format t "error while evaluating macro ~A: ~A.~%" (text-object-text obj) c)
+        (setf macro-eval-result 'broken))
+      (:no-error (result1)
+        ;; (format t "evaluated macro ~A: ~A~%" (text-object-text obj) result1)
+        (setf macro-eval-result result1)))
+    (setf (text-object-property obj :eval-result) macro-eval-result)))
+
+(defun export-post-lexer-macro-obj (obj)
+  (list :text (or (princ-to-string (text-object-property obj :eval-result)) "")
+        :escape t
+        :recurse nil))
+
+(defmethod text-object-finalize ((obj post-lexer-text-macro))
+  (finalize-post-lexer-macro-obj obj))
+
+(defmethod text-object-finalize ((obj post-lexer-text-macro-ref))
+  (finalize-post-lexer-macro-obj obj))
+
+(defmethod text-object-export ((obj post-lexer-text-macro) backend)
+  (export-post-lexer-macro-obj obj))
+
+(defmethod text-object-export ((obj post-lexer-text-macro-ref) backend)
+  (export-post-lexer-macro-obj obj))
 
 ;; define the inline-math subclass with its own default rule
 (defclass inline-math (text-object)
@@ -351,7 +399,7 @@ region. you should just make it return a symbol like `end-type'."))
            :escape nil))))
 
 (defun text-object-rule-from-subclass (subclass)
-  (slot-value (sb-mop:class-prototype subclass) 'rule))
+  (slot-value (sb-mop:class-prototype (find-class-faster subclass)) 'rule))
 
 (defun map-text-object (text-obj func)
   "traverse the text object tree starting at TEXT-OBJ."
@@ -362,4 +410,4 @@ region. you should just make it return a symbol like `end-type'."))
 ;; we need to "finalize" the classes to be able to use MOP
 (defun ensure-finalized ()
   (dolist (mytype *org-mode-text-object-types*)
-    (sb-mop:finalize-inheritance mytype)))
+    (sb-mop:finalize-inheritance (find-class-faster mytype))))

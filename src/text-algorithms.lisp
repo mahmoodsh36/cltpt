@@ -156,6 +156,7 @@ returns a list of segments, each of which is one of:
                   (setf start plen)))))
         (nreverse segments))))
 
+;; may be faster than other options (such as composition of subseq and string=)
 (defun substring-equal (str1 other begin end)
   (loop for i from 0 below (- end begin)
         always (char= (char str1 (+ begin i))
@@ -425,7 +426,7 @@ events from the same rule, we track active region events in a hash table."
                                (remove-if (lambda (pair)
                                             (eq (car pair) rule-id))
                                           active-regions)))))))))
-      ;; process literal and pattern markers.
+      ;; process literal and restricted markers.
       ;; hashed ones (according to a specific char) make our job easier/faster.
       (let ((c (char str i)))
         (dolist (marker (gethash c marker-hash))
@@ -459,7 +460,7 @@ returns a list of event plists with keys :pos, :end, :match, and :marker."
 
 (defun scan-all-markers (str markers)
   "scan STR for all markers.
-uses an optimized single pass for non-regex markers (via a hash table)
+uses a single pass for non-regex markers (via a hash table, if possible/requested)
 and a separate pass for regex markers."
   (let* ((opt-markers (remove-if (lambda (m) (eq (getf m :match-type) :regex))
                                  markers))

@@ -4,14 +4,13 @@
   (cons interval nil))
 
 ;; todo: optimize
-(defun build-tree (intervals)
-  "build a nesting tree from a list of intervals.
-each interval is a list of the form (start end id).
-assumes intervals are strictly nested and sorted by start."
+(defun build-forest (intervals)
+  "build a nested tree from a list of intervals.
+each interval is a list of the form (start end id)."
   (let ((forest)
         (stack))
     ;; sort intervals by the start value.
-    (setq intervals
+    (setf intervals
           (sort intervals (lambda (a b)
                             (< (first a) (first b)))))
     (dolist (interval intervals)
