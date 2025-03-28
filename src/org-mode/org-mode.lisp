@@ -8,21 +8,21 @@
   ;; we store the classes themselves instead of the symbols so we dont have to
   ;; run find-class (which is really costly) in other places.
   (setf *org-mode-text-object-types*
-        (mapcar 'find-class
-                '(org-list org-table
-                  org-keyword org-header
-                  org-link
-                  org-block org-drawer
-                  display-math inline-math latex-env
-                  org-babel-results ;; org-babel-results-colon
-                  ;; text-macro
-                  )))
+        '(org-list org-table
+          org-keyword org-header
+          org-link
+          org-block org-drawer
+          display-math inline-math latex-env
+          org-babel-results org-babel-results-colon
+          text-macro text-macro-ref
+          ))
   (setf *org-mode-inline-text-object-types*
         (intersection *org-mode-text-object-types*
-                      (mapcar 'find-class
-                              '(org-link
-                                inline-math
-                                )))))
+                      '(org-link
+                        inline-math
+                        text-macro
+                        text-macro-ref
+                        ))))
 
 (defvar *org-symbol-regex* "[a-zA-Z\\-_]+")
 
@@ -170,67 +170,73 @@ its value is NIL."
 ;; the output of a src block may be a table, a drawer, a block, or a region of lines
 ;; preceded by " :".
 (defmethod text-object-finalize ((obj org-babel-results))
-  "finalize an org-mode block, grabs #+name and other possible keywords."
   (let ((parent (text-object-parent obj))
         (next-sibling (text-object-next-sibling obj))
         (newline-idx))
     (when parent
-      (setq newline-idx (position #\newline
+      (setf newline-idx (position #\newline
                                   (text-object-text (text-object-parent obj))
                                   :start (region-begin (text-object-opening-region obj)))))
-    (if (and next-sibling
-             (member (type-of next-sibling)
-                     (list 'org-drawer 'org-table 'org-block)
-                     :test 'string=)
-             (< (text-object-fake-line-num-distance obj next-sibling) 2))
-        ;; next child is the result of the results (could be drawer or some other org-element)
-        ;; we need to make it the child of this object
-        (progn
-          (setf (text-object-property obj :value) next-sibling)
-          (text-object-set-parent next-sibling obj))
-        (when parent
-          (let ((str-list))
-            (loop while newline-idx
-                  for current = (1+ newline-idx)
-                  while (< (1+ current) (length (text-object-text parent)))
-                  for current-beginning = (subseq (text-object-text parent)
-                                                  current
-                                                  (+ 2 current))
-                  while (string= current-beginning ": ")
-                  do (setf newline-idx
-                           (position #\newline
-                                     (text-object-text parent)
-                                     :test 'char=
-                                     :start current))
-                     (push (subseq (text-object-text parent)
-                                   (+ 2 current)
-                                   (if newline-idx
-                                       newline-idx
-                                       (length (text-object-text parent))))
-                           str-list))
-            (setf (text-object-property obj :value)
-                  (str:join (string #\newline) str-list))
-            (setf (region-end (text-object-opening-region obj))
-                  (or newline-idx (+ 2 (length (text-object-text parent))))))))))
+    (when (and next-sibling
+               (member (type-of next-sibling)
+                       (list 'org-drawer 'org-table 'org-block 'org-babel-results-colon)
+                       :test 'string=)
+               (< (text-object-fake-line-num-distance obj next-sibling) 2))
+      ;; next child is the result of the results (could be drawer or some other org-element)
+      ;; we need to make it the child of this object
+      (setf (text-object-property obj :value) next-sibling)
+      ;; (text-object-set-parent next-sibling obj)
+      ;; (setf (region-end (text-object-opening-region obj))
+      ;;       (max (region-end (text-object-opening-region obj))
+      ;;            (region-end (text-object-opening-region next-sibling)))
+      ;;       (text-object-text obj)
+      ;;       (concatenate 'string
+      ;;                    (text-object-text obj)
+      ;;                    (string #\newline)
+      ;;                    (text-object-text next-sibling))
+      ;;       )
+      ;; (when parent
+      ;;   (let ((str-list))
+      ;;     (loop while newline-idx
+      ;;           for current = (1+ newline-idx)
+      ;;           while (< (1+ current) (length (text-object-text parent)))
+      ;;           for current-beginning = (subseq (text-object-text parent)
+      ;;                                           current
+      ;;                                           (+ 2 current))
+      ;;           while (string= current-beginning ": ")
+      ;;           do (setf newline-idx
+      ;;                    (position #\newline
+      ;;                              (text-object-text parent)
+      ;;                              :test 'char=
+      ;;                              :start current))
+      ;;              (push (subseq (text-object-text parent)
+      ;;                            (+ 2 current)
+      ;;                            (if newline-idx
+      ;;                                newline-idx
+      ;;                                (length (text-object-text parent))))
+      ;;                    str-list))
+      ;;     (setf (text-object-property obj :value)
+      ;;           (str:join (string #\newline) str-list))
+      ;;     (setf (region-end (text-object-opening-region obj))
+      ;;           (or newline-idx (+ 2 (length (text-object-text parent)))))))
+      )))
 
 (defmethod text-object-export ((obj org-babel-results) backend)
   (let ((results (text-object-property obj :value)))
-    (format nil
-            ""
-            :recurse nil)))
+    (when (typep results 'text-object)
+      (setf (text-object-property results :exports) t))
+    ""))
 
 (defclass org-babel-results-colon (text-object)
   ((rule
     :allocation :class
     :initform '(:region (:string ": ")
-                :disallow t)))
-  (:documentation "org-babel evaluation results."))
+                :disallow t))))
 
 (defmethod text-object-export ((obj org-babel-results-colon) backend)
-  (let ((results (text-object-property obj :value)))
-    (format nil
-            ""
-            :recurse nil)))
+  (if (text-object-property obj :exports t)
+      (text-object-text obj)
+      ""))
 
 (defclass org-drawer (text-object)
   ((rule

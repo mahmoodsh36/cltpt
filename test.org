@@ -26,6 +26,12 @@ code here
 #+RESULTS:
 : whatever
 : whatever2
+: \(11\)
+: wow
+
+#(b :type 'definition :let ((myvar1 "test")))
+◊(concatenate 'string "test: " myvar1)
+#(/b)
 
 a value here: #(format nil "test~A" 1)
 
@@ -38,7 +44,7 @@ my first block
   #a
 #(block-end)
 
-#test
+#20
 
 table here
 | code                             | math                  |

@@ -25,6 +25,8 @@
          (region-to-escape (when (and to-escape (not result-is-string))
                              (getf result :escape-region)))
          (to-recurse (or (unless result-is-string (getf result :recurse)) to-reparse)))
+    (when *debug*
+      (format t "exporting object ~A~%" text-obj))
     (if to-recurse
         (let ((final-result "")
               (idx 0)
@@ -41,7 +43,9 @@
                                 (region-begin region-to-reparse)
                                 0)))
           (loop for child in children
-                do (let* ((child-result (export-tree child
+                do (when *debug*
+                     (format t "exporting child ~A~%" child))
+                   (let* ((child-result (export-tree child
                                                      backend
                                                      text-object-types))
                           (text-in-between-begin idx)
@@ -92,4 +96,6 @@
                                             final-result
                                             final-text-in-between)))
           final-result)
-        export-text)))
+        (if to-escape
+            (escape-text export-text backend)
+            export-text))))

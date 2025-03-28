@@ -62,11 +62,11 @@
 
 ;; test building a tree from enclsoing indicies
 (defun test7 ()
-  (let ((tree (build-tree '((0 29 id1)
-                            (2 27 id2)
-                            (10 20 id3)
-                            (13 17 id4)
-                            (22 25 id5)))))
+  (let ((tree (build-forest '((0 29 id1)
+                              (2 27 id2)
+                              (10 20 id3)
+                              (13 17 id4)
+                              (22 25 id5)))))
     (print-forest tree)))
 
 ;; this is an edge case, it fails
@@ -148,6 +148,10 @@ test [[blk:1683060983][multilayer perceptrons]]
 not a dash.
 BEGIN CODE
 print('hello')
+: some
+: more
+: \\(mymath\\)
+: stuff
 print('world')
 END CODE
 more text.
@@ -163,11 +167,15 @@ some footer text."))
                                     '(:region (:pattern "(%C:- )")
                                       ;; :ignore " "    ;; ignore spaces at beginning of each line
                                       :id 'dash-region)
+                                    '(:region (:string ": ")
+                                      :id 'colon-region)
                                     ;; begin/end rule: a code block.
                                     '(:begin (:string "BEGIN CODE")
                                       :end   (:string "END CODE")
                                       :id 'code-block)
-                                    ;; text rule: lines containing "ERROR:".
+                                    '(:begin (:string "\\(")
+                                      :end   (:string "\\)")
+                                      :id 'inline-math)
                                     '(:text (:string "ERROR:")
                                       :id 'error-text)
                                     '(:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz123 )]]")
@@ -210,3 +218,18 @@ some text
           :id 'keyword)
     `(:text (:pattern "[[(%w):(%w)]]")
       :id 'org-link))))
+
+;; matching nested pairs with potentially delimiters pairs that should be ignored
+(defun test23 ()
+  (find-with-rules
+   "(hello')'more)"
+   '((:begin (:string "(")
+      :end (:string ")")
+      :ignore-inside (:begin "'" :end "'")))))
+
+(defun test24 ()
+  (find-with-rules
+   "(hello \"h) (hello2 \")"
+   '((:begin (:string "(")
+      :end (:string ")")
+      :ignore-inside (:begin "\"" :end "\"")))))
