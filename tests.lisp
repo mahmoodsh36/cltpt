@@ -220,13 +220,36 @@ some text
       :id 'org-link))))
 
 ;; matching nested pairs with potentially delimiters pairs that should be ignored
+;; also nested patterns?
 (defun test23 ()
   (find-with-rules
-   "(hello')'more)"
-   '((:begin (:string "(")
+   "1#(hel7()8lomo'((hey))'re)h"
+   '((:begin (:string "#(")
       :end (:string ")")
-      :ignore-inside (:begin "'" :end "'")))))
+      :id 'outer
+      :children ((:begin (:string "(")
+                  :end (:string ")")
+                  :id 'inner)
+                 (:begin (:string "7")
+                  :end (:string "8")
+                  :id 'nums)
+                 (:begin (:string "'")
+                  :end (:string "'")
+                  :id 'quotes))))))
 
+(defun test25 ()
+  (let ((result (find-with-rules
+                 "#(hel(lo)moree)"
+                 '((:begin (:string "#(") :id 'outer
+                    :end (:string ")")
+                    :children ((:begin (:string "(")
+                                :id 'inner
+                                :end (:string ")")
+                                :shares-end-delim t)))))))
+    (format t "result: ~a~%" (length result))
+    result))
+
+      ;; :ignore-inside (:begin "'" :end "'")
 (defun test24 ()
   (find-with-rules
    "(hello \"h) (hello2 \")"

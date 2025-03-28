@@ -305,6 +305,17 @@ if the rule has an :ignore key, that value is attached to the marker record.
 returns a list of marker records (plists)."
   (let (markers)
     (dolist (r rules)
+      ;; if a rule has :begin and :end, and both are equal, we ensure :nestable is 'nil'
+      (when (and (getf r :end) (getf r :begin)
+                 (string= (cadr (getf r :end))
+                          (cadr (getf r :begin))))
+        (setf (getf r :nestable) nil))
+      ;; include markers from children
+      (when (getf r :children)
+        (dolist (record1 (build-marker-records (getf r :children)))
+          (setf (getf record1 :main-parent-id)
+                (or (getf r :main-parent-id) (getf r :id)))
+          (push record1 markers)))
       (dolist (key '(:begin :end :text :region))
         (let ((spec (getf r key)))
           (when spec
@@ -342,6 +353,11 @@ returns a list of marker records (plists)."
                 (setf record (append record (list :ignore (getf r :ignore)))))
               (when (getf r to-hash-key)
                 (setf record (append record (list :to-hash (getf r to-hash-key)))))
+              ;; (when (getf r :children)
+              ;;   (setf record (append record (list :children (getf r :children)))))
+              (dolist (option '(:shares-end-delim :shared-begin-delim))
+                (when (getf r option)
+                  (setf record (append record (list option (getf r option))))))
               (push record markers))))))
     markers))
 
@@ -494,48 +510,89 @@ for text and region markers the event is a list:
                                     (< (getf a :end) (getf b :end))
                                     (< (getf a :pos) (getf b :pos))))))
          (results)
-         (active-begins (make-hash-table :test 'equal))) ;; rule-id -> list of begin events
+         (active-begins (make-hash-table :test 'equal)) ;; rule-id -> list of begin events
+         (last-ends (make-hash-table :test 'equal))
+         ;; we need to keep track of whether unnestable elements (like quotes) are currently open
+         (is-unnestable-open (make-hash-table :test 'equal)))
     (dolist (ev sorted-events)
       (let* ((ev-marker (getf ev :marker))
              (ev-type (getf ev-marker :marker-type))
-             (rule-id (getf ev-marker :id)))
-        (cond
-          ((eq ev-type :begin)
-           ;; push this begin event onto the stack for the rule.
-           (push ev (gethash rule-id active-begins)))
-          ((eq ev-type :end)
-           (let ((stack (gethash rule-id active-begins)))
-             (when stack
-               ;; remove any begin events that don't leave a gap. (should i be doing it
-               ;; the other way around? remove end events that overlap begin events of the same
-               ;; rule?)
-               (loop while (and stack (not (< (getf (car stack) :end) (getf ev :pos))))
-                     do (pop stack))
+             (is-nested-rule (getf ev-marker :main-parent-id))
+             (parent-id (when is-nested-rule
+                          (getf ev-marker :main-parent-id)))
+             ;; allow nested rules only if parent is active
+             ;; todo: we need to later discard the rules if the parent gets discarded
+             (allow-marker (if is-nested-rule
+                             (gethash parent-id active-begins)
+                             t))
+             ;; rule-id is set to main-parent-id so we maintain the same stack for nested rules
+             ;; but we still need the "true" rule-id later
+             (true-rule-id (getf ev-marker :id))
+             (rule-id (if is-nested-rule
+                          parent-id
+                          true-rule-id)))
+        ;; dont allow a rule or its children to be started or ended multiple
+        ;; times by the same "region" of text
+        (let ((last-begin-ev (car (gethash rule-id active-begins)))
+              (last-end (gethash rule-id last-ends)))
+          (when (and last-begin-ev
+                     (or (< (getf ev :pos)
+                            (getf last-begin-ev :end))
+                         (and last-end
+                              (< (getf ev :pos)
+                                 last-end))
+                         ;; if the marker's rule has :nestable=nil, we must ensure
+                         ;; we dont open any more events until we close the currently open one
+                         (and (not (getf (getf ev-marker :rule) :nestable t))
+                              (equal ev-type :begin)
+                              (gethash true-rule-id is-unnestable-open))))
+            (setf allow-marker nil)))
+        (when allow-marker
+          (cond
+            ((eq ev-type :begin)
+             ;; push this begin event onto the stack for the rule.
+             (push ev (gethash rule-id active-begins))
+             (when (not (getf (getf ev-marker :rule) :nestable t))
+               (setf (gethash true-rule-id is-unnestable-open) t)))
+            ((eq ev-type :end)
+             (let ((stack (gethash rule-id active-begins)))
                (when stack
-                 (let ((begin-ev (pop stack))
-                       (pair-predicate (getf (getf ev-marker :rule) :pair-predicate)))
-                   ;; we need to call the :pair-predicate if existent before deciding
-                   ;; whether to match the pair
-                   (when (or (not pair-predicate)
-                             (funcall pair-predicate
-                                      str
-                                      (getf begin-ev :pos)
-                                      (getf ev :pos)
-                                      (getf begin-ev :end)
-                                      (getf ev :end)))
-                     (push (list (getf begin-ev :pos)
-                                 (getf ev :end)
-                                 (getf begin-ev :match)
-                                 (getf ev :match)
-                                 rule-id)
-                           results))
-                   (setf (gethash rule-id active-begins) stack))))))
-          ((or (eq ev-type :text) (eq ev-type :region))
-           (push (list (getf ev :pos)
-                       (getf ev :end)
-                       (getf ev :match)
-                       rule-id)
-                 results)))))
+                 ;; remove any begin events that don't leave a gap. (should i be doing it
+                 ;; the other way around? remove end events that overlap begin events of the same
+                 ;; rule?)
+                 ;; (loop while (and stack (not (< (1- (getf (car stack) :end)) (getf ev :pos))))
+                 ;;       do (pop stack))
+                 (when stack
+                   (let ((begin-ev (pop stack))
+                         (pair-predicate (getf (getf ev-marker :rule) :pair-predicate)))
+                     ;; we need to call the :pair-predicate if existent before deciding
+                     ;; whether to match the pair
+                     (when (or (not pair-predicate)
+                               (funcall pair-predicate
+                                        str
+                                        (getf begin-ev :pos)
+                                        (getf ev :pos)
+                                        (getf begin-ev :end)
+                                        (getf ev :end)))
+                       (push (list (getf begin-ev :pos)
+                                   (getf ev :end)
+                                   (getf begin-ev :match)
+                                   (getf ev :match)
+                                   ;; use the id of the begin marker, not `true-rule-id',
+                                   ;; because otherwise we will get issues if multiple nested
+                                   ;; rules have the same `:end'
+                                   (getf (getf begin-ev :marker) :id))
+                             results)
+                       (setf (gethash rule-id last-ends) (getf ev :end)))
+                     (when (getf (getf ev-marker :rule) :nestable t)
+                       (setf (gethash true-rule-id is-unnestable-open) nil))
+                     (setf (gethash rule-id active-begins) stack))))))
+            ((or (eq ev-type :text) (eq ev-type :region))
+             (push (list (getf ev :pos)
+                         (getf ev :end)
+                         (getf ev :match)
+                         true-rule-id)
+                   results))))))
     (sort results #'< :key #'first)))
 
 (defun modify-substring (str1 func main-region &optional small-region)
