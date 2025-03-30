@@ -181,6 +181,7 @@ region. you should just make it return a symbol like `end-type'."))
 
 (defmethod text-object-export ((obj text-block) backend)
   ;; use string on type to ensure its not a symbol
+  (format t "here ~A~%" (text-object-property obj :let))
   (let ((type1 (string-downcase (string (text-object-property obj :type)))))
     (case backend
       ('latex
