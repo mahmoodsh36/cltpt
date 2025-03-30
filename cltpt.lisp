@@ -3,4 +3,4 @@
 
 (in-package :cltpt)
 
-(defvar *debug* t)
+(defvar *debug* nil)
