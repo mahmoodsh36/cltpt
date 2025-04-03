@@ -426,10 +426,11 @@ events from the same rule, we track active region events in a hash table."
                  (getf m :to-hash)))
            markers))
         (active-regions)
-        (events))
+        (events)
+        (line-num 0))
     (dotimes (i n)
-      ;; region markers: check at beginning-of-line.
       (when (or (= i 0) (char= (elt str (1- i)) #\newline))
+        ;; region markers: check at beginning-of-line.
         (dolist (marker region-markers)
           (let* ((rule-id (getf marker :id))
                  (active (assoc rule-id active-regions)))
@@ -445,17 +446,22 @@ events from the same rule, we track active region events in a hash table."
                         (acons rule-id (+ i rlen)
                                (remove-if (lambda (pair)
                                             (eq (car pair) rule-id))
-                                          active-regions)))))))))
+                                          active-regions))))))))
+        ;; set :line-number which is used later to detect matches on different lines
+        ;; and prune them if they're not allowed
+        (incf line-num))
       ;; process literal and restricted markers.
       ;; hashed ones (according to a specific char) make our job easier/faster.
       (let ((c (char str i)))
         (dolist (marker (gethash c marker-hash))
           (let ((match-result (marker-match str n marker i)))
             (when match-result
+              (setf (getf match-result :line-num) line-num)
               (push match-result events)))))
       (dolist (marker nonregion-nonhashed-markers)
         (let ((match-result (marker-match str n marker i)))
           (when match-result
+            (setf (getf match-result :line-num) line-num)
             (push match-result events)))))
     (nreverse events)))
 
@@ -570,7 +576,25 @@ for text and region markers the event is a list:
                         (unless (eq allowed t)
                           (setf allow-child (and allow-child (member rule-id allowed))))
                         (if disallowed
-                            (setf allow-child (not (member rule-id disallowed))))))))))
+                            (setf allow-child (not (member rule-id disallowed)))))))))
+          ;; when we have :same-line is t, we need to discard the match if the end is on
+          ;; a different line
+          (let ((last-line (getf last-begin-ev :line-num))
+                (this-line (getf ev :line-num)))
+            (when (getf (getf (getf last-begin-ev :marker) :rule) :same-line)
+              (let ((begin-idx
+                      (position
+                       rule-id
+                       (gethash rule-id active-begins)
+                       :key (lambda (entry)
+                              (getf (getf (getf last-begin-ev :marker) :rule) :id))
+                       :from-end t)))
+                (when (and begin-idx last-line this-line (not (eq last-line this-line)))
+                  (setf (gethash rule-id active-begins) nil)
+                  (when (not (equal rule-id main-parent-id))
+                    (dotimes (_ (1+ begin-idx))
+                      (setf (gethash main-parent-id active-begins)
+                            (cdr (gethash main-parent-id active-begins))))))))))
         (when allow-event
           (cond
             ((eq ev-type :begin)

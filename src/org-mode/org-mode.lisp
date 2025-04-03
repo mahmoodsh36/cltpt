@@ -16,11 +16,13 @@
           org-block org-drawer
           display-math inline-math latex-env
           org-babel-results org-babel-results-colon
+          org-emph
           text-macro text-macro-ref
           post-lexer-text-macro post-lexer-text-macro-ref))
   (setf *org-mode-inline-text-object-types*
         (intersection *org-mode-text-object-types*
                       '(org-link
+                        org-emph
                         inline-math
                         text-macro text-macro-ref
                         post-lexer-text-macro post-lexer-text-macro-ref))))
@@ -564,6 +566,28 @@ its value is NIL."
                                 (org-table-separator-line-p line)))
                           lines)))
     (mapcar #'split-table-line rows)))
+
+(defclass org-emph (text-object)
+  ((rule
+    :allocation :class
+    :initform '(:begin (:string "*")
+                :begin-to-hash t
+                :begin-conditions (list (complement 'begin-of-line))
+                :end-conditions (list (complement 'begin-of-line))
+                :end (:string "*")
+                :end-to-hash t
+                :disallow t
+                :same-line t)))
+  (:documentation "org-mode emphasized text (surrounded by stars)."))
+
+(defmethod text-object-export ((obj org-emph) backend)
+  (cond
+    ((string= backend 'latex)
+     (let ((result (wrap-contents-for-export obj "\\textbf{" "}")))
+       (setf (getf result :reparse-region) nil)
+       result))
+    ((string= backend 'html)
+     (wrap-contents-for-export obj "<b>" "</b>"))))
 
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP

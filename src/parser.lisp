@@ -6,7 +6,6 @@
                 (as-doc t)
                 (doc-type 'document))
   "parse a string, returns an object tree."
-  ;; find-class seems to be slow so we do it here and use it later in the loop
   (let* ((text-macro-classes '(text-macro text-macro-ref))
          (post-lexer-macro-classes '(post-lexer-text-macro post-lexer-text-macro-ref))
          (text-objects)
