@@ -13,6 +13,9 @@ comment here
 this is a comment
 #+end_comment
 
+some *
+text *
+
 latex here
 \[ x = \sqrt{x^2} \]
 
@@ -77,6 +80,9 @@ to transclude some block (possibly from another file ofcourse):
 #(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))
 
 \(#(vect '(1 2 3)) + #(vect '(4 5 6))\)
+
+here is *some important text*, but also more *important text*.
+also *more*. but more*
 
 tables
 | code                             | math                  |
