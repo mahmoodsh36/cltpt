@@ -3,6 +3,8 @@
 (defvar *org-mode-text-object-types*)
 (defvar *org-mode-inline-text-object-types*)
 
+(defvar *org-mode-export-with-boilerplate* t)
+
 ;; eval-when wouldnt be enough here..
 (defmethod asdf:perform :after ((op asdf:load-op) (system (eql (asdf:find-system "cltpt"))))
   ;; we store the classes themselves instead of the symbols so we dont have to
@@ -15,14 +17,13 @@
           display-math inline-math latex-env
           org-babel-results org-babel-results-colon
           text-macro text-macro-ref
-          ))
+          post-lexer-text-macro post-lexer-text-macro-ref))
   (setf *org-mode-inline-text-object-types*
         (intersection *org-mode-text-object-types*
                       '(org-link
                         inline-math
-                        text-macro
-                        text-macro-ref
-                        ))))
+                        text-macro text-macro-ref
+                        post-lexer-text-macro post-lexer-text-macro-ref))))
 
 (defvar *org-symbol-regex* "[a-zA-Z\\-_]+")
 
@@ -491,14 +492,19 @@ its value is NIL."
   (case backend
     ('latex
      (let* ((my-preamble
-              (concatenate 'string
-                           (generate-latex-preamble "authorhere" "datehere" "titlehere")
-                           (string #\newline)
-                           "\\begin{document}"
-                           (string #\newline)))
-            (my-postamble (concatenate 'string
-                                       (string #\newline)
-                                       "\\end{document}"))
+              (if *org-mode-export-with-boilerplate*
+                  (concatenate 'string
+                               (generate-latex-preamble "authorhere" "datehere" "titlehere")
+                               (string #\newline)
+                               "\\begin{document}"
+                               (string #\newline))
+                  ""))
+            (my-postamble
+              (if *org-mode-export-with-boilerplate*
+                  (concatenate 'string
+                               (string #\newline)
+                               "\\end{document}")
+                  ""))
             (my-text (format nil "~A~A~A"
                              my-preamble
                              (text-object-text obj)

@@ -174,6 +174,8 @@ region. you should just make it return a symbol like `end-type'."))
   (let* ((type1 (getf kws :type))
          (obj (make-instance 'text-block)))
     (setf (text-object-property obj :type) type1)
+    (loop for (key value) on kws by #'cddr
+          do (setf (text-object-property obj key) value))
     obj))
 
 (defun block-end ()
@@ -181,7 +183,6 @@ region. you should just make it return a symbol like `end-type'."))
 
 (defmethod text-object-export ((obj text-block) backend)
   ;; use string on type to ensure its not a symbol
-  (format t "here ~A~%" (text-object-property obj :let))
   (let ((type1 (string-downcase (string (text-object-property obj :type)))))
     (case backend
       ('latex
@@ -256,9 +257,19 @@ region. you should just make it return a symbol like `end-type'."))
     :allocation :class
     :initform `(:begin (:string ,(format nil "~A(" *lexer-text-macro-char*))
                 :end (:string ")")
+                :children ((:begin (:string "(")
+                            :end (:string ")")
+                            :id ,(gensym)
+                            :children ((:begin (:string "\"")
+                                        :end (:string "\"")
+                                        :id ,(gensym)
+                                        :disallow t)))
+                           (:begin (:string "\"")
+                            :end (:string "\"")
+                            :id ,(gensym)
+                            :disallow t))
                 :begin-to-hash t
-                :end-to-hash t
-                :disallow t))))
+                :end-to-hash t))))
 
 (defclass text-macro-ref (text-object)
   ((rule
@@ -281,29 +292,39 @@ region. you should just make it return a symbol like `end-type'."))
     :initform `(:text (:pattern ,(format nil "~A(%W-)" *post-lexer-text-macro-char*))
                 :disallow t))))
 
-(defun finalize-post-lexer-macro-obj (obj)
+(defun eval-post-lexer-macro (obj)
   (let ((txt-to-eval (subseq (text-object-text obj) 1))
         (macro-eval-result))
     (handler-case
-        (eval (read-from-string txt-to-eval))
+        (eval-in-text-object-lexical-scope
+         obj
+         (lambda ()
+           (eval
+            (read-from-string
+             txt-to-eval))))
       (error (c)
-        (format t "error while evaluating macro ~A: ~A.~%" (text-object-text obj) c)
+        (format t "error while evaluating post-lexer macro ~A: ~A.~%" (text-object-text obj) c)
         (setf macro-eval-result 'broken))
       (:no-error (result1)
-        ;; (format t "evaluated macro ~A: ~A~%" (text-object-text obj) result1)
         (setf macro-eval-result result1)))
-    (setf (text-object-property obj :eval-result) macro-eval-result)))
+    macro-eval-result))
+
+(defun eval-in-text-object-lexical-scope (obj func)
+  (let ((parent (text-object-parent obj)))
+    (if parent
+        (eval-in-text-object-lexical-scope
+         parent
+         (lambda ()
+           (let ((binds (text-object-property obj :let)))
+             (bind-and-run binds func))))
+        (let ((binds (text-object-property obj :let)))
+          (bind-and-run binds func)))))
 
 (defun export-post-lexer-macro-obj (obj)
-  (list :text (or (princ-to-string (text-object-property obj :eval-result)) "")
-        :escape t
-        :recurse nil))
-
-(defmethod text-object-finalize ((obj post-lexer-text-macro))
-  (finalize-post-lexer-macro-obj obj))
-
-(defmethod text-object-finalize ((obj post-lexer-text-macro-ref))
-  (finalize-post-lexer-macro-obj obj))
+  (let ((eval-result (princ-to-string (eval-post-lexer-macro obj))))
+    (list :text eval-result
+          :escape t
+          :recurse nil)))
 
 (defmethod text-object-export ((obj post-lexer-text-macro) backend)
   (export-post-lexer-macro-obj obj))

@@ -491,7 +491,6 @@ and a separate pass for regex markers."
          (regex-events (scan-all-regex-markers str regex-markers)))
     (append opt-events regex-events)))
 
-;; if markers for rule A nest inside markers for rule B, they wont conflict. each rule's nested pairs are handled independently, and markers for different rules are allowed to overlap or nest, as they're processed in one pass.
 (defun find-with-rules (str rules)
   "scan STR for markers based on RULES.
 RULES is a list of plists that may specify marker types:
@@ -529,13 +528,14 @@ for text and region markers the event is a list:
              ;; todo: we need to later discard the rules if the parent gets discarded
              ;; also we need to handle it when some rule is unended inside a parent, and the
              ;; parent tries to end, because currently the parent's attempt to end would fail
-             (allow-marker (if is-nested-rule
-                               (gethash parent-id active-begins)
-                               t)))
-        ;; dont allow a rule or its children to be started or ended multiple
-        ;; times by the same "region" of text
+             (allow-event (if is-nested-rule
+                              (gethash parent-id active-begins)
+                              t)))
+        ;; here we handle some situations in which we dont want the event to go through
         (let ((last-begin-ev (car (gethash main-parent-id active-begins)))
               (last-end (gethash main-parent-id last-ends)))
+          ;; dont allow a rule or its children to be started or ended multiple
+          ;; times by the same "region" of text
           (when (and last-begin-ev
                      (or (< (getf ev :pos)
                             (getf last-begin-ev :end))
@@ -547,18 +547,31 @@ for text and region markers the event is a list:
                          (and (not (getf (getf ev-marker :rule) :nestable t))
                               (equal ev-type :begin)
                               (gethash rule-id active-begins))))
-            (setf allow-marker nil))
+            (setf allow-event nil))
+          ;; was used for debugging..
           ;; (format t "marker1 ~A,~A ~A,~A ~A,~A, ~A,~A, ~A~%"
           ;;         (char str (getf ev :pos))
           ;;         (length (gethash main-parent-id active-begins))
-          ;;         (null allow-marker)
+          ;;         (null allow-event)
           ;;         ev-type
           ;;         (getf ev :pos)
           ;;         last-end parent-id
           ;;         (length (gethash parent-id active-begins))
           ;;         rule-id)
-          )
-        (when allow-marker
+          ;; if the parent doesnt allow this element nested inside it, we need to discard the event
+          (when last-begin-ev
+            (let ((allowed (getf (getf (getf last-begin-ev :marker) :rule) :allow))
+                  (disallowed (getf (getf (getf last-begin-ev :marker) :rule) :disallow)))
+              ;; according to this :allow=nil wouldnt work which may cause confusion
+              (unless (equal rule-id (getf (getf (getf last-begin-ev :marker) :rule) :id))
+                (if (eq disallowed t)
+                    (setf allow-event nil)
+                    (if allowed
+                        (unless (eq allowed t)
+                          (setf allow-child (and allow-child (member rule-id allowed))))
+                        (if disallowed
+                            (setf allow-child (not (member rule-id disallowed))))))))))
+        (when allow-event
           (cond
             ((eq ev-type :begin)
              ;; push this begin event onto the stack for the rule.
@@ -569,6 +582,7 @@ for text and region markers the event is a list:
              (let ((stack (gethash rule-id active-begins)))
                (when stack
                  (let* ((begin-ev (car stack))
+                        (main-stack-last-begin-ev (car (gethash main-parent-id active-begins)))
                         (pair-predicate (getf (getf ev-marker :rule) :pair-predicate))
                         (begin-ev-id (getf (getf begin-ev :marker) :id)))
                    ;; we need to call the :pair-predicate if existent before deciding
@@ -590,6 +604,7 @@ for text and region markers the event is a list:
                                  begin-ev-id)
                            results)
                      (setf (gethash main-parent-id last-ends) (getf ev :end)))
+                   ;; here we pop the begin event
                    ;; this wouldnt work if the parent and child have the same ending string..
                    ;; (setf (gethash rule-id active-begins) (cdr stack))
                    ;; (unless (equal main-parent-id rule-id)

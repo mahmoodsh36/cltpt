@@ -21,3 +21,16 @@
       (setf result (find-class class-sym))
       (setf (gethash class-sym *class-map*) result))
     result))
+
+(defun bind-and-run (bindings func)
+  "dynamically binds symbols from BINDINGS (a list of symbol,value pairs) and executes FUNC."
+  (let ((keys (mapcar #'car bindings))
+        (values (mapcar #'cadr bindings)))
+    (progv keys values
+      (funcall func))))
+;; example
+;; (bind-and-run '((x 1) (y 2)) (lambda () (+ x y)))
+
+(defun plist-keys (plist)
+  (loop for (key value) on plist by #'cddr
+        collect key))
