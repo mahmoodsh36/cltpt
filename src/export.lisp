@@ -42,6 +42,10 @@
               (child-offset (if region-to-reparse
                                 (region-begin region-to-reparse)
                                 0)))
+          ;; if we reparsed, we need to reset the parent of the new copies of "children"
+          (when to-reparse
+            (dolist (child children)
+              (setf (text-object-parent child) text-obj)))
           (loop for child in children
                 do (when *debug*
                      (format t "exporting child ~A~%" child))

@@ -223,7 +223,7 @@ some text
 ;; also nested patterns?
 (defun test23 ()
   (find-with-rules
-   "1#(hel7()8lom0559o'((hey)0889)'re)h"
+   "1#(hel7()8lom0559o'((hey)0889)' \"((hey)0889)\" re)h"
    '((:begin (:string "#(")
       :end (:string ")")
       :id outer
@@ -238,7 +238,11 @@ some text
                   :id nums)
                  (:begin (:string "'")
                   :end (:string "'")
-                  :id quotes))))))
+                  :id single-quotes
+                  :disallow t)
+                 (:begin (:string "\"")
+                  :end (:string "\"")
+                  :id double-quotes))))))
 
 (defun test25 ()
   (let ((result (find-with-rules
@@ -251,11 +255,3 @@ some text
                                 :shares-end-delim t)))))))
     (format t "result: ~a~%" (length result))
     result))
-
-      ;; :ignore-inside (:begin "'" :end "'")
-(defun test24 ()
-  (find-with-rules
-   "(hello \"h) (hello2 \")"
-   '((:begin (:string "(")
-      :end (:string ")")
-      :ignore-inside (:begin "\"" :end "\"")))))
