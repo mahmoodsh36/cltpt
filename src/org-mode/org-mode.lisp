@@ -589,6 +589,50 @@ its value is NIL."
     ((string= backend 'html)
      (wrap-contents-for-export obj "<b>" "</b>"))))
 
+(defclass org-italic (text-object)
+  ((rule
+    :allocation :class
+    :initform '(:begin (:string "/")
+                :begin-to-hash t
+                :begin-conditions (list (complement 'begin-of-line))
+                :end-conditions (list (complement 'begin-of-line))
+                :end (:string "/")
+                :end-to-hash t
+                :disallow t
+                :same-line t)))
+  (:documentation "org-mode italicized text (surrounded by forward slahes)."))
+
+(defmethod text-object-export ((obj org-italic) backend)
+  (cond
+    ((string= backend 'latex)
+     (let ((result (wrap-contents-for-export obj "\\textit{" "}")))
+       (setf (getf result :reparse-region) nil)
+       result))
+    ((string= backend 'html)
+     (wrap-contents-for-export obj "<i>" "</i>"))))
+
+(defclass org-inline-code (text-object)
+  ((rule
+    :allocation :class
+    :initform '(:begin (:string "~")
+                :begin-to-hash t
+                :begin-conditions (list (complement 'begin-of-line))
+                :end-conditions (list (complement 'begin-of-line))
+                :end (:string "~")
+                :end-to-hash t
+                :disallow t
+                :same-line t)))
+  (:documentation "org-mode inline code (surrounded by tildes)."))
+
+(defmethod text-object-export ((obj org-inline-code) backend)
+  (cond
+    ((string= backend 'latex)
+     (let ((result (wrap-contents-for-export obj "\\verb{" "}")))
+       (setf (getf result :reparse-region) nil)
+       result))
+    ((string= backend 'html)
+     (wrap-contents-for-export obj "<pre><code>" "</code></pre>"))))
+
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
   (ensure-finalized)
