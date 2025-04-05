@@ -47,9 +47,9 @@ start with #20
 
 add 1 to get #(+ (prev) 1), add 10 to get #(+ (prev) 10)
 
-#(block :let ((prev-num (prev))
-              (next-num (parse-integer (car (text-list-items (next 'text-list)))))
-              (new-num (+ prev-num next-num))))
+#(block :let '((prev-num (prev))
+               (next-num (parse-integer (car (text-list-items (next 'text-list)))))
+               (new-num (+ prev-num next-num))))
 then add the first number from the next list to get #new-num
 multiply that by 5 to get #(* new-num 5). anything is possible! this is only a simple example
 #(/block)
@@ -79,10 +79,18 @@ output: ◊(concatenate 'string "value: [[[" myvar1 "]]]").
 to transclude some block (possibly from another file ofcourse):
 #(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))
 
-\(#(vect '(1 2 3)) + #(vect '(4 5 6))\)
+\(#$(vector (1 2 3)) + #$(vector (4 5 6))\)
+
+\(#(make-math-expr '(+ (vector (1 2 5 6)) 3334)) + 1\)
+
+\(#$(+ (vector (1 2 5 6)) 3334 1 2) + 1\)
 
 here is *some important text*, but also more *important text*.
 also *more*. but more*
+
+some ~inline code~ here.
+
+some /italicized text/ here, and some ~code~ here.
 
 tables
 | code                             | math                  |

@@ -103,7 +103,28 @@
                     (match-end (cadr match1))
                     (match-type (cadddr match1))
                     (new-text-object (make-instance match-type))
-                    (type1 (last-atom match1)))
+                    (type1 (last-atom match1))
+                    (is-lexer-macro (member type1 text-macro-classes)))
+               (when is-lexer-macro
+                 (let ((match-text (subseq str1 match-begin match-end))
+                       (macro-eval-result))
+                   (handler-case
+                       (eval (read-from-string
+                              ;; skip first char (`*lexer-text-macro-char*')
+                              (subseq match-text 1)))
+                     (error (c)
+                       (format t "error while evaluating macro ~A: ~A.~%" match-text c)
+                       (setf macro-eval-result 'broken))
+                     (:no-error (result1)
+                       ;; (format t "evaluated macro ~A: ~A~%" match-text result1)
+                       (setf macro-eval-result result1)
+                       (if (typep result1 'text-object)
+                           (setf new-text-object result1)
+                           (setf new-text-object (make-instance 'text-object)))))
+                   (when (equal macro-eval-result 'broken)
+                     (setf new-text-object (make-instance 'text-object)))
+                   (setf (text-object-property new-text-object :open-macro) t)
+                   (setf (text-object-property new-text-object :eval-result) macro-eval-result)))
                (text-object-init new-text-object
                                  str1
                                  (make-region :begin match-begin :end match-end)

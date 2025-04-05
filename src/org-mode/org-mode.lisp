@@ -16,13 +16,13 @@
           org-block org-drawer
           display-math inline-math latex-env
           org-babel-results org-babel-results-colon
-          org-emph
+          org-emph org-italic org-inline-code
           text-macro text-macro-ref
           post-lexer-text-macro post-lexer-text-macro-ref))
   (setf *org-mode-inline-text-object-types*
         (intersection *org-mode-text-object-types*
                       '(org-link
-                        org-emph
+                        org-emph org-italic org-inline-code
                         inline-math
                         text-macro text-macro-ref
                         post-lexer-text-macro post-lexer-text-macro-ref))))
@@ -594,8 +594,6 @@ its value is NIL."
     :allocation :class
     :initform '(:begin (:string "/")
                 :begin-to-hash t
-                :begin-conditions (list (complement 'begin-of-line))
-                :end-conditions (list (complement 'begin-of-line))
                 :end (:string "/")
                 :end-to-hash t
                 :disallow t
@@ -615,11 +613,10 @@ its value is NIL."
   ((rule
     :allocation :class
     :initform '(:begin (:string "~")
-                :begin-to-hash t
-                :begin-conditions (list (complement 'begin-of-line))
-                :end-conditions (list (complement 'begin-of-line))
+                ;; hashing here causes issues?
+                ;; :begin-to-hash t
                 :end (:string "~")
-                :end-to-hash t
+                ;; :end-to-hash t
                 :disallow t
                 :same-line t)))
   (:documentation "org-mode inline code (surrounded by tildes)."))
