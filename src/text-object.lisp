@@ -255,7 +255,8 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform `(:begin (:string ,(format nil "~A(" *lexer-text-macro-char*))
+    :initform `(:begin (:pattern (%or (:pattern ,(format nil "~A(%W-)(" *lexer-text-macro-char*))
+                                      (:string ,(format nil "~A(" *lexer-text-macro-char*))))
                 :end (:string ")")
                 :children ((:begin (:string "(")
                             :end (:string ")")
@@ -268,13 +269,19 @@ region. you should just make it return a symbol like `end-type'."))
                             :end (:string "\"")
                             :id ,(gensym)
                             :disallow t))
-                :begin-to-hash t
+                ;; :begin-to-hash t
                 :end-to-hash t))))
 
+(defun is-not-before-parenthesis (str1 pos match-str)
+  (not (char= (char str1 (+ pos (length match-str)))
+              #\()))
+
+;; the "ref" thing is here for now because we cannot match all macros of the form #symbol(code) in one rule
 (defclass text-macro-ref (text-object)
   ((rule
     :allocation :class
     :initform `(:text (:pattern ,(format nil "~A(%W-)" *lexer-text-macro-char*))
+                :text-conditions (is-not-before-parenthesis)
                 :disallow t))))
 
 (defclass post-lexer-text-macro (text-object)
@@ -339,8 +346,7 @@ region. you should just make it return a symbol like `end-type'."))
     :initform '(:begin (:string "\\(")
                 :end (:string "\\)")
                 :begin-to-hash t
-                :end-to-hash t
-                :recurse nil))))
+                :end-to-hash t))))
 
 (defmethod text-object-export ((obj inline-math) backend)
   (case backend
@@ -357,24 +363,22 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass display-math (text-object)
   ((rule
     :allocation :class
-    :initform '(:to-hash t
-                :begin (:string "\\[")
+    :initform '(:begin (:string "\\[")
                 :end (:string "\\]")
                 :begin-to-hash t
-                :end-to-hash t
-                :recurse nil))))
+                :end-to-hash t))))
 
 (defmethod text-object-export ((obj display-math) backend)
   (case backend
     ('latex
      (list :text (text-object-text obj)
            :reparse nil
-           :recurse nil
+           :recurse t
            :escape nil))
     ('html
      (list :text (latex-fragment-to-html (text-object-text obj) nil)
            :reparse nil
-           :recurse nil
+           :recurse t
            :escape nil))))
 
 (defclass latex-env-slow (text-object)
