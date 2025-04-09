@@ -101,5 +101,13 @@
                                             final-text-in-between)))
           final-result)
         (if to-escape
-            (escape-text export-text backend)
+            (if region-to-escape
+                (extract-modified-substring
+                 export-text
+                 (lambda (my-substr)
+                   (escape-text my-substr backend))
+                 (make-region :begin 0
+                              :end (length export-text))
+                 region-to-escape)
+                (escape-text export-text backend))
             export-text))))

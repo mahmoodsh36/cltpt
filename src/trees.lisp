@@ -59,10 +59,11 @@ each interval is a list of the form (start end id)."
           forest))
 
 (defun map-tree (node func)
-  (cons (funcall func node)
-        (mapcar (lambda (child)
-                  (map-tree child func))
-                (cdr node))))
+  (let ((result (mapcar (lambda (child)
+                          (map-tree child func))
+                        (cdr node))))
+    (cons (funcall func node)
+          result)))
 
 (defun map-forest (forest func)
   "apply map-tree to every node in the forest."

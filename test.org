@@ -95,7 +95,7 @@ some /italicized text/ here, and some ~code~ here.
 tables
 | code                             | math                  |
 |----------------------------------+-----------------------|
-| ~layer-x~                        | \(I^\ell\)            |
+| ~layer-x\9*1*0~                  | \(I^\ell\)            |
 | ~layer-y~                        | \(\hat Y^\ell\)       |
 | ~layer-y-unactivated~            | \(S^\ell\)            |
 | ~s-deltas~                       | \(\Delta S^\ell\)     |

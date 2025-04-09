@@ -175,18 +175,20 @@
          ;; the rule could be nil in instances where a `text-object' was directly created
          ;; which currently (atleast) happens in the case of macros
          (when parent-rule
-           (dolist (child (cdr tree))
-             (let ((allow-child t))
-               (unless (eq disallowed t) ;; do nothing if disallowed=t
-                 (if allowed
-                     (unless (eq allowed t) ;; if allowed=t we keep allow-child=t
-                       (setf allow-child (loop for type1 in allowed thereis (typep child type1))))
-                     (if disallowed
+           (if (eq disallowed t) ;; do nothing if disallowed=t
+               (setf (cdr tree) nil)
+               (dolist (child (cdr tree))
+                 (let ((allow-child t))
+                   (if allowed
+                       (unless (eq allowed t) ;; if allowed=t we keep allow-child=t
                          (setf allow-child
-                               (loop for type1 in allowed never (typep child type1)))))
-                 (when allow-child
-                   (text-object-set-parent (car child) (car tree))
-                   (text-object-adjust-to-parent (car child) (car tree))))))))))))
+                               (loop for type1 in allowed thereis (typep (car child) type1))))
+                       (if disallowed
+                           (setf allow-child
+                                 (loop for type1 in allowed never (typep child type1)))))
+                   (when allow-child
+                     (text-object-set-parent (car child) (car tree))
+                     (text-object-adjust-to-parent (car child) (car tree))))))))))))
 
 ;; just a DRY shortcut
 (defun finalize-text-object-forest (forest)
