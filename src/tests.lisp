@@ -245,3 +245,14 @@ there '\"((hey)0889)\" re)h"
                  (:begin (:string "\"")
                   :end (:string "\"")
                   :id double-quotes))))))
+
+(defun test24 ()
+  (find-with-rules
+   ":begin:
+:id: hey
+:end:"
+   '((:begin (:pattern ":(%w):")
+      :begin-to-hash t
+      :begin-conditions (end-of-line not-drawer-end)
+      :end (:pattern (%or (:string ":END:")
+                      (:string ":end:")))))))

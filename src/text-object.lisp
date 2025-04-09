@@ -432,8 +432,3 @@ region. you should just make it return a symbol like `end-type'."))
   (funcall func text-obj)
   (dolist (child (text-object-children text-obj))
     (map-text-object child func)))
-
-;; we need to "finalize" the classes to be able to use MOP
-(defun ensure-finalized ()
-  (dolist (mytype *org-mode-text-object-types*)
-    (sb-mop:finalize-inheritance (find-class-faster mytype))))

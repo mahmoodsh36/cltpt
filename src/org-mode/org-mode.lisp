@@ -27,6 +27,11 @@
                         text-macro text-macro-ref
                         post-lexer-text-macro post-lexer-text-macro-ref))))
 
+;; we need to "finalize" the classes to be able to use MOP
+(defun org-ensure-finalized ()
+  (dolist (mytype *org-mode-text-object-types*)
+    (sb-mop:finalize-inheritance (find-class-faster mytype))))
+
 (defvar *org-symbol-regex* "[a-zA-Z\\-_]+")
 
 ;; A
@@ -241,18 +246,22 @@ its value is NIL."
       (text-object-text obj)
       ""))
 
+(defun not-drawer-end (str pos match-str)
+  (not (string= (string-downcase match-str) ":end:")))
+
 (defclass org-drawer (text-object)
   ((rule
     :allocation :class
     :initform '(:begin (:pattern ":(%w):")
                 :begin-to-hash t
-                :begin-conditions (end-of-line)
+                :begin-conditions (end-of-line not-drawer-end)
                 :end (:pattern (%or (:string ":END:")
                                     (:string ":end:"))))))
   (:documentation "org-mode drawer."))
 
 ;; simply dont export drawers (this isnt the correct org-mode behavior tho)
 (defmethod text-object-export ((obj org-drawer) backend)
+  (format t "here1 ~%")
   "")
 
 (defmethod text-object-init :after ((obj org-block) str1 opening-region closing-region)
@@ -570,10 +579,10 @@ its value is NIL."
 (defclass org-emph (text-object)
   ((rule
     :allocation :class
-    :initform '(:begin (:string "*")
+    :initform `(:begin (:string "*")
                 :begin-to-hash t
-                :begin-conditions (list (complement 'begin-of-line))
-                :end-conditions (list (complement 'begin-of-line))
+                :begin-conditions ,(list (complement #'begin-of-line))
+                :end-conditions ,(list (complement #'begin-of-line))
                 :end (:string "*")
                 :end-to-hash t
                 :disallow t
@@ -632,7 +641,7 @@ its value is NIL."
 
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
-  (ensure-finalized)
+  (org-ensure-finalized)
   (let* ((result (parse (uiop:read-file-string filepath)
                         *org-mode-text-object-types*
                         :as-doc t

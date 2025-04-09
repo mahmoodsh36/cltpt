@@ -4,14 +4,14 @@
   :author "Mahmood Sheikh <mahmod.m2015@gmail.com>"
   :depends-on ("str" "uiop" "cl-ppcre" "cl-fad" "lparallel" "clingon" "ironclad")
   :components ((:file "cltpt")
-               (:file "tests")
                (:module "base" :pathname "src/"
                         :components ((:file "text-algorithms")
                                      (:file "text-object")
                                      (:file "parser")
                                      (:file "utils")
                                      (:file "export")
-                                     (:file "trees")))
+                                     (:file "trees")
+                                     (:file "tests")))
                (:module "commandline" :pathname "src/commandline"
                         :components ((:file "commandline")))
                (:module "org-mode" :pathname "src/org-mode"

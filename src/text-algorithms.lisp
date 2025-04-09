@@ -281,17 +281,14 @@ return the total length of the match if successful, or NIL otherwise."
 (defun apply-condition (cond-fn str pos match-str)
   "apply COND-FN to STR at POS with MATCH-STR.
 if COND-FN is NIL, return T.
-if it is a list, assume its car is the function and the rest are extra arguments.
+if it is a list, assume its a list of functions to call.
 if it is a symbol or a function, call it."
   (cond
     ((null cond-fn) t)
     ((listp cond-fn)
-     (let ((fn (car cond-fn))
-           (extra-args (cdr cond-fn)))
-       (if (or (functionp fn) (symbolp fn))
-           (apply (if (symbolp fn) (symbol-function fn) fn)
-                  str pos match-str extra-args)
-           (error "invalid condition list: ~A" cond-fn))))
+     (loop for fn in cond-fn
+           always (funcall (if (symbolp fn) (symbol-function fn) fn)
+                           str pos match-str)))
     ((functionp cond-fn)
      (funcall cond-fn str pos match-str))
     ((symbolp cond-fn)
@@ -361,9 +358,6 @@ returns a list of marker records (plists)."
                 (setf record (append record (list :to-hash (getf r to-hash-key)))))
               ;; (when (getf r :children)
               ;;   (setf record (append record (list :children (getf r :children)))))
-              (dolist (option '(:shares-end-delim :shared-begin-delim))
-                (when (getf r option)
-                  (setf record (append record (list option (getf r option))))))
               (push record markers))))))
     markers))
 
