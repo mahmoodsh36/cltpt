@@ -452,7 +452,8 @@ its value is NIL."
   ((rule
     :allocation :class
     :initform '(:region (:string "|")
-                :ignore " ")))
+                :ignore " "
+                :disallow t)))
   (:documentation "org-mode table."))
 
 (defmethod text-object-init :after ((obj org-table) str1 opening-region closing-region)
@@ -464,9 +465,9 @@ its value is NIL."
           (mapcar
            (lambda (row)
              (mapcar
-              (lambda (list-entry-text)
+              (lambda (entry-text)
                 (export-tree
-                 (parse list-entry-text
+                 (parse entry-text
                         *org-mode-inline-text-object-types*)
                  backend
                  *org-mode-inline-text-object-types*))
