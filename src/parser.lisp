@@ -68,12 +68,16 @@
                        (closing-text-region
                          (make-region :begin match-closing-begin :end match-closing-end)))
                    (when is-lexer-macro
-                     (setf (text-object-property new-text-object :eval-result) macro-eval-result))
-                   (text-object-init new-text-object str1 opening-text-region closing-text-region)
+                     (setf (text-object-property new-text-object :eval-result)
+                           macro-eval-result))
+                   (text-object-init new-text-object
+                                     str1
+                                     opening-text-region
+                                     closing-text-region)
                    ;; handle lexical scope of pair (if we found one)
                    (if is-lexer-macro
                        (let ((done))
-                         (loop for prev-obj in (reverse text-objects)
+                         (loop for prev-obj in text-objects
                                for prev-obj-idx from 0
                                while (not done)
                                ;; check if this macro is the closing of a previous macro, if so,

@@ -250,7 +250,7 @@ region. you should just make it return a symbol like `end-type'."))
 (defvar *lexer-text-macro-char* #\#)
 ;; for macro executions that are supposed to run the code after tree construction (text objects
 ;; already constructed)
-(defvar *post-lexer-text-macro-char* #\◊)
+(defvar *post-lexer-text-macro-char* #\%)
 
 (defclass text-macro (text-object)
   ((rule
