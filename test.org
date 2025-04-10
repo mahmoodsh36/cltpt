@@ -9,11 +9,11 @@ some [[mylink1-2:here1][testmore1- 2]] text
 [[attachment:sliding]]
 
 comment here
-#+begin_comment
+\#+begin_comment
 this is a comment
 #+end_comment
 
-some *
+some \*text*
 text *
 
 latex here
@@ -32,26 +32,30 @@ code here
 : \(11\)
 : wow
 
-a value here: #(format nil "test~A" 1)
+a value here: \#(format nil "test~A" 1)
 
 #(make-block :type 'definition)
 my first block
 #(block-end)
 
-#(make-block :type 'theorem)
-  my second block
-  #a
+#(make-block :type 'theorem :let '((a "some text")))
+  my first block
+  %a
+  #(make-block :type 'subtheorem :let '((b " that will be included on export")))
+    hello
+    %(concatenate 'string a b)
+  #(block-end)
 #(block-end)
 
 start with #20
 
-add 1 to get #(+ (prev) 1), add 10 to get #(+ (prev) 10)
+add 1 to get %(+ (prev) 1), add 10 to get %(+ (prev) 10)
 
 #(block :let '((prev-num (prev))
                (next-num (parse-integer (car (text-list-items (next 'text-list)))))
                (new-num (+ prev-num next-num))))
-then add the first number from the next list to get #new-num
-multiply that by 5 to get #(* new-num 5). anything is possible! this is only a simple example
+then add the first number from the next list to get %new-num
+multiply that by 5 to get %(* new-num 5). anything is possible! this is only a simple example
 #(/block)
 
 - 45
@@ -73,7 +77,7 @@ i personally plan on reducing my usage of org-mode syntax elements and use the "
 syntax above because it is a much more powerful alternative.
 
 #(b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))
-output: ◊(concatenate 'string "value: [[[" myvar1 "]]]").
+output: %(concatenate 'string "value: [[[" myvar1 "]]]").
 #(/b)
 
 to transclude some block (possibly from another file ofcourse):

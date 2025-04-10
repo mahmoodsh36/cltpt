@@ -256,3 +256,18 @@ there '\"((hey)0889)\" re)h"
       :begin-conditions (end-of-line not-drawer-end)
       :end (:pattern (%or (:string ":END:")
                       (:string ":end:")))))))
+
+(defun test25 ()
+  (export-tree
+   (parse
+    "#(make-block :type 'theorem :let '((a \"some text\")))
+  my first block
+  %a
+  #(make-block :type 'subtheorem :let '((b \" that will be included on export\")))
+    hello
+    %(concatenate 'string a b)
+  #(block-end)
+#(block-end)"
+    *org-mode-text-object-types*)
+   'latex
+   *org-mode-text-object-types*))

@@ -423,42 +423,47 @@ events from the same rule, we track active region events in a hash table."
            markers))
         (active-regions)
         (events)
-        (line-num 0))
+        (line-num 0)
+        (escaped nil))
     (dotimes (i n)
-      (when (or (= i 0) (char= (elt str (1- i)) #\newline))
-        ;; region markers: check at beginning-of-line.
-        (dolist (marker region-markers)
-          (let* ((rule-id (getf marker :id))
-                 (active (assoc rule-id active-regions)))
-            ;; only try matching if theres no active region overlapping.
-            (unless (and active (< i (cdr active)))
-              (let ((rlen (match-region-with-ignore str i marker)))
-                (when rlen
-                  (push (list :pos i :end (+ i rlen)
-                              :match (subseq str i (+ i rlen))
-                              :marker marker)
-                        events)
-                  (setf active-regions
-                        (acons rule-id (+ i rlen)
-                               (remove-if (lambda (pair)
-                                            (eq (car pair) rule-id))
-                                          active-regions))))))))
-        ;; set :line-number which is used later to detect matches on different lines
-        ;; and prune them if they're not allowed
-        (incf line-num))
-      ;; process literal and restricted markers.
-      ;; hashed ones (according to a specific char) make our job easier/faster.
-      (let ((c (char str i)))
-        (dolist (marker (gethash c marker-hash))
-          (let ((match-result (marker-match str n marker i)))
-            (when match-result
-              (setf (getf match-result :line-num) line-num)
-              (push match-result events)))))
-      (dolist (marker nonregion-nonhashed-markers)
-        (let ((match-result (marker-match str n marker i)))
-          (when match-result
-            (setf (getf match-result :line-num) line-num)
-            (push match-result events)))))
+      (let ((c (elt str i)))
+        (unless escaped
+          (when (or (= i 0) (char= (elt str (1- i)) #\newline))
+            ;; region markers: check at beginning-of-line.
+            (dolist (marker region-markers)
+              (let* ((rule-id (getf marker :id))
+                     (active (assoc rule-id active-regions)))
+                ;; only try matching if theres no active region overlapping.
+                (unless (and active (< i (cdr active)))
+                  (let ((rlen (match-region-with-ignore str i marker)))
+                    (when rlen
+                      (push (list :pos i :end (+ i rlen)
+                                  :match (subseq str i (+ i rlen))
+                                  :marker marker)
+                            events)
+                      (setf active-regions
+                            (acons rule-id (+ i rlen)
+                                   (remove-if (lambda (pair)
+                                                (eq (car pair) rule-id))
+                                              active-regions))))))))
+            ;; set :line-number which is used later to detect matches on different lines
+            ;; and prune them if they're not allowed
+            (incf line-num))
+          ;; process literal and restricted markers.
+          ;; hashed ones (according to a specific char) make our job easier/faster.
+          (dolist (marker (gethash c marker-hash))
+            (let ((match-result (marker-match str n marker i)))
+              (when match-result
+                (setf (getf match-result :line-num) line-num)
+                (push match-result events))))
+          (dolist (marker nonregion-nonhashed-markers)
+            (let ((match-result (marker-match str n marker i)))
+              (when match-result
+                (setf (getf match-result :line-num) line-num)
+                (push match-result events)))))
+        (if (char= c #\\)
+            (setf escaped (not escaped))
+            (setf escaped nil))))
     (nreverse events)))
 
 ;; regex scanning fallback (only if specified by rules), this applies its own pass
