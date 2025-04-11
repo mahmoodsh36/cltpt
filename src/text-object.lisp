@@ -317,27 +317,30 @@ region. you should just make it return a symbol like `end-type'."))
     macro-eval-result))
 
 (defun eval-in-text-object-lexical-scope (obj func)
-  (let ((parent (text-object-parent obj)))
+  (let ((parent (text-object-parent obj))
+        (binds (or (text-object-property obj :let*)
+                   (text-object-property obj :let))))
     (if parent
         (eval-in-text-object-lexical-scope
          parent
          (lambda ()
-           (let ((binds (text-object-property obj :let)))
-             (bind-and-run binds func))))
-        (let ((binds (text-object-property obj :let)))
-          (bind-and-run binds func)))))
+           (format t "hey2 ~A~%" binds)
+           (bind-and-eval* binds func)))
+        (bind-and-eval* binds func))))
 
-(defun export-post-lexer-macro-obj (obj)
-  (let ((eval-result (princ-to-string (eval-post-lexer-macro obj))))
-    (list :text eval-result
-          :escape t
-          :recurse nil)))
+(defun export-post-lexer-macro-obj (obj backend)
+  (let ((eval-result (eval-post-lexer-macro obj)))
+    (if (typep eval-result 'text-object)
+        (text-object-export eval-result backend)
+        (list :text (princ-to-string eval-result)
+              :escape t
+              :recurse nil))))
 
 (defmethod text-object-export ((obj post-lexer-text-macro) backend)
-  (export-post-lexer-macro-obj obj))
+  (export-post-lexer-macro-obj obj backend))
 
 (defmethod text-object-export ((obj post-lexer-text-macro-ref) backend)
-  (export-post-lexer-macro-obj obj))
+  (export-post-lexer-macro-obj obj backend))
 
 ;; define the inline-math subclass with its own default rule
 (defclass inline-math (text-object)

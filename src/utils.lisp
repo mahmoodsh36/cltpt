@@ -22,14 +22,21 @@
       (setf (gethash class-sym *class-map*) result))
     result))
 
-(defun bind-and-run (bindings func)
+(defun bind-and-eval (bindings func)
   "dynamically binds symbols from BINDINGS (a list of symbol,value pairs) and executes FUNC."
   (let ((keys (mapcar #'car bindings))
-        (values (mapcar #'cadr bindings)))
+        (values (mapcar #'eval (mapcar #'cadr bindings))))
     (progv keys values
       (funcall func))))
+(defun bind-and-eval* (bindings func)
+  (if (null bindings)
+      (funcall func)
+    (destructuring-bind (sym val-expr) (car bindings)
+      (progv (list sym) (list (eval val-expr))
+        (bind-and-eval* (cdr bindings) func)))))
 ;; example
-;; (bind-and-run '((x 1) (y 2)) (lambda () (+ x y)))
+;; (bind-and-eval '((x 1) (y (+ 1 2))) (lambda () (+ x y)))
+;; (bind-and-eval* '((x 1) (y (+ x 2))) (lambda () (+ x y)))
 
 (defun plist-keys (plist)
   (loop for (key value) on plist by #'cddr
