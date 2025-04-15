@@ -1,5 +1,9 @@
 (in-package :cltpt)
 
+;; dynamically bound when executing a post-lexer text-macro to give the context of the object
+;; to the function that will be running
+(defvar *post-lexer-text-macro-dynamic-object*)
+
 (defstruct region
   (begin 0)
   (end -1))
@@ -151,11 +155,12 @@ region. you should just make it return a symbol like `end-type'."))
         (when (< idx (1- (length (text-object-children parent))))
           (elt (text-object-children parent) (1+ idx)))))))
 
+;; this is actually the slowest way to traverse siblings
 (defmethod text-object-prev-sibling ((obj text-object))
   (with-slots (parent) obj
     (when parent
       (let ((idx (position obj (text-object-children parent))))
-        (when (> 0 idx)
+        (when (and (numberp idx) (> idx 0))
           (elt (text-object-children parent) (1- idx)))))))
 
 (defmethod text-object-finalize ((obj text-object))
@@ -287,11 +292,23 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass post-lexer-text-macro (text-object)
   ((rule
     :allocation :class
-    :initform `(:begin (:string ,(format nil "~A(" *post-lexer-text-macro-char*))
+    :initform `(:begin
+                (:pattern (%or (:pattern ,(format nil "~A(%W-)(" *post-lexer-text-macro-char*))
+                               (:string ,(format nil "~A(" *post-lexer-text-macro-char*))))
                 :end (:string ")")
-                :begin-to-hash t
-                :end-to-hash t
-                :disallow t))))
+                :children ((:begin (:string "(")
+                            :end (:string ")")
+                            :id ,(gensym)
+                            :children ((:begin (:string "\"")
+                                        :end (:string "\"")
+                                        :id ,(gensym)
+                                        :disallow t)))
+                           (:begin (:string "\"")
+                            :end (:string "\"")
+                            :id ,(gensym)
+                            :disallow t))
+                ;; :begin-to-hash t
+                :end-to-hash t))))
 
 (defclass post-lexer-text-macro-ref (text-object)
   ((rule
@@ -300,21 +317,27 @@ region. you should just make it return a symbol like `end-type'."))
                 :disallow t))))
 
 (defun eval-post-lexer-macro (obj)
-  (let ((txt-to-eval (subseq (text-object-text obj) 1))
-        (macro-eval-result))
-    (handler-case
-        (eval-in-text-object-lexical-scope
-         obj
-         (lambda ()
-           (eval
-            (read-from-string
-             txt-to-eval))))
-      (error (c)
-        (format t "error while evaluating post-lexer macro ~A: ~A.~%" (text-object-text obj) c)
-        (setf macro-eval-result 'broken))
-      (:no-error (result1)
-        (setf macro-eval-result result1)))
-    macro-eval-result))
+  ;; we cache results to avoid re-eval which could be slow
+  (let ((eval-result (text-object-property obj :eval-result)))
+    (if eval-result
+        eval-result
+        (let ((txt-to-eval (subseq (text-object-text obj) 1))
+              (macro-eval-result)
+              (*post-lexer-text-macro-dynamic-object* obj))
+          (handler-case
+              (eval-in-text-object-lexical-scope
+               obj
+               (lambda ()
+                 (eval
+                  (read-from-string
+                   txt-to-eval))))
+            (error (c)
+              (format t "error while evaluating post-lexer macro ~A: ~A.~%" (text-object-text obj) c)
+              (setf macro-eval-result 'broken))
+            (:no-error (result1)
+              (setf macro-eval-result result1)))
+          (setf (text-object-property obj :eval-result) macro-eval-result)
+          macro-eval-result))))
 
 (defun eval-in-text-object-lexical-scope (obj func)
   (let ((parent (text-object-parent obj))
@@ -324,7 +347,6 @@ region. you should just make it return a symbol like `end-type'."))
         (eval-in-text-object-lexical-scope
          parent
          (lambda ()
-           (format t "hey2 ~A~%" binds)
            (bind-and-eval* binds func)))
         (bind-and-eval* binds func))))
 
@@ -435,3 +457,18 @@ region. you should just make it return a symbol like `end-type'."))
   (funcall func text-obj)
   (dolist (child (text-object-children text-obj))
     (map-text-object child func)))
+
+(defun prev-obj ()
+  (text-object-prev-sibling *post-lexer-text-macro-dynamic-object*))
+
+(defun prev-obj-eval ()
+  (let* ((obj *post-lexer-text-macro-dynamic-object*)
+         (prev (when obj (text-object-prev-sibling obj))))
+    (when prev
+      (cond
+        ((or (typep prev 'post-lexer-text-macro) (typep prev 'post-lexer-text-macro-ref))
+         (eval-post-lexer-macro
+          (text-object-prev-sibling *post-lexer-text-macro-dynamic-object*)))
+        ((typep prev 'text-object) ;; pre-lexer text-macro's turn into text-object's
+         (text-object-property prev :eval-result))
+        (t nil)))))
