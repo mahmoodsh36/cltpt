@@ -6,16 +6,15 @@
     ('html (html-escape-chars text))
     (t text)))
 
-;; we should store the "fragments" in a list and join them in the end instead
-;; of using `concatenate' all the time
 (defun export-tree (text-obj backend text-object-types)
   (let* ((result (text-object-export text-obj backend))
          (result-is-string (typep result 'string))
          (to-escape (or result-is-string
                         (getf result :escape)
                         (getf result :escape-region)))
-         (to-reparse (unless result-is-string (or (getf result :reparse)
-                                                  (getf result :reparse-region))))
+         (to-reparse (unless result-is-string
+                       (or (getf result :reparse)
+                           (getf result :reparse-region))))
          (region-to-reparse (when (and to-reparse (not result-is-string))
                               (getf result :reparse-region)))
          (export-text
@@ -28,24 +27,32 @@
     (when *debug*
       (format t "exporting object ~A~%" text-obj))
     (if to-recurse
-        (let ((final-result "")
-              (idx 0)
-              (children (sort-text-objects
-                         (if to-reparse
-                             (text-object-children
-                              (parse (if region-to-reparse
-                                         (region-text region-to-reparse export-text)
-                                         export-text)
-                                     text-object-types
-                                     :as-doc t))
-                             (text-object-children text-obj))))
-              (child-offset (if region-to-reparse
-                                (region-begin region-to-reparse)
-                                0)))
+        ;; we store the results as fragments (`final-result-fragments') to avoid concatenating all the time
+        (let* ((final-result-fragments)
+               (idx 0)
+               (original-children (text-object-children text-obj))
+               (children (sort-text-objects
+                          (if to-reparse
+                              (text-object-children
+                               (parse (if region-to-reparse
+                                          (region-text region-to-reparse export-text)
+                                          export-text)
+                                      text-object-types))
+                              original-children)))
+               (child-offset (if region-to-reparse
+                                 (region-begin region-to-reparse)
+                                 0)))
           ;; if we reparsed, we need to reset the parent of the new copies of "children"
           (when to-reparse
+            (format t "woor8 ~A~%" (length (text-object-children text-obj)))
+            (setf (text-object-children text-obj) children)
+            ;; (setf child-offset 0)
             (dolist (child children)
-              (setf (text-object-parent child) text-obj)))
+              (setf (text-object-parent child) text-obj)
+              ;; (setf (text-object-parent child) nil)
+              ;; (text-object-set-parent child text-obj)
+              ;; (text-object-adjust-to-parent child text-obj)
+              ))
           (loop for child in children
                 do (when *debug*
                      (format t "exporting child ~A~%" child))
@@ -76,11 +83,8 @@
                                         text-in-between-begin
                                         text-in-between-end))))
                      ;; if we reparsed only a specific region, we need to offset the regions of children
-                     (setf final-result
-                           (concatenate 'string
-                                        final-result
-                                        text-in-between
-                                        child-result))
+                     (push text-in-between final-result-fragments)
+                     (push child-result final-result-fragments)
                      (setf idx (+ child-offset (text-object-end child)))))
           ;; we need to handle region-to-reparse properly on the remaining text after
           ;; the region of the last child
@@ -96,10 +100,8 @@
                            region-to-escape)
                           (escape-text (subseq export-text idx) backend))
                       (subseq export-text idx))))
-            (setf final-result (concatenate 'string
-                                            final-result
-                                            final-text-in-between)))
-          final-result)
+            (push final-text-in-between final-result-fragments)
+            (apply 'str:concat (nreverse final-result-fragments))))
         (if to-escape
             (if region-to-escape
                 (extract-modified-substring

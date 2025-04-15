@@ -261,7 +261,6 @@ its value is NIL."
 
 ;; simply dont export drawers (this isnt the correct org-mode behavior tho)
 (defmethod text-object-export ((obj org-drawer) backend)
-  (format t "here1 ~%")
   "")
 
 (defmethod text-object-init :after ((obj org-block) str1 opening-region closing-region)
@@ -299,18 +298,19 @@ its value is NIL."
 ;; one issue si that siblings might not be set properly if there's no parent document (parser was called with `:as-doc nil')
 (defmethod text-object-finalize ((obj org-block))
   "finalize an org-mode block, grabs #+name and other possible keywords."
-  (loop for sibling = (text-object-prev-sibling obj) while sibling
-        do (if (and (typep sibling 'org-keyword)
-                    (equal (text-object-fake-line-num-distance obj sibling) 1))
-               ;; as long as #+keyword: val precedes the current line by 1 line, we continue
-               ;; grabbing keywords.
-               (let ((kw (intern (text-object-property sibling :keyword)
-                                 "KEYWORD"))
-                     (val (text-object-property sibling :value)))
-                 (setf (text-object-property obj kw) val)
-                 (setf sibling (text-object-prev-sibling sibling)))
-               ;; stop
-               (setf sibling nil))))
+  (let ((siblilng obj))
+    (loop for sibling = (when sibling (text-object-prev-sibling sibling)) while sibling
+          do (if (and (typep sibling 'org-keyword)
+                      (equal (text-object-fake-line-num-distance obj sibling) 1))
+                 ;; as long as #+keyword: val precedes the current line by 1 line, we continue
+                 ;; grabbing keywords.
+                 (let ((kw (intern (text-object-property sibling :keyword)
+                                   "KEYWORD"))
+                       (val (text-object-property sibling :value)))
+                   (setf (text-object-property obj kw) val)
+                   )
+                 ;; stop
+                 (setf sibling nil)))))
 
 (defmethod text-object-export ((obj org-block) backend)
   (let ((block-type (text-object-property obj :type))

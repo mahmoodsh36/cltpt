@@ -54,7 +54,7 @@ my first block
 
 start with #20
 
-add 1 to get %(+ (prev) 1), add 10 to get %(+ (prev) 10)
+add 1 to get %(+ (prev-obj-eval) 1), add 10 to get %(+ (prev-obj-eval) 10)
 
 #(block :let '((prev-num (prev))
                (next-num (parse-integer (car (text-list-items (next 'text-list)))))
