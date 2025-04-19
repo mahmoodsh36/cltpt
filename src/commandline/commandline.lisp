@@ -26,6 +26,24 @@
     :initial-value (uiop:native-namestring "~/notes/")
     :key :dir)
    (clingon:make-option
+    :string
+    :description "the file to act on."
+    :short-name #\f
+    :long-name "file"
+    :key :file)
+   (clingon:make-option
+    :string
+    :description "export the specified file, the destination format is needed."
+    :short-name #\e
+    :long-name "export"
+    :key :export)
+   (clingon:make-option
+    :string
+    :description "when acting on a file, it is possible to provide the intended source format. if unprovided, it will be guessed from the filename extension."
+    :short-name #\f
+    :long-name "format"
+    :key :format)
+   (clingon:make-option
     :flag
     :description "list titles from org files."
     :long-name "list-titles"
@@ -36,12 +54,24 @@
         (my-dir (clingon:getopt cmd :dir))
         (to-list-titles (clingon:getopt cmd :list-titles))
         (to-help (clingon:getopt cmd :help))
+        (src-file (clingon:getopt cmd :file))
+        (export-format (clingon:getopt cmd :export))
+        (src-format (clingon:getopt cmd :format))
         (app (clingon:command-parent cmd)))
     (if to-help
         (clingon:print-usage cmd t)
         (progn
           (when to-list-titles
-            (mapcar 'print (list-org-titles my-dir)))))))
+            (mapcar 'print (list-org-titles my-dir)))
+          (when (and src-file export-format)
+            (if src-format
+                (progn
+                  )
+                (progn
+                  )))))))
+
+(defun export-file (src dest src-format dest-format)
+  )
 
 (defun commandline-main (argv)
   (let ((app (top-level-command)))

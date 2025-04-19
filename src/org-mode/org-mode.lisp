@@ -1,36 +1,38 @@
 (in-package :cltpt)
 
-(defvar *org-mode-text-object-types*)
+(defun make-org-mode ()
+  (make-text-format
+   "org-mode"
+   '(org-list org-table
+     org-keyword org-header
+     org-link
+     org-block org-drawer
+     display-math inline-math latex-env
+     org-babel-results org-babel-results-colon
+     org-emph org-italic org-inline-code
+     text-macro text-macro-ref
+     post-lexer-text-macro post-lexer-text-macro-ref)
+   'org-document))
+
+;; `text-format' instance
+(defvar org-mode (make-org-mode))
+;; whether to export with preamble/postamble, etc
+(defvar *org-mode-export-with-boilerplate* t)
+;; for detecting objects inside table cells, lists, etc
 (defvar *org-mode-inline-text-object-types*)
 
-(defvar *org-mode-export-with-boilerplate* t)
+(defun org-mode-text-object-types ()
+  (text-format-text-object-types org-mode))
 
 ;; eval-when wouldnt be enough here..
 (defmethod asdf:perform :after ((op asdf:load-op) (system (eql (asdf:find-system "cltpt"))))
-  ;; we store the classes themselves instead of the symbols so we dont have to
-  ;; run find-class (which is really costly) in other places.
-  (setf *org-mode-text-object-types*
-        '(org-list org-table
-          org-keyword org-header
-          org-link
-          org-block org-drawer
-          display-math inline-math latex-env
-          org-babel-results org-babel-results-colon
-          org-emph org-italic org-inline-code
-          text-macro text-macro-ref
-          post-lexer-text-macro post-lexer-text-macro-ref))
   (setf *org-mode-inline-text-object-types*
-        (intersection *org-mode-text-object-types*
+        (intersection (org-mode-text-object-types)
                       '(org-link
                         org-emph org-italic org-inline-code
                         inline-math
                         text-macro text-macro-ref
                         post-lexer-text-macro post-lexer-text-macro-ref))))
-
-;; we need to "finalize" the classes to be able to use MOP
-(defun org-ensure-finalized ()
-  (dolist (mytype *org-mode-text-object-types*)
-    (sb-mop:finalize-inheritance (find-class-faster mytype))))
 
 (defvar *org-symbol-regex* "[a-zA-Z\\-_]+")
 
@@ -115,8 +117,8 @@ its value is NIL."
     (setf (region-end (text-object-opening-region obj)) newline-pos)))
 
 (defmethod text-object-export ((obj org-header) backend)
-  (case backend
-    ('latex
+  (pcase backend
+    (latex
      (let* ((begin-text (format
                          nil
                          "\\~Asection{"
@@ -135,7 +137,7 @@ its value is NIL."
              :reparse t
              :reparse-region inner-region
              :recurse t)))
-    ('html
+    (html
      (let* ((begin-text (format
                          nil
                          "<h~A>"
@@ -320,7 +322,7 @@ its value is NIL."
     (cond
       ((member block-type (list "comment" "my_comment") :test 'string=)
        (list :text "" :reparse t))
-      ((string= backend 'latex)
+      ((eq backend latex)
        (let* ((begin-tag (format nil "\\begin{~A}" block-type))
               (end-tag (format nil "\\end{~A}" block-type))
               (my-text (concatenate 'string
@@ -336,7 +338,7 @@ its value is NIL."
                :escape (not is-verbatim)
                :reparse-region inner-region
                :escape-region inner-region)))
-      ((string= backend 'html)
+      ((eq backend html)
        (let* ((open-tag (if (string= block-type "src")
                             (format nil "<pre><code>" block-type)
                             (format nil "<~A>" block-type)))
@@ -394,10 +396,10 @@ its value is NIL."
 
 (defmethod text-object-export ((obj org-link) backend)
   (cond
-    ((string= backend 'latex)
+    ((eq backend latex)
      (list :text (format nil "\\ref{~A}" (text-object-property obj :dest))
            :escape nil))
-    ((string= backend 'html)
+    ((eq backend html)
      (format nil "<a href='~A'></a>" (text-object-property obj :dest)))))
 
 (defclass org-list (text-object)
@@ -432,17 +434,17 @@ its value is NIL."
      (lambda (list-entry)
        (let ((list-entry-text (getf list-entry :text)))
          (setf (getf list-entry :text)
-               (export-tree (parse list-entry-text
+               (convert-tree (parse list-entry-text
                                    possible-children-types)
                             backend
                             possible-children-types)))))
     (cond
-      ((string= backend 'latex)
+      ((eq backend latex)
        (list :text (org-list-to-latex my-list)
              :recurse nil
              :reparse nil
              :escape nil))
-      ((string= backend 'html)
+      ((eq backend tml)
        (list :text (org-list-to-html my-list)
              :recurse nil
              :reparse nil
@@ -466,7 +468,7 @@ its value is NIL."
            (lambda (row)
              (mapcar
               (lambda (entry-text)
-                (export-tree
+                (convert-tree
                  (parse entry-text
                         *org-mode-inline-text-object-types*)
                  backend
@@ -474,12 +476,12 @@ its value is NIL."
               row))
            (text-object-property obj :table))))
     (cond
-      ((string= backend 'latex)
+      ((eq backend latex)
        (list :text (org-table-to-latex my-table)
              :recurse nil
              :reparse nil
              :escape nil))
-      ((string= backend 'html)
+      ((eq backend html)
        (list :text (org-table-to-html my-table)
              :recurse nil
              :reparse nil
@@ -501,8 +503,8 @@ its value is NIL."
     (generate-svgs-for-latex mylist)))
 
 (defmethod text-object-export ((obj org-document) backend)
-  (case backend
-    ('latex
+  (pcase backend
+    (latex
      (let* ((my-preamble
               (if *org-mode-export-with-boilerplate*
                   (concatenate 'string
@@ -530,7 +532,7 @@ its value is NIL."
              :escape t
              ;; dont escape the commands in the preamble
              :escape-region inner-region)))
-    ('html
+    (html
      (let* ((my-preamble
               (concatenate 'string
                            "<html>"
@@ -592,11 +594,11 @@ its value is NIL."
 
 (defmethod text-object-export ((obj org-emph) backend)
   (cond
-    ((string= backend 'latex)
+    ((eq backend latex)
      (let ((result (wrap-contents-for-export obj "\\textbf{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
-    ((string= backend 'html)
+    ((eq backend html)
      (wrap-contents-for-export obj "<b>" "</b>"))))
 
 (defclass org-italic (text-object)
@@ -612,11 +614,11 @@ its value is NIL."
 
 (defmethod text-object-export ((obj org-italic) backend)
   (cond
-    ((string= backend 'latex)
+    ((eq backend latex)
      (let ((result (wrap-contents-for-export obj "\\textit{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
-    ((string= backend 'html)
+    ((eq backend html)
      (wrap-contents-for-export obj "<i>" "</i>"))))
 
 (defclass org-inline-code (text-object)
@@ -633,26 +635,26 @@ its value is NIL."
 
 (defmethod text-object-export ((obj org-inline-code) backend)
   (cond
-    ((string= backend 'latex)
+    ((eq backend latex)
      (let ((result (wrap-contents-for-export obj "\\verb{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
-    ((string= backend 'html)
+    ((eq backend html)
      (wrap-contents-for-export obj "<pre><code>" "</code></pre>"))))
 
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
   (org-ensure-finalized)
   (let* ((result (parse (uiop:read-file-string filepath)
-                        *org-mode-text-object-types*
+                        (org-mode-text-object-types)
                         :as-doc t
                         :doc-type 'org-document)))
     result))
 
 (defun export-org-doc (org-doc backend)
-  (export-tree org-doc
+  (convert-tree org-doc
                backend
-               *org-mode-text-object-types*))
+               (org-mode-text-object-types)))
 
 (defun export-org-file (src dest &optional (backend 'latex))
   (with-open-file (f dest
@@ -660,6 +662,12 @@ its value is NIL."
                      :if-exists :supersede
                      :if-does-not-exist :create)
     (write-sequence (export-org-doc (parse-org-file src) backend) f)))
+
+(defun org-convert-to-latex ()
+  )
+
+(defun org-convert-to-html ()
+  )
 
 ;; code for parsing lsits
 ;; A

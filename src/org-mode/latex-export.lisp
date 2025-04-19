@@ -25,8 +25,8 @@
     (#\_ . "\\_")
     (#\# . "\\#")))
 
-(defun latex-escape-chars (s)
-  (replace-chars s *latex-escape-table*))
+(defun latex-escape (s escapable-chars)
+  (replace-chars-and-escapes s *latex-escape-table* escapable-chars))
 
 ;; A
 (defun org-list-to-latex (org-forest)
