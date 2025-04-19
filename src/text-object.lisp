@@ -189,12 +189,12 @@ region. you should just make it return a symbol like `end-type'."))
 (defmethod text-object-export ((obj text-block) backend)
   ;; use string on type to ensure its not a symbol
   (let ((type1 (string-downcase (string (text-object-property obj :type)))))
-    (case backend
-      ('latex
+    (pcase backend
+      (latex
        (wrap-contents-for-export obj
                                  (format nil "\\begin{~A}" type1)
                                  (format nil "\\end{~A}" type1)))
-      ('html
+      (html
        (wrap-contents-for-export obj
                                  (format nil "<~A>" type1)
                                  (format nil "</~A>" type1))))))
@@ -275,6 +275,7 @@ region. you should just make it return a symbol like `end-type'."))
                             :id ,(gensym)
                             :disallow t))
                 ;; :begin-to-hash t
+                :escapable ,*lexer-text-macro-char* ;; for escaping
                 :end-to-hash t))))
 
 (defun is-not-before-parenthesis (str1 pos match-str)
@@ -374,12 +375,12 @@ region. you should just make it return a symbol like `end-type'."))
                 :end-to-hash t))))
 
 (defmethod text-object-export ((obj inline-math) backend)
-  (case backend
-    ('latex
+  (pcase backend
+    (latex
      (list :text (text-object-text obj)
            :recurse t
            :escape nil))
-    ('html
+    (html
      (list :text (latex-fragment-to-html (text-object-text obj) t)
            :reparse nil
            :recurse nil
@@ -394,13 +395,13 @@ region. you should just make it return a symbol like `end-type'."))
                 :end-to-hash t))))
 
 (defmethod text-object-export ((obj display-math) backend)
-  (case backend
-    ('latex
+  (pcase backend
+    (latex
      (list :text (text-object-text obj)
            :reparse nil
            :recurse t
            :escape nil))
-    ('html
+    (html
      (list :text (latex-fragment-to-html (text-object-text obj) nil)
            :reparse nil
            :recurse t
@@ -437,19 +438,30 @@ region. you should just make it return a symbol like `end-type'."))
   (:documentation "latex environment."))
 
 (defmethod text-object-export ((obj latex-env) backend)
-  (case backend
-    ('latex
+  (pcase backend
+    (latex
      (list :text (text-object-text obj)
            :reparse nil
            :recurse nil
            :escape nil))
-    ('html
+    (html
      (list :text (latex-fragment-to-html (text-object-text obj) nil)
            :reparse nil
            :recurse nil
            :escape nil))))
 
+;; we need to "finalize" the classes to be able to use MOP, a temporary workaround..
+(defparameter *finalized-map* (make-hash-table))
+(defun ensure-finalized (mytype)
+  (unless (gethash mytype *finalized-map*)
+    (sb-mop:finalize-inheritance (find-class-faster mytype))
+    (setf (gethash mytype *finalized-map*) t))
+  t)
+
 (defun text-object-rule-from-subclass (subclass)
+  ;; we need to finalize it, otherwise it'll error out.
+  (ensure-finalized subclass)
+  ;; (sb-mop:finalize-inheritance (find-class-faster subclass))
   (slot-value (sb-mop:class-prototype (find-class-faster subclass)) 'rule))
 
 (defun map-text-object (text-obj func)

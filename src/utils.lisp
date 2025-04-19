@@ -38,6 +38,18 @@
 ;; (bind-and-eval '((x 1) (y (+ 1 2))) (lambda () (+ x y)))
 ;; (bind-and-eval* '((x 1) (y (+ x 2))) (lambda () (+ x y)))
 
-(defun plist-keys (plist)
-  (loop for (key value) on plist by #'cddr
-        collect key))
+(defmacro pcase (keyform &body clauses)
+  "a case matcher that can take variables, like elisp's `pcase'.
+
+example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
+  (let ((keyval-gensym (gensym "pcase")))
+    `(let ((,keyval-gensym ,keyform))
+       (cond
+         ,@(loop for clause in clauses
+                 if (member (car clause) '(t otherwise) :test #'eq)
+                   collect `(t ,@(cdr clause))
+                 else
+                   collect (let ((test-form (car clause))
+                                 (body (cdr clause)))
+                             `((eql ,keyval-gensym ,test-form)
+                               ,@body)))))))

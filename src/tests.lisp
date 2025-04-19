@@ -13,7 +13,9 @@
 (defun test2 ()
   (time
    (progn
-     (export-org-file
+     (convert-file
+      (text-format-by-name "org-mode")
+      (text-format-by-name "latex")
       "test.org"
       "test.out.tex")
      ;; (export-org-file
@@ -258,7 +260,7 @@ there '\"((hey)0889)\" re)h"
                       (:string ":end:")))))))
 
 (defun test25 ()
-  (export-tree
+  (convert-tree
    (parse
     "#(make-block :type 'theorem :let '((a \"some text\")))
   my first block
@@ -268,6 +270,6 @@ there '\"((hey)0889)\" re)h"
     %(concatenate 'string a b)
   #(block-end)
 #(block-end)"
-    *org-mode-text-object-types*)
+    (org-mode-text-object-types))
    'latex
-   *org-mode-text-object-types*))
+   (org-mode-text-object-types)))

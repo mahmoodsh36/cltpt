@@ -1,12 +1,19 @@
 (in-package :cltpt)
 
-(defun escape-text (text backend)
-  (case backend
-    ('latex (latex-escape-chars text))
-    ('html (html-escape-chars text))
+(defun escape-text (text backend escapable-chars)
+  (pcase backend
+    (latex (latex-escape text escapable-chars))
+    (html (html-escape text escapable-chars))
     (t text)))
 
-(defun export-tree (text-obj backend text-object-types)
+(defun collect-escapables (text-object-types)
+  (remove-if-not
+   'identity
+   (loop for type1 in text-object-types
+         collect (let ((rule (text-object-rule-from-subclass type1)))
+                   (getf rule :escapable)))))
+
+(defun convert-tree (text-obj backend text-object-types)
   (let* ((result (text-object-export text-obj backend))
          (result-is-string (typep result 'string))
          (to-escape (or result-is-string
@@ -23,7 +30,8 @@
                (getf result :text)))
          (region-to-escape (when (and to-escape (not result-is-string))
                              (getf result :escape-region)))
-         (to-recurse (or (unless result-is-string (getf result :recurse)) to-reparse)))
+         (to-recurse (or (unless result-is-string (getf result :recurse)) to-reparse))
+         (escapables (collect-escapables text-object-types)))
     (when *debug*
       (format t "exporting object ~A~%" text-obj))
     (if to-recurse
@@ -44,9 +52,7 @@
                                  0)))
           ;; if we reparsed, we need to reset the parent of the new copies of "children"
           (when to-reparse
-            (format t "woor8 ~A~%" (length (text-object-children text-obj)))
             (setf (text-object-children text-obj) children)
-            ;; (setf child-offset 0)
             (dolist (child children)
               (setf (text-object-parent child) text-obj)
               ;; (setf (text-object-parent child) nil)
@@ -56,9 +62,9 @@
           (loop for child in children
                 do (when *debug*
                      (format t "exporting child ~A~%" child))
-                   (let* ((child-result (export-tree child
-                                                     backend
-                                                     text-object-types))
+                   (let* ((child-result (convert-tree child
+                                                      backend
+                                                      text-object-types))
                           (text-in-between-begin idx)
                           (text-in-between-end (+ child-offset (text-object-begin child)))
                           ;; text up to next child.
@@ -70,7 +76,9 @@
                                     (extract-modified-substring
                                      export-text
                                      (lambda (my-substr)
-                                       (escape-text my-substr backend))
+                                       (escape-text my-substr
+                                                    backend
+                                                    escapables))
                                      (make-region :begin text-in-between-begin
                                                   :end text-in-between-end)
                                      region-to-escape)
@@ -78,7 +86,8 @@
                                      (subseq export-text
                                              text-in-between-begin
                                              text-in-between-end)
-                                     backend))
+                                     backend
+                                     escapables))
                                 (subseq export-text
                                         text-in-between-begin
                                         text-in-between-end))))
@@ -94,11 +103,11 @@
                           (extract-modified-substring
                            export-text
                            (lambda (my-substr)
-                             (escape-text my-substr backend))
+                             (escape-text my-substr backend escapables))
                            (make-region :begin idx
                                         :end (length export-text))
                            region-to-escape)
-                          (escape-text (subseq export-text idx) backend))
+                          (escape-text (subseq export-text idx) backend escapables))
                       (subseq export-text idx))))
             (push final-text-in-between final-result-fragments)
             (apply 'str:concat (nreverse final-result-fragments))))
@@ -107,9 +116,9 @@
                 (extract-modified-substring
                  export-text
                  (lambda (my-substr)
-                   (escape-text my-substr backend))
+                   (escape-text my-substr backend escapables))
                  (make-region :begin 0
                               :end (length export-text))
                  region-to-escape)
-                (escape-text export-text backend))
+                (escape-text export-text backend escapables))
             export-text))))

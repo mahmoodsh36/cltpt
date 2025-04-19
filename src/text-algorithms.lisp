@@ -690,3 +690,24 @@ replaced by its associated string."
         (if replacement
             (write-string replacement out)
             (write-char ch out))))))
+
+(defun replace-chars-and-escapes (s replace-table &optional escapable-chars)
+  "return a new string where chars in S are replaced via REPLACE-TABLE (alist).
+handles escapes: '\\' followed by a char in ESCAPABLE-CHARS (list) drops
+the '\\' and processes the char normally (replace or emit)."
+  (with-output-to-string (out)
+    (loop with len = (length s)
+          for i from 0 below len
+          do (let ((ch (aref s i)))
+               (if (and escapable-chars
+                        (char= ch #\\)
+                        (< i (1- len))
+                        (find (aref s (1+ i)) escapable-chars :test #'char=))
+                   ;; handle escape
+                   (let* ((next-char (aref s (1+ i)))
+                          (replacement (cdr (assoc next-char replace-table :test #'char=))))
+                     (princ (or replacement next-char) out)
+                     (incf i))
+                   ;; handle normal character
+                   (let ((replacement (cdr (assoc ch replace-table :test #'char=))))
+                     (princ (or replacement ch) out)))))))
