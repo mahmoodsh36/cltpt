@@ -38,10 +38,10 @@
   (let* ((text (uiop:read-file-string src-file))
          (result (convert-text fmt1 fmt2 text)))
     (with-open-file (f dest-file
-                     :direction :output
-                     :if-exists :supersede
-                     :if-does-not-exist :create)
-    (write-sequence result f))))
+                       :direction :output
+                       :if-exists :supersede
+                       :if-does-not-exist :create)
+      (write-sequence result f))))
 
 (defun convert-text (fmt1 fmt2 text)
   (let* ((text-tree (parse text
