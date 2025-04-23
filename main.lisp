@@ -1,5 +1,6 @@
 (require 'asdf)
 (require 'uiop)
-(pushnew "./" asdf:*central-registry* :test #'equal)
-(asdf:load-system "cltpt")
+(pushnew #p"./" asdf:*central-registry* :test #'equal)
+(asdf:load-system "cltpt" :force t) ;; force recompilation
+;; (asdf:load-system "cltpt")
 (cltpt::commandline-main (uiop:command-line-arguments))
