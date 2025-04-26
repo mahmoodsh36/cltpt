@@ -10,7 +10,7 @@
     ;; "/home/mahmooz/work/cltpt/test.org"
     "/home/mahmooz/work/cltpt/test.out.tex")))
 
-(defun test2 ()
+(defun test-org-convert ()
   (time
    (progn
      (convert-file
@@ -24,7 +24,7 @@
      ;;  'html)
      nil)))
 
-(defun test10 ()
+(defun test-org-parse ()
   (time
    (parse-org-file "/home/mahmooz/brain/notes/1684594232.org")))
 
@@ -40,19 +40,8 @@
   (time
    (format t "number of titles: ~A~%" (length (grab-titles)))))
 
-;; parse table
-(defun test5 ()
-  (let ((table
-          "| head1 | head2 | head3 |
-+------+-------+-------+
-|  foo |  bar  |  baz  |
-| 123  | 456   | 789   |
-+------+-------+-------+
-| end  | row   | test  |"))
-    (org-table-parse table)))
-
 ;; parse nested list
-(defun test6 ()
+(defun test-parse-list ()
   (org-list-parse "- item one
    extra text for one
 - item two
@@ -61,15 +50,6 @@
    b. nested item two
    c. hi
 - item three"))
-
-;; test building a tree from enclsoing indicies
-(defun test7 ()
-  (let ((tree (build-forest '((0 29 id1)
-                              (2 27 id2)
-                              (10 20 id3)
-                              (13 17 id4)
-                              (22 25 id5)))))
-    (print-forest tree)))
 
 ;; this is an edge case, it fails
 (defun test8 ()
@@ -141,7 +121,7 @@ Some text
           :id 'keyword))))
 
 ;; extensive example for testing combined rules
-(defun test20 ()
+(defun test-parse-1 ()
   (let ((test-str "
 hello, this is a test.
   - item 1
@@ -186,11 +166,11 @@ some footer text."))
       result)))
 
 ;; latex snippet compilation test
-(defun test21 ()
+(defun test-latex-svg ()
   (generate-svg-for-latex
    "\\(x=\\sqrt{y}\\)"))
 
-(defun test22 ()
+(defun test-parse-2 ()
   (find-with-rules
    "
 #+begin_comment
@@ -223,7 +203,7 @@ some text
 
 ;; matching nested pairs with potentially delimiters pairs that should be ignored
 ;; also nested patterns?
-(defun test23 ()
+(defun test-parse-3 ()
   (find-with-rules
    "1#(hel7()8lom0559o'((hey)0889)' hey'
 there '\"((hey)0889)\" re)h"
@@ -259,7 +239,7 @@ there '\"((hey)0889)\" re)h"
       :end (:pattern (%or (:string ":END:")
                       (:string ":end:")))))))
 
-(defun test25 ()
+(defun test-convert-1 ()
   (convert-tree
    (parse
     "#(make-block :type 'theorem :let '((a \"some text\")))
@@ -273,3 +253,30 @@ there '\"((hey)0889)\" re)h"
     (org-mode-text-object-types))
    'latex
    (org-mode-text-object-types)))
+
+(test test-parse-table
+  (let ((table
+          "| head1 | head2 | head3 |
++------+-------+-------+
+|  foo |  bar  |  baz  |
+| 123  | 456   | 789   |
++------+-------+-------+
+| end  | row   | test  |"))
+    (is (equal
+         (org-table-parse table)
+         '(("head1" "head2" "head3")
+           ("foo" "bar" "baz")
+           ("123" "456" "789")
+           ("end" "row" "test"))))))
+
+;; test building a tree from enclsoing indicies
+(test test-build-forest
+  (let ((tree (build-forest '((0 29 id1)
+                              (2 27 id2)
+                              (10 20 id3)
+                              (13 17 id4)
+                              (22 25 id5)))))
+    (print-forest tree)
+    (is (equal
+         '(((0 29 ID1) ((2 27 ID2) ((22 25 ID5)) ((10 20 ID3) ((13 17 ID4))))))
+         tree))))

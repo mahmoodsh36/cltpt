@@ -56,7 +56,12 @@
     :accessor text-object-rule
     :allocation :class
     :initform nil
-    :documentation "the matching method from `*matching-methods*' used to match against the text object."))
+    :documentation "the matching method from `*matching-methods*' used to match against the text object.")
+   (shared-name
+    :accessor text-object-shared-name
+    :allocation :class
+    :initform nil
+    :documentation "text objects that have the same `shared-name' should be easier to identify across formats."))
   (:documentation "cltpt objects base class"))
 
 (defgeneric text-object-init (text-obj str1 opening-region closing-region)
@@ -488,12 +493,13 @@ region. you should just make it return a symbol like `end-type'."))
          (text-object-property prev :eval-result))
         (t nil)))))
 
-;; define the inline-math subclass with its own default rule
 (defclass text-link (text-object)
-  ()
-  (:documentation "a text link."))
+  ((shared-name
+    :allocation :class
+    :initform 'link))
+  (:documentation "a link."))
 
-(defun make-link (&rest kws &key &allow-other-keys)
+(defun make-text-link (&rest kws &key &allow-other-keys)
   (let* ((id (getf kws :id))
          (text (getf kws :text))
          (obj (make-instance 'text-link)))
@@ -502,6 +508,3 @@ region. you should just make it return a symbol like `end-type'."))
     (loop for (key value) on kws by #'cddr
           do (setf (text-object-property obj key) value))
     obj))
-
-(defmethod text-object-convert ((obj text-link) dest-format)
-  )

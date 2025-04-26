@@ -3,6 +3,9 @@
 ;; holds all text formats
 (defvar *text-formats* nil)
 
+(defvar *special-text-object-names*
+  '(anchor link task))
+
 (defclass text-format ()
   ((name
     :initarg :name
@@ -15,7 +18,11 @@
    (text-document-type
     :initarg :text-document-type
     :accessor text-format-text-document-type
-    :documentation "the `text-document' (sub)class that corresponds to this format.")))
+    :documentation "the `text-document' (sub)class that corresponds to this format.")
+   (special-text-objects
+    :initarg :special-text-objects
+    :accessor text-format-special-text-objects
+    :documentation "special text objects are shared across formats and serve predefined purposes, like an anchor link or a reference. this serves as a map from `*special-text-object-names*' to the corresponding `text-object' for this format.")))
 
 (defgeneric text-format-convert (src-text-format dest-text-format text)
   (:documentation "convert from one text format into another."))

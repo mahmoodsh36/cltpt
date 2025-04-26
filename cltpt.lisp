@@ -1,5 +1,5 @@
 (defpackage :cltpt
-  (:use :common-lisp)
+  (:use :cl :fiveam)
   (:shadow block))
 
 (in-package :cltpt)
