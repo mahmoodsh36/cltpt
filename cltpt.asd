@@ -6,11 +6,11 @@
   :components ((:file "cltpt")
                (:module "base"
                 :pathname "src/"
-                :components ((:file "text-algorithms")
+                :components ((:file "utils")
+                             (:file "text-algorithms")
                              (:file "text-object")
                              (:file "text-format")
                              (:file "parser")
-                             (:file "utils")
                              (:file "trees")
                              (:file "convert")
                              (:file "latex")

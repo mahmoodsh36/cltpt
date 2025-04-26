@@ -644,10 +644,8 @@ its value is NIL."
 
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
-  (org-ensure-finalized)
   (let* ((result (parse (uiop:read-file-string filepath)
                         (org-mode-text-object-types)
-                        :as-doc t
                         :doc-type 'org-document)))
     result))
 
