@@ -5,7 +5,6 @@ the project depends on the following packages which could be installed using qui
 - str
 - uiop
 - cl-fad
-- lparallel (not yet in actual use)
 - clingon
 - ironclad
 

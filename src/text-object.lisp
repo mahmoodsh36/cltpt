@@ -202,6 +202,8 @@ region. you should just make it return a symbol like `end-type'."))
 ;; aliases for blocks
 (setf (symbol-function 'b) (symbol-function 'make-block))
 (setf (symbol-function '/b) (symbol-function 'block-end))
+(setf (symbol-function 'block) (symbol-function 'make-block))
+(setf (symbol-function '/block) (symbol-function 'block-end))
 
 (defmethod text-object-ends-by ((text-obj text-block) value)
   (and (symbolp value) (string= value 'block-end)))
