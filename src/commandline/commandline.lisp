@@ -20,7 +20,7 @@
     :key :help)
    (clingon:make-option
     :string
-    :description "directory holding org files."
+    :description "directory holding files."
     :short-name #\d
     :long-name "dir"
     :initial-value (uiop:native-namestring "~/notes/")
@@ -32,46 +32,61 @@
     :long-name "file"
     :key :file)
    (clingon:make-option
-    :string
-    :description "export the specified file, the destination format is needed."
-    :short-name #\e
-    :long-name "export"
-    :key :export)
+    :flag
+    :description "choose to convert the file specified with `-f`."
+    :short-name #\c
+    :long-name "convert"
+    :key :convert)
    (clingon:make-option
     :string
     :description "when acting on a file, it is possible to provide the intended source format. if unprovided, it will be guessed from the filename extension."
-    :short-name #\f
-    :long-name "format"
-    :key :format)
+    :long-name "src-format"
+    :key :src-format)
+   (clingon:make-option
+    :string
+    :description "destination format when converting."
+    :long-name "dest-format"
+    :key :dest-format)
+   (clingon:make-option
+    :string
+    :description "destination filepath when converting."
+    :long-name "dest-file"
+    :short-name #\t
+    :key :dest-file)
    (clingon:make-option
     :flag
-    :description "list titles from org files."
-    :long-name "list-titles"
-    :key :list-titles)))
+    :description "action to run on specified file."
+    :long-name "action"
+    :key :action)))
+
+(defun infer-format-name-from-filepath (fp)
+  (let ((ext (pathname-type (pathname fp))))
+    (cond
+      ((equal ext "org")
+       org-mode)
+      ((equal ext "tex")
+       latex))))
 
 (defun top-level-handler (cmd)
-  (let ((args (clingon:command-arguments cmd))
-        (my-dir (clingon:getopt cmd :dir))
-        (to-list-titles (clingon:getopt cmd :list-titles))
-        (to-help (clingon:getopt cmd :help))
-        (src-file (clingon:getopt cmd :file))
-        (export-format (clingon:getopt cmd :export))
-        (src-format (clingon:getopt cmd :format))
-        (app (clingon:command-parent cmd)))
+  (let* ((args (clingon:command-arguments cmd))
+         (my-dir (clingon:getopt cmd :dir))
+         (to-list-titles (clingon:getopt cmd :list-titles))
+         (to-help (clingon:getopt cmd :help))
+         (src-file (clingon:getopt cmd :file))
+         (to-convert (clingon:getopt cmd :convert))
+         (dest-file (clingon:getopt cmd :dest-file))
+         (dest-format (or (text-format-by-name (clingon:getopt cmd :dest-format))
+                          (and dest-file (infer-format-name-from-filepath dest-file))))
+         (src-format (or (text-format-by-name (clingon:getopt cmd :src-format))
+                         (and src-file (infer-format-name-from-filepath src-file))))
+         (app (clingon:command-parent cmd)))
     (if to-help
         (clingon:print-usage cmd t)
         (progn
           (when to-list-titles
             (mapcar 'print (list-org-titles my-dir)))
-          (when (and src-file export-format)
-            (if src-format
-                (progn
-                  )
-                (progn
-                  )))))))
-
-(defun export-file (src dest src-format dest-format)
-  )
+          (when to-convert
+            (convert-file src-format dest-format src-file dest-file))))))
 
 (defun commandline-main (argv)
   (let ((app (top-level-command)))

@@ -12,23 +12,11 @@ the project depends on the following packages which could be installed using qui
 the code uses some sbcl-specific libraries for now, so it is unlikely that it will run on other dialects.
 
 * example usage
+convert from org to latex:
+
 #+begin_src sh :eval no
-  cltpt λ ./run.sh --list-titles -d ~/brain/notes/
-  Evaluation took:
-    0.335 seconds of real time
-    0.347137 seconds of total run time (0.302956 user, 0.044181 system)
-    [ Real times consist of 0.005 seconds GC time, and 0.330 seconds non-GC time. ]
-    [ Run times consist of 0.018 seconds GC time, and 0.330 seconds non-GC time. ]
-    103.58% CPU
-    105 lambdas converted
-    836,071,478 processor cycles
-    238,518,736 bytes consed
-
-  # titles will be shown here
-  ...
+  ./run.sh -f test.org -c -t out.tex
 #+end_src
-
-the execution took 0.3 seconds to list titles from more than 2k org files with 100k+ lines of text, this may seem fast but (imho) it isnt at all fast enough, i expect to have that time reduced.
 
 * goals
 

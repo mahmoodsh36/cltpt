@@ -46,7 +46,7 @@ my first block
                        (expr '(oplus (matrix (1 2 3) (4 5 6))
                                      (matrix (7 8 1) (x y 8))
                                      :infix t))
-                       (obj (make-math-expr expr))))
+                       (obj (make-text-math-expr expr))))
     the formula %expr is rendered as %obj
     %(concatenate 'string a b)
   #(block-end)
@@ -90,7 +90,7 @@ to transclude some block (possibly from another file ofcourse):
 
 \(#$(vector 1 2 3) + #$(vector 4 5 6)\)
 
-\(#(make-math-expr '(+ (vector 1 2 5 6) 3334)) + 1\)
+\(#(make-text-math-expr '(+ (vector 1 2 5 6) 3334)) + 1\)
 
 \(#$(+ (vector 1 2 5 6) 3334 1 2) + 1\)
 
