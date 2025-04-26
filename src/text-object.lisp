@@ -87,17 +87,18 @@ region. you should just make it return a symbol like `end-type'."))
 (defmethod (setf text-object-property) (value (obj text-object) property &optional default)
   (setf (getf (text-object-properties obj) property) value))
 
-;; returns a plist or a string, if string, exported with recursion and no "reparsing", if plist, plist can contain
+;; returns a plist or a string, if string, converted with recursion and no "reparsing".
+;; if plist, plist can contain
 ;; the keyword
-;; :text the text to export,
+;; :text the text to convert,
 ;; :reparse - whether to reparse the given :text, or if :text isnt provided the result of text-object-text, the default behavior is to recurse,
 ;; :reparse-region - the region of the text that is given that is reparsed, if at all,
-;; :recurse - whether to export children as well.
-(defgeneric text-object-export (text-obj backend)
-  (:documentation "function that takes a cltpt text-object and exports it to the specificed backend. this function is invoked when exporting, it should return two values, a string and a boolean indicating whether to handle the exporting of its children or not."))
+;; :recurse - whether to convert children as well.
+(defgeneric text-object-convert (text-obj backend)
+  (:documentation "function that takes a cltpt text-object and converts it to the specificed backend. this function is invoked when converting, it should return two values, a string and a boolean indicating whether to handle the converting of its children or not."))
 
-(defmethod text-object-export ((obj text-object) backend)
-  "default export function."
+(defmethod text-object-convert ((obj text-object) backend)
+  "default convert function."
   (if (text-object-property obj :eval-result)
       (list :text (format nil "~A" (text-object-property obj :eval-result)))
       (list :text (text-object-text obj)
@@ -186,16 +187,16 @@ region. you should just make it return a symbol like `end-type'."))
 (defun block-end ()
   'block-end)
 
-(defmethod text-object-export ((obj text-block) backend)
+(defmethod text-object-convert ((obj text-block) backend)
   ;; use string on type to ensure its not a symbol
   (let ((type1 (string-downcase (string (text-object-property obj :type)))))
     (pcase backend
       (latex
-       (wrap-contents-for-export obj
+       (wrap-contents-for-convert obj
                                  (format nil "\\begin{~A}" type1)
                                  (format nil "\\end{~A}" type1)))
       (html
-       (wrap-contents-for-export obj
+       (wrap-contents-for-convert obj
                                  (format nil "<~A>" type1)
                                  (format nil "</~A>" type1))))))
 
@@ -208,8 +209,8 @@ region. you should just make it return a symbol like `end-type'."))
 (defmethod text-object-ends-by ((text-obj text-block) value)
   (and (symbolp value) (string= value 'block-end)))
 
-;; a utility function to reduce boilerplate for `text-object-export' implementations
-(defun wrap-contents-for-export (text-obj preamble postamble)
+;; a utility function to reduce boilerplate for `text-object-convert' implementations
+(defun wrap-contents-for-convert (text-obj preamble postamble)
   (let* ((text (concatenate 'string
                             preamble
                             (text-object-contents text-obj)
@@ -353,19 +354,19 @@ region. you should just make it return a symbol like `end-type'."))
            (bind-and-eval* binds func)))
         (bind-and-eval* binds func))))
 
-(defun export-post-lexer-macro-obj (obj backend)
+(defun convert-post-lexer-macro-obj (obj backend)
   (let ((eval-result (eval-post-lexer-macro obj)))
     (if (typep eval-result 'text-object)
-        (text-object-export eval-result backend)
+        (text-object-convert eval-result backend)
         (list :text (princ-to-string eval-result)
               :escape t
               :recurse nil))))
 
-(defmethod text-object-export ((obj post-lexer-text-macro) backend)
-  (export-post-lexer-macro-obj obj backend))
+(defmethod text-object-convert ((obj post-lexer-text-macro) backend)
+  (convert-post-lexer-macro-obj obj backend))
 
-(defmethod text-object-export ((obj post-lexer-text-macro-ref) backend)
-  (export-post-lexer-macro-obj obj backend))
+(defmethod text-object-convert ((obj post-lexer-text-macro-ref) backend)
+  (convert-post-lexer-macro-obj obj backend))
 
 ;; define the inline-math subclass with its own default rule
 (defclass inline-math (text-object)
@@ -376,7 +377,7 @@ region. you should just make it return a symbol like `end-type'."))
                 :begin-to-hash t
                 :end-to-hash t))))
 
-(defmethod text-object-export ((obj inline-math) backend)
+(defmethod text-object-convert ((obj inline-math) backend)
   (pcase backend
     (latex
      (list :text (text-object-text obj)
@@ -396,7 +397,7 @@ region. you should just make it return a symbol like `end-type'."))
                 :begin-to-hash t
                 :end-to-hash t))))
 
-(defmethod text-object-export ((obj display-math) backend)
+(defmethod text-object-convert ((obj display-math) backend)
   (pcase backend
     (latex
      (list :text (text-object-text obj)
@@ -439,7 +440,7 @@ region. you should just make it return a symbol like `end-type'."))
                                        (subseq end-str (length "\\end{"))))))))
   (:documentation "latex environment."))
 
-(defmethod text-object-export ((obj latex-env) backend)
+(defmethod text-object-convert ((obj latex-env) backend)
   (pcase backend
     (latex
      (list :text (text-object-text obj)
@@ -486,3 +487,21 @@ region. you should just make it return a symbol like `end-type'."))
         ((typep prev 'text-object) ;; pre-lexer text-macro's turn into text-object's
          (text-object-property prev :eval-result))
         (t nil)))))
+
+;; define the inline-math subclass with its own default rule
+(defclass text-link (text-object)
+  ()
+  (:documentation "a text link."))
+
+(defun make-link (&rest kws &key &allow-other-keys)
+  (let* ((id (getf kws :id))
+         (text (getf kws :text))
+         (obj (make-instance 'text-link)))
+    (setf (text-object-property obj :id) id)
+    (setf (text-object-property obj :text) text)
+    (loop for (key value) on kws by #'cddr
+          do (setf (text-object-property obj key) value))
+    obj))
+
+(defmethod text-object-convert ((obj text-link) dest-format)
+  )
