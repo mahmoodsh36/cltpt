@@ -16,8 +16,8 @@
 
 ;; `text-format' instance
 (defvar org-mode (make-org-mode))
-;; whether to export with preamble/postamble, etc
-(defvar *org-mode-export-with-boilerplate* t)
+;; whether to convert with preamble/postamble, etc
+(defvar *org-mode-convert-with-boilerplate* t)
 ;; for detecting objects inside table cells, lists, etc
 (defvar *org-mode-inline-text-object-types*)
 
@@ -116,7 +116,7 @@ its value is NIL."
           header-text)
     (setf (region-end (text-object-opening-region obj)) newline-pos)))
 
-(defmethod text-object-export ((obj org-header) backend)
+(defmethod text-object-convert ((obj org-header) backend)
   (pcase backend
     (latex
      (let* ((begin-text (format
@@ -231,10 +231,10 @@ its value is NIL."
       ;;           (or newline-idx (+ 2 (length (text-object-text parent)))))))
       )))
 
-(defmethod text-object-export ((obj org-babel-results) backend)
+(defmethod text-object-convert ((obj org-babel-results) backend)
   (let ((results (text-object-property obj :value)))
     (when (typep results 'text-object)
-      (setf (text-object-property results :exports) t))
+      (setf (text-object-property results :converts) t))
     ""))
 
 (defclass org-babel-results-colon (text-object)
@@ -243,8 +243,8 @@ its value is NIL."
     :initform '(:region (:string ": ")
                 :disallow t))))
 
-(defmethod text-object-export ((obj org-babel-results-colon) backend)
-  (if (text-object-property obj :exports t)
+(defmethod text-object-convert ((obj org-babel-results-colon) backend)
+  (if (text-object-property obj :converts t)
       (text-object-text obj)
       ""))
 
@@ -261,8 +261,8 @@ its value is NIL."
                                     (:string ":end:"))))))
   (:documentation "org-mode drawer."))
 
-;; simply dont export drawers (this isnt the correct org-mode behavior tho)
-(defmethod text-object-export ((obj org-drawer) backend)
+;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
+(defmethod text-object-convert ((obj org-drawer) backend)
   "")
 
 (defmethod text-object-init :after ((obj org-block) str1 opening-region closing-region)
@@ -314,7 +314,7 @@ its value is NIL."
                  ;; stop
                  (setf sibling nil)))))
 
-(defmethod text-object-export ((obj org-block) backend)
+(defmethod text-object-convert ((obj org-block) backend)
   (let ((block-type (text-object-property obj :type))
         (is-verbatim))
     (when (string= block-type "src")
@@ -365,7 +365,7 @@ its value is NIL."
     (setf (text-object-property obj :value) value)
     (setf (text-object-property obj :keyword) keyword)))
 
-(defmethod text-object-export ((obj org-keyword) backend)
+(defmethod text-object-convert ((obj org-keyword) backend)
   ;; was used for debugging
   #+nil
   (format nil
@@ -394,7 +394,7 @@ its value is NIL."
     (setf (text-object-property obj :desc) desc)
     (setf (text-object-property obj :dest) dest)))
 
-(defmethod text-object-export ((obj org-link) backend)
+(defmethod text-object-convert ((obj org-link) backend)
   (cond
     ((eq backend latex)
      (list :text (format nil "\\ref{~A}" (text-object-property obj :dest))
@@ -426,7 +426,7 @@ its value is NIL."
          (copy-seq tree))
         (t tree)))
 
-(defmethod text-object-export ((obj org-list) backend)
+(defmethod text-object-convert ((obj org-list) backend)
   (let ((my-list (deep-copy-org-forest (text-object-property obj :list)))
         (possible-children-types *org-mode-inline-text-object-types*))
     (mapcar-forest
@@ -462,7 +462,7 @@ its value is NIL."
   (let ((table1 (org-table-parse (text-object-text obj))))
     (setf (text-object-property obj :table) table1)))
 
-(defmethod text-object-export ((obj org-table) backend)
+(defmethod text-object-convert ((obj org-table) backend)
   (let ((my-table
           (mapcar
            (lambda (row)
@@ -502,11 +502,11 @@ its value is NIL."
          (push (text-object-text obj) mylist))))
     (generate-svgs-for-latex mylist)))
 
-(defmethod text-object-export ((obj org-document) backend)
+(defmethod text-object-convert ((obj org-document) backend)
   (pcase backend
     (latex
      (let* ((my-preamble
-              (if *org-mode-export-with-boilerplate*
+              (if *org-mode-convert-with-boilerplate*
                   (concatenate 'string
                                (generate-latex-preamble "authorhere" "datehere" "titlehere")
                                (string #\newline)
@@ -514,7 +514,7 @@ its value is NIL."
                                (string #\newline))
                   ""))
             (my-postamble
-              (if *org-mode-export-with-boilerplate*
+              (if *org-mode-convert-with-boilerplate*
                   (concatenate 'string
                                (string #\newline)
                                "\\end{document}")
@@ -592,14 +592,14 @@ its value is NIL."
                 :same-line t)))
   (:documentation "org-mode emphasized text (surrounded by stars)."))
 
-(defmethod text-object-export ((obj org-emph) backend)
+(defmethod text-object-convert ((obj org-emph) backend)
   (cond
     ((eq backend latex)
-     (let ((result (wrap-contents-for-export obj "\\textbf{" "}")))
+     (let ((result (wrap-contents-for-convert obj "\\textbf{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
     ((eq backend html)
-     (wrap-contents-for-export obj "<b>" "</b>"))))
+     (wrap-contents-for-convert obj "<b>" "</b>"))))
 
 (defclass org-italic (text-object)
   ((rule
@@ -612,14 +612,14 @@ its value is NIL."
                 :same-line t)))
   (:documentation "org-mode italicized text (surrounded by forward slahes)."))
 
-(defmethod text-object-export ((obj org-italic) backend)
+(defmethod text-object-convert ((obj org-italic) backend)
   (cond
     ((eq backend latex)
-     (let ((result (wrap-contents-for-export obj "\\textit{" "}")))
+     (let ((result (wrap-contents-for-convert obj "\\textit{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
     ((eq backend html)
-     (wrap-contents-for-export obj "<i>" "</i>"))))
+     (wrap-contents-for-convert obj "<i>" "</i>"))))
 
 (defclass org-inline-code (text-object)
   ((rule
@@ -633,14 +633,14 @@ its value is NIL."
                 :same-line t)))
   (:documentation "org-mode inline code (surrounded by tildes)."))
 
-(defmethod text-object-export ((obj org-inline-code) backend)
+(defmethod text-object-convert ((obj org-inline-code) backend)
   (cond
     ((eq backend latex)
-     (let ((result (wrap-contents-for-export obj "\\verb{" "}")))
+     (let ((result (wrap-contents-for-convert obj "\\verb{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
     ((eq backend html)
-     (wrap-contents-for-export obj "<pre><code>" "</code></pre>"))))
+     (wrap-contents-for-convert obj "<pre><code>" "</code></pre>"))))
 
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
@@ -649,17 +649,17 @@ its value is NIL."
                         :doc-type 'org-document)))
     result))
 
-(defun export-org-doc (org-doc backend)
+(defun convert-org-doc (org-doc backend)
   (convert-tree org-doc
                backend
                (org-mode-text-object-types)))
 
-(defun export-org-file (src dest &optional (backend 'latex))
+(defun convert-org-file (src dest &optional (backend 'latex))
   (with-open-file (f dest
                      :direction :output
                      :if-exists :supersede
                      :if-does-not-exist :create)
-    (write-sequence (export-org-doc (parse-org-file src) backend) f)))
+    (write-sequence (convert-org-doc (parse-org-file src) backend) f)))
 
 (defun org-convert-to-latex ()
   )
