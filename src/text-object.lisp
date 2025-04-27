@@ -268,7 +268,7 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform `(:begin (:pattern (%or (:pattern ,(format nil "~A(%W-)(" *lexer-text-macro-char*))
+    :initform `(:begin (:pattern (any (:pattern ,(format nil "~A(%W-)(" *lexer-text-macro-char*))
                                       (:string ,(format nil "~A(" *lexer-text-macro-char*))))
                 :end (:string ")")
                 :children ((:begin (:string "(")
@@ -302,7 +302,7 @@ region. you should just make it return a symbol like `end-type'."))
   ((rule
     :allocation :class
     :initform `(:begin
-                (:pattern (%or (:pattern ,(format nil "~A(%W-)(" *post-lexer-text-macro-char*))
+                (:pattern (any (:pattern ,(format nil "~A(%W-)(" *post-lexer-text-macro-char*))
                                (:string ,(format nil "~A(" *post-lexer-text-macro-char*))))
                 :end (:string ")")
                 :children ((:begin (:string "(")
@@ -496,7 +496,11 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass text-link (text-object)
   ((shared-name
     :allocation :class
-    :initform 'link))
+    :initform 'link)
+   (rule
+    :allocation :class
+    :initform `(:simple "[[][]]"
+                :end-to-hash t)))
   (:documentation "a link."))
 
 (defun make-text-link (&rest kws &key &allow-other-keys)

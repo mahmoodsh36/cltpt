@@ -109,8 +109,10 @@ Some text
     (list :text '(:pattern "#+(%w): (%w)")
           :text-conditions '(begin-of-line)
           :id 'keyword)
-    `(:text (:pattern "[[(%w):(%w)]]")
-      :id 'org-link))))
+    `(:text (:pattern (any (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
+                                     (:pattern "[[(%W-)]]")
+                                     (:pattern "[[(%W-):(%E:[])]]")))
+            :id 'org-link))))
 
 (defun test12 ()
   (find-with-rules
@@ -236,7 +238,7 @@ there '\"((hey)0889)\" re)h"
    '((:begin (:pattern ":(%w):")
       :begin-to-hash t
       :begin-conditions (end-of-line not-drawer-end)
-      :end (:pattern (%or (:string ":END:")
+      :end (:pattern (any (:string ":END:")
                       (:string ":end:")))))))
 
 (defun test-convert-1 ()
@@ -280,3 +282,12 @@ there '\"((hey)0889)\" re)h"
     (is (equal
          '(((0 29 ID1) ((2 27 ID2) ((22 25 ID5)) ((10 20 ID3) ((13 17 ID4))))))
          tree))))
+
+(defun test-parse-any ()
+  (find-with-rules
+   "[[hello:hey]]"
+   (list
+    `(:text (:pattern (any (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
+                           (:pattern "[[(%W-)]]")
+                           (:pattern "[[(%W-):(%E:[])]]")))
+      :id 'org-link))))
