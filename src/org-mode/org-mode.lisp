@@ -257,7 +257,7 @@ its value is NIL."
     :initform '(:begin (:pattern ":(%w):")
                 :begin-to-hash t
                 :begin-conditions (end-of-line not-drawer-end)
-                :end (:pattern (%or (:string ":END:")
+                :end (:pattern (any (:string ":END:")
                                     (:string ":end:"))))))
   (:documentation "org-mode drawer."))
 
@@ -379,7 +379,7 @@ its value is NIL."
 (defclass org-link (text-object)
   ((rule
     :allocation :class
-    :initform '(:text (:pattern (%or (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
+    :initform '(:text (:pattern (any (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
                                      (:pattern "[[(%W-)]]")
                                      (:pattern "[[(%W-):(%E:[])]]"))))))
   (:documentation "org-mode link."))
@@ -406,7 +406,7 @@ its value is NIL."
   ((rule
     :allocation :class
     ;; match region of lines beginning with space or hyphen
-    :initform '(:region (:pattern (%or (:string "-")
+    :initform '(:region (:pattern (any (:string "-")
                                        (:pattern "(%C:1234567890).")
                                        (:pattern "(%C:abcdefghijklmnopqrstuv).")))
                 :ignore " ")))
