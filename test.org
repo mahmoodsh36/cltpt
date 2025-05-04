@@ -63,7 +63,7 @@ multiply that by 5 to get %(* new-num 5). anything is possible! this is only a s
 - 50
 - 10
 
-the links
+the /links/:
 
 - org-mode link:                [[block1][next block]]
 - link using our "text macros": #(ref :id "block1" :text "next block")
