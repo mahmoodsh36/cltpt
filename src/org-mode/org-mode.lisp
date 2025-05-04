@@ -3,7 +3,7 @@
 (defun make-org-mode ()
   (make-text-format
    "org-mode"
-   '(org-list org-table
+   '(;; org-list org-table
      org-keyword org-header
      org-link
      org-block org-drawer
@@ -11,7 +11,8 @@
      org-babel-results org-babel-results-colon
      org-emph org-italic org-inline-code
      text-macro text-macro-ref
-     post-lexer-text-macro post-lexer-text-macro-ref)
+     post-lexer-text-macro post-lexer-text-macro-ref
+     )
    'org-document))
 
 ;; `text-format' instance
@@ -74,12 +75,12 @@ its value is NIL."
   ((rule
     :allocation :class
     :initform
-    (list :begin '(:pattern "#+begin_(%w)")
-          :begin-to-hash t
+    (list :begin "#+begin_%w"
+          :begin-to-hash #\#
           :begin-conditions '(begin-of-line)
-          :end '(:pattern "#+end_(%w)")
+          :end "#+end_%w"
           :end-conditions '(begin-of-line)
-          :end-to-hash t
+          :end-to-hash #\#
           ;; we need to make sure the text after begin_ and end_ is the same
           :pair-predicate (lambda (str b-idx e-idx b-end e-end)
                             (let ((begin-str (subseq str b-idx b-end))
@@ -91,7 +92,10 @@ its value is NIL."
 (defclass org-header (text-object)
   ((rule
     :allocation :class
-    :initform '(:text (:pattern "(%C:*) ")
+    :initform '(:text (consec
+                       (atleast-one (literal "*"))
+                       (atleast-one (literal " "))
+                       (all-but-newline))
                 :text-conditions (begin-of-line))))
   (:documentation "org-mode header."))
 
@@ -161,17 +165,17 @@ its value is NIL."
 (defclass org-keyword (text-object)
   ((rule
     :allocation :class
-    :initform (list :text '(:pattern "#+(%W-): (%a)")
-                    :text-to-hash t
+    :initform (list :text `(consec ,@(compile-pattern-string "#+%W: %a"))
+                    :text-to-hash #\#
                     :text-conditions '(begin-of-line))))
   (:documentation "org-mode file-level keyword."))
 
 (defclass org-babel-results (text-object)
   ((rule
     :allocation :class
-    :initform (list :text '(:string "#+RESULTS:")
+    :initform (list :text '(literal-casein "#+results:")
                     :text-conditions '(begin-of-line)
-                    :text-to-hash t)))
+                    :text-to-hash #\#)))
   (:documentation "org-babel evaluation results."))
 
 ;; this does what is necessary to actually make the object contain the element after
@@ -189,7 +193,10 @@ its value is NIL."
                                   :start (region-begin (text-object-opening-region obj)))))
     (when (and next-sibling
                (member (type-of next-sibling)
-                       (list 'org-drawer 'org-table 'org-block 'org-babel-results-colon)
+                       (list 'org-drawer
+                             'org-table
+                             'org-block
+                             'org-babel-results-colon)
                        :test 'string=)
                (< (text-object-fake-line-num-distance obj next-sibling) 2))
       ;; next child is the result of the results (could be drawer or some other org-element)
@@ -240,7 +247,7 @@ its value is NIL."
 (defclass org-babel-results-colon (text-object)
   ((rule
     :allocation :class
-    :initform '(:region (:string ": ")
+    :initform '(:region (literal ": ")
                 :disallow t))))
 
 (defmethod text-object-convert ((obj org-babel-results-colon) backend)
@@ -254,11 +261,10 @@ its value is NIL."
 (defclass org-drawer (text-object)
   ((rule
     :allocation :class
-    :initform '(:begin (:pattern ":(%w):")
-                :begin-to-hash t
+    :initform '(:begin ":%w:"
+                :begin-to-hash #\:
                 :begin-conditions (end-of-line not-drawer-end)
-                :end (:pattern (any (:string ":END:")
-                                    (:string ":end:"))))))
+                :end (literal-casein ":end:"))))
   (:documentation "org-mode drawer."))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
@@ -297,7 +303,6 @@ its value is NIL."
 (defun text-object-fake-line-num-distance (obj1 obj2)
   (abs (- (text-object-fake-line-num obj1) (text-object-fake-line-num obj2))))
 
-;; one issue si that siblings might not be set properly if there's no parent document (parser was called with `:as-doc nil')
 (defmethod text-object-finalize ((obj org-block))
   "finalize an org-mode block, grabs #+name and other possible keywords."
   (let ((siblilng obj))
@@ -379,9 +384,12 @@ its value is NIL."
 (defclass org-link (text-object)
   ((rule
     :allocation :class
-    :initform '(:text (:pattern (any (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
-                                     (:pattern "[[(%W-)]]")
-                                     (:pattern "[[(%W-):(%E:[])]]"))))))
+    :initform '(:text
+                (any
+                 (consec "[[" (symbol-matcher) ":"
+                  (all-but "[]") "][" (all-but "[]") "]]")
+                 "[[%W]]"
+                 (consec "[[" (symbol-matcher) ":" (symbol-matcher) "]]")))))
   (:documentation "org-mode link."))
 
 (defmethod text-object-init :after ((obj org-link) str1 opening-region closing-region)
@@ -406,9 +414,9 @@ its value is NIL."
   ((rule
     :allocation :class
     ;; match region of lines beginning with space or hyphen
-    :initform '(:region (:pattern (any (:string "-")
-                                       (:pattern "(%C:1234567890).")
-                                       (:pattern "(%C:abcdefghijklmnopqrstuv).")))
+    :initform '(:region ((any (:string "-")
+                          "(%C:1234567890)."
+                          "(%C:abcdefghijklmnopqrstuv)."))
                 :ignore " ")))
   (:documentation "org-mode list."))
 
@@ -582,12 +590,13 @@ its value is NIL."
 (defclass org-emph (text-object)
   ((rule
     :allocation :class
-    :initform `(:begin (:string "*")
-                :begin-to-hash t
+    :initform `(:begin (literal "*")
+                :begin-to-hash #\*
                 :begin-conditions ,(list (complement #'begin-of-line))
                 :end-conditions ,(list (complement #'begin-of-line))
-                :end (:string "*")
-                :end-to-hash t
+                :end (literal "*")
+                :end-to-hash #\*
+                :nestable nil
                 :disallow t
                 :same-line t)))
   (:documentation "org-mode emphasized text (surrounded by stars)."))
@@ -604,11 +613,12 @@ its value is NIL."
 (defclass org-italic (text-object)
   ((rule
     :allocation :class
-    :initform '(:begin (:string "/")
-                :begin-to-hash t
-                :end (:string "/")
-                :end-to-hash t
+    :initform '(:begin (literal "/")
+                :begin-to-hash #\/
+                :end (literal "/")
+                :end-to-hash #\/
                 :disallow t
+                :nestable nil
                 :same-line t)))
   (:documentation "org-mode italicized text (surrounded by forward slahes)."))
 
@@ -624,12 +634,12 @@ its value is NIL."
 (defclass org-inline-code (text-object)
   ((rule
     :allocation :class
-    :initform '(:begin (:string "~")
-                ;; hashing here causes issues?
-                ;; :begin-to-hash t
-                :end (:string "~")
-                ;; :end-to-hash t
+    :initform '(:begin (literal "~")
+                :begin-to-hash #\~
+                :end (literal "~")
+                :end-to-hash #\~
                 :disallow t
+                :nestable nil
                 :same-line t)))
   (:documentation "org-mode inline code (surrounded by tildes)."))
 

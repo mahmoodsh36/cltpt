@@ -209,37 +209,41 @@ some text
   (find-with-rules
    "1#(hel7()8lom0559o'((hey)0889)' hey'
 there '\"((hey)0889)\" re)h"
-   '((:begin (:string "#(")
-      :end (:string ")")
+   '((:begin (:pattern (literal "#("))
+      :end (:pattern (literal ")"))
       :id outer
-      :children ((:begin (:string "(")
-                  :end (:string ")")
+      :children ((:begin (:pattern (literal "("))
+                  :end (:pattern (literal ")"))
                   :id inner
-                  :children ((:begin (:string "0")
-                              :end (:string "9")
+                  :children ((:begin (:pattern (literal "0"))
+                              :end (:pattern (literal "9"))
                               :id evenmore)))
-                 (:begin (:string "7")
-                  :end (:string "8")
+                 (:begin (:pattern (literal "7"))
+                  :end (:pattern (literal "8"))
                   :id nums)
-                 (:begin (:string "'")
-                  :end (:string "'")
+                 (:begin (:pattern (literal "'"))
+                  :end (:pattern (literal "'"))
                   :id single-quotes
                   :disallow t
+                  :nestable nil
                   :same-line t)
-                 (:begin (:string "\"")
-                  :end (:string "\"")
-                  :id double-quotes))))))
+                 (:begin (:pattern (literal "\""))
+                  :end (:pattern (literal "\""))
+                  :id double-quotes
+                  :nestable nil
+                  ;; :disallow t
+                  :same-line t))))))
 
 (defun test24 ()
   (find-with-rules
    ":begin:
 :id: hey
 :end:"
-   '((:begin (:pattern ":(%w):")
-      :begin-to-hash t
+   '((:begin ":%w:"
+      ;; :begin-to-hash t
       :begin-conditions (end-of-line not-drawer-end)
-      :end (:pattern (any (:string ":END:")
-                      (:string ":end:")))))))
+      :id 'hi
+      :end (literal-casein ":end:")))))
 
 (defun test-convert-1 ()
   (convert-tree
@@ -287,7 +291,37 @@ there '\"((hey)0889)\" re)h"
   (find-with-rules
    "[[hello:hey]]"
    (list
-    `(:text (:pattern (any (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
-                           (:pattern "[[(%W-)]]")
-                           (:pattern "[[(%W-):(%E:[])]]")))
+    `(:text
+      (:pattern
+       (any
+        (consec
+         (literal "[[")
+         (:pattern (word-digits-hyphen) :name 'test2)
+         (:pattern (literal ":") :name 'test3) (disallowed-chars "[]")
+         (literal "][") (disallowed-chars "[]") (literal "]]"))
+        (consec (literal "[[") (word-digits-hyphen) (literal "]]"))
+        (consec (literal "[[") (word-digits-hyphen) (literal ":")
+                (disallowed-chars "[]") (literal "]]"))))
+      :id 'org-link))))
+
+(defun test-parse-4 ()
+  (find-with-rules
+   "[[hello:hey]]hey"
+   (list
+    `(:text
+      (:pattern
+       (consec (literal "[[") (symbol-matcher) (literal ":")
+               (all-but "[]") (literal "]]") (only "yeh")))
+      :id 'org-link))))
+
+(defun test-parse-5 ()
+  (find-with-rules
+   "[[hello:hey]]hey"
+   (list
+    `(:text
+      (:pattern (any
+                 (consec "[[" (symbol-matcher) ":"
+                         (all-but "[]") "][" (all-but "[]") "]]")
+                 "[[%W]]"
+                 (consec "[[" (symbol-matcher) ":" (symbol-matcher) "]]")))
       :id 'org-link))))

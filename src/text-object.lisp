@@ -268,23 +268,25 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform `(:begin (:pattern (any (:pattern ,(format nil "~A(%W-)(" *lexer-text-macro-char*))
-                                      (:string ,(format nil "~A(" *lexer-text-macro-char*))))
-                :end (:string ")")
-                :children ((:begin (:string "(")
-                            :end (:string ")")
+    :initform `(:begin
+                (any (consec (literal ,(string *lexer-text-macro-char*))
+                             (symbol-matcher)
+                             (literal "("))
+                     (literal ,(format nil "~A(" *lexer-text-macro-char*)))
+                :end (literal ")")
+                :children ((:begin (literal "(")
+                            :end (literal ")")
                             :id ,(gensym)
-                            :children ((:begin (:string "\"")
-                                        :end (:string "\"")
+                            :children ((:begin (literal "\"")
+                                        :end (literal "\"")
                                         :id ,(gensym)
                                         :disallow t)))
-                           (:begin (:string "\"")
-                            :end (:string "\"")
+                           (:begin (literal "\"")
+                            :end (literal "\"")
                             :id ,(gensym)
                             :disallow t))
-                ;; :begin-to-hash t
-                :escapable ,*lexer-text-macro-char* ;; for escaping
-                :end-to-hash t))))
+                :begin-to-hash ,*lexer-text-macro-char*
+                :escapable ,*lexer-text-macro-char*))))
 
 (defun is-not-before-parenthesis (str1 pos match-str)
   (not (char= (char str1 (+ pos (length match-str)))
@@ -294,7 +296,7 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass text-macro-ref (text-object)
   ((rule
     :allocation :class
-    :initform `(:text (:pattern ,(format nil "~A(%W-)" *lexer-text-macro-char*))
+    :initform `(:text ,(format nil "~A%W" *lexer-text-macro-char*)
                 :text-conditions (is-not-before-parenthesis)
                 :disallow t))))
 
@@ -302,27 +304,30 @@ region. you should just make it return a symbol like `end-type'."))
   ((rule
     :allocation :class
     :initform `(:begin
-                (:pattern (any (:pattern ,(format nil "~A(%W-)(" *post-lexer-text-macro-char*))
-                               (:string ,(format nil "~A(" *post-lexer-text-macro-char*))))
-                :end (:string ")")
-                :children ((:begin (:string "(")
-                            :end (:string ")")
+                (any
+                 (consec (literal ,(string *post-lexer-text-macro-char*))
+                         (symbol-matcher)
+                         (literal "("))
+                 (literal ,(format nil "~A(" *post-lexer-text-macro-char*)))
+                :end (literal ")")
+                :children ((:begin (literal "(")
+                            :end (literal ")")
                             :id ,(gensym)
-                            :children ((:begin (:string "\"")
-                                        :end (:string "\"")
+                            :children ((:begin (literal "\"")
+                                        :end (literal "\"")
                                         :id ,(gensym)
                                         :disallow t)))
-                           (:begin (:string "\"")
-                            :end (:string "\"")
+                           (:begin (literal "\"")
+                            :end (literal "\"")
                             :id ,(gensym)
                             :disallow t))
-                ;; :begin-to-hash t
-                :end-to-hash t))))
+                :begin-to-hash ,*post-lexer-text-macro-char*))))
 
 (defclass post-lexer-text-macro-ref (text-object)
   ((rule
     :allocation :class
-    :initform `(:text (:pattern ,(format nil "~A(%W-)" *post-lexer-text-macro-char*))
+    :initform `(:text (consec (literal ,(string *post-lexer-text-macro-char*))
+                              (symbol-matcher))
                 :disallow t))))
 
 (defun eval-post-lexer-macro (obj)
@@ -377,10 +382,10 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass inline-math (text-object)
   ((rule
     :allocation :class
-    :initform '(:begin (:string "\\(")
-                :end (:string "\\)")
-                :begin-to-hash t
-                :end-to-hash t))))
+    :initform '(:begin (literal "\\(")
+                :end (literal "\\)")
+                :begin-to-hash #\\
+                :end-to-hash #\\))))
 
 (defmethod text-object-convert ((obj inline-math) backend)
   (pcase backend
@@ -397,10 +402,10 @@ region. you should just make it return a symbol like `end-type'."))
 (defclass display-math (text-object)
   ((rule
     :allocation :class
-    :initform '(:begin (:string "\\[")
-                :end (:string "\\]")
-                :begin-to-hash t
-                :end-to-hash t))))
+    :initform '(:begin (literal "\\[")
+                :end (literal "\\]")
+                :begin-to-hash #\\
+                :end-to-hash #\\))))
 
 (defmethod text-object-convert ((obj display-math) backend)
   (pcase backend
@@ -433,10 +438,10 @@ region. you should just make it return a symbol like `end-type'."))
   ((rule
     :allocation :class
     :initform
-    (list :begin '(:pattern "\\begin{(%E:{})}")
-          :end '(:pattern "\\end{(%E:{})}")
-          :begin-to-hash t
-          :end-to-hash t
+    (list :begin "\\begin{%W}"
+          :end "\\end{%W}"
+          :begin-to-hash #\\
+          :end-to-hash #\\
           ;; we need to make sure the text after begin_ and end_ is the same
           :pair-predicate (lambda (str b-idx e-idx b-end e-end)
                             (let ((begin-str (subseq str b-idx b-end))
