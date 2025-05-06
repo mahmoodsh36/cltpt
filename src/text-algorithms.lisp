@@ -289,7 +289,7 @@ returns a list of marker records (plists)."
       (when (getf r :children)
         (dolist (record1 (build-marker-records (getf r :children)))
           (setf (getf record1 :main-parent-id)
-                (getf r :id))
+                (or (getf r :main-parent-id) (getf r :id)))
           ;; we shouldnt re-set :parent-id if it was set by a child
           (unless (getf record1 :parent-id)
             (setf (getf record1 :parent-id) (getf r :id)))
@@ -505,14 +505,16 @@ RULES is a list of plists that may specify marker types:
                               (gethash rule-id active-begins))))
             (setf allow-event nil))
           ;; was used for debugging..
-          ;; (format t "marker1 ~A,~A ~A,~A ~A,~A, ~A,~A, ~A~%"
+          ;; (format t "marker1 ~A,~A ~A,~A ~A,~A, ~A,~A,  ~A  ~A~%"
           ;;         (char str (getf ev :pos))
           ;;         (length (gethash main-parent-id active-begins))
           ;;         (null allow-event)
           ;;         ev-type
           ;;         (getf ev :pos)
-          ;;         last-end parent-id
+          ;;         last-end
+          ;;         parent-id
           ;;         (length (gethash parent-id active-begins))
+          ;;         main-parent-id
           ;;         rule-id)
           ;; if the parent doesnt allow this element nested inside it, we need to discard the event
           (when last-begin-ev
