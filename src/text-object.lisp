@@ -280,10 +280,12 @@ region. you should just make it return a symbol like `end-type'."))
                             :children ((:begin (literal "\"")
                                         :end (literal "\"")
                                         :id ,(gensym)
+                                        :nestable nil
                                         :disallow t)))
                            (:begin (literal "\"")
                             :end (literal "\"")
                             :id ,(gensym)
+                            :nestable nil
                             :disallow t))
                 :begin-to-hash ,*lexer-text-macro-char*
                 :escapable ,*lexer-text-macro-char*))))
@@ -316,10 +318,12 @@ region. you should just make it return a symbol like `end-type'."))
                             :children ((:begin (literal "\"")
                                         :end (literal "\"")
                                         :id ,(gensym)
+                                        :nestable nil
                                         :disallow t)))
                            (:begin (literal "\"")
                             :end (literal "\"")
                             :id ,(gensym)
+                            :nestable nil
                             :disallow t))
                 :begin-to-hash ,*post-lexer-text-macro-char*))))
 
