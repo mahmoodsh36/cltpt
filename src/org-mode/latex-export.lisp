@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/org-mode)
 
 (defvar *latex-preamble*
   "\\documentclass[11pt]{article}
@@ -17,16 +17,6 @@
  pdfcreator={cltpt},
  pdflang={English}}"
           *latex-preamble* author date title author title))
-
-(defvar *latex-escape-table*
-  '((#\& . "\\&")
-    (#\~ . "\\textasciitilde{}")
-    (#\\ . "\\\\")
-    (#\_ . "\\_")
-    (#\# . "\\#")))
-
-(defun latex-escape (s escapable-chars)
-  (replace-chars-and-escapes s *latex-escape-table* escapable-chars))
 
 ;; A
 (defun org-list-to-latex (org-forest)

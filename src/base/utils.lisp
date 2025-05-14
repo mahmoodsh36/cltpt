@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/base)
 
 (defun last-atom (seq)
   (car (last seq)))

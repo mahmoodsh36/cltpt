@@ -81,9 +81,9 @@ we provide a default mode that parses /most/ of org-mode's syntax but it need no
 i personally plan on reducing my usage of org-mode syntax elements and use the "text-macro"
 syntax above because it is a much more powerful alternative.
 
-#(b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))
+#(cltpt/base::b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))
 output: %(concatenate 'string "value: [[[" myvar1 "]]]").
-#(/b)
+#(/cltpt/base::)
 
 to transclude some block (possibly from another file ofcourse):
 #(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))

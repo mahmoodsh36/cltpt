@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/base)
 
 ;; holds all text formats
 (defvar *text-formats* nil)
@@ -61,3 +61,9 @@
 
 (defun text-format-by-name (name)
   (find name *text-formats* :key 'text-format-name :test 'string=))
+
+(defgeneric text-format-escape (fmt text escapable-chars))
+
+;; default one
+(defmethod text-format-escape ((fmt text-format) text escapable-chars)
+  text)

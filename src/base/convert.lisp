@@ -1,10 +1,7 @@
-(in-package :cltpt)
+(in-package :cltpt/base)
 
 (defun escape-text (text backend escapable-chars)
-  (pcase backend
-    (latex (latex-escape text escapable-chars))
-    (html (html-escape text escapable-chars))
-    (t text)))
+  (text-format-escape backend text escapable-chars))
 
 (defun collect-escapables (text-object-types)
   (remove-if-not

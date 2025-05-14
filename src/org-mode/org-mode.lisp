@@ -1,4 +1,16 @@
-(in-package :cltpt)
+(defpackage :cltpt/org-mode
+  (:use :cl :str :cltpt/base)
+  (:import-from
+   :cltpt/base :text-object
+   :text-macro :text-macro-ref
+   :post-lexer-text-macro :post-lexer-text-macro-ref
+   :document)
+  (:import-from
+   :cltpt/latex
+   :display-math :inline-math :latex-env)
+  (:export :org-list-parse :org-list-get-bounds))
+
+(in-package :cltpt/org-mode)
 
 (defun make-org-mode ()
   (make-text-format
@@ -23,7 +35,7 @@
 (defvar *org-mode-inline-text-object-types*)
 
 (defun org-mode-text-object-types ()
-  (text-format-text-object-types org-mode))
+  (cltpt/base:text-format-text-object-types org-mode))
 
 ;; eval-when wouldnt be enough here..
 (defmethod asdf:perform :after ((op asdf:load-op) (system (eql (asdf:find-system "cltpt"))))
@@ -77,9 +89,9 @@ its value is NIL."
     :initform
     (list :begin "#+begin_%w"
           :begin-to-hash #\#
-          :begin-conditions '(begin-of-line)
+          :begin-conditions '(cltpt/base:begin-of-line)
           :end "#+end_%w"
-          :end-conditions '(begin-of-line)
+          :end-conditions '(cltpt/base:begin-of-line)
           :end-to-hash #\#
           ;; we need to make sure the text after begin_ and end_ is the same
           :pair-predicate (lambda (str b-idx e-idx b-end e-end)
@@ -99,7 +111,7 @@ its value is NIL."
                   (atleast-one (literal " "))
                   (all-but-newline))
                  :id org-header)
-                :text-conditions (begin-of-line))))
+                :text-conditions (cltpt/base:begin-of-line))))
   (:documentation "org-mode header."))
 
 (defmethod text-object-init :after ((obj org-header) str1 opening-region closing-region)
@@ -168,16 +180,16 @@ its value is NIL."
 (defclass org-keyword (text-object)
   ((rule
     :allocation :class
-    :initform (list :text `(consec ,@(compile-pattern-string "#+%W: %a"))
+    :initform (list :text '(consec "#+%W: %a")
                     :text-to-hash #\#
-                    :text-conditions '(begin-of-line))))
+                    :text-conditions '(cltpt/base:begin-of-line))))
   (:documentation "org-mode file-level keyword."))
 
 (defclass org-babel-results (text-object)
   ((rule
     :allocation :class
     :initform (list :text '(literal-casein "#+results:")
-                    :text-conditions '(begin-of-line)
+                    :text-conditions '(cltpt/base:begin-of-line)
                     :text-to-hash #\#)))
   (:documentation "org-babel evaluation results."))
 
@@ -266,7 +278,7 @@ its value is NIL."
     :allocation :class
     :initform '(:begin ":%w:"
                 :begin-to-hash #\:
-                :begin-conditions (end-of-line not-drawer-end)
+                :begin-conditions (cltpt/base:end-of-line not-drawer-end)
                 :end (literal-casein ":end:"))))
   (:documentation "org-mode drawer."))
 
@@ -627,8 +639,8 @@ its value is NIL."
     :allocation :class
     :initform `(:begin (literal "*")
                 :begin-to-hash #\*
-                :begin-conditions ,(list (complement #'begin-of-line))
-                :end-conditions ,(list (complement #'begin-of-line))
+                :begin-conditions ,(list (complement #'cltpt/base:begin-of-line))
+                :end-conditions ,(list (complement #'cltpt/base:begin-of-line))
                 :end (literal "*")
                 :end-to-hash #\*
                 :nestable nil
@@ -705,138 +717,3 @@ its value is NIL."
                      :if-exists :supersede
                      :if-does-not-exist :create)
     (write-sequence (convert-org-doc (parse-org-file src) backend) f)))
-
-(defun org-convert-to-latex ()
-  )
-
-(defun org-convert-to-html ()
-  )
-
-;; code for parsing lsits
-;; A
-(defun org-list-count-leading-spaces (line)
-  "return the number of leading space characters in LINE."
-  (let ((count 0))
-    (loop for ch across line
-          while (char= ch #\space)
-          do (incf count))
-    count))
-
-;; A
-(defun org-list-parse-bullet-line (line expected-indent)
-  "if LINE (after EXPECTED-INDENT spaces) begins with a valid bullet,
-return three values: T, the bullet marker (a string), and the remaining text.
-a valid bullet is either a dash followed by a space, or a sequence of digits/letters
-followed by a dot (and optionally a following space).
-otherwise, return NIL, NIL, NIL."
-  (if (/= (org-list-count-leading-spaces line) expected-indent)
-      (values nil nil nil)
-      (let ((trimmed (subseq line expected-indent)))
-        (cond
-          ;; dash bullet.
-          ((and (> (length trimmed) 1)
-                (char= (char trimmed 0) #\-)
-                (char= (char trimmed 1) #\space))
-           (values t "-" (subseq trimmed 2)))
-          ;; number or letter bullet (e.g., "1." or "a.")
-          ((or (digit-char-p (char trimmed 0))
-               (alpha-char-p (char trimmed 0)))
-           (let ((i 0))
-             (loop while (and (< i (length trimmed))
-                              (or (digit-char-p (char trimmed i))
-                                  (alpha-char-p (char trimmed i))))
-                   do (incf i))
-             (if (and (< i (length trimmed))
-                      (char= (char trimmed i) #\.))
-                 (progn
-                   (incf i) ;; include the dot in the marker
-                   (let ((marker (subseq trimmed 0 i)))
-                     ;; optionally skip a following space.
-                     (when (and (< i (length trimmed))
-                                (char= (char trimmed i) #\space))
-                       (incf i))
-                     (values t marker (subseq trimmed i))))
-                 (values nil nil nil))))
-          (t (values nil nil nil))))))
-
-;; A
-(defun org-list-collect-extra-lines (lines current-indent)
-  "recursively collect extra text lines from LINES that are more indented than CURRENT-INDENT.
-stop if a line is indented exactly CURRENT-INDENT+3 and is a valid bullet.
-returns two values: a list of extra text lines (trimmed) and the remaining lines."
-  (if (or (null lines)
-          (<= (org-list-count-leading-spaces (first lines)) current-indent))
-      (values nil lines)
-      (let ((line (first lines)))
-        (if (and (= (org-list-count-leading-spaces line) (+ current-indent 3))
-                 (multiple-value-bind (child-valid child-marker child-text)
-                     (org-list-parse-bullet-line line (+ current-indent 3))
-                   child-valid))
-            (values nil lines)
-            (multiple-value-bind (collected rem)
-                (org-list-collect-extra-lines (rest lines) current-indent)
-              (values (cons (string-trim " " line) collected) rem))))))
-
-;; A
-(defun org-list-parse-one-item (lines current-indent)
-  "parse one item from LINES at the given CURRENT-INDENT.
-returns two values: the parsed item as a cons cell (where the car is a plist with
-keys :marker and :text,and the cdr is a forest of child items in the same format)
-and the remaining lines."
-  (multiple-value-bind (valid marker text)
-      (org-list-parse-bullet-line (first lines) current-indent)
-    (unless valid
-      (error "expected bullet at indent ~A: ~A" current-indent (first lines)))
-    (let ((remaining (rest lines)))
-      ;; collect extra lines that are attached to this bullet.
-      (multiple-value-bind (extra-lines rem)
-          (org-list-collect-extra-lines remaining current-indent)
-        (setf remaining rem)
-        ;; check for nested children items.
-        (let ((children))
-          (when (and remaining
-                     (>= (org-list-count-leading-spaces (first remaining))
-                         (+ current-indent 3)))
-            (multiple-value-bind (child-items rem2)
-                (org-list-parse-items remaining (+ current-indent 3))
-              (setf children child-items)
-              (setf remaining rem2)))
-          ;; combine the bullet line text with any extra lines.
-          (let* ((clean-text (string-trim " " text))
-                 (combined-text (if extra-lines
-                                    (concatenate 'string
-                                                 clean-text
-                                                 (string #\newline)
-                                                 (str:join (string #\newline) extra-lines))
-                                    clean-text))
-                 (node (list :marker marker :text combined-text)))
-            ;; return a cons cell where car is the node and cdr is the children forest.
-            (values (cons node children) remaining)))))))
-
-;; A
-(defun org-list-parse-items (lines current-indent)
-  "recursively parse LINES at the CURRENT-INDENT level.
-returns two values: a list of parsed items and the remaining lines.
-each item is a plist with keys :marker, :text, and :children."
-  (if (or (null lines)
-          (< (org-list-count-leading-spaces (first lines)) current-indent))
-      (values nil lines)
-      (multiple-value-bind (item rem-lines)
-          (org-list-parse-one-item lines current-indent)
-        (multiple-value-bind (siblings final-rem)
-            (org-list-parse-items rem-lines current-indent)
-          (values (cons item siblings) final-rem)))))
-
-;; A
-(defun org-list-parse (text)
-  "parses an org-mode list from TEXT and returns its nested structure.
-each item is a plist with keys:
-  :marker   – the bullet marker (e.g. \"-\", \"1.\", \"a.\")
-  :text     – the entire text of the element (bullet line plus any attached lines, with newlines)
-  :children – a list of nested items (if any)"
-  (multiple-value-bind (items rem)
-      (org-list-parse-items
-       (str:split (string #\newline)
-                  (str:trim text)) ;; trim to avoid last \n
-       0)
-    items))

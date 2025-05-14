@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/org-mode)
 
 (defparameter *latex-previews-tmp-directory* #P"/tmp/")
 (defparameter *latex-previews-preamble-filename* "preamble") ;; appended with .fmt

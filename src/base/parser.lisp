@@ -1,4 +1,11 @@
-(in-package :cltpt)
+(defpackage :cltpt/base
+  (:use :cl :str)
+  (:export :parse :make-text-format
+           :begin-of-line :end-of-line
+           :text-format-text-object-types))
+(in-package :cltpt/base)
+
+(defvar *debug* nil)
 
 (defun parse (str1
               text-object-types
