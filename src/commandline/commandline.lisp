@@ -1,4 +1,8 @@
-(in-package :cltpt)
+(defpackage :cltpt/commandline
+  (:use :cl :clingon)
+  (:export :commandline-main))
+
+(in-package :cltpt/commandline)
 
 (defun top-level-command ()
   (clingon:make-command

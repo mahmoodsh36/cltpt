@@ -32,32 +32,32 @@ code here
 : \(11\)
 : wow
 
-a value here: \#(format nil "test~A" 1)
+escaped macro here: \#(format nil "test~A" 1)
 
-#(make-block :type 'definition)
+#(cltpt/base::make-block :type 'definition)
 my first block
-#(block-end)
+#(cltpt/base::block-end)
 
-#(make-block :type 'theorem :let '((a "some text")))
+#(cltpt/base::make-block :type 'theorem :let '((a "some text")))
   my first block
   %a
-  #(make-block :type 'subtheorem
+  #(cltpt/base::make-block :type 'subtheorem
                :let* '((b " that will be included on export")))
     %(concatenate 'string a b)
-  #(block-end)
-#(block-end)
+  #(cltpt/base::block-end)
+#(cltpt/base::block-end)
 
 start with #20
 
-add 1 to get %(+ (prev-obj-eval) 1), add 10 to get %(+ (prev-obj-eval) 10)
+add 1 to get %(+ (cltpt/base::prev-obj-eval) 1), add 10 to get %(+ (cltpt/base::prev-obj-eval) 10)
 
-#(block :type 'theorem
+#(cltpt/base::blk :type 'theorem
         :let '((prev-num (prev))
                (next-num (parse-integer (car (text-list-items (next 'text-list)))))
                (new-num (+ prev-num next-num))))
 then add the first number from the next list to get %new-num
 multiply that by 5 to get %(* new-num 5). anything is possible! this is only a simple example
-#(/block)
+#(cltpt/base::/blk)
 
 - 45
 - 50
@@ -77,9 +77,9 @@ we provide a default mode that parses /most/ of org-mode's syntax but it need no
 i personally plan on reducing my usage of org-mode syntax elements and use the "text-macro"
 syntax above because it is a much more powerful alternative.
 
-#(b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))
+#(cltpt/base::b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))
 output: %(concatenate 'string "value: [[[" myvar1 "]]]").
-#(/b)
+#(cltpt/base::/b)
 
 to transclude some block (possibly from another file ofcourse):
 #(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))

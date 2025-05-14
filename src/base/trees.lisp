@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/base)
 
 (defun make-node (interval)
   (cons interval nil))

@@ -1,7 +1,4 @@
 (defpackage :cltpt
-  (:use :cl :fiveam)
-  (:shadow block))
+  (:use :cl))
 
 (in-package :cltpt)
-
-(defvar *debug* nil)

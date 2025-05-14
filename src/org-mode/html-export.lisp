@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/org-mode)
 
 ;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
 (defvar *html-export-with-latex-method*
@@ -9,9 +9,6 @@
 
 (defun generate-html-header (author date title)
   "<head></head>")
-
-(defun html-escape-chars (s)
-  s)
 
 ;; A
 (defun org-list-to-html (org-forest)

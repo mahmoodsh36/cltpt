@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/base)
 
 ;; this is better done in-place and not as an external function, before matching
 (defun begin-of-line (str pos match-str)
@@ -206,38 +206,6 @@ return the first position where IGNORE is not found."
       (skip-ignore str (+ pos (length ignore)) ignore)
       pos))
 
-;; this is used to match "regions" - continguous sets of lines, for lists and tables
-(defun match-region-with-ignore (str1 pos marker)
-  "if the line at POS (assumed to be at the start of a line) matches the region marker,
-return the total length of the contiguous region.
-MARKER must have:
-  - a :pattern (e.g. \"-\"),
-  - optionally, an :ignore key (a literal string to skip at the start of each line).
-for each line starting at POS, SKIP-IGNORE is used to bypass the ignore prefix,
-then the marker pattern is checked.
-if it matches, we advance to the next line.
-when a line does not match (or end-of-string is reached), the region ends.
-returns the total length (from the initial POS) if at least one line matches, or NIL otherwise."
-  (let* ((n (length str1))
-         (ignore (getf marker :ignore))
-         (pattern (getf marker :pattern))
-         (plen (length pattern))
-         (start pos)
-         (matched))
-    (loop
-      (if (>= pos n)
-          (return (if matched (- pos start) nil)))
-      (let ((line-pos (if ignore (skip-ignore str1 pos ignore) pos)))
-        (if (and (< line-pos n)
-                 (<= (+ line-pos plen) n)
-                 (marker-match str1 marker line-pos))
-            (progn
-              (setf matched t)
-              ;; advance pos to the beginning of the next line.
-              (let ((nl (position #\newline str1 :start pos)))
-                (if nl (setf pos (1+ nl)) (setf pos n))))
-            (return (if matched (- pos start) nil)))))))
-
 ;; may be faster than other options (such as composition of subseq and string=)
 (defun substring-equal (str1 other begin end)
   (loop for i from 0 below (- end begin)
@@ -276,7 +244,6 @@ return the total length of the match if successful, or NIL otherwise."
     (:begin   :begin-conditions)
     (:end     :end-conditions)
     (:text    :text-conditions)
-    (:region  :region-conditions)
     (t nil)))
 
 (defun apply-condition (cond-fn str pos match-str)
@@ -297,9 +264,8 @@ if it is a symbol or a function, call it."
     (t (error "invalid condition: ~A" cond-fn))))
 
 (defun build-marker-records (rules)
-  "process RULES to build marker records supporting :begin, :end, :text, and :region markers.
+  "process RULES to build marker records supporting :begin, :end, and :text markers.
 a rule may also include a :pair-predicate for pairing and an :id.
-if the rule has an :ignore key, that value is attached to the marker record.
 returns a list of marker records (plists)."
   (let (markers)
     (dolist (r rules)
@@ -312,7 +278,7 @@ returns a list of marker records (plists)."
           (unless (getf record1 :parent-id)
             (setf (getf record1 :parent-id) (getf r :id)))
           (push record1 markers)))
-      (dolist (key '(:begin :end :text :region))
+      (dolist (key '(:begin :end :text))
         (let ((spec (getf r key)))
           (when spec
             (let* ((record (list :rule r
@@ -322,17 +288,13 @@ returns a list of marker records (plists)."
                    (cond-key (case key
                                (:begin  :begin-conditions)
                                (:end    :end-conditions)
-                               (:text   :text-conditions)
-                               (:region :region-conditions)))
+                               (:text   :text-conditions)))
                    (to-hash-key (case key
                                   (:begin  :begin-to-hash)
                                   (:end    :end-to-hash)
-                                  (:text   :text-to-hash)
-                                  (:region :region-to-hash))))
+                                  (:text   :text-to-hash))))
               (when (getf r cond-key)
                 (setf record (append record (list cond-key (getf r cond-key)))))
-              (when (getf r :ignore)
-                (setf record (append record (list :ignore (getf r :ignore)))))
               (when (getf r to-hash-key)
                 (setf record (append record (list :to-hash (getf r to-hash-key)))))
               ;; (when (getf r :children)
@@ -402,16 +364,10 @@ to allow overlapping/nested events from different rules yet avoid multiple
 overlapping events from the same rule, we track active region events in
 a hash table."
   (let ((n (length str))
-        (region-markers
-          (remove-if-not
-           (lambda (m)
-             (eq (getf m :marker-type) :region))
-           markers))
-        (nonregion-nonhashed-markers
+        (nonhashed-markers
           (remove-if
            (lambda (m)
-             (or (eq (getf m :marker-type) :region)
-                 (getf m :to-hash)))
+                 (getf m :to-hash))
            markers))
         (active-regions)
         (events)
@@ -421,25 +377,8 @@ a hash table."
       (let ((c (elt str i)))
         (unless escaped
           (when (or (= i 0) (char= (elt str (1- i)) #\newline))
-            ;; region markers: check at beginning-of-line.
-            (dolist (marker region-markers)
-              (let* ((rule-id (getf marker :id))
-                     (active (assoc rule-id active-regions)))
-                ;; only try matching if theres no active region overlapping.
-                (unless (and active (< i (cdr active)))
-                  (let ((rlen (match-region-with-ignore str i marker)))
-                    (when rlen
-                      (push
-                       (list :begin i
-                             :end (+ i rlen)
-                             :match (subseq str i (+ i rlen))
-                             :marker marker)
-                       events)
-                      (setf active-regions
-                            (acons rule-id (+ i rlen)
-                                   (remove-if (lambda (pair)
-                                                (eq (car pair) rule-id))
-                                              active-regions))))))))
+            ;; TODO: should apply beginning-of-line check here.
+            ;; -
             ;; set line-num which is used later to detect matches on different lines
             ;; and prune them if they're not allowed
             (incf line-num))
@@ -451,7 +390,7 @@ a hash table."
                 (setf (getf (car match-result) :line-num) line-num)
                 (loop for item in (flatten-match match-result)
                       do (push item events)))))
-          (dolist (marker nonregion-nonhashed-markers)
+          (dolist (marker nonhashed-markers)
             (let ((match-result (marker-match str marker i)))
               (when match-result
                 ;; TODO: we're only setting :line-num for the parent here
@@ -612,7 +551,7 @@ RULES is a list of plists that may specify marker types:
                      (setf (gethash main-parent-id active-begins)
                            (cdr (gethash main-parent-id active-begins))))
                    ))))
-            ((or (eq ev-type :text) (eq ev-type :region))
+            ((eq ev-type :text)
              (push (list (getf ev :begin)
                          (getf ev :end)
                          (getf ev :match)

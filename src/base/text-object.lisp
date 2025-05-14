@@ -1,4 +1,4 @@
-(in-package :cltpt)
+(in-package :cltpt/base)
 
 ;; dynamically bound when executing a post-lexer text-macro to give the context of the object
 ;; to the function that will be running
@@ -192,24 +192,11 @@ region. you should just make it return a symbol like `end-type'."))
 (defun block-end ()
   'block-end)
 
-(defmethod text-object-convert ((obj text-block) backend)
-  ;; use string on type to ensure its not a symbol
-  (let ((type1 (string-downcase (string (text-object-property obj :type)))))
-    (pcase backend
-      (latex
-       (wrap-contents-for-convert obj
-                                  (format nil "\\begin{~A}" type1)
-                                  (format nil "\\end{~A}" type1)))
-      (html
-       (wrap-contents-for-convert obj
-                                  (format nil "<~A>" type1)
-                                  (format nil "</~A>" type1))))))
-
 ;; aliases for blocks
 (setf (symbol-function 'b) (symbol-function 'make-block))
 (setf (symbol-function '/b) (symbol-function 'block-end))
-(setf (symbol-function 'block) (symbol-function 'make-block))
-(setf (symbol-function '/block) (symbol-function 'block-end))
+(setf (symbol-function 'blk) (symbol-function 'make-block))
+(setf (symbol-function '/blk) (symbol-function 'block-end))
 
 (defmethod text-object-ends-by ((text-obj text-block) value)
   (and (symbolp value) (string= value 'block-end)))
@@ -381,91 +368,6 @@ region. you should just make it return a symbol like `end-type'."))
 
 (defmethod text-object-convert ((obj post-lexer-text-macro-ref) backend)
   (convert-post-lexer-macro-obj obj backend))
-
-;; define the inline-math subclass with its own default rule
-(defclass inline-math (text-object)
-  ((rule
-    :allocation :class
-    :initform '(:begin (literal "\\(")
-                :end (literal "\\)")
-                :begin-to-hash #\\
-                :end-to-hash #\\))))
-
-(defmethod text-object-convert ((obj inline-math) backend)
-  (pcase backend
-    (latex
-     (list :text (text-object-text obj)
-           :recurse t
-           :escape nil))
-    (html
-     (list :text (latex-fragment-to-html (text-object-text obj) t)
-           :reparse nil
-           :recurse nil
-           :escape nil))))
-
-(defclass display-math (text-object)
-  ((rule
-    :allocation :class
-    :initform '(:begin (literal "\\[")
-                :end (literal "\\]")
-                :begin-to-hash #\\
-                :end-to-hash #\\))))
-
-(defmethod text-object-convert ((obj display-math) backend)
-  (pcase backend
-    (latex
-     (list :text (text-object-text obj)
-           :reparse nil
-           :recurse t
-           :escape nil))
-    (html
-     (list :text (latex-fragment-to-html (text-object-text obj) nil)
-           :reparse nil
-           :recurse t
-           :escape nil))))
-
-(defclass latex-env-slow (text-object)
-  ((rule
-    :allocation :class
-    :initform
-    (list :begin '(:regex "\\\\begin{[a-z\\*]+}")
-          :end '(:regex "\\\\end{[a-z\\*]+}")
-          ;; we need to make sure the text after begin_ and end_ is the same
-          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                            (let ((begin-str (subseq str b-idx b-end))
-                                  (end-str (subseq str e-idx e-end)))
-                              (string= (subseq begin-str (length "\\begin{"))
-                                       (subseq end-str (length "\\end{"))))))))
-  (:documentation "latex environment."))
-
-(defclass latex-env (text-object)
-  ((rule
-    :allocation :class
-    :initform
-    (list :begin "\\begin{%W}"
-          :end "\\end{%W}"
-          :begin-to-hash #\\
-          :end-to-hash #\\
-          ;; we need to make sure the text after begin_ and end_ is the same
-          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                            (let ((begin-str (subseq str b-idx b-end))
-                                  (end-str (subseq str e-idx e-end)))
-                              (string= (subseq begin-str (length "\\begin{"))
-                                       (subseq end-str (length "\\end{"))))))))
-  (:documentation "latex environment."))
-
-(defmethod text-object-convert ((obj latex-env) backend)
-  (pcase backend
-    (latex
-     (list :text (text-object-text obj)
-           :reparse nil
-           :recurse nil
-           :escape nil))
-    (html
-     (list :text (latex-fragment-to-html (text-object-text obj) nil)
-           :reparse nil
-           :recurse nil
-           :escape nil))))
 
 ;; we need to "finalize" the classes to be able to use MOP, a temporary workaround..
 (defparameter *finalized-map* (make-hash-table))

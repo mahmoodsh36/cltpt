@@ -5,23 +5,41 @@
   :depends-on ("str" "uiop" "cl-ppcre" "cl-fad" "clingon" "ironclad" "fiveam")
   :components ((:file "cltpt")
                (:module "base"
-                :pathname "src/"
-                :components ((:file "utils")
+                :pathname "src/base/"
+                :components ((:file "parser")
+                             (:file "utils")
                              (:file "text-object")
                              (:file "text-algorithms")
                              (:file "text-format")
-                             (:file "parser")
-                             (:file "latex")
-                             (:file "html")
                              (:file "trees")
-                             (:file "convert")
-                             (:file "tests")))
-               (:module "commandline"
-                :pathname "src/commandline"
-                :components ((:file "commandline")))
+                             (:file "convert")))
+               (:module "latex"
+                :pathname "src/latex/"
+                :depends-on ("base")
+                :components ((:file "latex")
+                             (:file "text-objects")))
+               (:module "html"
+                :pathname "src/html/"
+                :depends-on ("base")
+                :components ((:file "html")))
                (:module "org-mode"
                 :pathname "src/org-mode"
+                :depends-on ("base" "latex" "html")
                 :components ((:file "org-mode")
+                             (:file "org-list")
                              (:file "latex-previews")
                              (:file "latex-export")
-                             (:file "html-export")))))
+                             (:file "html-export")))
+               (:module "commandline"
+                :pathname "src/commandline"
+                :depends-on ("base" "latex" "org-mode" "html")
+                :components ((:file "commandline")))
+               (:module "extras"
+                :pathname "src/"
+                :depends-on ("base" "latex" "org-mode" "html")
+                :components ((:file "extras")))
+               (:module "tests"
+                :pathname "tests/"
+                :depends-on ("base" "org-mode")
+                :components ((:file "parse")))
+               ))
