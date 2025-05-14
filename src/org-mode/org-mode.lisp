@@ -8,7 +8,7 @@
      org-link
      org-block org-drawer
      display-math inline-math latex-env
-     org-babel-results org-babel-results-colon
+     ;; org-babel-results org-babel-results-colon
      org-emph org-italic org-inline-code
      text-macro text-macro-ref
      post-lexer-text-macro post-lexer-text-macro-ref
@@ -92,10 +92,13 @@ its value is NIL."
 (defclass org-header (text-object)
   ((rule
     :allocation :class
-    :initform '(:text (consec
-                       (atleast-one (literal "*"))
-                       (atleast-one (literal " "))
-                       (all-but-newline))
+    :initform '(:text
+                (:pattern
+                 (consec
+                  (atleast-one (literal "*"))
+                  (atleast-one (literal " "))
+                  (all-but-newline))
+                 :id org-header)
                 :text-conditions (begin-of-line))))
   (:documentation "org-mode header."))
 
@@ -381,15 +384,47 @@ its value is NIL."
           ""
           :recurse nil))
 
-(defclass org-link (text-object)
+(defclass text-link (text-object)
   ((rule
+    :allocation :class
+    :initform `(:pattern
+                (consec
+                 (literal "[[")
+                 (:pattern (literal "][]]")
+                  :id link)
+                 )
+                :end-to-hash t)))
+  (:documentation "a link."))
+
+(defclass org-link (text-object)
+  ((shared-name
+    :allocation :class
+    :initform 'link)
+   (rule
     :allocation :class
     :initform '(:text
                 (any
-                 (consec "[[" (symbol-matcher) ":"
-                  (all-but "[]") "][" (all-but "[]") "]]")
-                 "[[%W]]"
-                 (consec "[[" (symbol-matcher) ":" (symbol-matcher) "]]")))))
+                 ;; [[type:dest][desc]]
+                 (consec
+                  "[["
+                  (:pattern (symbol-matcher) :id link-type)
+                  ":"
+                  (:pattern (all-but "[]") :id link-dest)
+                  "]["
+                  (:pattern (all-but "[]") :id link-desc)
+                  "]]")
+                 ;; [[dest]]
+                 (consec
+                  "[["
+                  (:pattern (all-but "[]") :id link-dest)
+                  "]]")
+                 ;; [[type:dest]]
+                 (consec
+                  "[["
+                  (:pattern (symbol-matcher) :id link-type)
+                  ":"
+                  (:pattern (all-but "[]") :id link-dest)
+                  "]]")))))
   (:documentation "org-mode link."))
 
 (defmethod text-object-init :after ((obj org-link) str1 opening-region closing-region)

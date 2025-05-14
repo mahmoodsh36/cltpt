@@ -122,3 +122,21 @@
                  region-to-escape)
                 (escape-text convert-text backend escapables))
             convert-text))))
+
+;; this barely handles simple patterns, it cannot be relied on, but it may make some things easier.
+(defun convert-rule-with-shared-patterns (tree)
+  (let ((mycar (car tree)))
+    (if (equal mycar 'consec)
+        (str:concat
+         (loop for item in (cdr tree)
+               collect (if (stringp item)
+                           item
+                           (if (getf item :pattern)
+                               (convert-rule-with-shared-patterns
+                                (getf item :pattern))
+                               (convert-rule-with-shared-patterns
+                                item)))))
+        (loop for subrule in (cdr tree)
+              for result = (convert-rule-with-shared-patterns subrule)
+              when result
+                return result))))

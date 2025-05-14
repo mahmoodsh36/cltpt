@@ -14,23 +14,44 @@ or is immediately followed by a newline."
         (char= (elt str end) #\newline))))
 
 (defun any (str pos &rest all)
-  (let ((matched-length))
-    (dolist (one all)
-      (let ((len (match-pattern one str pos)))
-        (when len
-          (setf matched-length len))))
-    (unless matched-length
-      (return-from any nil))
-    matched-length))
+  (loop for one in all
+        for match = (match-pattern-normalized one str pos)
+        do (when match
+             (return-from any
+               (cons (list :begin pos
+                           :end (getf (car match) :end)
+                           :match (getf (car match) :match))
+                     match)))))
+
+;; some matchers may simply return the matched length, we turn them into the
+;; assumed cons (parent . children)
+(defun match-pattern-normalized (one str pos)
+  (let ((match (match-pattern one str pos)))
+    (if (numberp match)
+        (cons
+         (list :begin pos
+               :end (+ pos match)
+               :match (subseq str pos (+ pos match)))
+         nil)
+        match)))
 
 (defun consec (str pos &rest all)
-  (let ((start pos))
-    (dolist (one all)
-      (let ((len (match-pattern one str pos)))
-        (if len
-            (setf pos (+ pos len))
-            (return-from consec nil))))
-    (- pos start)))
+  (let ((start pos)
+        (matches))
+    (loop for one in all
+          for match = (match-pattern-normalized one str pos)
+          for len = (when match
+                      (- (getf (car match) :end)
+                         (getf (car match) :begin)))
+          do (if len
+                 (progn
+                   (setf pos (getf (car match) :end))
+                   (push match matches))
+                 (return-from consec nil)))
+    (cons (list :begin start
+                :end pos
+                :match (subseq str start pos))
+          (nreverse matches))))
 
 (defun literal-casein (str pos substr)
   (when (loop for c across substr for i from 0
@@ -227,6 +248,7 @@ returns the total length (from the initial POS) if at least one line matches, or
   "attempt to match PATTERN at position POS in STR.
 return the total length of the match if successful, or NIL otherwise."
   (cond
+    ;; custom parsing function was passed, invoke it
     ((and (listp pattern)
           (symbolp (car pattern))
           (fboundp (car pattern)))
@@ -236,19 +258,15 @@ return the total length of the match if successful, or NIL otherwise."
     ;; maybe we shouldnt enable this one
     ;; ((and (listp pattern) (listp (car pattern)))
     ;;  (match-pattern (cons 'consec pattern) str pos))
+    ;; handle :pattern
+    ((and (listp pattern) (getf pattern :pattern))
+     (let ((match (match-pattern-normalized (getf pattern :pattern) str pos)))
+       (when match
+         (setf (getf (car match) :id) (getf pattern :id))
+         match)))
     ;; a pattern to be "compiled"
     ((stringp pattern)
      (match-pattern (cons 'consec (compile-pattern-string pattern)) str pos))
-    ;; ((keywordp (car pattern))
-    ;;  (match-pattern (getf pattern :pattern) str pos))
-    ((eq (first pattern) 'word)
-     (if (or (>= pos (length str))
-             (not (alpha-char-p (char str pos))))
-         (return-from match-pattern nil))
-     (loop while (< pos (length str))
-           for c = (char str pos)
-           while (alpha-char-p c)
-           do (incf pos)))
     (t (error "invalid pattern: ~A" pattern))))
 
 ;; different "types" of rules have different ways to specify conditions, so here we are..
@@ -340,14 +358,34 @@ the key is the first character of the pattern."
 (defun marker-match (str1 marker idx)
   (let* ((matcher (getf marker :matcher))
          (cond-key (marker-condition-key marker)))
-    (let ((mlen (match-pattern matcher str1 idx)))
-      (when mlen
-        (let ((match-str (subseq str1 idx (+ idx mlen))))
-          (when (apply-condition (getf marker cond-key) str1 idx match-str)
-            (list :pos idx
-                  :end (+ idx mlen)
-                  :match match-str
-                  :marker marker)))))))
+    (let* ((result (match-pattern matcher str1 idx))
+           (match (if (numberp result)
+                      (subseq str1 idx (+ idx result))
+                      (getf (car result) :match))))
+      (when (numberp result)
+        (setf result
+              (cons (list :begin idx
+                          :end (+ idx result)
+                          :match match
+                          ;; :pattern (getf marker :matcher)
+                          :marker marker)
+                    nil)))
+      (when result
+        (setf (getf (car result) :marker) marker)
+        (when (apply-condition (getf marker cond-key)
+                               str1
+                               idx
+                               match)
+          result)))))
+
+;; matches are returned as nested lists of the form (parent . children),
+;; here we flatten them into a single list
+(defun flatten-match (match)
+  (if (or (atom match) (plistp match))
+      (list match)
+      (cons (car match)
+            (loop for list1 in (mapcar (lambda (x) (flatten-match x)) (cdr match))
+                  append list1))))
 
 ;; "marker" matching (finding matching candidate locations), note
 ;; that these are only initial candidates and may be filtered later.
@@ -356,12 +394,13 @@ the key is the first character of the pattern."
 ;; that the text starting at the character could be used to match, this is to speed up
 ;; traversal and not have to apply the matching predicates for each rule/marker at each position
 ;; and reduce the number of operations we need to make per position.
-(defun scan-all-optimized-markers (str markers marker-hash)
-  "scan STR for non-regex markers in one pass.
-returns a list of event plists with keys :pos, :end, :match, and :marker.
+(defun scan-all-markers-helper (str markers marker-hash)
+  "scan STR for markers in one pass.
+returns a list of event plists with keys :begin, :end, :match, and :marker.
 for region markers, we check at each beginning-of-line.
-to allow overlapping/nested events from different rules yet avoid multiple overlapping
-events from the same rule, we track active region events in a hash table."
+to allow overlapping/nested events from different rules yet avoid multiple
+overlapping events from the same rule, we track active region events in
+a hash table."
   (let ((n (length str))
         (region-markers
           (remove-if-not
@@ -377,7 +416,7 @@ events from the same rule, we track active region events in a hash table."
         (active-regions)
         (events)
         (line-num 0)
-        (escaped nil))
+        (escaped))
     (dotimes (i n)
       (let ((c (elt str i)))
         (unless escaped
@@ -391,7 +430,7 @@ events from the same rule, we track active region events in a hash table."
                   (let ((rlen (match-region-with-ignore str i marker)))
                     (when rlen
                       (push
-                       (list :pos i
+                       (list :begin i
                              :end (+ i rlen)
                              :match (subseq str i (+ i rlen))
                              :marker marker)
@@ -401,82 +440,62 @@ events from the same rule, we track active region events in a hash table."
                                    (remove-if (lambda (pair)
                                                 (eq (car pair) rule-id))
                                               active-regions))))))))
-            ;; set :line-number which is used later to detect matches on different lines
+            ;; set line-num which is used later to detect matches on different lines
             ;; and prune them if they're not allowed
             (incf line-num))
-          ;; process literal and restricted markers.
           ;; hashed ones (according to a specific char) make our job easier/faster.
           (dolist (marker (gethash c marker-hash))
             (let ((match-result (marker-match str marker i)))
               (when match-result
-                (setf (getf match-result :line-num) line-num)
-                (push match-result events))))
+                ;; TODO: we're only setting :line-num for the parent here
+                (setf (getf (car match-result) :line-num) line-num)
+                (loop for item in (flatten-match match-result)
+                      do (push item events)))))
           (dolist (marker nonregion-nonhashed-markers)
             (let ((match-result (marker-match str marker i)))
               (when match-result
-                (setf (getf match-result :line-num) line-num)
-                (push match-result events)))))
+                ;; TODO: we're only setting :line-num for the parent here
+                (setf (getf (car match-result) :line-num) line-num)
+                (loop for item in (flatten-match match-result)
+                      do (push item events))))))
         (if (char= c #\\)
             (setf escaped (not escaped))
             (setf escaped nil))))
     (nreverse events)))
 
-;; regex scanning fallback (only if specified by rules), this applies its own pass
-;; and is really slow
-(defun scan-all-regex-markers (str markers)
-  "scan STR for regex markers.
-returns a list of event plists with keys :pos, :end, :match, and :marker."
-  (let ((events))
-    (dolist (marker markers)
-      (when (eq (getf marker :match-type) :regex)
-        (let ((pattern (getf marker :pattern))
-              (cond-key (marker-condition-key marker)))
-          (dolist (m (cl-ppcre:all-matches pattern str))
-            (let ((match-str (subseq str (first m) (second m))))
-              (when (apply-condition (getf marker cond-key) str (first m) match-str)
-                (push (list :pos (first m)
-                            :end (second m)
-                            :match match-str :marker marker)
-                      events)))))))
-    (nreverse events)))
-
 (defun scan-all-markers (str markers)
   "scan STR for all markers.
-uses a single pass for non-regex markers (via a hash table, if possible/requested)
-and a separate pass for regex markers."
-  (let* ((opt-markers (remove-if (lambda (m) (eq (getf m :match-type) :regex))
-                                 markers))
-         (regex-markers (remove-if-not (lambda (m) (eq (getf m :match-type) :regex))
-                                       markers))
-         (marker-hash (build-marker-hash opt-markers))
-         (opt-events (scan-all-optimized-markers str markers marker-hash))
-         (regex-events (scan-all-regex-markers str regex-markers)))
-    (append opt-events regex-events)))
+uses a single pass for markers (via a hash table, if possible/requested)."
+  (let* ((marker-hash (build-marker-hash markers))
+         (events (scan-all-markers-helper str markers marker-hash)))
+    events))
 
 (defun find-with-rules (str rules)
   "scan STR for markers based on RULES.
 RULES is a list of plists that may specify marker types:
   - :begin for begin markers,
   - :end for end markers,
-  - :text for standalone text markers,
-  - :region for region markers."
+  - :text for standalone text markers"
   (let* ((markers (build-marker-records rules))
          (events (scan-all-markers str markers))
          (sorted-events
            (sort events
                  (lambda (a b)
-                   (if (= (getf a :pos) (getf b :pos))
+                   (if (= (getf a :begin) (getf b :begin))
                        (< (getf a :end) (getf b :end))
-                       (< (getf a :pos) (getf b :pos))))))
+                       (< (getf a :begin) (getf b :begin))))))
          (results)
          (active-begins (make-hash-table :test 'equal)) ;; rule-id -> list of begin events
          (last-ends (make-hash-table :test 'equal)))
     (dolist (ev sorted-events)
+      ;; if :id is set then the event was a nested parser, handle it as such
+      ;; this is temporary, we should unify the parser combinator with the
+      ;; other "forms" of parsing
       (let* ((ev-marker (getf ev :marker))
-             (ev-type (getf ev-marker :marker-type))
+             (ev-type (if (getf ev :id) :text (getf ev-marker :marker-type)))
              (is-nested-rule (getf ev-marker :parent-id))
              (parent-id (when is-nested-rule (getf ev-marker :parent-id)))
-             (rule-id (getf ev-marker :id))
+             (rule-id (or (getf ev-marker :id) (getf ev :id)))
              (main-parent-id (if is-nested-rule
                                  (getf ev-marker :main-parent-id)
                                  rule-id))
@@ -493,10 +512,10 @@ RULES is a list of plists that may specify marker types:
           ;; dont allow a rule or its children to be started or ended multiple
           ;; times by the same "region" of text
           (when (and last-begin-ev
-                     (or (< (getf ev :pos)
+                     (or (< (getf ev :begin)
                             (getf last-begin-ev :end))
                          (and last-end
-                              (< (getf ev :pos)
+                              (< (getf ev :begin)
                                  last-end))
                          ;; if the marker's rule has :nestable=nil, we must ensure
                          ;; we dont open any more events until we close the currently open one
@@ -506,11 +525,11 @@ RULES is a list of plists that may specify marker types:
             (setf allow-event nil))
           ;; was used for debugging..
           ;; (format t "marker1 ~A,~A ~A,~A ~A,~A, ~A,~A,  ~A  ~A~%"
-          ;;         (char str (getf ev :pos))
+          ;;         (char str (getf ev :begin))
           ;;         (length (gethash main-parent-id active-begins))
           ;;         (null allow-event)
           ;;         ev-type
-          ;;         (getf ev :pos)
+          ;;         (getf ev :begin)
           ;;         last-end
           ;;         parent-id
           ;;         (length (gethash parent-id active-begins))
@@ -566,11 +585,11 @@ RULES is a list of plists that may specify marker types:
                    (when (or (not pair-predicate)
                              (funcall pair-predicate
                                       str
-                                      (getf begin-ev :pos)
-                                      (getf ev :pos)
+                                      (getf begin-ev :begin)
+                                      (getf ev :begin)
                                       (getf begin-ev :end)
                                       (getf ev :end)))
-                     (push (list (getf begin-ev :pos)
+                     (push (list (getf begin-ev :begin)
                                  (getf ev :end)
                                  (getf begin-ev :match)
                                  (getf ev :match)
@@ -594,7 +613,7 @@ RULES is a list of plists that may specify marker types:
                            (cdr (gethash main-parent-id active-begins))))
                    ))))
             ((or (eq ev-type :text) (eq ev-type :region))
-             (push (list (getf ev :pos)
+             (push (list (getf ev :begin)
                          (getf ev :end)
                          (getf ev :match)
                          rule-id)
