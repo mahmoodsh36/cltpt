@@ -198,12 +198,12 @@ region. you should just make it return a symbol like `end-type'."))
     (pcase backend
       (latex
        (wrap-contents-for-convert obj
-                                 (format nil "\\begin{~A}" type1)
-                                 (format nil "\\end{~A}" type1)))
+                                  (format nil "\\begin{~A}" type1)
+                                  (format nil "\\end{~A}" type1)))
       (html
        (wrap-contents-for-convert obj
-                                 (format nil "<~A>" type1)
-                                 (format nil "</~A>" type1))))))
+                                  (format nil "<~A>" type1)
+                                  (format nil "</~A>" type1))))))
 
 ;; aliases for blocks
 (setf (symbol-function 'b) (symbol-function 'make-block))
@@ -501,16 +501,6 @@ region. you should just make it return a symbol like `end-type'."))
         ((typep prev 'text-object) ;; pre-lexer text-macro's turn into text-object's
          (text-object-property prev :eval-result))
         (t nil)))))
-
-(defclass text-link (text-object)
-  ((shared-name
-    :allocation :class
-    :initform 'link)
-   (rule
-    :allocation :class
-    :initform `(:simple "[[][]]"
-                :end-to-hash t)))
-  (:documentation "a link."))
 
 (defun make-text-link (&rest kws &key &allow-other-keys)
   (let* ((id (getf kws :id))

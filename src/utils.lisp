@@ -53,3 +53,16 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
                                  (body (cdr clause)))
                              `((eql ,keyval-gensym ,test-form)
                                ,@body)))))))
+
+(defun plistp (list1)
+  (keywordp (car list1)))
+
+(defun flatten (l depth)
+  "flatten L by at most DEPTH levels."
+  (and l
+       (if (zerop depth)
+           l
+           (if (atom (car l))
+               (cons (car l) (flatten (cdr l) depth))
+               (append (flatten (car l) (1- depth))
+                       (flatten (cdr l) depth))))))

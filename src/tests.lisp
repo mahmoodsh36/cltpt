@@ -289,20 +289,21 @@ there '\"((hey)0889)\" re)h"
 
 (defun test-parse-any ()
   (find-with-rules
-   "[[hello:hey]]"
+   "[[hello:hey][wow]]"
    (list
     `(:text
       (:pattern
        (any
         (consec
          (literal "[[")
-         (:pattern (word-digits-hyphen) :name 'test2)
-         (:pattern (literal ":") :name 'test3) (disallowed-chars "[]")
-         (literal "][") (disallowed-chars "[]") (literal "]]"))
+         (:pattern (word-digits-hyphen) :id test2)
+         (literal ":")
+         (:pattern (all-but "[]") :id test3)
+         (literal "][") (all-but "[]") (literal "]]"))
         (consec (literal "[[") (word-digits-hyphen) (literal "]]"))
         (consec (literal "[[") (word-digits-hyphen) (literal ":")
-                (disallowed-chars "[]") (literal "]]"))))
-      :id 'org-link))))
+                (all-but "[]") (literal "]]"))))
+      :id org-link))))
 
 (defun test-parse-4 ()
   (find-with-rules
@@ -316,12 +317,19 @@ there '\"((hey)0889)\" re)h"
 
 (defun test-parse-5 ()
   (find-with-rules
-   "[[hello:hey]]hey"
-   (list
-    `(:text
-      (:pattern (any
-                 (consec "[[" (symbol-matcher) ":"
-                         (all-but "[]") "][" (all-but "[]") "]]")
-                 "[[%W]]"
-                 (consec "[[" (symbol-matcher) ":" (symbol-matcher) "]]")))
-      :id 'org-link))))
+   "[[hello:hey]]hey
+* my header"
+   '((:text
+      (:pattern
+       (any
+        (consec "[[" (symbol-matcher) ":"
+         (all-but "[]") "][" (all-but "[]") "]]")
+        "[[%W]]"
+        (consec "[[" (symbol-matcher) ":" (symbol-matcher) "]]"))
+       :id test))
+     (:text (:pattern (consec
+             (atleast-one (literal "*"))
+             (atleast-one (literal " "))
+                       (all-but-newline))
+             :id org-header)
+      :text-conditions (begin-of-line)))))
