@@ -367,7 +367,7 @@ a hash table."
         (nonhashed-markers
           (remove-if
            (lambda (m)
-                 (getf m :to-hash))
+             (getf m :to-hash))
            markers))
         (active-regions)
         (events)
