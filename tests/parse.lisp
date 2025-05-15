@@ -1,11 +1,8 @@
-(defpackage :cltpt-tests
-  (:use :cl :it.bese.fiveam :cltpt/org-mode)
-  (:import-from :cltpt/org-mode
-                :org-list-parse
-                :org-list-get-bounds)
+(defpackage :cltpt/tests
+  (:use :cl :it.bese.fiveam :cltpt/org-mode :cltpt/base)
   (:export #:run-cltpt-tests))
 
-(in-package :cltpt-tests)
+(in-package :cltpt/tests)
 
 (def-suite cltpt-suite
   :description "tests for cltpt.")
@@ -108,9 +105,9 @@ after list."))
 (defun test-org-convert ()
   (time
    (progn
-     (convert-file
-      (text-format-by-name "org-mode")
-      (text-format-by-name "latex")
+     (cltpt/base:convert-file
+      (cltpt/base:text-format-by-name "org-mode")
+      (cltpt/base:text-format-by-name "latex")
       "test.org"
       "test.out.tex")
      ;; (export-org-file
@@ -186,7 +183,6 @@ Some text
     `(:begin (:pattern "#+begin_(%w)")
       :end   (:pattern "#+end_(%w)")
       :pair-predicate ,(lambda (b e)
-                    (format t "here ~A~%" b)
                     (string= (subseq b 8) (subseq e 6)))
       :id 'org-block))))
 

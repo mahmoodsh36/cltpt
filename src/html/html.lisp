@@ -1,5 +1,5 @@
 (defpackage :cltpt/html
-  (:use :cl :cltpt/base)
+  (:use :cl :cltpt/base :cltpt/latex)
   (:export :html))
 
 (in-package :cltpt/html)

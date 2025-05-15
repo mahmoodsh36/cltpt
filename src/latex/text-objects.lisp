@@ -1,48 +1,35 @@
 (in-package :cltpt/latex)
 
-(defclass inline-math (text-object)
-  ((rule
+(defclass inline-math (cltpt/base:text-object)
+  ((cltpt/base::rule
     :allocation :class
-    :initform '(:begin (literal "\\(")
-                :end (literal "\\)")
+    :initform '(:begin (cltpt/base:literal "\\(")
+                :end (cltpt/base:literal "\\)")
                 :begin-to-hash #\\
                 :end-to-hash #\\))))
 
-(defmethod text-object-convert ((obj inline-math) backend)
-  (pcase backend
-    (latex
-     (list :text (text-object-text obj)
-           :recurse t
-           :escape nil))
-    (html
-     (list :text (latex-fragment-to-html (text-object-text obj) t)
-           :reparse nil
-           :recurse nil
-           :escape nil))))
+(defmethod cltpt/base:text-object-convert ((obj inline-math) (fmt (eql latex)))
+  (list :text (cltpt/base:text-object-text obj)
+        :recurse t
+        :escape nil))
 
-(defclass display-math (text-object)
-  ((rule
+(defclass display-math (cltpt/base:text-object)
+  ((cltpt/base::rule
     :allocation :class
-    :initform '(:begin (literal "\\[")
-                :end (literal "\\]")
+    :initform '(:begin (cltpt/base:literal "\\[")
+                :end (cltpt/base:literal "\\]")
                 :begin-to-hash #\\
                 :end-to-hash #\\))))
 
-(defmethod text-object-convert ((obj display-math) backend)
-  (pcase backend
-    (latex
-     (list :text (text-object-text obj)
-           :reparse nil
-           :recurse t
-           :escape nil))
-    (html
-     (list :text (latex-fragment-to-html (text-object-text obj) nil)
-           :reparse nil
-           :recurse t
-           :escape nil))))
+(defmethod cltpt/base:text-object-convert ((obj display-math)
+                                           (fmt (eql latex)))
+  (list :text (cltpt/base:text-object-text obj)
+        :reparse nil
+        :recurse t
+        :escape nil))
 
-(defclass latex-env (text-object)
-  ((rule
+(defclass latex-env (cltpt/base:text-object)
+  ((cltpt/base::rule
     :allocation :class
     :initform
     (list :begin "\\begin{%W}"
@@ -57,15 +44,9 @@
                                        (subseq end-str (length "\\end{"))))))))
   (:documentation "latex environment."))
 
-(defmethod text-object-convert ((obj latex-env) backend)
-  (pcase backend
-    (latex
-     (list :text (text-object-text obj)
-           :reparse nil
-           :recurse nil
-           :escape nil))
-    (html
-     (list :text (latex-fragment-to-html (text-object-text obj) nil)
-           :reparse nil
-           :recurse nil
-           :escape nil))))
+;; do we need this?
+;; (defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql latex)))
+;;   (list :text (cltpt/base:text-object-text obj)
+;;         :reparse nil
+;;         :recurse nil
+;;         :escape nil))

@@ -1,11 +1,4 @@
-(defpackage :cltpt/base
-  (:use :cl :str)
-  (:export :parse :make-text-format
-           :begin-of-line :end-of-line
-           :text-format-text-object-types))
 (in-package :cltpt/base)
-
-(defvar *debug* nil)
 
 (defun parse (str1
               text-object-types
@@ -14,7 +7,8 @@
                 (doc-type 'document))
   "parse a string, returns an object tree."
   (let* ((text-macro-classes '(text-macro text-macro-ref))
-         (post-lexer-macro-classes '(post-lexer-text-macro post-lexer-text-macro-ref))
+         (post-lexer-macro-classes
+           '(post-lexer-text-macro post-lexer-text-macro-ref))
          (text-objects)
          (data
            (remove-if-not

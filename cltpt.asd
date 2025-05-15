@@ -6,7 +6,8 @@
   :components ((:file "cltpt")
                (:module "base"
                 :pathname "src/base/"
-                :components ((:file "parser")
+                :components ((:file "base")
+                             (:file "parser")
                              (:file "utils")
                              (:file "text-object")
                              (:file "text-algorithms")
@@ -17,7 +18,9 @@
                 :pathname "src/latex/"
                 :depends-on ("base")
                 :components ((:file "latex")
-                             (:file "text-objects")))
+                             (:file "text-objects")
+                             (:file "latex-previews")
+                             (:file "utils")))
                (:module "html"
                 :pathname "src/html/"
                 :depends-on ("base")
@@ -27,7 +30,6 @@
                 :depends-on ("base" "latex" "html")
                 :components ((:file "org-mode")
                              (:file "org-list")
-                             (:file "latex-previews")
                              (:file "latex-export")
                              (:file "html-export")))
                (:module "commandline"

@@ -1,9 +1,5 @@
 (in-package :cltpt/org-mode)
 
-;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
-(defvar *html-export-with-latex-method*
-  'svg)
-
 (defvar *html-escape-table*
   )
 
@@ -34,10 +30,3 @@ TABLE is a list of rows (each row is a list of strings)."
         (format out "    <td>~a</td>~%" cell))
       (format out "  </tr>~%"))
     (format out "</table>")))
-
-(defun latex-fragment-to-html (latex-code is-inline)
-  (case *html-export-with-latex-method*
-    ('svg
-     (let ((img-filepath))
-       (let ((img-filepath (cdar (generate-svgs-for-latex (list latex-code)))))
-         (format nil "<img src='~A'></img>" img-filepath))))))
