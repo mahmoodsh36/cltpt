@@ -18,27 +18,25 @@
  pdflang={English}}"
           *latex-preamble* author date title author title))
 
-;; A
 (defun org-list-to-latex (org-forest)
   (org-list-to-latex-list org-forest))
-(defun org-list-to-latex-item (cons-item)
-  (let* ((node (car cons-item))
+(defun org-list-to-latex-item (item)
+  (let* ((node (car item))
          (marker (getf node :marker))
          (text (getf node :text))
-         (children (cdr cons-item)))
+         (children (cdr item)))
     (format nil "\\item ~A~A"
             text
             (if children (org-list-to-latex-list children) ""))))
 (defun org-list-to-latex-list (forest)
-  (let ((env (if (every (lambda (cons-item)
-                          (let ((node (car cons-item)))
+  (let ((env (if (every (lambda (item)
+                          (let ((node (car item)))
                             (cl-ppcre:scan "^[a-zA-Z]+\\.$" (getf node :marker))))
                         forest)
                  "enumerate"
                  "itemize")))
     (format nil "\\begin{~A}~%~{~A~%~}\\end{~A}" env (mapcar #'org-list-to-latex-item forest) env)))
 
-;; A
 (defun org-table-to-latex (table)
   "generate a LaTeX table from TABLE.
 TABLE is a list of rows (each row is a list of strings)."
