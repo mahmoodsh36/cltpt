@@ -4,4 +4,4 @@
 (asdf:load-system "cltpt" :force t) ;; force recompilation
 ;; (asdf:load-system "cltpt")
 (in-package :cltpt)
-(cltpt::commandline-main (uiop:command-line-arguments))
+(cltpt/commandline:commandline-main (uiop:command-line-arguments))
