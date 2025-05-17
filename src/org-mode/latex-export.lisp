@@ -1,23 +1,5 @@
 (in-package :cltpt/org-mode)
 
-(defvar *latex-preamble*
-  "\\documentclass[11pt]{article}
-\\usepackage{amsmath}")
-
-(defun generate-latex-preamble (author date title)
-  (format nil "~A
-\\author{~A}
-\\date{~A}
-\\title{~A}
-\\hypersetup{
- pdfauthor={~A},
- pdftitle={~A},
- pdfkeywords={},
- pdfsubject={},
- pdfcreator={cltpt},
- pdflang={English}}"
-          *latex-preamble* author date title author title))
-
 (defun org-list-to-latex (org-forest)
   (org-list-to-latex-list org-forest))
 (defun org-list-to-latex-item (item)

@@ -67,9 +67,9 @@
   (let ((ext (pathname-type (pathname fp))))
     (cond
       ((equal ext "org")
-       org-mode)
+       cltpt/org-mode:org-mode)
       ((equal ext "tex")
-       latex))))
+       cltpt/latex:latex))))
 
 (defun top-level-handler (cmd)
   (let* ((args (clingon:command-arguments cmd))

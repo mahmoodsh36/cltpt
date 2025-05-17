@@ -1,12 +1,17 @@
 (defpackage :cltpt/latex
   (:use :cl :cltpt/base)
-  (:export :latex :display-math :inline-math :latex-env))
+  (:export :latex :display-math :inline-math :latex-env
+           :generate-latex-preamble :*latex-preamble*))
 
 (in-package :cltpt/latex)
 
 ;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
 (defvar *html-export-with-latex-method*
   'svg)
+
+(defvar *latex-preamble*
+  "\\documentclass[11pt]{article}
+\\usepackage{amsmath}")
 
 (defun make-latex ()
   (cltpt/base:make-text-format

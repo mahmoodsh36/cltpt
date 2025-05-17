@@ -127,7 +127,7 @@ returns two values:
 
 (defun get-lines-with-metadata (text)
   "returns a list of (line-text start-offset line-index) for each line in TEXT.
-   offsets include newline characters for inter-line spacing."
+offsets include newline characters for inter-line spacing."
   (let* ((all-raw-lines (str:split (string #\newline) text :omit-nulls nil))
          (num-all-lines (length all-raw-lines)))
     (loop with current-offset = 0

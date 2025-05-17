@@ -9,7 +9,8 @@
   (:import-from
    :cltpt/latex
    :display-math :inline-math :latex-env)
-  (:export :org-list-parse :org-list-get-bounds :org-header :org-list))
+  (:export :org-list-parse :org-list-get-bounds :org-header :org-list
+           :org-mode))
 
 (in-package :cltpt/org-mode)
 
@@ -568,7 +569,7 @@ its value is NIL."
      (let* ((my-preamble
               (if *org-mode-convert-with-boilerplate*
                   (concatenate 'string
-                               (generate-latex-preamble "authorhere" "datehere" "titlehere")
+                               (cltpt/latex:generate-latex-preamble "authorhere" "datehere" "titlehere")
                                (string #\newline)
                                "\\begin{document}"
                                (string #\newline))
