@@ -241,9 +241,9 @@ return the total length of the match if successful, or NIL otherwise."
 (defun marker-condition-key (marker)
   "return the condition key for MARKER based on its type."
   (case (getf marker :marker-type)
-    (:begin   :begin-conditions)
-    (:end     :end-conditions)
-    (:text    :text-conditions)
+    (:begin :begin-conditions)
+    (:end   :end-conditions)
+    (:text  :text-conditions)
     (t nil)))
 
 (defun apply-condition (cond-fn str pos match-str)

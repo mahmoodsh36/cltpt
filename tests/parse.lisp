@@ -18,14 +18,14 @@
 (test org-list-parse-basic
   (is (equalp (org-list-parse "- item 1
 - item 2")
-              '((:MARKER "-" :TEXT "item 1" :CHILDREN NIL)
-                (:MARKER "-" :TEXT "item 2" :CHILDREN NIL))))
+              '(((:MARKER "-" :TEXT "item 1"))
+                ((:MARKER "-" :TEXT "item 2")))))
   (is (equalp (org-list-parse "1. first
    some extra
 2. second")
-              '((:MARKER "1." :TEXT "first
-some extra" :CHILDREN NIL)
-                (:MARKER "2." :TEXT "second" :CHILDREN NIL)))))
+              '(((:MARKER "1." :TEXT "first
+some extra"))
+                ((:MARKER "2." :TEXT "second"))))))
 
 (test org-list-parse-nested
   (let ((text "- item one
@@ -37,14 +37,14 @@ some extra" :CHILDREN NIL)
    b. nested item two
 - item three"))
     (is (equalp (org-list-parse text)
-                '((:MARKER "-" :TEXT "item one
-extra text for one" :CHILDREN NIL)
-                  (:MARKER "-" :TEXT "item two" :CHILDREN
+                '(((:MARKER "-" :TEXT "item one
+extra text for one"))
+                  ((:MARKER "-" :TEXT "item two")
                    ((:MARKER "a." :TEXT "nested item one
-more nested text" :CHILDREN
-                     ((:MARKER "i." :TEXT "even more nested" :CHILDREN NIL)))
-                    (:MARKER "b." :TEXT "nested item two" :CHILDREN NIL)))
-                  (:MARKER "-" :TEXT "item three" :CHILDREN NIL))))))
+more nested text")
+                     ((:MARKER "i." :TEXT "even more nested")))
+                    ((:MARKER "b." :TEXT "nested item two")))
+                  ((:MARKER "-" :TEXT "item three")))))))
 
 (test org-list-get-bounds-basic
   (is (equal (org-list-get-bounds "- item 1
@@ -88,11 +88,11 @@ hey"))
 
 (test org-list-get-bounds-no-list
   (is (equal (org-list-get-bounds "this is not a list.")
-             (cons nil nil)))
+             nil))
   (is (equal (org-list-get-bounds "")
-             (cons nil nil)))
+             nil))
   (is (equal (org-list-get-bounds "  ")
-             (cons nil nil))))
+             nil)))
 
 (test org-list-get-bounds-case2
     (let ((text "preamble text.

@@ -16,7 +16,8 @@
 (defun make-org-mode ()
   (make-text-format
    "org-mode"
-   '(;; org-list org-table
+   '(org-list ;; so far the slowest of the bunch
+     ;; org-table
      org-keyword org-header
      org-link
      org-block org-drawer
@@ -410,10 +411,10 @@ its value is NIL."
   (:documentation "a link."))
 
 (defclass org-link (cltpt/base:text-object)
-  ((shared-name
+  ((cltpt/base::shared-name
     :allocation :class
-    :initform 'link)
-   (rule
+    :initform 'cltpt/base::link)
+   (cltpt/base::rule
     :allocation :class
     :initform '(:text
                 (cltpt/base:any
@@ -458,14 +459,17 @@ its value is NIL."
     ((eq backend cltpt/html:html)
      (format nil "<a href='~A'></a>" (cltpt/base:text-object-property obj :dest)))))
 
+(defun org-list-parser-func (str pos)
+  (let ((result (org-list-get-bounds str pos)))
+    (when result
+      (- (cdr result) (car result)))))
+
 (defclass org-list (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
     ;; match region of lines beginning with space or hyphen
-    :initform '(:region ((cltpt/base:any (:string "-")
-                          "(%C:1234567890)."
-                          "(%C:abcdefghijklmnopqrstuv)."))
-                :ignore " ")))
+    :initform '(:text (org-list-parser-func)
+                :text-conditions (cltpt/base:begin-of-line))))
   (:documentation "org-mode list."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-list) str1 opening-region closing-region)
@@ -485,15 +489,15 @@ its value is NIL."
 (defmethod cltpt/base:text-object-convert ((obj org-list) backend)
   (let ((my-list (deep-copy-org-forest (cltpt/base:text-object-property obj :list)))
         (possible-children-types *org-mode-inline-text-object-types*))
-    (cltpt/base:mapcar-forest
-     my-list
-     (lambda (list-entry)
-       (let ((list-entry-text (getf list-entry :text)))
-         (setf (getf list-entry :text)
-               (cltpt/base:convert-tree (parse list-entry-text
-                                               possible-children-types)
-                                        backend
-                                        possible-children-types)))))
+    ;; (cltpt/base:mapcar-forest
+    ;;  my-list
+    ;;  (lambda (list-entry)
+    ;;    (let ((list-entry-text (getf list-entry :text)))
+    ;;      (setf (getf list-entry :text)
+    ;;            (cltpt/base:convert-tree (parse list-entry-text
+    ;;                                            possible-children-types)
+    ;;                                     backend
+    ;;                                     possible-children-types)))))
     (cond
       ((eq backend cltpt/latex:latex)
        (list :text (org-list-to-latex my-list)
