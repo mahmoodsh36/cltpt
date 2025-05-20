@@ -395,6 +395,7 @@ a hash table."
               (when match-result
                 ;; TODO: we're only setting :line-num for the parent here
                 (setf (getf (car match-result) :line-num) line-num)
+                (format t "here ~A~%" match-result)
                 (loop for item in (flatten-match match-result)
                       do (push item events))))))
         (if (char= c #\\)
@@ -484,9 +485,9 @@ RULES is a list of plists that may specify marker types:
                     (setf allow-event nil)
                     (if allowed
                         (unless (eq allowed t)
-                          (setf allow-child (and allow-child (member rule-id allowed))))
+                          (setf allow-event (and allow-event (member rule-id allowed))))
                         (if disallowed
-                            (setf allow-child (not (member rule-id disallowed)))))))))
+                            (setf allow-event (not (member rule-id disallowed)))))))))
           ;; when we have :same-line is t, we need to discard the match if the end is on
           ;; a different line
           (let ((last-line (getf last-begin-ev :line-num))
