@@ -4,8 +4,12 @@
   :author "Mahmood Sheikh <mahmod.m2015@gmail.com>"
   :depends-on ("str" "uiop" "cl-ppcre" "cl-fad" "clingon" "ironclad" "fiveam")
   :components ((:file "cltpt")
+               (:module "combinator"
+                :pathname "src/"
+                :components ((:file "combinator")))
                (:module "base"
                 :pathname "src/base/"
+                :depends-on ("combinator")
                 :components ((:file "base")
                              (:file "parser")
                              (:file "utils")
@@ -16,7 +20,7 @@
                              (:file "convert")))
                (:module "latex"
                 :pathname "src/latex/"
-                :depends-on ("base")
+                :depends-on ("base" "combinator")
                 :components ((:file "latex")
                              (:file "text-objects")
                              (:file "latex-previews")
@@ -27,7 +31,7 @@
                 :components ((:file "html")))
                (:module "org-mode"
                 :pathname "src/org-mode"
-                :depends-on ("base" "latex" "html")
+                :depends-on ("combinator" "base" "latex" "html")
                 :components ((:file "org-mode")
                              (:file "org-list")
                              (:file "latex-export")

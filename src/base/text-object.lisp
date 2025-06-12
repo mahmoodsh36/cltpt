@@ -43,15 +43,24 @@
     :accessor text-object-parent
     :documentation "the parent of this element."
     :initform nil)
-   (opening-region
-    :initarg :opening-macro
-    :accessor text-object-opening-region
-    :documentation "the match that starts the object")
-   (closing-region
-    :initarg :opening-macro
-    :accessor text-object-closing-region
-    :documentation "the match that ends the object"
-    :initform nil)
+   (text-region
+    :initarg :text-region
+    :accessor text-object-text-region
+    :documentation "the bounds of the text corresponding to the object in its parent's text.")
+   ;; do we need this "contents" thing?
+   (contents-region
+    :initarg :contents-region
+    :accessor text-object-contents-region
+    :documentation "the bounds of the contents of the object (excluding opening/ending).")
+   ;; (opening-region
+   ;;  :initarg :opening-macro
+   ;;  :accessor text-object-opening-region
+   ;;  :documentation "the match that starts the object")
+   ;; (closing-region
+   ;;  :initarg :opening-macro
+   ;;  :accessor text-object-closing-region
+   ;;  :documentation "the match that ends the object"
+   ;;  :initform nil)
    (rule
     :accessor text-object-rule
     :allocation :class
@@ -64,19 +73,18 @@
     :documentation "text objects that have the same `shared-name' should be easier to identify across formats."))
   (:documentation "cltpt objects base class"))
 
-(defgeneric text-object-init (text-obj str1 opening-region closing-region)
+(defgeneric text-object-init (text-obj str1 match)
   (:documentation "this function is invoked by the parser,
-STR1 is the string (or buffer) being parsed, OPENING-REGION is the region from STR1
-that resulted in this object being constructed, if the object was matched by a pair-matching
-algorithm, CLOSING-REGION would be the region in which the clsoing pair resides in STR1."))
+STR1 is the string (or buffer) being parsed, MATCH is the matching text for the
+object that was detected by the parser combinator."))
 
 (defgeneric text-object-finalize (text-obj)
   (:documentation "this function is invoked by the parser once it is done.
 the text object should finalize initialization or any other functionality."))
 
 (defgeneric text-object-ends-by (text-obj value)
-  (:documentation "should return whether the value indicates the ending of the object's
-region. you should just make it return a symbol like `end-type'."))
+  (:documentation "should return whether the value indicates the ending of the
+object's region. you should just make it return a symbol like `end-type'."))
 
 ;; the default end function returns the value 'end, which should end any text object that
 ;; comes before it, this isnt recommended as it may cause ambiguations
@@ -113,33 +121,25 @@ region. you should just make it return a symbol like `end-type'."))
 ;; default init function will just set the text slot of the object
 ;; we are currently using `subseq' to extract the region from the text and store
 ;; a new sequence for every object, this is both slow and memory-consuming
-(defmethod text-object-init ((text-obj text-object) str1 opening-region closing-region)
-  (setf (text-object-opening-region text-obj) opening-region)
-  (setf (text-object-closing-region text-obj) closing-region)
+(defmethod text-object-init ((text-obj text-object) str1 match)
   ;; text of text-object should only be the text that it encloses in its parent
   (setf (text-object-text text-obj)
-        (subseq str1
-                (region-begin opening-region)
-                (if closing-region
-                    (region-end closing-region)
-                    (region-end opening-region)))))
+        (getf (car match) :match))
+  (setf (text-object-text-region text-obj)
+        (make-region :begin (getf (car match) :begin)
+                     :end (getf (car match) :end))))
 
 (defmethod text-object-adjust-to-parent ((child text-object) (parent text-object))
-  (region-decf (text-object-opening-region child)
-               (text-object-begin parent))
-  (when (text-object-closing-region child)
-    (region-decf (text-object-closing-region child)
-                 (text-object-begin parent))))
+  (region-decf (text-object-text-region child)
+               (text-object-begin parent)))
 
 (defmethod text-object-begin ((text-obj text-object))
-  "where the text object begins relative to its parent."
-  (region-begin (text-object-opening-region text-obj)))
+  "where the text object begins."
+  (region-begin (text-object-text-region text-obj)))
 
 (defmethod text-object-end ((text-obj text-object))
   "where the text object ends relative to its parent."
-  (if (text-object-closing-region text-obj)
-      (region-end (text-object-closing-region text-obj))
-      (region-end (text-object-opening-region text-obj))))
+  (region-end (text-object-text-region text-obj)))
 
 (defmethod text-object-set-parent ((child text-object) (parent text-object))
   (if (text-object-parent child)
@@ -149,9 +149,10 @@ region. you should just make it return a symbol like `end-type'."))
 
 (defmethod print-object ((obj text-object) stream)
   (print-unreadable-object (obj stream :type t)
-    (format stream "~A -> ~A"
-            (if (slot-boundp obj 'opening-region) (text-object-opening-region obj) nil)
-            (if (slot-boundp obj 'closing-region) (text-object-closing-region obj) nil))))
+    (format stream "~A -> ~A ~A"
+            (type-of obj)
+            (if (slot-boundp obj 'text-region) (text-object-text-region obj) nil)
+            (if (slot-boundp obj 'text) (str:prune 10 (text-object-text obj)) nil))))
 
 ;; this is actually the slowest way to traverse siblings
 (defmethod text-object-next-sibling ((obj text-object))
@@ -220,106 +221,58 @@ region. you should just make it return a symbol like `end-type'."))
    '<
    :key
    (lambda (obj)
-     (region-begin (text-object-opening-region obj)))))
+     (region-begin (text-object-text-region obj)))))
 
 (defmethod text-object-sorted-children (obj)
   "return the children of the text-obj, sorted by starting point."
   (sort-text-objects (text-object-children obj)))
 
-;; if we have a closing region, contents are between opening and closing region,
-;; otherwise contents are actually just the opening region.
-;; opening-region is the opening region positions relative to parent text only. likewise
-;; for closing-region.
+;; (defmethod text-object-contents-begin ((text-obj text-object))
+;;   (if (text-object-closing-region text-obj)
+;;       (region-length (text-object-opening-region text-obj))
+;;       0))
+
+;; (defmethod text-object-contents-end ((text-obj text-object))
+;;   (if (text-object-closing-region text-obj)
+;;       (- (region-begin (text-object-closing-region text-obj))
+;;          (region-begin (text-object-opening-region text-obj)))
+;;       (region-length (text-object-opening-region text-obj))))
+
+;; (defmethod text-object-contents ((obj text-object))
+;;   (subseq (text-object-text obj)
+;;           (text-object-contents-begin obj)
+;;           (text-object-contents-end obj)))
+
 (defmethod text-object-contents-begin ((text-obj text-object))
-  (if (text-object-closing-region text-obj)
-      (region-length (text-object-opening-region text-obj))
-      0))
+  0)
 
 (defmethod text-object-contents-end ((text-obj text-object))
-  (if (text-object-closing-region text-obj)
-      (- (region-begin (text-object-closing-region text-obj))
-         (region-begin (text-object-opening-region text-obj)))
-      (region-length (text-object-opening-region text-obj))))
+  (region-end (text-object-text-region text-obj)))
 
 (defmethod text-object-contents ((obj text-object))
   (subseq (text-object-text obj)
-          (text-object-contents-begin obj)
-          (text-object-contents-end obj)))
-
-;; for macro executions that return objects
-(defvar *lexer-text-macro-char* #\#)
-;; for macro executions that are supposed to run the code after tree construction (text objects
-;; already constructed)
-(defvar *post-lexer-text-macro-char* #\%)
+          (text-object-text-begin obj)
+          (text-object-text-end obj)))
 
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform `(:begin
-                (any (consec (literal ,(string *lexer-text-macro-char*))
-                             (symbol-matcher)
-                             (literal "("))
-                     (literal ,(format nil "~A(" *lexer-text-macro-char*)))
-                :end (literal ")")
-                :children ((:begin (literal "(")
-                            :end (literal ")")
-                            :id ,(gensym)
-                            :children ((:begin (literal "\"")
-                                        :end (literal "\"")
-                                        :id ,(gensym)
-                                        :nestable nil
-                                        :disallow t)))
-                           (:begin (literal "\"")
-                            :end (literal "\"")
-                            :id ,(gensym)
-                            :nestable nil
-                            :disallow t))
-                :begin-to-hash ,*lexer-text-macro-char*
-                :escapable ,*lexer-text-macro-char*))))
+    :initform '(cltpt/combinator::consec
+                (cltpt/combinator::literal "#")
+                (:pattern (cltpt/combinator::lisp-sexp)
+                 :id lisp-code)))))
 
 (defun is-not-before-parenthesis (str1 pos match-str)
   (not (char= (char str1 (+ pos (length match-str)))
               #\()))
 
-;; the "ref" thing is here for now because we cannot match all macros of the form #symbol(code) in one rule
-(defclass text-macro-ref (text-object)
-  ((rule
-    :allocation :class
-    :initform `(:text ,(format nil "~A%W" *lexer-text-macro-char*)
-                :text-conditions (is-not-before-parenthesis)
-                :disallow t))))
-
 (defclass post-lexer-text-macro (text-object)
   ((rule
     :allocation :class
-    :initform `(:begin
-                (any
-                 (consec (literal ,(string *post-lexer-text-macro-char*))
-                         (symbol-matcher)
-                         (literal "("))
-                 (literal ,(format nil "~A(" *post-lexer-text-macro-char*)))
-                :end (literal ")")
-                :children ((:begin (literal "(")
-                            :end (literal ")")
-                            :id ,(gensym)
-                            :children ((:begin (literal "\"")
-                                        :end (literal "\"")
-                                        :id ,(gensym)
-                                        :nestable nil
-                                        :disallow t)))
-                           (:begin (literal "\"")
-                            :end (literal "\"")
-                            :id ,(gensym)
-                            :nestable nil
-                            :disallow t))
-                :begin-to-hash ,*post-lexer-text-macro-char*))))
-
-(defclass post-lexer-text-macro-ref (text-object)
-  ((rule
-    :allocation :class
-    :initform `(:text (consec (literal ,(string *post-lexer-text-macro-char*))
-                              (symbol-matcher))
-                :disallow t))))
+    :initform '(cltpt/combinator::consec
+                (cltpt/combinator::literal "%")
+                (:pattern (cltpt/combinator::lisp-sexp)
+                 :id lisp-code)))))
 
 (defun eval-post-lexer-macro (obj)
   ;; we cache results to avoid re-eval which could be slow
@@ -366,9 +319,6 @@ region. you should just make it return a symbol like `end-type'."))
 (defmethod text-object-convert ((obj post-lexer-text-macro) backend)
   (convert-post-lexer-macro-obj obj backend))
 
-(defmethod text-object-convert ((obj post-lexer-text-macro-ref) backend)
-  (convert-post-lexer-macro-obj obj backend))
-
 ;; we need to "finalize" the classes to be able to use MOP, a temporary workaround..
 (defparameter *finalized-map* (make-hash-table))
 (defun ensure-finalized (mytype)
@@ -381,7 +331,12 @@ region. you should just make it return a symbol like `end-type'."))
   ;; we need to finalize it, otherwise it'll error out.
   (ensure-finalized subclass)
   ;; (sb-mop:finalize-inheritance (find-class-faster subclass))
-  (slot-value (sb-mop:class-prototype (find-class-faster subclass)) 'rule))
+  (let ((rule (slot-value (sb-mop:class-prototype (find-class-faster subclass)) 'rule)))
+    (unless (plistp rule)
+      (setf rule (list :pattern rule :id subclass)))
+    (unless (getf rule :id)
+      (setf (getf rule :id) subclass))
+    rule))
 
 (defun map-text-object (text-obj func)
   "traverse the text object tree starting at TEXT-OBJ."
@@ -397,7 +352,7 @@ region. you should just make it return a symbol like `end-type'."))
          (prev (when obj (text-object-prev-sibling obj))))
     (when prev
       (cond
-        ((or (typep prev 'post-lexer-text-macro) (typep prev 'post-lexer-text-macro-ref))
+        ((typep prev 'post-lexer-text-macro)
          (eval-post-lexer-macro
           (text-object-prev-sibling *post-lexer-text-macro-dynamic-object*)))
         ((typep prev 'text-object) ;; pre-lexer text-macro's turn into text-object's

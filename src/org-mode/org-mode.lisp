@@ -2,14 +2,13 @@
   (:use :cl :str :cltpt/base :cltpt/latex :ppcre)
   (:import-from
    :cltpt/base :text-object
-   :text-macro :text-macro-ref
-   :post-lexer-text-macro :post-lexer-text-macro-ref
+   :text-macro :post-lexer-text-macro
    :document)
   (:shadowing-import-from :cl-ppcre split)
   (:import-from
    :cltpt/latex
    :display-math :inline-math :latex-env)
-  (:export :org-list-parse :org-list-get-bounds :org-header :org-list
+  (:export :org-list-matcher :org-header :org-list
            :org-mode))
 
 (in-package :cltpt/org-mode)
@@ -17,17 +16,19 @@
 (defun make-org-mode ()
   (make-text-format
    "org-mode"
-   '(org-list ;; so far the slowest of the bunch
+   '(org-list
      ;; org-table
      org-keyword org-header
      org-link
-     org-block org-drawer
+     org-block
+     org-drawer
      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
      ;; org-babel-results org-babel-results-colon
-     ;; org-italic ;; doesnt work atm
-     org-emph org-inline-code
-     cltpt/base:text-macro cltpt/base:text-macro-ref
-     cltpt/base:post-lexer-text-macro cltpt/base:post-lexer-text-macro-ref
+     org-italic
+     org-emph
+     org-inline-code
+     cltpt/base:text-macro
+     cltpt/base:post-lexer-text-macro
      )
    'org-document))
 
@@ -46,10 +47,10 @@
   (setf *org-mode-inline-text-object-types*
         (intersection (org-mode-text-object-types)
                       '(org-link
-                        org-emph org-italic org-inline-code
+                        ;; org-emph org-italic org-inline-code
                         cltpt/latex:inline-math
-                        cltpt/base:text-macro cltpt/base:text-macro-ref
-                        cltpt/base:post-lexer-text-macro cltpt/base:post-lexer-text-macro-ref))))
+                        cltpt/base:text-macro
+                        cltpt/base:post-lexer-text-macro))))
 
 (defvar *org-symbol-regex* "[a-zA-Z\\-_]+")
 
@@ -72,71 +73,75 @@ its value is NIL."
             (setf current-key nil))))
     (nreverse result)))
 
-;; keeping this here for now as an example of a slow text-object definition (it uses :regex)
-(defclass org-block-slow (cltpt/base:text-object)
+(defvar *org-keyword-rule*
+  '(cltpt/combinator:consec
+    (cltpt/combinator:literal "#+")
+    (:pattern (cltpt/combinator:symbol-matcher)
+     :id keyword)
+    (cltpt/combinator:literal ":")
+    (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+    (:pattern (cltpt/combinator:all-but-newline)
+     :id value)))
+(defclass org-keyword (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform
-    (list :begin (list :regex (format nil "^#\\+begin_~A" *org-symbol-regex*))
-          :end (list :regex (format nil "^#\\+end_~A" *org-symbol-regex*))
-          ;; we need to make sure the text after begin_ and end_ is the same
-          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                            (let ((begin-str (subseq str b-idx b-end))
-                                  (end-str (subseq str e-idx e-end)))
-                              (string= (subseq begin-str 8)
-                                       (subseq end-str 6)))))))
-  (:documentation "org-mode block."))
+    :initform *org-keyword-rule*))
+  (:documentation "org-mode file-level keyword."))
 
+(defvar *org-block-no-kw-rule*
+  '(cltpt/combinator:pair
+    (cltpt/combinator::unescaped
+     (cltpt/combinator:consec
+      (cltpt/combinator:literal "#+begin_")
+      (:pattern (cltpt/combinator:symbol-matcher)
+       :id begin-type)))
+    (cltpt/combinator::unescaped
+     (cltpt/combinator:consec
+      (cltpt/combinator:literal "#+end_")
+      (:pattern (cltpt/combinator:symbol-matcher)
+       :id end-type)))))
+(defvar *org-block-rule*
+  `(cltpt/combinator:any
+    (cltpt/combinator:consec
+     ,*org-keyword-rule*
+     ,*org-block-no-kw-rule*)
+    ,*org-block-no-kw-rule*))
 (defclass org-block (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform
-    (list :begin "#+begin_%w"
-          :begin-to-hash #\#
-          :begin-conditions '(cltpt/base:begin-of-line)
-          :end "#+end_%w"
-          :end-conditions '(cltpt/base:begin-of-line)
-          :end-to-hash #\#
-          ;; we need to make sure the text after begin_ and end_ is the same
-          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                            (let ((begin-str (subseq str b-idx b-end))
-                                  (end-str (subseq str e-idx e-end)))
-                              (string= (subseq begin-str 8)
-                                       (subseq end-str 6)))))))
+    :initform *org-block-rule*))
   (:documentation "org-mode block."))
 
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:text
-                (cltpt/base:consec
-                 (cltpt/base:atleast-one (cltpt/base:literal "*"))
-                 (cltpt/base:atleast-one (cltpt/base:literal " "))
-                 (cltpt/base:all-but-newline))
-                :text-conditions (cltpt/base:begin-of-line))))
+    :initform '(cltpt/combinator:consec
+                (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
+                (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+                (cltpt/combinator:all-but-newline))))
   (:documentation "org-mode header."))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-header) str1 opening-region closing-region)
-  (let* ((count 0)
-         (begin (cltpt/base:region-begin opening-region))
-         (space-pos (position #\space
-                              str1
-                              :start begin
-                              :test 'char=))
-         (newline-pos (position #\newline
-                                str1
-                                :start begin
-                                :test 'char=))
-         (header-text (when (< space-pos newline-pos)
-                        (subseq str1 (1+ space-pos) newline-pos))))
-    (loop for ch across (cltpt/base:text-object-text obj)
-          while (char= ch #\*)
-          do (incf count))
-    (setf (cltpt/base:text-object-property obj :level) count)
-    (setf (cltpt/base:text-object-property obj :title)
-          header-text)
-    (setf (cltpt/base:region-end (cltpt/base:text-object-opening-region obj))
-          newline-pos)))
+;; (defmethod cltpt/base:text-object-init :after ((obj org-header) str1 match)
+;;   (let* ((count 0)
+;;          (begin (cltpt/base:region-begin opening-region))
+;;          (space-pos (position #\space
+;;                               str1
+;;                               :start begin
+;;                               :test 'char=))
+;;          (newline-pos (position #\newline
+;;                                 str1
+;;                                 :start begin
+;;                                 :test 'char=))
+;;          (header-text (when (< space-pos newline-pos)
+;;                         (subseq str1 (1+ space-pos) newline-pos))))
+;;     (loop for ch across (cltpt/base:text-object-text obj)
+;;           while (char= ch #\*)
+;;           do (incf count))
+;;     (setf (cltpt/base:text-object-property obj :level) count)
+;;     (setf (cltpt/base:text-object-property obj :title)
+;;           header-text)
+;;     (setf (cltpt/base:region-end (cltpt/base:text-object-opening-region obj))
+;;           newline-pos)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-header) backend)
   (cltpt/base:pcase backend
@@ -180,20 +185,10 @@ its value is NIL."
              :reparse-region inner-region
              :recurse t)))))
 
-(defclass org-keyword (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform (list :text '(cltpt/base:consec "#+%W: %a")
-                    :text-to-hash #\#
-                    :text-conditions '(cltpt/base:begin-of-line))))
-  (:documentation "org-mode file-level keyword."))
-
 (defclass org-babel-results (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform (list :text '(cltpt/base:literal-casein "#+results:")
-                    :text-conditions '(cltpt/base:begin-of-line)
-                    :text-to-hash #\#)))
+    :initform (list '(cltpt/combinator:literal-casein "#+results:"))))
   (:documentation "org-babel evaluation results."))
 
 ;; this does what is necessary to actually make the object contain the element after
@@ -201,60 +196,60 @@ its value is NIL."
 ;; (defmethod text-object-init :after ((obj org-babel-results) str1 opening-region closing-region)
 ;; the output of a src block may be a table, a drawer, a block, or a region of lines
 ;; preceded by " :".
-(defmethod cltpt/base:text-object-finalize ((obj org-babel-results))
-  (let ((parent (cltpt/base:text-object-parent obj))
-        (next-sibling (cltpt/base:text-object-next-sibling obj))
-        (newline-idx))
-    (when parent
-      (setf newline-idx (position #\newline
-                                  (cltpt/base:text-object-text (cltpt/base:text-object-parent obj))
-                                  :start (cltpt/base:region-begin (cltpt/base:text-object-opening-region obj)))))
-    (when (and next-sibling
-               (member (type-of next-sibling)
-                       (list 'org-drawer
-                             'org-table
-                             'org-block
-                             'org-babel-results-colon)
-                       :test 'string=)
-               (< (text-object-fake-line-num-distance obj next-sibling) 2))
-      ;; next child is the result of the results (could be drawer or some other org-element)
-      ;; we need to make it the child of this object
-      (setf (cltpt/base:text-object-property obj :value) next-sibling)
-      ;; (text-object-set-parent next-sibling obj)
-      ;; (setf (region-end (text-object-opening-region obj))
-      ;;       (max (region-end (text-object-opening-region obj))
-      ;;            (region-end (text-object-opening-region next-sibling)))
-      ;;       (text-object-text obj)
-      ;;       (concatenate 'string
-      ;;                    (text-object-text obj)
-      ;;                    (string #\newline)
-      ;;                    (text-object-text next-sibling))
-      ;;       )
-      ;; (when parent
-      ;;   (let ((str-list))
-      ;;     (loop while newline-idx
-      ;;           for current = (1+ newline-idx)
-      ;;           while (< (1+ current) (length (text-object-text parent)))
-      ;;           for current-beginning = (subseq (text-object-text parent)
-      ;;                                           current
-      ;;                                           (+ 2 current))
-      ;;           while (string= current-beginning ": ")
-      ;;           do (setf newline-idx
-      ;;                    (position #\newline
-      ;;                              (text-object-text parent)
-      ;;                              :test 'char=
-      ;;                              :start current))
-      ;;              (push (subseq (text-object-text parent)
-      ;;                            (+ 2 current)
-      ;;                            (if newline-idx
-      ;;                                newline-idx
-      ;;                                (length (text-object-text parent))))
-      ;;                    str-list))
-      ;;     (setf (text-object-property obj :value)
-      ;;           (str:join (string #\newline) str-list))
-      ;;     (setf (region-end (text-object-opening-region obj))
-      ;;           (or newline-idx (+ 2 (length (text-object-text parent)))))))
-      )))
+;; (defmethod cltpt/base:text-object-finalize ((obj org-babel-results))
+;;   (let ((parent (cltpt/base:text-object-parent obj))
+;;         (next-sibling (cltpt/base:text-object-next-sibling obj))
+;;         (newline-idx))
+;;     (when parent
+;;       (setf newline-idx (position #\newline
+;;                                   (cltpt/base:text-object-text (cltpt/base:text-object-parent obj))
+;;                                   :start (cltpt/base:region-begin (cltpt/base:text-object-opening-region obj)))))
+;;     (when (and next-sibling
+;;                (member (type-of next-sibling)
+;;                        (list 'org-drawer
+;;                              'org-table
+;;                              'org-block
+;;                              'org-babel-results-colon)
+;;                        :test 'string=)
+;;                (< (text-object-fake-line-num-distance obj next-sibling) 2))
+;;       ;; next child is the result of the results (could be drawer or some other org-element)
+;;       ;; we need to make it the child of this object
+;;       (setf (cltpt/base:text-object-property obj :value) next-sibling)
+;;       ;; (text-object-set-parent next-sibling obj)
+;;       ;; (setf (region-end (text-object-opening-region obj))
+;;       ;;       (max (region-end (text-object-opening-region obj))
+;;       ;;            (region-end (text-object-opening-region next-sibling)))
+;;       ;;       (text-object-text obj)
+;;       ;;       (concatenate 'string
+;;       ;;                    (text-object-text obj)
+;;       ;;                    (string #\newline)
+;;       ;;                    (text-object-text next-sibling))
+;;       ;;       )
+;;       ;; (when parent
+;;       ;;   (let ((str-list))
+;;       ;;     (loop while newline-idx
+;;       ;;           for current = (1+ newline-idx)
+;;       ;;           while (< (1+ current) (length (text-object-text parent)))
+;;       ;;           for current-beginning = (subseq (text-object-text parent)
+;;       ;;                                           current
+;;       ;;                                           (+ 2 current))
+;;       ;;           while (string= current-beginning ": ")
+;;       ;;           do (setf newline-idx
+;;       ;;                    (position #\newline
+;;       ;;                              (text-object-text parent)
+;;       ;;                              :test 'char=
+;;       ;;                              :start current))
+;;       ;;              (push (subseq (text-object-text parent)
+;;       ;;                            (+ 2 current)
+;;       ;;                            (if newline-idx
+;;       ;;                                newline-idx
+;;       ;;                                (length (text-object-text parent))))
+;;       ;;                    str-list))
+;;       ;;     (setf (text-object-property obj :value)
+;;       ;;           (str:join (string #\newline) str-list))
+;;       ;;     (setf (region-end (text-object-opening-region obj))
+;;       ;;           (or newline-idx (+ 2 (length (text-object-text parent)))))))
+;;       )))
 
 (defmethod cltpt/base:text-object-convert ((obj org-babel-results) backend)
   (let ((results (cltpt/base:text-object-property obj :value)))
@@ -265,7 +260,7 @@ its value is NIL."
 (defclass org-babel-results-colon (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:region (cltpt/base:literal ": ")
+    :initform '(:region (cltpt/combinator:literal ": ")
                 :disallow t))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-babel-results-colon) backend)
@@ -274,119 +269,137 @@ its value is NIL."
       ""))
 
 (defun not-drawer-end (str pos match-str)
-  (not (string= (string-downcase match-str) ":end:")))
+  (not (string= (string-downcase match-str)
+                ":end:")))
 
 (defclass org-drawer (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:begin ":%w:"
-                :begin-to-hash #\:
-                :begin-conditions (cltpt/base:end-of-line not-drawer-end)
-                :end (cltpt/base:literal-casein ":end:"))))
+    :initform '(cltpt/combinator::pair
+                (cltpt/combinator::when-match
+                 cltpt/combinator::at-line-start-p
+                 ":%w:")
+                (cltpt/combinator::when-match
+                 cltpt/combinator::at-line-start-p
+                 (cltpt/combinator:literal-casein ":end:")))))
   (:documentation "org-mode drawer."))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
 (defmethod cltpt/base:text-object-convert ((obj org-drawer) backend)
   "")
 
-(defmethod cltpt/base:text-object-init :after ((obj org-block) str1 opening-region closing-region)
+(defmethod cltpt/base:text-object-init :after ((obj org-block) str1 match)
   ;; grab the "type" of the block
-  (let ((result (cl-ppcre:register-groups-bind (type1)
-                    ((format nil "#\\+begin_(~A)" *org-symbol-regex*)
-                     (cltpt/base:region-text opening-region str1))
-                  type1)))
-    (setf (cltpt/base:text-object-property obj :type) result))
+  (let ((begin-type (cltpt/base::tree-find
+                     match
+                     'begin-type
+                     :key (lambda (node)
+                            (getf node :id))))
+        (end-type (cltpt/base::tree-find
+                   match
+                   'end-type
+                   :key (lambda (node)
+                          (getf node :id)))))
+    (setf (cltpt/base:text-object-property obj :type) begin-type))
   ;; we need to grab the keywords after the #+begin_block statement, which come in the form
   ;; of :keyword value up to the next newline character
-  (let* ((begin (cltpt/base:region-begin opening-region))
-         (newline-pos (+ begin
-                         (position (string #\newline)
-                                   (subseq str1 begin)
-                                   :test 'string=)))
-         (space-pos (+ begin (or (position " " (subseq str1 begin) :test 'string=) 0)))
-         (line (when (< space-pos newline-pos)
-                 (subseq str1 space-pos newline-pos)))
-         (entries (unless (str:emptyp line) (parse-keyword-string line))))
-    (dolist (entry entries)
-      (setf (cltpt/base:text-object-property obj (car entry))
-            (or (cdr entry) t)))
-    (when (< space-pos newline-pos)
-      (setf (cltpt/base:region-end (cltpt/base:text-object-opening-region obj)) newline-pos))))
+  ;; (let* ((begin (cltpt/base:text-object-begin opening-region))
+  ;;        (newline-pos (+ begin
+  ;;                        (position (string #\newline)
+  ;;                                  (subseq str1 begin)
+  ;;                                  :test 'string=)))
+  ;;        (space-pos (+ begin (or (position " " (subseq str1 begin) :test 'string=) 0)))
+  ;;        (line (when (< space-pos newline-pos)
+  ;;                (subseq str1 space-pos newline-pos)))
+  ;;        (entries (unless (str:emptyp line) (parse-keyword-string line))))
+  ;;   (dolist (entry entries)
+  ;;     (setf (cltpt/base:text-object-property obj (car entry))
+  ;;           (or (cdr entry) t)))
+  ;;   (when (< space-pos newline-pos)
+  ;;     (setf (cltpt/base:region-end (cltpt/base:text-object-opening-region obj)) newline-pos))
+  ;;   )
+  )
 
 ;; this isnt accurate, it only checks line number with respect to parent's text
-(defun text-object-fake-line-num (obj)
-  (count #\newline
-         (cltpt/base:text-object-text (cltpt/base:text-object-parent obj))
-         :end (cltpt/base:region-begin (cltpt/base:text-object-opening-region obj))))
-(defun text-object-fake-line-num-distance (obj1 obj2)
-  (abs (- (text-object-fake-line-num obj1) (text-object-fake-line-num obj2))))
+;; (defun text-object-fake-line-num (obj)
+;;   (count #\newline
+;;          (cltpt/base:text-object-text (cltpt/base:text-object-parent obj))
+;;          :end (cltpt/base:region-begin (cltpt/base:text-object-opening-region obj))))
+;; (defun text-object-fake-line-num-distance (obj1 obj2)
+;;   (abs (- (text-object-fake-line-num obj1) (text-object-fake-line-num obj2))))
 
-(defmethod cltpt/base:text-object-finalize ((obj org-block))
-  "finalize an org-mode block, grabs #+name and other possible keywords."
-  (let ((siblilng obj))
-    (loop for sibling = (when sibling (cltpt/base:text-object-prev-sibling sibling)) while sibling
-          do (if (and (typep sibling 'org-keyword)
-                      (equal (text-object-fake-line-num-distance obj sibling) 1))
-                 ;; as long as #+keyword: val precedes the current line by 1 line, we continue
-                 ;; grabbing keywords.
-                 (let ((kw (intern (cltpt/base:text-object-property sibling :keyword)
-                                   "KEYWORD"))
-                       (val (cltpt/base:text-object-property sibling :value)))
-                   (setf (cltpt/base:text-object-property obj kw) val)
-                   )
-                 ;; stop
-                 (setf sibling nil)))))
+;; (defmethod cltpt/base:text-object-finalize ((obj org-block))
+;;   "finalize an org-mode block, grabs #+name and other possible keywords."
+;;   (let ((siblilng obj))
+;;     (loop for sibling = (when sibling (cltpt/base:text-object-prev-sibling sibling)) while sibling
+;;           do (if (and (typep sibling 'org-keyword)
+;;                       (equal (text-object-fake-line-num-distance obj sibling) 1))
+;;                  ;; as long as #+keyword: val precedes the current line by 1 line, we continue
+;;                  ;; grabbing keywords.
+;;                  (let ((kw (intern (cltpt/base:text-object-property sibling :keyword)
+;;                                    "KEYWORD"))
+;;                        (val (cltpt/base:text-object-property sibling :value)))
+;;                    (setf (cltpt/base:text-object-property obj kw) val)
+;;                    )
+;;                  ;; stop
+;;                  (setf sibling nil)))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-block) backend)
-  (let ((block-type (cltpt/base:text-object-property obj :type))
-        (is-verbatim))
-    (when (string= block-type "src")
-      (setf is-verbatim t))
-    (cond
-      ((member block-type (list "comment" "my_comment") :test 'string=)
-       (list :text "" :reparse t))
-      ((eq backend cltpt/latex:latex)
-       (let* ((begin-tag (format nil "\\begin{~A}" block-type))
-              (end-tag (format nil "\\end{~A}" block-type))
-              (my-text (concatenate 'string
-                                    begin-tag
-                                    (cltpt/base:text-object-contents obj)
-                                    end-tag))
-              (inner-region (cltpt/base:make-region :begin (length begin-tag)
-                                                    :end (- (length my-text) (length end-tag)))))
-         (when (string= block-type "src")
-           (setf block-type "lstlisting"))
-         (list :text my-text
-               :reparse (not is-verbatim)
-               :escape (not is-verbatim)
-               :reparse-region inner-region
-               :escape-region inner-region)))
-      ((eq backend cltpt/html:html)
-       (let* ((open-tag (if (string= block-type "src")
-                            (format nil "<pre><code>" block-type)
-                            (format nil "<~A>" block-type)))
-              (close-tag (if (string= block-type "src")
-                             (format nil "</code></pre>" block-type)
-                             (format nil "<~A>" block-type)))
-              (text (concatenate 'string
-                                 open-tag
-                                 (cltpt/base:text-object-contents obj)
-                                 close-tag)))
-         (list :text text
-               :recurse t
-               :reparse-region (cltpt/base:make-region :begin (length open-tag)
-                                                       :end (- (length text) (length close-tag)))
-               :reparse t))))))
+;; (defmethod cltpt/base:text-object-convert ((obj org-block) backend)
+;;   (let ((block-type (cltpt/base:text-object-property obj :type))
+;;         (is-verbatim))
+;;     (when (string= block-type "src")
+;;       (setf is-verbatim t))
+;;     (cond
+;;       ((member block-type (list "comment" "my_comment") :test 'string=)
+;;        (list :text "" :reparse t))
+;;       ((eq backend cltpt/latex:latex)
+;;        (let* ((begin-tag (format nil "\\begin{~A}" block-type))
+;;               (end-tag (format nil "\\end{~A}" block-type))
+;;               (my-text (concatenate 'string
+;;                                     begin-tag
+;;                                     (cltpt/base:text-object-contents obj)
+;;                                     end-tag))
+;;               (inner-region (cltpt/base:make-region :begin (length begin-tag)
+;;                                                     :end (- (length my-text) (length end-tag)))))
+;;          (when (string= block-type "src")
+;;            (setf block-type "lstlisting"))
+;;          (list :text my-text
+;;                :reparse (not is-verbatim)
+;;                :escape (not is-verbatim)
+;;                :reparse-region inner-region
+;;                :escape-region inner-region)))
+;;       ((eq backend cltpt/html:html)
+;;        (let* ((open-tag (if (string= block-type "src")
+;;                             (format nil "<pre><code>" block-type)
+;;                             (format nil "<~A>" block-type)))
+;;               (close-tag (if (string= block-type "src")
+;;                              (format nil "</code></pre>" block-type)
+;;                              (format nil "<~A>" block-type)))
+;;               (text (concatenate 'string
+;;                                  open-tag
+;;                                  (cltpt/base:text-object-contents obj)
+;;                                  close-tag)))
+;;          (list :text text
+;;                :recurse t
+;;                :reparse-region (cltpt/base:make-region :begin (length open-tag)
+;;                                                        :end (- (length text) (length close-tag)))
+;;                :reparse t))))))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 opening-region closing-region)
-  (let* ((result (cl-ppcre:register-groups-bind (kw val)
-                     ((format nil "\\+(~A): (.*)" *org-symbol-regex*)
-                      (region-text opening-region str1))
-                   (cons kw val)))
-         (keyword (car result))
-         (value (cdr result)))
-    (setf (cltpt/base:text-object-property obj :value) value)
-    (setf (cltpt/base:text-object-property obj :keyword) keyword)))
+(defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
+  (let* ((value-match
+           (cltpt/base::tree-find match
+                                  'value
+                                  :key (lambda (node)
+                                         (getf node :id))))
+         (keyword-match
+           (cltpt/base::tree-find match
+                                  'keyword
+                                  :key (lambda (node)
+                                         (getf node :id)))))
+    (setf (cltpt/base:text-object-property obj :value)
+          (getf value-match :match))
+    (setf (cltpt/base:text-object-property obj :keyword)
+          (getf keyword-match :match))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-keyword) backend)
   ;; was used for debugging
@@ -403,12 +416,10 @@ its value is NIL."
   ((cltpt/base::rule
     :allocation :class
     :initform `(:pattern
-                (cltpt/base:consec
-                 (cltpt/base:literal "[[")
-                 (:pattern (cltpt/base:literal "][]]")
-                  :id link)
-                 )
-                :end-to-hash t)))
+                (cltpt/combinator:consec
+                 (cltpt/combinator:literal "[[")
+                 (:pattern (cltpt/combinator:literal "][]]")
+                  :id link)))))
   (:documentation "a link."))
 
 (defclass org-link (cltpt/base:text-object)
@@ -417,40 +428,52 @@ its value is NIL."
     :initform 'cltpt/base::link)
    (cltpt/base::rule
     :allocation :class
-    :initform '(:text
-                (cltpt/base:any
-                 ;; [[type:dest][desc]]
-                 (cltpt/base:consec
-                  "[["
-                  (:pattern (cltpt/base:symbol-matcher) :id link-type)
-                  ":"
-                  (:pattern (cltpt/base:all-but "[]") :id link-dest)
-                  "]["
-                  (:pattern (cltpt/base:all-but "[]") :id link-desc)
-                  "]]")
-                 ;; [[dest]]
-                 (cltpt/base:consec
-                  "[["
-                  (:pattern (cltpt/base:all-but "[]") :id link-dest)
-                  "]]")
-                 ;; [[type:dest]]
-                 (cltpt/base:consec
-                  "[["
-                  (:pattern (cltpt/base:symbol-matcher) :id link-type)
-                  ":"
-                  (:pattern (cltpt/base:all-but "[]") :id link-dest)
-                  "]]")))))
+    :initform '(cltpt/combinator:any
+                ;; [[type:dest][desc]]
+                (cltpt/combinator:consec
+                 "[["
+                 (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
+                 ":"
+                 (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+                 "]["
+                 (:pattern (cltpt/combinator:all-but "[]") :id link-desc)
+                 "]]")
+                ;; [[dest]]
+                (cltpt/combinator:consec
+                 "[["
+                 (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+                 "]]")
+                ;; [[type:dest]]
+                (cltpt/combinator:consec
+                 "[["
+                 (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
+                 ":"
+                 (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+                 "]]"))))
   (:documentation "org-mode link."))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-link) str1 opening-region closing-region)
-  (let* ((result (cl-ppcre:register-groups-bind
-                     (desc dest)
-                     ("\\[(\\[.*?\\])*\\[(.*?)\\]\\]" (cltpt/base:region-text opening-region str1))
-                   (list desc dest)))
-         (desc (car result))
-         (dest (cadr result)))
-    (setf (cltpt/base:text-object-property obj :desc) desc)
-    (setf (cltpt/base:text-object-property obj :dest) dest)))
+(defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
+  (let ((link-type-match
+          (cltpt/base::tree-find match
+                                 'link-type
+                                 :key (lambda (node)
+                                        (getf node :id))))
+        (link-dest-match
+          (cltpt/base::tree-find match
+                                 'link-dest
+                                 :key (lambda (node)
+                                        (getf node :id))))
+        (link-desc-match
+          (cltpt/base::tree-find match
+                                 'link-desc
+                                 :key (lambda (node)
+                                        (getf node :id)))))
+    (setf (cltpt/base:text-object-property obj :desc)
+          (getf link-desc-match :match))
+    (setf (cltpt/base:text-object-property obj :dest)
+          (getf link-dest-match :match))
+    (setf (cltpt/base:text-object-property obj :type)
+          (getf link-type-match :match))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-link) backend)
   (cond
@@ -460,24 +483,15 @@ its value is NIL."
     ((eq backend cltpt/html:html)
      (format nil "<a href='~A'></a>" (cltpt/base:text-object-property obj :dest)))))
 
-(defun org-list-parser-func (str pos)
-  (let ((result (org-list-get-bounds str pos)))
-    (when result
-      (- (cdr result) (car result)))))
-
 (defclass org-list (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    ;; match region of lines beginning with space or hyphen
-    :initform '(:text (org-list-parser-func)
-                :text-conditions (cltpt/base:begin-of-line))))
+    :initform '(org-list-matcher)))
   (:documentation "org-mode list."))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-list) str1 opening-region closing-region)
-  (let ((list1 (cltpt/base:org-list-parse (cltpt/base:text-object-text obj))))
-    (setf (cltpt/base:text-object-property obj :list) list1)))
+(defmethod cltpt/base:text-object-init :after ((obj org-list) str1 match)
+  )
 
-;; used with the results of `org-list-parse'
 (defun deep-copy-org-forest (tree)
   (cond ((null tree) nil)
         ((consp tree)
@@ -487,29 +501,29 @@ its value is NIL."
          (copy-seq tree))
         (t tree)))
 
-(defmethod cltpt/base:text-object-convert ((obj org-list) backend)
-  (let ((my-list (deep-copy-org-forest (cltpt/base:text-object-property obj :list)))
-        (possible-children-types *org-mode-inline-text-object-types*))
-    ;; (cltpt/base:mapcar-forest
-    ;;  my-list
-    ;;  (lambda (list-entry)
-    ;;    (let ((list-entry-text (getf list-entry :text)))
-    ;;      (setf (getf list-entry :text)
-    ;;            (cltpt/base:convert-tree (parse list-entry-text
-    ;;                                            possible-children-types)
-    ;;                                     backend
-    ;;                                     possible-children-types)))))
-    (cond
-      ((eq backend cltpt/latex:latex)
-       (list :text (org-list-to-latex my-list)
-             :recurse nil
-             :reparse nil
-             :escape nil))
-      ((eq backend cltpt/html:html)
-       (list :text (org-list-to-html my-list)
-             :recurse nil
-             :reparse nil
-             :escape nil)))))
+;; (defmethod cltpt/base:text-object-convert ((obj org-list) backend)
+;;   (let ((my-list (deep-copy-org-forest (cltpt/base:text-object-property obj :list)))
+;;         (possible-children-types *org-mode-inline-text-object-types*))
+;;     ;; (cltpt/base:mapcar-forest
+;;     ;;  my-list
+;;     ;;  (lambda (list-entry)
+;;     ;;    (let ((list-entry-text (getf list-entry :text)))
+;;     ;;      (setf (getf list-entry :text)
+;;     ;;            (cltpt/base:convert-tree (parse list-entry-text
+;;     ;;                                            possible-children-types)
+;;     ;;                                     backend
+;;     ;;                                     possible-children-types)))))
+;;     (cond
+;;       ((eq backend cltpt/latex:latex)
+;;        (list :text (org-list-to-latex my-list)
+;;              :recurse nil
+;;              :reparse nil
+;;              :escape nil))
+;;       ((eq backend cltpt/html:html)
+;;        (list :text (org-list-to-html my-list)
+;;              :recurse nil
+;;              :reparse nil
+;;              :escape nil)))))
 
 (defclass org-table (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -519,7 +533,7 @@ its value is NIL."
                 :disallow t)))
   (:documentation "org-mode table."))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-table) str1 opening-region closing-region)
+(defmethod cltpt/base:text-object-init :after ((obj org-table) str1 match)
   (let ((table1 (org-table-parse (cltpt/base:text-object-text obj))))
     (setf (cltpt/base:text-object-property obj :table) table1)))
 
@@ -640,19 +654,14 @@ its value is NIL."
                           lines)))
     (mapcar #'split-table-line rows)))
 
+
 (defclass org-emph (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform `(:begin (cltpt/base:literal "*")
-                :begin-to-hash #\*
-                :begin-conditions ,(list (complement #'cltpt/base:begin-of-line))
-                :end-conditions ,(list (complement #'cltpt/base:begin-of-line))
-                :end (cltpt/base:literal "*")
-                :end-to-hash #\*
-                :nestable nil
-                :disallow t
-                :same-line t)))
-  (:documentation "org-mode emphasized text (surrounded by stars)."))
+    :initform `(cltpt/combinator::pair
+                (cltpt/combinator::unescaped (cltpt/combinator::literal "*"))
+                (cltpt/combinator::unescaped (cltpt/combinator::literal "*")))))
+  (:documentation "org-mode emphasized text (surrounded by asterisks)."))
 
 (defmethod cltpt/base:text-object-convert ((obj org-emph) backend)
   (cond
@@ -666,51 +675,38 @@ its value is NIL."
 (defclass org-italic (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:begin (cltpt/base:literal "/")
-                :begin-to-hash #\/
-                :end (cltpt/base:literal "/")
-                :end-to-hash #\/
-                :disallow t
-                :nestable nil
-                :same-line t)))
+    :initform
+    '(cltpt/combinator::pair
+      (cltpt/combinator::unescaped (cltpt/combinator::literal "/"))
+      (cltpt/combinator::unescaped (cltpt/combinator::literal "/")))))
   (:documentation "org-mode italicized text (surrounded by forward slahes)."))
 
-(defmethod cltpt/base:text-object-convert ((obj org-italic) backend)
-  (cond
-    ((eq backend cltpt/latex:latex)
-     (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textit{" "}")))
-       (setf (getf result :reparse-region) nil)
-       result))
-    ((eq backend cltpt/html:html)
-     (cltpt/base:wrap-contents-for-convert obj "<i>" "</i>"))))
+;; (defmethod cltpt/base:text-object-convert ((obj org-italic) backend)
+;;   (cond
+;;     ((eq backend cltpt/latex:latex)
+;;      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textit{" "}")))
+;;        (setf (getf result :reparse-region) nil)
+;;        result))
+;;     ((eq backend cltpt/html:html)
+;;      (cltpt/base:wrap-contents-for-convert obj "<i>" "</i>"))))
 
 (defclass org-inline-code (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:begin (cltpt/base:literal "~")
-                :begin-to-hash #\~
-                :end (cltpt/base:literal "~")
-                :end-to-hash #\~
-                :disallow t
-                :nestable nil
-                :same-line t)))
+    :initform
+    '(cltpt/combinator::pair
+      (cltpt/combinator::unescaped (cltpt/combinator::literal "~"))
+      (cltpt/combinator::unescaped (cltpt/combinator::literal "~")))))
   (:documentation "org-mode inline code (surrounded by tildes)."))
 
-(defmethod cltpt/base:text-object-convert ((obj org-inline-code) backend)
-  (cond
-    ((eq backend cltpt/latex:latex)
-     (let ((result (cltpt/base:wrap-contents-for-convert obj "\\verb{" "}")))
-       (setf (getf result :reparse-region) nil)
-       result))
-    ((eq backend cltpt/html:html)
-     (cltpt/base:wrap-contents-for-convert obj "<pre><code>" "</code></pre>"))))
-
-(defun parse-org-file (filepath)
-  ;; we need to "finalize" the classes to be able to use MOP
-  (let* ((result (parse (uiop:read-file-string filepath)
-                        (org-mode-text-object-types)
-                        :doc-type 'org-document)))
-    result))
+;; (defmethod cltpt/base:text-object-convert ((obj org-inline-code) backend)
+;;   (cond
+;;     ((eq backend cltpt/latex:latex)
+;;      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\verb{" "}")))
+;;        (setf (getf result :reparse-region) nil)
+;;        result))
+;;     ((eq backend cltpt/html:html)
+;;      (cltpt/base:wrap-contents-for-convert obj "<pre><code>" "</code></pre>"))))
 
 (defun convert-org-doc (org-doc backend)
   (cltpt/base:convert-tree org-doc

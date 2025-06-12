@@ -4,6 +4,8 @@ properties here
 :id: hello
 :end:
 
+
+#+mykeyword: value
 some [[mylink1-2:here1][testmore1- 2]] text
 [[attachment:sliding.gif]]
 [[attachment:sliding]]

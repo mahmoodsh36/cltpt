@@ -1,5 +1,6 @@
 (defpackage :cltpt/latex
-  (:use :cl :cltpt/base)
+  (:use :cl :cltpt/base :cltpt/combinator)
+  (:shadowing-import-from :cltpt/combinator parse)
   (:export :latex :display-math :inline-math :latex-env
            :generate-latex-preamble :*latex-preamble*))
 
@@ -17,8 +18,7 @@
   (cltpt/base:make-text-format
    "latex"
    '(display-math inline-math latex-env
-     cltpt/base:text-macro cltpt/base:text-macro-ref
-     cltpt/base:post-lexer-text-macro cltpt/base:post-lexer-text-macro-ref)))
+     cltpt/base:text-macro cltpt/base:post-lexer-text-macro)))
 (defvar latex)
 (eval-when (:load-toplevel :execute)
   (setf latex (make-latex)))

@@ -8,8 +8,7 @@
   (make-text-format
    "html"
    '(display-math inline-math latex-env
-     text-macro text-macro-ref
-     post-lexer-text-macro post-lexer-text-macro-ref)))
+     text-macro post-lexer-text-macro)))
 
 (defvar html)
 (eval-when (:load-toplevel :execute)
