@@ -1,335 +1,265 @@
 (in-package :cltpt/org-mode)
 
-(defun org-list-count-leading-spaces (line)
-  (let ((count 0))
-    (loop for ch across line
-          while (char= ch #\space)
-          do (incf count))
-    count))
+(defun get-line-info (str pos)
+  (when (>= pos (length str))
+    (return-from get-line-info (values "" (length str) (length str) t)))
+  (let* ((line-start (or (position #\newline str :end pos :from-end t) -1))
+         (actual-line-start (1+ line-start))
+         (line-end (or (position #\newline str :start actual-line-start)
+                       (length str)))
+         (next-pos (if (< line-end (length str))
+                       (1+ line-end) line-end)))
+    (values (subseq str actual-line-start line-end)
+            actual-line-start
+            next-pos
+            (>= line-end (length str)))))
 
-(defun org-list-parse-bullet-line (line expected-indent)
-  "if LINE (after EXPECTED-INDENT spaces) begins with a valid bullet,
-return three values: T, the bullet marker (a string), and the remaining text.
-a valid bullet is either a dash followed by a space, or a sequence of digits/letters
-followed by a dot (and optionally a following space)."
-  (if (< (length line) expected-indent)
-      (values nil nil nil)
-      (if (/= (org-list-count-leading-spaces line) expected-indent)
-          (values nil nil nil)
-          (let ((trimmed (subseq line expected-indent)))
-            (cond
-              ;; dash bullet.
-              ((and (>= (length trimmed) 2)
-                    (char= (char trimmed 0) #\-)
-                    (char= (char trimmed 1) #\space))
-               (values t "-" (subseq trimmed 2)))
-              ;; number or letter bullet (e.g., "1." or "a." or "IV.")
-              ((and (plusp (length trimmed))
-                    (or (digit-char-p (char trimmed 0))
-                        (alpha-char-p (char trimmed 0))))
-               (let ((i 0)
-                     (only-digits t))
-                 (loop while (and (< i (length trimmed))
-                                  (let ((char (char trimmed i)))
-                                    (cond
-                                      ((digit-char-p char)
-                                       t)
-                                      ((alpha-char-p char)
-                                       (setf only-digits nil)
-                                       t)
-                                      (t nil))))
-                       do (incf i))
-                 (if (and (> i 0)
-                          (< i (length trimmed))
-                          (char= (char trimmed i) #\.)
-                          (or (<= i 3) only-digits))
-                     (let* ((marker-end-idx (1+ i))
-                            (marker (subseq trimmed 0 marker-end-idx))
-                            (text-start-idx marker-end-idx))
-                       (when (and (< text-start-idx (length trimmed))
-                                  (char= (char trimmed text-start-idx) #\space))
-                         (incf text-start-idx))
-                       (values t marker (subseq trimmed text-start-idx)))
-                     (values nil nil nil))))
-              (t (values nil nil nil)))))))
+(defun count-leading-spaces (line-text)
+  (loop for char across line-text
+        while (char= char #\space)
+        count 1))
 
-(defun org-list-collect-extra-lines (lines current-indent)
-  (if (or (null lines)
-          (<= (org-list-count-leading-spaces (first lines)) current-indent))
-      (values nil lines)
-      (let* ((line (first lines))
-             (line-indent (org-list-count-leading-spaces line)))
-        (multiple-value-bind (is-bullet)
-            (org-list-parse-bullet-line line line-indent)
-          (if is-bullet
-              (values nil lines)
-              (multiple-value-bind (collected rem)
-                  (org-list-collect-extra-lines (rest lines) current-indent)
-                (values (cons (string-trim " " line) collected) rem)))))))
+(defun parse-bullet-from-line-text (line-text expected-indent)
+  (cond
+    ((and (>= (length line-text) (+ expected-indent 2))
+          (= (count-leading-spaces (subseq line-text 0 expected-indent))
+             expected-indent)
+          (char= (char line-text expected-indent) #\-)
+          (char= (char line-text (+ expected-indent 1)) #\space))
+     (values t "-" (subseq line-text (+ expected-indent 2)) (+ expected-indent 2)))
+    ((and (>= (length line-text) expected-indent)
+          (= (count-leading-spaces (subseq line-text 0 expected-indent))
+             expected-indent)
+          (< expected-indent (length line-text))
+          (let ((char-after-indent (char line-text expected-indent)))
+            (or (digit-char-p char-after-indent)
+                (alpha-char-p char-after-indent))))
+     (let* ((text-after-indent (subseq line-text expected-indent))
+            (i 0)
+            (len-text-after-indent (length text-after-indent)))
+       (loop while (and (< i len-text-after-indent)
+                        (alphanumericp (char text-after-indent i)))
+             do (incf i))
+       (if (and (> i 0)
+                (< i len-text-after-indent)
+                (char= (char text-after-indent i) #\.))
+           (let* ((marker-end-idx-in-text-after-indent (1+ i))
+                  (marker (subseq text-after-indent 0 marker-end-idx-in-text-after-indent))
+                  (text-start-idx-in-text-after-indent marker-end-idx-in-text-after-indent)
+                  (bullet-struct-len-after-indent marker-end-idx-in-text-after-indent))
+             (when (and (< text-start-idx-in-text-after-indent len-text-after-indent)
+                        (char= (char text-after-indent
+                                     text-start-idx-in-text-after-indent)
+                               #\space))
+               (incf text-start-idx-in-text-after-indent)
+               (incf bullet-struct-len-after-indent))
+             (values t
+                     marker
+                     (subseq text-after-indent text-start-idx-in-text-after-indent)
+                     (+ expected-indent bullet-struct-len-after-indent)))
+           (values nil nil nil nil))))
+    (t (values nil nil nil nil))))
 
-(defun org-list-parse-one-item (lines current-indent)
-  "parses a single item and its direct children.
-returns two values:
-1. a cons cell: (item-data . list-of-child-nodes)
-   where item-data is a plist like (:marker M :text T)
-   and list-of-child-nodes is a list of nodes, each also (child-data . list-of-grandchild-nodes)
-2. remaining lines after this item and its children."
-  (multiple-value-bind (valid marker text-content)
-      (org-list-parse-bullet-line (first lines) current-indent)
-    (declare (ignore valid))
-    (let ((remaining (rest lines)))
-      (multiple-value-bind (extra-lines rem)
-          (org-list-collect-extra-lines remaining current-indent)
-        (setf remaining rem)
-        (let ((children-nodes)) ;; this will be a list of (child-data . grandchild-nodes)
-          (when (and remaining
-                     (> (org-list-count-leading-spaces (first remaining)) current-indent))
-            (let* ((child-first-line (first remaining))
-                   (child-indent (org-list-count-leading-spaces child-first-line)))
-              (multiple-value-bind (is-child-bullet)
-                  (org-list-parse-bullet-line child-first-line child-indent)
-                (when is-child-bullet
-                  (multiple-value-bind (child-items-parsed rem2)
-                      (org-list-parse-items remaining child-indent)
-                    (setf children-nodes child-items-parsed)
-                    (setf remaining rem2))))))
-          (let* ((clean-text (string-trim " " text-content))
-                 (combined-text (if extra-lines
-                                    (concatenate 'string
-                                                 clean-text
-                                                 (string #\newline)
-                                                 (str:join (string #\newline) extra-lines))
-                                    clean-text))
-                 (item-data (list :marker marker :text combined-text)))
-            (values (cons item-data children-nodes) remaining)))))))
+(defun adjust-match-offsets (matches offset)
+  (labels ((adjust-single-match (match-item)
+             (when match-item
+               (let* ((parent-info (car match-item))
+                      (children (cdr match-item))
+                      (new-parent-info
+                        (list* :begin (+ (getf parent-info :begin 0) offset)
+                               :end (+ (getf parent-info :end 0) offset)
+                               (loop for (key val) on parent-info by #'cddr
+                                     unless (or (eq key :begin) (eq key :end))
+                                       append (list key val)))))
+                 (cons new-parent-info
+                       (mapcar #'adjust-single-match children))))))
+    (mapcar #'adjust-single-match matches)))
 
-(defun org-list-parse-items (lines current-indent)
-  "parses a list of items at the CURRENT-INDENT.
-   returns two values:
-   1. a list of nodes, where each node is (item-data . list-of-child-nodes)
-   2. remaining lines."
-  (if (null lines)
-      (values nil lines) ;; no items, no remaining lines from this level
-      (let ((first-line (first lines))
-            (line-indent (org-list-count-leading-spaces (first lines))))
-        (if (< line-indent current-indent)
-            (values nil lines) ;; this line is for a parent or unrelated, return no items and all lines
-            (multiple-value-bind (is-bullet-at-this-level)
-                (org-list-parse-bullet-line first-line current-indent)
-              (if (not is-bullet-at-this-level)
-                  (values nil lines) ;; not a bullet at this level, return no items and all lines
-                  (multiple-value-bind (current-item-node rem-lines-after-item) ;; current-item-node is (item-data . children-nodes)
-                      (org-list-parse-one-item lines current-indent)
-                    (multiple-value-bind (sibling-nodes final-rem-lines) ;; sibling-nodes is a list of (sibling-data . their-children)
-                        (org-list-parse-items rem-lines-after-item current-indent)
-                      (values (cons current-item-node sibling-nodes)
-                              final-rem-lines)))))))))
+(defun org-list-matcher (str pos &optional inline-rules)
+  (multiple-value-bind (first-line-text first-line-start-offset _next-ln-pos _is-last)
+      (get-line-info str pos)
+    (unless (= pos first-line-start-offset)
+      (return-from org-list-matcher (values nil pos)))
+    (when (or (null first-line-text) (>= pos (length str)))
+      (return-from org-list-matcher (values nil pos)))
+    (let ((initial-indent (count-leading-spaces first-line-text)))
+      (multiple-value-bind (is-bullet) (parse-bullet-from-line-text first-line-text initial-indent)
+        (unless is-bullet (return-from org-list-matcher (values nil pos)))
+        (multiple-value-bind (top-level-item-nodes final-pos-after-list)
+            (parse-list-items-at-indent str first-line-start-offset initial-indent inline-rules)
+          (if top-level-item-nodes
+              (let ((list-begin-offset first-line-start-offset)
+                    (list-end-offset final-pos-after-list))
+                (values
+                 (cons (list :id 'org-list
+                             :begin list-begin-offset
+                             :end list-end-offset
+                             :match (subseq str list-begin-offset list-end-offset)
+                             :indent initial-indent)
+                       top-level-item-nodes)
+                 final-pos-after-list))
+              (values nil pos)))))))
 
-(defun get-lines-with-metadata (text)
-  "returns a list of (line-text start-offset line-index) for each line in TEXT.
-offsets include newline characters for inter-line spacing."
-  (let* ((all-raw-lines (str:split (string #\newline) text :omit-nulls nil))
-         (num-all-lines (length all-raw-lines)))
-    (loop with current-offset = 0
-          for line-text in all-raw-lines
-          for line-idx from 0
-          collect (list line-text current-offset line-idx)
-          do (incf current-offset (+ (length line-text)
-                                     ;; add 1 for newline, unless it's the very last line of the text
-                                     (if (< (1+ line-idx) num-all-lines) 1 0))))))
-
-(defun find-list-start-at-target-offset (target-offset lines-metadata text-length)
-  "attempts to find and validate a list start at TARGET-OFFSET.
-LINES-METADATA is a list of (line-text line-start-char-offset line-idx).
-TEXT-LENGTH is the total length of the original text.
-returns (values effective-list-start-char-offset
-                first-list-line-actual-start-char-offset
-                initial-indent-for-parser
-                lines-to-feed-parser ;; list of raw line strings
-                success-p)"
-  (let ((found-line-details))
-    ;; find the line containing target-offset
-    (setf found-line-details
-          (find-if (lambda (ld)
-                     (let ((l-text (first ld)) (l-start (second ld)))
-                       (and (>= target-offset l-start)
-                            (< target-offset (+ l-start (length l-text)
-                                                ;; if target is at start of line, allow it even if line is empty
-                                                (if (and (= target-offset l-start) (string= l-text "")) 1 0))))))
-                   lines-metadata))
-    ;; check for target-offset at the very end of text,
-    ;; potentially an empty line if the text ends with a newline.
-    (when (and (null found-line-details)
-               (= target-offset text-length)
-               (> text-length 0)
-               lines-metadata)
-      (let* ((last-entry-in-metadata (car (last lines-metadata))) ;; this is a list like (line-text offset idx)
-             (last-line-text (first last-entry-in-metadata))
-             (last-line-start-offset (second last-entry-in-metadata)))
-        ;; condition: text ends with a newline implies the last "line" from str:split might be empty,
-        ;; OR the last actual content line's offset + length + 1 (for newline) == text-length.
-        ;; the (get-lines-with-metadata) function already handles offsets correctly.
-        ;; if target-offset is text-length, it means it's after all characters.
-        ;; this could be the start of an empty line if the text ended with a newline.
-        (when (and (string= last-line-text "") ;; the last "line" produced by split is empty
-                   (= last-line-start-offset target-offset)) ;; and it starts exactly at target-offset
-          (setf found-line-details last-entry-in-metadata))))
-    (unless found-line-details
-      (return-from find-list-start-at-target-offset (values nil nil nil nil nil)))
-    (destructuring-bind (target-line-text line-start target-line-idx) found-line-details
-      (let ((indent-on-line (- target-offset line-start)))
-        (when (< indent-on-line 0)
-          (return-from find-list-start-at-target-offset (values nil nil nil nil nil)))
-        (multiple-value-bind (is-bullet)
-            (org-list-parse-bullet-line target-line-text indent-on-line)
-          (if is-bullet
-              (values target-offset
-                      line-start
-                      indent-on-line
-                      (mapcar #'car (nthcdr target-line-idx lines-metadata))
-                      t)
-              (values nil nil nil nil nil)))))))
-
-(defun org-list-get-bounds (text &optional target-start-offset)
-  "determines the character start and end bounds of an org-mode list in TEXT.
-returns (CONS START-OFFSET END-OFFSET) or nil if no list is found."
-  (let (effective-list-start-char-offset
-        first-list-line-actual-start-char-offset
-        initial-indent-for-parser
-        lines-to-feed-parser
-        items
-        remaining-lines-after-parse)
-    (if target-start-offset
+(defun parse-single-list-item (str item-line-start-offset current-item-indent inline-rules initial-bullet-marker initial-text-on-bullet-line)
+  (let* ((children-of-list-item)
+         (bullet-node)
+         (bullet-string-actual initial-bullet-marker)
+         (is-bullet-p)
+         (parsed-marker)
+         (text-after-marker)
+         (bullet-struct-char-length)
+         (current-line-text (nth-value 0 (get-line-info str item-line-start-offset)))
+         (text-content-absolute-start-offset item-line-start-offset))
+    (multiple-value-bind (p-is-bullet p-marker p-text-after p-bullet-len)
+        (parse-bullet-from-line-text current-line-text current-item-indent)
+      (setf is-bullet-p p-is-bullet)
+      (setf parsed-marker p-marker)
+      (setf text-after-marker p-text-after)
+      (setf bullet-struct-char-length p-bullet-len))
+    (if bullet-struct-char-length
         (progn
-          (multiple-value-bind (quick-check-success q-line-start q-init-indent)
-              (quick-validate-list-start-at-offset text target-start-offset)
-            (unless quick-check-success
-              (return-from org-list-get-bounds nil))
-            (setf effective-list-start-char-offset target-start-offset)
-            (setf first-list-line-actual-start-char-offset q-line-start)
-            (setf initial-indent-for-parser q-init-indent)
-            ;; process only the suffix of the text starting from the identified line
-            ;; pass :omit-nulls nil because org-list-parse-items might need empty lines.
-            (let ((text-suffix (subseq text first-list-line-actual-start-char-offset)))
-              (setf lines-to-feed-parser (str:split (string #\newline) text-suffix :omit-nulls nil)))))
-        ;; else: no target-start-offset, find the first list item (uses get-lines-with-metadata)
-        (let ((lines-metadata (get-lines-with-metadata text)) ;; get-lines-with-metadata is assumed to exist
-              (found-list-start nil))
-          (loop for (line-text line-start line-idx) in lines-metadata
-                do
-                   (let ((actual-indent (org-list-count-leading-spaces line-text)))
-                     (multiple-value-bind (is-bullet-p)
-                         (org-list-parse-bullet-line line-text actual-indent)
-                       (when is-bullet-p
-                         (setf effective-list-start-char-offset (+ line-start actual-indent))
-                         (setf first-list-line-actual-start-char-offset line-start)
-                         (setf initial-indent-for-parser actual-indent)
-                         (setf lines-to-feed-parser (mapcar #'first (nthcdr line-idx lines-metadata)))
-                         (setf found-list-start t)
-                         (return))))
-                finally (unless found-list-start
-                          (return-from org-list-get-bounds nil)))))
-    (when (null lines-to-feed-parser)
-      (return-from org-list-get-bounds nil))
-    (multiple-value-setq (items remaining-lines-after-parse)
-      (org-list-parse-items lines-to-feed-parser initial-indent-for-parser))
-    (unless items
-      (return-from org-list-get-bounds nil))
-    (let* ((num-lines-fed (length lines-to-feed-parser))
-           (num-remaining-lines (length remaining-lines-after-parse))
-           (num-consumed-lines (- num-lines-fed num-remaining-lines)))
-      (when (<= num-consumed-lines 0)
-        (return-from org-list-get-bounds nil))
-      (let* ((consumed-lines-list (subseq lines-to-feed-parser 0 num-consumed-lines))
-             (consumed-block-text-length
-               (if consumed-lines-list
-                   (loop for i from 0 below (length consumed-lines-list)
-                         for line-text in consumed-lines-list
-                         sum (+ (length line-text)
-                                (if (< i (1- (length consumed-lines-list))) 1 0))) ;; add 1 for newline between lines
-                   0)))
-        (cons effective-list-start-char-offset
-              (+ first-list-line-actual-start-char-offset consumed-block-text-length))))))
+          (setf text-content-absolute-start-offset
+                (+ item-line-start-offset bullet-struct-char-length))
+          (setf bullet-node
+                (cons (list :id 'list-item-bullet
+                            :begin (+ item-line-start-offset current-item-indent)
+                            :end text-content-absolute-start-offset
+                            :match bullet-string-actual)
+                      nil))
+          (push bullet-node children-of-list-item))
+        (return-from parse-single-list-item (values nil item-line-start-offset)))
+    (let* ((collected-text-lines (list initial-text-on-bullet-line))
+           (pos-after-initial-bullet-line
+             (nth-value 2 (get-line-info str item-line-start-offset)))
+           (current-scan-pos pos-after-initial-bullet-line)
+           (end-of-this-item-text-block pos-after-initial-bullet-line))
+      (loop
+        (when (>= current-scan-pos (length str))
+          (setf end-of-this-item-text-block current-scan-pos)
+          (return))
+        (multiple-value-bind (next-line-text _nextlnst nxtlnparse _islast) (get-line-info str current-scan-pos)
+          (let ((indent-on-next-line (count-leading-spaces next-line-text)))
+            (cond ((<= indent-on-next-line current-item-indent)
+                   (setf end-of-this-item-text-block current-scan-pos)
+                   (return))
+                  (t (multiple-value-bind (is-bullet-for-child) (parse-bullet-from-line-text next-line-text indent-on-next-line)
+                       (if is-bullet-for-child
+                           (progn
+                             (setf end-of-this-item-text-block current-scan-pos)
+                             (return))
+                           (progn
+                             (push (string-left-trim " " next-line-text)
+                                   collected-text-lines)
+                             (setf current-scan-pos nxtlnparse)
+                             (setf end-of-this-item-text-block
+                                   current-scan-pos)))))))))
+      (let* ((reversed-collected-lines (nreverse collected-text-lines))
+             (full-item-text-for-match
+               (string-right-trim
+                '(#\newline #\space #\tab)
+                (format nil "~{~A~^~%~}" reversed-collected-lines)))
+             (children-of-content-node)
+             (pos-after-item-processing current-scan-pos))
+        (when (and inline-rules (plusp (length full-item-text-for-match)))
+          (let ((raw-inline-matches
+                  (cltpt/combinator::scan-all-rules
+                   full-item-text-for-match
+                   inline-rules
+                   0
+                   (length full-item-text-for-match))))
+            (setf children-of-content-node
+                  (nconc children-of-content-node
+                         (adjust-match-offsets raw-inline-matches
+                                               text-content-absolute-start-offset)))))
+        (when (< current-scan-pos (length str))
+          (multiple-value-bind (line-at-children-start _l _nl _is) (get-line-info str current-scan-pos)
+            (when line-at-children-start
+              (let ((child-indent (count-leading-spaces line-at-children-start)))
+                (when (> child-indent current-item-indent)
+                  (multiple-value-bind (is-child-bullet) (parse-bullet-from-line-text line-at-children-start child-indent)
+                    (when is-child-bullet
+                      (multiple-value-bind (parsed-child-list-match new-pos-from-child-matcher)
+                          (org-list-matcher str current-scan-pos inline-rules)
+                        (when parsed-child-list-match
+                          (setf children-of-content-node
+                                (nconc children-of-content-node
+                                       (list parsed-child-list-match)))
+                          (when (numberp new-pos-from-child-matcher)
+                            (setf pos-after-item-processing
+                                  new-pos-from-child-matcher)))))))))))
+        (let ((content-node-begin text-content-absolute-start-offset)
+              (content-node-end end-of-this-item-text-block))
+          (when (or (plusp (length full-item-text-for-match))l
+                    children-of-content-node)
+            (let ((content-node-parent-info
+                    (list :id 'list-item-content
+                          :begin content-node-begin
+                          :end content-node-end
+                          :match full-item-text-for-match)))
+              (push (cons content-node-parent-info children-of-content-node)
+                    children-of-list-item))))
+        (let* ((item-node-begin item-line-start-offset)
+               (item-node-end pos-after-item-processing)
+               (item-parent-info
+                 (list :id 'list-item
+                       :indent current-item-indent
+                       :begin item-node-begin
+                       :end item-node-end
+                       :match (subseq str item-node-begin item-node-end))))
+          (values (cons item-parent-info (nreverse children-of-list-item))
+                  item-node-end))))))
 
-(defun org-list-parse (text &optional target-start-offset)
-  "parses org-mode list TEXT.
-returns a list of nodes (item-data . children-nodes) or NIL."
-  (let (effective-lines-to-parse
-        (initial-indent 0))
-    (if target-start-offset
-        (progn
-          (unless (and (integerp target-start-offset) (>= target-start-offset 0))
-            (error "TARGET-START-OFFSET must be a non-negative integer."))
-          (multiple-value-bind (quick-check-success q-line-start q-init-indent)
-              (quick-validate-list-start-at-offset text target-start-offset)
-            (unless quick-check-success
-              (return-from org-list-parse nil))
-            (setf initial-indent q-init-indent)
-            ;; process only the suffix of the text starting from the identified line
-            ;; pass :omit-nulls nil because org-list-parse-items might need empty lines.
-            (let ((text-suffix (subseq text q-line-start)))
-              (setf effective-lines-to-parse (str:split (string #\newline) text-suffix :omit-nulls nil)))))
-        ;; else: no target-start-offset (original behavior, trims text first)
-        (let* ((trimmed-text (str:trim text))
-               (raw-lines (if (string= trimmed-text "")
-                              nil
-                              ;; note: :omit-nulls t here is the original behavior for this branch
-                              (str:split (string #\newline) trimmed-text :omit-nulls t))))
-          (unless raw-lines (return-from org-list-parse nil))
-          (loop for line in raw-lines
-                for i from 0
-                do (let ((indent (org-list-count-leading-spaces line)))
-                     (multiple-value-bind (is-bullet) (org-list-parse-bullet-line line indent)
-                       (when is-bullet
-                         (setf initial-indent indent)
-                         (setf effective-lines-to-parse (nthcdr i raw-lines))
-                         (return))))
-                finally (when (null effective-lines-to-parse)
-                          (return-from org-list-parse nil)))))
+(defun parse-list-items-at-indent (str initial-pos expected-indent inline-rules)
+  (let ((item-nodes)
+        (current-pos initial-pos)
+        (last-successful-item-end-pos initial-pos))
+    (loop
+      (unless (numberp current-pos)
+        (return-from parse-list-items-at-indent
+          (values (nreverse item-nodes) last-successful-item-end-pos)))
+      (when (>= current-pos (length str))
+        (return))
+      (multiple-value-bind (line-text line-start _nextlnpos _islastln) (get-line-info str current-pos)
+        (unless line-text (return))
+        (setf current-pos line-start)
+        (let ((indent-on-this-line (count-leading-spaces line-text)))
+          (cond ((< indent-on-this-line expected-indent) (return))
+                ((> indent-on-this-line expected-indent) (return))
+                (t (multiple-value-bind (is-bullet bullet-marker text-on-bullet-line _bulletlen)
+                       (parse-bullet-from-line-text line-text expected-indent)
+                     (if is-bullet
+                         (multiple-value-bind (item-cons-cell new-item-pos)
+                             (parse-single-list-item
+                              str
+                              current-pos
+                              expected-indent
+                              inline-rules
+                              bullet-marker
+                              text-on-bullet-line)
+                           (if (and item-cons-cell
+                                    (numberp new-item-pos)
+                                    (> new-item-pos current-pos))
+                               (progn
+                                 (push item-cons-cell item-nodes)
+                                 (setf current-pos new-item-pos)
+                                 (setf last-successful-item-end-pos new-item-pos))
+                               (return)))
+                         (return))))))))
+    (values (nreverse item-nodes) last-successful-item-end-pos)))
 
-    (if (null effective-lines-to-parse)
-        nil
-        (multiple-value-bind (items rem)
-            (org-list-parse-items effective-lines-to-parse initial-indent)
-          (declare (ignore rem))
-          items))))
-
-(defun quick-validate-list-start-at-offset (text target-offset)
-  "quickly checks if a list bullet starts at TARGET-OFFSET in TEXT.
-returns multiple values:
-1. success-p (boolean): true if a valid bullet is found.
-2. line-start-char-offset: the character offset of the start of the line containing TARGET-OFFSET.
-3. initial-indent-for-parser: the indent calculated from line-start to TARGET-OFFSET.
-returns (values nil nil nil) on failure."
-  (when (or (< target-offset 0) (> target-offset (length text))) ;; allow target-offset to be length of text for potential empty line start
-    (return-from quick-validate-list-start-at-offset (values nil nil nil)))
-  ;; if target_offset is exactly at the end of the text
-  (if (= target-offset (length text))
-      (if (and (> (length text) 0) (char/= (char text (1- (length text))) #\Newline))
-          ;; if text doesn't end with newline, target-offset at end is not start of a new line's content.
-          (values nil nil nil)
-          ;; else, text is empty, or ends with newline. treat as an empty line starting at target-offset.
-          ;; the "indent" on this conceptual empty line, relative to itself, is 0.
-          (multiple-value-bind (is-bullet)
-              (org-list-parse-bullet-line "" 0)
-            (if is-bullet
-                (values t target-offset 0)
-                (values nil nil nil))))
-      ;; standard case: target-offset is within the text's characters
-      (let* ((line-start-search-end (if (zerop target-offset) 0 target-offset))
-             ;; find start of the line containing target-offset
-             (prev-newline-pos (position #\newline text :end line-start-search-end :from-end t))
-             (line-start-char-offset (if prev-newline-pos (1+ prev-newline-pos) 0))
-             ;; find end of the line containing target-offset
-             (next-newline-pos (position #\newline text :start target-offset))
-             (line-end-char-offset (if next-newline-pos next-newline-pos (length text)))
-             (target-line-text (subseq text line-start-char-offset line-end-char-offset))
-             (indent-on-line (- target-offset line-start-char-offset)))
-        ;; indent-on-line should not be negative if target-offset is on or after line-start-char-offset
-        (when (< indent-on-line 0)
-          (return-from quick-validate-list-start-at-offset (values nil nil nil)))
-        (multiple-value-bind (is-bullet)
-            (org-list-parse-bullet-line target-line-text indent-on-line)
-          (if is-bullet
-              (values t line-start-char-offset indent-on-line)
-              (values nil nil nil))))))
+(defun test-org-list-parsing ()
+  (let ((text "- item one
+  extra text for one
+- we have \\(x=y\\)
+  a. nested item one
+     more nested text
+     i. even more nested
+  b. nested item two
+- item three"))
+    (cltpt/combinator::parse
+     text
+     (list
+      '(cltpt/org-mode::org-list-matcher
+        ((:pattern (cltpt/combinator::literal "item") :id item-keyword)
+         (:pattern (cltpt/combinator::literal "nested") :id nested-keyword)
+         (:pattern (cltpt/combinator::word-matcher) :id generic-word)))))))

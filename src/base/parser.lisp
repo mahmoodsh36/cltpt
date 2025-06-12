@@ -6,110 +6,25 @@
                 (as-doc t)
                 (doc-type 'document))
   "parse a string, returns an object tree."
-  (let* ((text-macro-classes '(text-macro text-macro-ref))
+  (let* ((text-macro-classes '(text-macro))
          (post-lexer-macro-classes
-           '(post-lexer-text-macro post-lexer-text-macro-ref))
+           '(post-lexer-text-macro))
          (text-objects)
          (data
            (remove-if-not
             'identity
             (loop for type1 in text-object-types
                   collect (let ((rule (text-object-rule-from-subclass type1)))
-                            (append rule (list :id type1))))))
-         (matches (find-with-rules str1 data))
-         (pair-matches
-           (remove-if-not
-            (lambda (x)
-              (stringp (cadddr x)))
-            matches))
-         (region-matches
-           (remove-if-not
-            (lambda (x)
-              (not (stringp (cadddr x))))
-            matches)))
-    ;; this takes more time than `find-with-rules'..
-    (loop for match1 in pair-matches
-          do (let* ((match-opening-string (caddr match1))
-                    (match-closing-string (cadddr match1))
-                    (match-opening-begin (car match1))
-                    (match-opening-end (+ match-opening-begin (length match-opening-string)))
-                    (match-closing-end (cadr match1))
-                    (match-closing-begin (- match-closing-end (length match-closing-string)))
-                    (type1 (last-atom match1))
-                    (is-lexer-macro (member type1 text-macro-classes))
-                    (macro-eval-result)
-                    (new-text-object))
-               (when (member type1 text-object-types)
-                 (if is-lexer-macro
-                     (let ((match-text (subseq str1 match-opening-begin match-closing-end)))
-                       (handler-case
-                           (eval (read-from-string
-                                  ;; skip first char (`*lexer-text-macro-char*')
-                                  (subseq match-text 1)))
-                         (error (c)
-                           (format t "error while evaluating macro ~A: ~A.~%" match-text c)
-                           (setf macro-eval-result 'broken))
-                         (:no-error (result1)
-                           ;; (format t "evaluated macro ~A: ~A, ~A~%"
-                           ;;         match-text
-                           ;;         result1
-                           ;;         (typep result1 'text-object))
-                           (setf macro-eval-result result1)
-                           (if (typep result1 'text-object)
-                               (setf new-text-object result1)
-                               (setf new-text-object (make-instance 'text-object)))))
-                       (when (equal macro-eval-result 'broken)
-                         (setf new-text-object (make-instance 'text-object)))
-                       (setf (text-object-property new-text-object :open-macro) t))
-                     (progn
-                       ;; this could be whats taking the most time
-                       (setf new-text-object (make-instance type1))))
-                 (let ((opening-text-region
-                         (make-region :begin match-opening-begin :end match-opening-end))
-                       (closing-text-region
-                         (make-region :begin match-closing-begin :end match-closing-end)))
-                   (when is-lexer-macro
-                     (setf (text-object-property new-text-object :eval-result)
-                           macro-eval-result))
-                   (text-object-init new-text-object
-                                     str1
-                                     opening-text-region
-                                     closing-text-region)
-                   ;; handle lexical scope of pair (if we found one)
-                   (if is-lexer-macro
-                       (let ((done))
-                         (loop for prev-obj in text-objects
-                               for prev-obj-idx from 0
-                               while (not done)
-                               ;; check if this macro is the closing of a previous macro, if so,
-                               ;; we have a "lexical" scope and we should drop everything in between
-                               do (when (and prev-obj
-                                             (text-object-property prev-obj :open-macro)
-                                             (text-object-ends-by
-                                              prev-obj
-                                              (text-object-property new-text-object :eval-result)))
-                                    ;; this macro is the ending of the previous one, we're done with them
-                                    (text-object-init
-                                     prev-obj
-                                     str1
-                                     (make-region :begin (region-begin
-                                                          (text-object-opening-region prev-obj))
-                                                  :end (region-end
-                                                        (text-object-closing-region prev-obj)))
-                                     (make-region :begin match-opening-begin
-                                                  :end match-closing-end))
-                                    (setf done t)
-                                    (setf (text-object-property prev-obj :open-macro) nil)))
-                         (unless done
-                           (push new-text-object text-objects)))
-                       (push new-text-object text-objects))))))
-    (loop for match1 in region-matches
-          do (when (member (last-atom match1) text-object-types)
-               (let* ((match-begin (car match1))
-                      (match-end (cadr match1))
-                      (match-type (cadddr match1))
-                      (new-text-object (make-instance match-type))
-                      (type1 (last-atom match1))
+                            rule))))
+         (matches (cltpt/combinator::parse str1 data)))
+    (loop for m in matches
+          for main-match = (car m)
+          for rest = (cdr m)
+          do (when (member (getf main-match :id) text-object-types)
+               (let* ((match-begin (getf main-match :begin))
+                      (match-end (getf main-match :end))
+                      (type1 (getf main-match :id))
+                      (new-text-object (make-instance type1))
                       (is-lexer-macro (member type1 text-macro-classes)))
                  (when is-lexer-macro
                    (let ((match-text (subseq str1 match-begin match-end))
@@ -133,8 +48,7 @@
                      (setf (text-object-property new-text-object :eval-result) macro-eval-result)))
                  (text-object-init new-text-object
                                    str1
-                                   (make-region :begin match-begin :end match-end)
-                                   nil)
+                                   m)
                  (push new-text-object text-objects))))
     ;; here we build the text object forest (collection of trees) properly
     (let ((forest (build-forest (loop for o in text-objects
@@ -152,7 +66,7 @@
         ;;       top-level)
         (if as-doc
             (let ((doc (make-instance doc-type :text str1)))
-              (setf (text-object-opening-region doc)
+              (setf (text-object-text-region doc)
                     (make-region :begin 0 :end (length str1)))
               (mapc
                (lambda (entry)

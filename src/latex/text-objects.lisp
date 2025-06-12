@@ -3,10 +3,9 @@
 (defclass inline-math (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:begin (cltpt/base:literal "\\(")
-                :end (cltpt/base:literal "\\)")
-                :begin-to-hash #\\
-                :end-to-hash #\\))))
+    :initform '(cltpt/combinator:pair
+                (cltpt/combinator:literal "\\(")
+                (cltpt/combinator:literal "\\)")))))
 
 (defmethod cltpt/base:text-object-convert ((obj inline-math) (fmt (eql latex)))
   (list :text (cltpt/base:text-object-text obj)
@@ -16,10 +15,9 @@
 (defclass display-math (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:begin (cltpt/base:literal "\\[")
-                :end (cltpt/base:literal "\\]")
-                :begin-to-hash #\\
-                :end-to-hash #\\))))
+    :initform '(cltpt/combinator:pair
+                (cltpt/combinator:literal "\\[")
+                (cltpt/combinator:literal "\\]")))))
 
 (defmethod cltpt/base:text-object-convert ((obj display-math)
                                            (fmt (eql latex)))
@@ -32,16 +30,16 @@
   ((cltpt/base::rule
     :allocation :class
     :initform
-    (list :begin "\\begin{%W}"
-          :end "\\end{%W}"
-          :begin-to-hash #\\
-          :end-to-hash #\\
+    (list 'pair "\\begin{%W}" "\\end{%W}"
+          ;; :begin-to-hash #\\
+          ;; :end-to-hash #\\
           ;; we need to make sure the text after begin_ and end_ is the same
-          :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-                            (let ((begin-str (subseq str b-idx b-end))
-                                  (end-str (subseq str e-idx e-end)))
-                              (string= (subseq begin-str (length "\\begin{"))
-                                       (subseq end-str (length "\\end{"))))))))
+          ;; :pair-predicate (lambda (str b-idx e-idx b-end e-end)
+          ;;                   (let ((begin-str (subseq str b-idx b-end))
+          ;;                         (end-str (subseq str e-idx e-end)))
+          ;;                     (string= (subseq begin-str (length "\\begin{"))
+          ;;                              (subseq end-str (length "\\end{")))))
+          )))
   (:documentation "latex environment."))
 
 ;; do we need this?

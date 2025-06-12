@@ -55,7 +55,8 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
                                ,@body)))))))
 
 (defun plistp (list1)
-  (keywordp (car list1)))
+  (and (consp list1)
+       (keywordp (car list1))))
 
 (defun flatten (l depth)
   "flatten L by at most DEPTH levels."
