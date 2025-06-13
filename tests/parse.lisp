@@ -71,7 +71,7 @@ after list."))
     result))
 
 (defun test-org-parse ()
-  (parse-org-file "test.org"))
+  (parse-org-file "test2.org"))
 
 (defun test-org-convert ()
   (time
@@ -79,7 +79,7 @@ after list."))
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "latex")
-      "test.org"
+      "test2.org"
       "test.out.tex")
      ;; (export-org-file
      ;;  "test.org"
@@ -586,8 +586,8 @@ and a final #tag3"
 ;; beginning of line
 (defun test-bol ()
   (let* ((rule1 (list 'cltpt/combinator::when-match
-                      #'cltpt/combinator::at-line-start-p
-                      '(:pattern "#%W" :id hashtag)))
+                      '(:pattern "#%W" :id hashtag)
+                      #'cltpt/combinator::at-line-start-p))
          (rules (list rule1)))
     (cltpt/combinator::scan-all-rules
      "#tag1 is on line 1

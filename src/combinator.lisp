@@ -367,17 +367,17 @@ an optional escape-char can be provided, defaulting to backslash."
   (or (zerop pos)
       (char= (char str (1- pos)) #\newline)))
 
-(defun when-match (str pos condition-fn rule)
-  "a combinator that attempts to match 'rule' only if 'condition-fn' returns true.
-'condition-fn' is a function that takes str and pos and returns a boolean."
-  (when (funcall condition-fn str pos)
-    (match-rule rule str pos)))
-
 (defun at-line-end-p (str pos)
   "predicate to check if the current position is at the end of a line
 (i.e., at the end of the string or followed by a newline)."
   (or (>= pos (length str))
       (char= (char str pos) #\newline)))
+
+(defun when-match (str pos rule condition-fn)
+  "a combinator that attempts to match 'rule' only if 'condition-fn' returns true.
+'condition-fn' is a function that takes str and pos and returns a boolean."
+  (when (funcall condition-fn str pos)
+    (match-rule rule str pos)))
 
 (defun followed-by (str pos rule condition-fn)
   "a combinator that succeeds only if 'rule' matches and the position
