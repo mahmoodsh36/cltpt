@@ -1,1 +1,22 @@
-add 1 to get %(+ (cltpt/base::prev-obj-eval) 1), add 10 to get %(+ (cltpt/base::prev-obj-eval) 10)
+* my main header
+properties here
+:properties:
+:id: hello
+:end:
+
+
+#+mykeyword: value
+some [[mylink1-2:here1][testmore1- 2]] text
+[[attachment:sliding.gif]]
+[[attachment:sliding]]
+
+comment here
+\#+begin_comment
+this is a comment
+\#+end_comment
+
+some \*text*
+text *
+
+latex here
+\[ x = \sqrt{x^2} \]

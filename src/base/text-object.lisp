@@ -227,40 +227,29 @@ object's region. you should just make it return a symbol like `end-type'."))
   "return the children of the text-obj, sorted by starting point."
   (sort-text-objects (text-object-children obj)))
 
-;; (defmethod text-object-contents-begin ((text-obj text-object))
-;;   (if (text-object-closing-region text-obj)
-;;       (region-length (text-object-opening-region text-obj))
-;;       0))
-
-;; (defmethod text-object-contents-end ((text-obj text-object))
-;;   (if (text-object-closing-region text-obj)
-;;       (- (region-begin (text-object-closing-region text-obj))
-;;          (region-begin (text-object-opening-region text-obj)))
-;;       (region-length (text-object-opening-region text-obj))))
-
-;; (defmethod text-object-contents ((obj text-object))
-;;   (subseq (text-object-text obj)
-;;           (text-object-contents-begin obj)
-;;           (text-object-contents-end obj)))
-
 (defmethod text-object-contents-begin ((text-obj text-object))
-  0)
+  (if (text-object-property text-obj :contents-region)
+      (region-end (text-object-property text-obj :contents-region))
+      0))
 
 (defmethod text-object-contents-end ((text-obj text-object))
-  (region-end (text-object-text-region text-obj)))
+  (if (text-object-property text-obj :contents-region)
+      (region-end (text-object-property text-obj :contents-region))
+      (length (text-object-text text-obj))))
 
 (defmethod text-object-contents ((obj text-object))
   (subseq (text-object-text obj)
-          (text-object-text-begin obj)
-          (text-object-text-end obj)))
+          (text-object-contents-begin obj)
+          (text-object-contents-end obj)))
 
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform '(cltpt/combinator::consec
-                (cltpt/combinator::literal "#")
-                (:pattern (cltpt/combinator::lisp-sexp)
-                 :id lisp-code)))))
+    :initform '(cltpt/combinator::unescaped
+                (cltpt/combinator::consec
+                 (cltpt/combinator::literal "#")
+                 (:pattern (cltpt/combinator::lisp-sexp)
+                  :id lisp-code))))))
 
 (defun is-not-before-parenthesis (str1 pos match-str)
   (not (char= (char str1 (+ pos (length match-str)))

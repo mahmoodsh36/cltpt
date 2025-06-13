@@ -12,6 +12,7 @@
    :mapcar-forest :convert-tree :text-format-escape :replace-chars-and-escapes
    :wrap-contents-for-convert
    :document :map-text-object
+   :find-submatch
    :region-text :text-object-prev-sibling :text-object-contents))
 
 (in-package :cltpt/base)

@@ -67,3 +67,10 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
                (cons (car l) (flatten (cdr l) depth))
                (append (flatten (car l) (1- depth))
                        (flatten (cdr l) depth))))))
+
+(defun find-submatch (match submatch-id)
+  (cltpt/base::tree-find
+   match
+   submatch-id
+   :key (lambda (node)
+          (getf node :id))))
