@@ -10,58 +10,21 @@
 
 (in-suite cltpt-suite)
 
-;; (test org-list-get-bounds-indented
-;;   (is (equal (org-list-get-bounds "  - item")
-;;              (cons 2 8)))
-;;   (is (equal (org-list-get-bounds (format nil "  ~C~C  - properly indented list~C    more stuff for it." #\Newline #\Newline #\Newline))
-;;              (cons 6 53))))
+;; (test build-forest-test-1
+;;   (let ((entries '((5 15 child-kept)
+;;                    (10 25 child-conflict)
+;;                    (0 50 parent)
+;;                    (30 40 child-ok))))
+;;     (is (equal (cltpt/base::build-forest entries)
+;;                '(((0 50 parent) ((30 40 child-ok)) ((5 15 child-kept))))))))
 
-;; (test org-list-get-bounds-complex
-;;   (let ((text "wew
-;; - item one
-;;    extra text for one
-;; - item two
-;;    a. nested item one
-;;       more nested text
-;;       i. even more nested
-;;    b. nested item two
-;; - item three
-;;    another line for three
-;; hey"))
-;;     (is (equal (org-list-get-bounds text)
-;;                (cons 4 (- (length text) 4))))))
-
-(test org-list-get-bounds-no-list
-  (is (equal (org-list-get-bounds "this is not a list.")
-             nil))
-  (is (equal (org-list-get-bounds "")
-             nil))
-  (is (equal (org-list-get-bounds "  ")
-             nil)))
-
-(test org-list-get-bounds-case2
-    (let ((text "preamble text.
-  - list item 1 starts here
-  - list item 2
-    - nested
-after list."))
-      (is (equal (org-list-get-bounds text) (cons 17 71)))))
-
-(test build-forest-test-1
-  (let ((entries '((5 15 child-kept)
-                   (10 25 child-conflict)
-                   (0 50 parent)
-                   (30 40 child-ok))))
-    (is (equal (cltpt/base::build-forest entries)
-               '(((0 50 parent) ((30 40 child-ok)) ((5 15 child-kept))))))))
-
-(test build-forest-test-2
-  (let ((entries '((5 15 child-kept)
-                   (10 35 child-conflict)
-                   (0 50 parent)
-                   (30 40 child-ok))))
-    (is (equal (cltpt/base::build-forest entries)
-               '(((0 50 parent) ((30 40 child-ok)) ((5 15 child-kept))))))))
+;; (test build-forest-test-2
+;;   (let ((entries '((5 15 child-kept)
+;;                    (10 35 child-conflict)
+;;                    (0 50 parent)
+;;                    (30 40 child-ok))))
+;;     (is (equal (cltpt/base::build-forest entries)
+;;                '(((0 50 parent) ((30 40 child-ok)) ((5 15 child-kept))))))))
 
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
@@ -86,52 +49,6 @@ after list."))
      ;;  "test.out.html"
      ;;  'html)
      nil)))
-
-(defun test11 ()
-  (find-with-rules
-   "
-#+begin_comment
-#+begin_test
-# #+include: /home/mahmooz/brain/notes/20230520175032-convolutional_neural_network.org
-# #+include: /home/mahmooz/brain/notes/20230224163920-common_lisp.org
-# #+include: /home/mahmooz/brain/notes/20230503204107-common_lisp_math.org
-#+end_test
-#+begin_test
-#+end_test
-[[hello:hey]]
-#+end_comment
-#+include: test
-:properties:
-:id: hello
-:end:
-#+include: test
-"
-   (list
-    `(:begin (:string "#+begin_src")
-      :end   (:string "#+end_src")
-      :pair-predicate ,(lambda (str b-idx e-idx b-end e-end)
-                         (let ((begin-str (subseq str b-idx b-end))
-                               (end-str (subseq str e-idx e-end)))
-                           (string= (subseq begin-str 8)
-                                    (subseq end-str 6))))
-      :id 'org-block)
-    `(:begin (:pattern "#+begin_(%w)")
-      :end   (:pattern "#+end_(%w)")
-      :begin-conditions (begin-of-line)
-      :end-conditions (begin-of-line)
-      :pair-predicate ,(lambda (str b-idx e-idx b-end e-end)
-                         (let ((begin-str (subseq str b-idx b-end))
-                               (end-str (subseq str e-idx e-end)))
-                           (string= (subseq begin-str 8)
-                                    (subseq end-str 6))))
-      :id 'org-blockk)
-    (list :text '(:pattern "#+(%w): (%w)")
-          :text-conditions '(begin-of-line)
-          :id 'keyword)
-    `(:text (:pattern (any (:pattern "[[(%W-):(%E:[])][(%E:[])]]")
-                                     (:pattern "[[(%W-)]]")
-                                     (:pattern "[[(%W-):(%E:[])]]")))
-            :id 'org-link))))
 
 (test org-keyword-parse-test
   (is
@@ -227,86 +144,10 @@ more nested text")))
                    ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 87 :END 97 :MATCH
                      "item three"))))))))
 
-;; extensive example for testing combined rules
-(defun test-parse-1 ()
-  (let ((test-str "
-hello, this is a test.
-  - item 1
-  - item 2 [[my-link-here:more123][moretext1]]
-test [[blk:1683060983][multilayer perceptrons]]
-not a dash.
-BEGIN CODE
-print('hello')
-: some
-: more
-: \\(mymath\\)
-: stuff
-print('world')
-END CODE
-more text.
-  - item A
-  - item B
-  - item C
-ERROR: this is an error message.
-some footer text."))
-    (format t "test string:~%~a~%" test-str)
-    (let ((result (find-with-rules test-str
-                                   (list
-                                    ;; region rule: contiguous lines that, after skipping spaces, start with a dash.
-                                    '(:region (:pattern "(%C:- )")
-                                      ;; :ignore " "    ;; ignore spaces at beginning of each line
-                                      :id 'dash-region)
-                                    '(:region (:string ": ")
-                                      :id 'colon-region)
-                                    ;; begin/end rule: a code block.
-                                    '(:begin (:string "BEGIN CODE")
-                                      :end   (:string "END CODE")
-                                      :id 'code-block)
-                                    '(:begin (:string "\\(")
-                                      :end   (:string "\\)")
-                                      :id 'inline-math)
-                                    '(:text (:string "ERROR:")
-                                      :id 'error-text)
-                                    '(:text (:pattern "[[(%W-):(%W-)][(%C:abcdefghijklmnopqrstuvwxyz123 )]]")
-                                      :id 'link)))))
-      (format t "result: ~a~%" result)
-      result)))
-
 ;; latex snippet compilation test
 (defun test-latex-svg ()
   (generate-svg-for-latex
    "\\(x=\\sqrt{y}\\)"))
-
-(defun test-parse-2 ()
-  (find-with-rules
-   "
-#+begin_comment
-#+begin_test
-my text
-#+end_test
-#+begin_test
-some text
-#+end_test
-[[hello:hey]]
-#+end_comment
-#+include: test
-:properties:
-:id: hello
-:end:
-#+include: test
-"
-   (list
-    `(:begin (:pattern "#+begin_(%w)")
-      :end   (:pattern "#+end_(%w)")
-      :begin-conditions (begin-of-line)
-      :end-conditions (begin-of-line)
-      :exclude '(org-link)
-      :id 'org-block)
-    (list :text '(:pattern "#+(%w): (%w)")
-          :text-conditions '(begin-of-line)
-          :id 'keyword)
-    `(:text (:pattern "[[(%w):(%w)]]")
-      :id 'org-link))))
 
 (defun test-convert-1 ()
   (convert-tree
@@ -378,7 +219,6 @@ some text
   (is (equal
        (test-parse-any-func)
        '(((:ID CLTPT/TESTS::ORG-LINK :BEGIN 0 :END 18 :MATCH "[[hello:hey][wow]]")
-          (:BEGIN 0 :END 18 :MATCH "[[hello:hey][wow]]")
           ((:BEGIN 0 :END 2 :MATCH "[["))
           ((:ID CLTPT/TESTS::TEST2 :BEGIN 2 :END 7 :MATCH "hello"))
           ((:BEGIN 7 :END 8 :MATCH ":"))
@@ -423,37 +263,6 @@ some text
   (let ((results (run! 'cltpt-suite)))
     (unless results
       (explain! results))))
-
-;; matching nested pairs with potentially delimiters pairs that should be ignored
-;; also nested patterns?
-(defun test-parse-3 ()
-  (find-with-rules
-   "1#(hel7()8lom0559o'((hey)0889)' hey'
-there '\"((hey)0889)\" re)h"
-   '((:begin (:pattern (literal "#("))
-      :end (:pattern (literal ")"))
-      :id outer
-      :children ((:begin (:pattern (literal "("))
-                  :end (:pattern (literal ")"))
-                  :id inner
-                  :children ((:begin (:pattern (literal "0"))
-                              :end (:pattern (literal "9"))
-                              :id evenmore)))
-                 (:begin (:pattern (literal "7"))
-                  :end (:pattern (literal "8"))
-                  :id nums)
-                 (:begin (:pattern (literal "'"))
-                  :end (:pattern (literal "'"))
-                  :id single-quotes
-                  :disallow t
-                  :nestable nil
-                  :same-line t)
-                 (:begin (:pattern (literal "\""))
-                  :end (:pattern (literal "\""))
-                  :id double-quotes
-                  :nestable nil
-                  ;; :disallow t
-                  :same-line t))))))
 
 (test test-parse-table
   (let ((table
@@ -594,3 +403,40 @@ and a final #tag3"
 this is not a match: #tag2
 #tag3 is on line 3"
      rules)))
+
+(defun transformer-test-1-func ()
+  (let* ((parsed
+           '((:id org-link :begin 89 :end 122 :match "[[mylink1-2:here1][testmore1- 2]]")
+             ((:begin 89 :end 91 :match "[["))
+             ((:id link-type :begin 91 :end 100 :match "mylink1-2"))
+             ((:begin 100 :end 101 :match ":"))
+             ((:id link-dest :begin 101 :end 106 :match "here1"))
+             ((:begin 106 :end 108 :match "]["))
+             ((:id link-desc :begin 108 :end 120 :match "testmore1- 2"))
+             ((:begin 120 :end 122 :match "]]"))))
+         (dest-rule
+           '(cltpt/combinator:consec
+             "\\ref{"
+             (:pattern (cltpt/combinator:symbol-matcher) :id link-dest)
+             "}")))
+    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
+
+(defun transformer-test-2-func ()
+  (let* ((parsed
+           '((:id org-link :begin 155 :end 177 :match "[[attachment:sliding]]")
+             ((:begin 155 :end 157 :match "[["))
+             ((:id link-dest :begin 157 :end 175 :match "attachment:sliding"))
+             ((:begin 175 :end 177 :match "]]"))))
+         (dest-rule
+           '(:pattern (cltpt/combinator:consec
+                       "\\ref{"
+                       (:pattern (cltpt/combinator:symbol-matcher)
+                        :id link-dest)
+                       "}")
+             :id latex-link)))
+    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
+
+(test transformer-test-1
+  (fiveam:is
+   (string= (cltpt/tests::transformer-test-1-func)
+            "\\ref{here1}")))

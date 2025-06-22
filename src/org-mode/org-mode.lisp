@@ -275,7 +275,6 @@ its value is NIL."
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
 (defmethod cltpt/base:text-object-convert ((obj org-drawer) backend)
-  (format t "hello~%")
   "")
 
 (defmethod cltpt/base:text-object-init :after ((obj org-block) str1 match)
@@ -462,13 +461,13 @@ its value is NIL."
     (setf (cltpt/base:text-object-property obj :type)
           (getf link-type-match :match))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-link) backend)
-  (cond
-    ((eq backend cltpt/latex:latex)
-     (list :text (format nil "\\ref{~A}" (cltpt/base:text-object-property obj :dest))
-           :escape nil))
-    ((eq backend cltpt/html:html)
-     (format nil "<a href='~A'></a>" (cltpt/base:text-object-property obj :dest)))))
+;; (defmethod cltpt/base:text-object-convert ((obj org-link) backend)
+;;   (cond
+;;     ((eq backend cltpt/latex:latex)
+;;      (list :text (format nil "\\ref{~A}" (cltpt/base:text-object-property obj :dest))
+;;            :escape nil))
+;;     ((eq backend cltpt/html:html)
+;;      (format nil "<a href='~A'></a>" (cltpt/base:text-object-property obj :dest)))))
 
 (defclass org-list (cltpt/base:text-object)
   ((cltpt/base::rule

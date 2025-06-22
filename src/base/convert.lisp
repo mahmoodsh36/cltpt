@@ -10,8 +10,29 @@
          collect (let ((rule (text-object-rule-from-subclass type1)))
                    (getf rule :escapable)))))
 
+(defun text-object-convert-helper (text-obj backend)
+  (let* ((shared-name (text-object-shared-name-from-subclass
+                       (class-name (class-of text-obj))))
+         (dest-text-obj-type
+           (find shared-name
+                 (text-format-text-object-types backend)
+                 :key (lambda (entry)
+                        (text-object-shared-name-from-subclass entry))))
+         (dest-rule (text-object-rule-from-subclass dest-text-obj-type))
+         (src-match (text-object-property text-obj :combinator-match))
+         (src-str (getf (car src-match) :match)))
+  ;; (format t "hie ~A, ~A~%" shared-name dest-rule)
+    (if (and shared-name dest-rule)
+        (let ((transformed-string
+                (cltpt/transformer:reconstruct-string-from-rule
+                 dest-rule
+                 src-match)))
+          transformed-string)
+        (text-object-convert text-obj backend))))
+
 (defun convert-tree (text-obj backend text-object-types)
-  (let* ((result (text-object-convert text-obj backend))
+  (let* ((result (text-object-convert-helper text-obj backend))
+         ;; (result (text-object-convert text-obj backend))
          (result-is-string (typep result 'string))
          (to-escape (or result-is-string
                         (getf result :escape)
@@ -27,7 +48,8 @@
                (getf result :text)))
          (region-to-escape (when (and to-escape (not result-is-string))
                              (getf result :escape-region)))
-         (to-recurse (or (unless result-is-string (getf result :recurse)) to-reparse))
+         (to-recurse (or (unless result-is-string (getf result :recurse))
+                         to-reparse))
          (escapables (collect-escapables text-object-types)))
     (when *debug*
       (format t "converting object ~A~%" text-obj))

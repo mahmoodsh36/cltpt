@@ -11,7 +11,7 @@
 ;; on other modules, i will keep them here for now until i find a better way
 ;; to handle them.
 
-(defmethod text-object-convert ((obj text-block) backend)
+(defmethod cltpt/base:text-object-convert ((obj text-block) backend)
   ;; use string on type to ensure its not a symbol
   (let ((type1 (string-downcase (string (text-object-property obj :type)))))
     (pcase backend

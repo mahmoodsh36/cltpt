@@ -12,6 +12,7 @@
                 :depends-on ("combinator")
                 :components ((:file "base")
                              (:file "parser")
+                             (:file "transformer")
                              (:file "utils")
                              (:file "text-object")
                              (:file "text-algorithms")

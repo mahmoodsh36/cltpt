@@ -18,6 +18,7 @@
   (cltpt/base:make-text-format
    "latex"
    '(display-math inline-math latex-env
+     latex-link
      cltpt/base:text-macro cltpt/base:post-lexer-text-macro)))
 (defvar latex)
 (eval-when (:load-toplevel :execute)

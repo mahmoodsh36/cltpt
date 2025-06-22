@@ -30,17 +30,21 @@
   ((cltpt/base::rule
     :allocation :class
     :initform
-    (list 'pair "\\begin{%W}" "\\end{%W}"
-          ;; :begin-to-hash #\\
-          ;; :end-to-hash #\\
-          ;; we need to make sure the text after begin_ and end_ is the same
-          ;; :pair-predicate (lambda (str b-idx e-idx b-end e-end)
-          ;;                   (let ((begin-str (subseq str b-idx b-end))
-          ;;                         (end-str (subseq str e-idx e-end)))
-          ;;                     (string= (subseq begin-str (length "\\begin{"))
-          ;;                              (subseq end-str (length "\\end{")))))
-          )))
+    (list 'pair "\\begin{%W}" "\\end{%W}")))
   (:documentation "latex environment."))
+
+(defclass latex-link (cltpt/base:text-object)
+  ((cltpt/base::shared-name
+    :allocation :class
+    :initform 'cltpt/base::link)
+   (cltpt/base::rule
+    :allocation :class
+    :initform '(cltpt/combinator:consec
+                "\\ref{"
+                (:pattern (cltpt/combinator::symbol-matcher)
+                 :id link-dest)
+                "}")))
+  (:documentation "latex link."))
 
 ;; do we need this?
 ;; (defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql latex)))
