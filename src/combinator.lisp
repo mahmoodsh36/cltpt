@@ -27,11 +27,7 @@
   (loop for one in all
         for match = (match-rule-normalized one str pos)
         do (when match
-             (return-from any
-               (cons (list :begin pos
-                           :end (getf (car match) :end)
-                           :match (getf (car match) :match))
-                     (list match))))))
+             (return-from any match))))
 
 (defun literal (str pos substr)
   (let ((sublen (length substr)))
@@ -317,7 +313,11 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                 (new-parent-info (list* :id (getf rule :id) parent-info)))
            (cons new-parent-info (cdr sub-pattern-match))))))
     ((stringp rule)
-     (match-rule (cons 'consec (compile-rule-string rule)) str pos))
+     (let ((compiled (compile-rule-string rule)))
+       (if (> (length compiled) 1)
+           ;; if stringified pattern compiles to multiple rules we use `consec'.
+           (match-rule (cons 'consec compiled) str pos)
+           (match-rule (car compiled) str pos))))
     (t (error "invalid rule: ~A" rule))))
 
 (defun scan-all-rules (str rules &optional (start-idx 0) (end-idx (length str)))

@@ -47,20 +47,6 @@
     :initarg :text-region
     :accessor text-object-text-region
     :documentation "the bounds of the text corresponding to the object in its parent's text.")
-   ;; do we need this "contents" thing?
-   (contents-region
-    :initarg :contents-region
-    :accessor text-object-contents-region
-    :documentation "the bounds of the contents of the object (excluding opening/ending).")
-   ;; (opening-region
-   ;;  :initarg :opening-macro
-   ;;  :accessor text-object-opening-region
-   ;;  :documentation "the match that starts the object")
-   ;; (closing-region
-   ;;  :initarg :opening-macro
-   ;;  :accessor text-object-closing-region
-   ;;  :documentation "the match that ends the object"
-   ;;  :initform nil)
    (rule
     :accessor text-object-rule
     :allocation :class
@@ -127,7 +113,8 @@ object's region. you should just make it return a symbol like `end-type'."))
         (getf (car match) :match))
   (setf (text-object-text-region text-obj)
         (make-region :begin (getf (car match) :begin)
-                     :end (getf (car match) :end))))
+                     :end (getf (car match) :end)))
+  (setf (text-object-property text-obj :combinator-match) match))
 
 (defmethod text-object-adjust-to-parent ((child text-object) (parent text-object))
   (region-decf (text-object-text-region child)
@@ -326,6 +313,13 @@ object's region. you should just make it return a symbol like `end-type'."))
     (unless (getf rule :id)
       (setf (getf rule :id) subclass))
     rule))
+
+(defun text-object-shared-name-from-subclass (subclass)
+  (ensure-finalized subclass)
+  (let ((cls (find-class-faster subclass)))
+    (when (slot-boundp (sb-mop:class-prototype cls) 'shared-name)
+      (slot-value (sb-mop:class-prototype cls)
+                  'shared-name))))
 
 (defun map-text-object (text-obj func)
   "traverse the text object tree starting at TEXT-OBJ."
