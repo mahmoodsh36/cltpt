@@ -216,7 +216,7 @@ object's region. you should just make it return a symbol like `end-type'."))
 
 (defmethod text-object-contents-begin ((text-obj text-object))
   (if (text-object-property text-obj :contents-region)
-      (region-end (text-object-property text-obj :contents-region))
+      (region-begin (text-object-property text-obj :contents-region))
       0))
 
 (defmethod text-object-contents-end ((text-obj text-object))

@@ -42,7 +42,7 @@
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "latex")
-      "test2.org"
+      "test.org"
       "test.out.tex")
      ;; (export-org-file
      ;;  "test.org"

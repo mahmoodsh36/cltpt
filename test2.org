@@ -20,3 +20,26 @@ text *
 
 latex here
 \[ x = \sqrt{x^2} \]
+
+code here
+#+begin_src python :results output
+  import requests
+  print('whatever')
+  print('whatever2')
+#+end_src
+
+#+RESULTS:
+: whatever
+: whatever2
+: \(11\)
+: wow
+
+escaped macro here: \#(format nil "test~A" 1)
+
+#(cltpt/base::make-block :type 'definition)
+my first block
+#(cltpt/base::block-end)
+
+hello
+
+testt
