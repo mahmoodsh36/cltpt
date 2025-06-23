@@ -26,30 +26,67 @@
                       (type1 (getf main-match :id))
                       (new-text-object (make-instance type1))
                       (is-lexer-macro (member type1 text-macro-classes)))
-                 (when is-lexer-macro
-                   (let ((match-text (subseq str1 match-begin match-end))
-                         (macro-eval-result))
-                     (handler-case
-                         (eval (read-from-string
-                                ;; skip first char (`*lexer-text-macro-char*')
-                                (subseq match-text 1)))
-                       (error (c)
-                         (format t "error while evaluating macro ~A: ~A.~%" match-text c)
-                         (setf macro-eval-result 'broken))
-                       (:no-error (result1)
-                         ;; (format t "evaluated macro ~A: ~A~%" match-text result1)
-                         (setf macro-eval-result result1)
-                         (if (typep result1 'text-object)
-                             (setf new-text-object result1)
-                             (setf new-text-object (make-instance 'text-object)))))
-                     (when (equal macro-eval-result 'broken)
-                       (setf new-text-object (make-instance 'text-object)))
-                     (setf (text-object-property new-text-object :open-macro) t)
-                     (setf (text-object-property new-text-object :eval-result) macro-eval-result)))
-                 (text-object-init new-text-object
-                                   str1
-                                   m)
-                 (push new-text-object text-objects))))
+                 (if is-lexer-macro
+                     (let ((match-text (subseq str1 match-begin match-end))
+                           (macro-eval-result))
+                       (handler-case
+                           (eval (read-from-string
+                                  ;; skip first char (`*lexer-text-macro-char*')
+                                  (subseq match-text 1)))
+                         (error (c)
+                           (format t "error while evaluating macro ~A: ~A.~%"
+                                   match-text c)
+                           (setf macro-eval-result 'broken))
+                         (:no-error (result1)
+                           ;; (format t "evaluated macro ~A: ~A~%" match-text result1)
+                           (setf macro-eval-result result1)
+                           (if (typep result1 'text-object)
+                               (setf new-text-object result1)
+                               (setf new-text-object (make-instance 'text-object)))))
+                       (when (equal macro-eval-result 'broken)
+                         (setf new-text-object (make-instance 'text-object)))
+                       (let ((opening-macro))
+                         (loop for entry in text-objects
+                               do (when (and
+                                         (text-object-property entry :open-macro)
+                                         (text-object-ends-by entry macro-eval-result))
+                                    (setf opening-macro entry)
+                                    (return)))
+                         (if opening-macro
+                             (progn
+                               (setf
+                                (text-object-property opening-macro :contents-region)
+                                (make-region
+                                 :begin (region-length
+                                         (text-object-text-region opening-macro))
+                                 :end (- match-begin
+                                         (region-begin
+                                          (text-object-text-region opening-macro)))))
+                               (setf
+                                (text-object-text-region opening-macro)
+                                (make-region
+                                 :begin (region-begin
+                                         (text-object-text-region opening-macro))
+                                 :end match-end))
+                               ;; extend the text to contain the whole block
+                               (setf
+                                (text-object-text opening-macro)
+                                (region-text (text-object-text-region opening-macro)
+                                             str1))
+                               (setf (text-object-property opening-macro :open-macro)
+                                     nil))
+                             (progn
+                               (setf
+                                (text-object-property new-text-object :open-macro)
+                                t)
+                               (setf
+                                (text-object-property new-text-object :eval-result)
+                                macro-eval-result)
+                               (text-object-init new-text-object str1 m)
+                               (push new-text-object text-objects)))))
+                     (progn
+                       (text-object-init new-text-object str1 m)
+                       (push new-text-object text-objects))))))
     ;; here we build the text object forest (collection of trees) properly
     (let ((forest (build-forest (loop for o in text-objects
                                       collect (list (text-object-begin o)
