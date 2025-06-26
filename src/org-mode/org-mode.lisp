@@ -652,6 +652,17 @@ its value is NIL."
                 nil)))
   (:documentation "org-mode emphasized text (surrounded by asterisks)."))
 
+(defun compress-contents-region-by-one (obj)
+  (format t "here ~A~%" obj)
+  (setf (cltpt/base:text-object-property obj :contents-region)
+        (cltpt/base:make-region :begin 1
+                                :end (1-
+                                      (cltpt/base:region-length
+                                       (cltpt/base:text-object-text-region obj))))))
+
+(defmethod cltpt/base:text-object-finalize ((obj org-emph))
+  (compress-contents-region-by-one obj))
+
 (defmethod cltpt/base:text-object-convert ((obj org-emph) backend)
   (cond
     ((eq backend cltpt/latex:latex)
@@ -673,14 +684,17 @@ its value is NIL."
       nil)))
   (:documentation "org-mode italicized text (surrounded by forward slahes)."))
 
-;; (defmethod cltpt/base:text-object-convert ((obj org-italic) backend)
-;;   (cond
-;;     ((eq backend cltpt/latex:latex)
-;;      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textit{" "}")))
-;;        (setf (getf result :reparse-region) nil)
-;;        result))
-;;     ((eq backend cltpt/html:html)
-;;      (cltpt/base:wrap-contents-for-convert obj "<i>" "</i>"))))
+(defmethod cltpt/base:text-object-finalize ((obj org-italic))
+  (compress-contents-region-by-one obj))
+
+(defmethod cltpt/base:text-object-convert ((obj org-italic) backend)
+  (cond
+    ((eq backend cltpt/latex:latex)
+     (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textit{" "}")))
+       (setf (getf result :reparse-region) nil)
+       result))
+    ((eq backend cltpt/html:html)
+     (cltpt/base:wrap-contents-for-convert obj "<i>" "</i>"))))
 
 (defclass org-inline-code (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -691,6 +705,9 @@ its value is NIL."
       (cltpt/combinator::unescaped (cltpt/combinator::literal "~"))
       nil nil nil)))
   (:documentation "org-mode inline code (surrounded by tildes)."))
+
+(defmethod cltpt/base:text-object-finalize ((obj org-inline-code))
+  (compress-contents-region-by-one obj))
 
 (defmethod cltpt/base:text-object-convert ((obj org-inline-code) backend)
   (cond
