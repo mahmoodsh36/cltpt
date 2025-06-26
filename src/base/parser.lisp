@@ -3,7 +3,6 @@
 (defun parse (str1
               text-object-types
               &key
-                (as-doc t)
                 (doc-type 'document))
   "parse a string, returns an object tree."
   (let* ((text-macro-classes '(text-macro))
@@ -101,22 +100,18 @@
         ;; (mapc (lambda (item)
         ;;         (format t "~A,  ~A~%" item (text-object-opening-region item)))
         ;;       top-level)
-        (if as-doc
-            (let ((doc (make-instance doc-type :text str1)))
-              (setf (text-object-text-region doc)
-                    (make-region :begin 0 :end (length str1)))
-              (mapc
-               (lambda (entry)
-                 (text-object-set-parent entry doc)
-                 (text-object-adjust-to-parent entry doc))
-               top-level)
-              (setf (text-object-children doc) top-level)
-              ;; we need to finalize only after the top-level doc object has been set as parent
-              (finalize-text-object-forest forest)
-              doc)
-            (progn
-              (finalize-text-object-forest forest)
-              top-level))))))
+        (let ((doc (make-instance doc-type :text str1)))
+          (setf (text-object-text-region doc)
+                (make-region :begin 0 :end (length str1)))
+          (mapc
+           (lambda (entry)
+             (text-object-set-parent entry doc)
+             (text-object-adjust-to-parent entry doc))
+           top-level)
+          (setf (text-object-children doc) top-level)
+          ;; we need to finalize only after the top-level doc object has been set as parent
+          (finalize-text-object-forest forest)
+          doc)))))
 
 ;; the parent-filtering with :disallow and :allow here may have become redundant
 ;; after i made changes to apply it at a lower level, i will come back to this
