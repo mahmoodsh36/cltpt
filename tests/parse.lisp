@@ -34,7 +34,7 @@
     result))
 
 (defun test-org-parse ()
-  (parse-org-file "test2.org"))
+  (parse-org-file "test.org"))
 
 (defun test-org-convert ()
   (time
@@ -81,7 +81,7 @@
                 ((:ID CLTPT/TESTS::ENDING :BEGIN 24 :END 26 :MATCH "\\)"))))
              (cltpt/tests::inline-latex-test-func))))
 
-(defun org-list-parse-nested-test-func ()
+(defun org-list-test-1-func ()
   (let ((text "- we have \\(x=y\\)
    a. nested item one
       more nested text
@@ -90,59 +90,223 @@
     (cltpt/org-mode::org-list-matcher
      text
      0
-     '((cltpt/combinator::pair
-        (cltpt/combinator::literal "\\(")
-        (cltpt/combinator::literal "\\)")
-        nil)))))
+     '((:pattern (cltpt/combinator::pair
+                  (cltpt/combinator::literal "\\(")
+                  (cltpt/combinator::literal "\\)")
+                  nil)
+        :id mypair)))))
 
-(test org-list-parse-nested-test
-  (let ((text "- we have \\(x=y\\)
-   a. nested item one
-      more nested text
-   b. nested item two
-- item three"))
-    (is (equalp (org-list-parse-nested-test-func)
-                '((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 0 :END 97 :MATCH "- we have \\(x=y\\)
+(test org-list-test-1
+  (is
+   (equalp
+    (org-list-test-1-func)
+    '((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 0 :END 97 :MATCH "- we have \\(x=y\\)
    a. nested item one
       more nested text
    b. nested item two
 - item three"
-                   :INDENT 0)
-                  ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 0 :BEGIN 0 :END 85 :MATCH
-                    "- we have \\(x=y\\)
+       :INDENT 0)
+      ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 0 :BEGIN 0 :END 85 :MATCH
+        "- we have \\(x=y\\)
    a. nested item one
       more nested text
    b. nested item two
 ")
-                   ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 0 :END 2 :MATCH "-"))
-                   ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 2 :END 18 :MATCH
-                     "we have \\(x=y\\)")
-                    ((:BEGIN 10 :END 17 :MATCH "\\(x=y\\)") ((:BEGIN 10 :END 12 :MATCH "\\("))
-                     ((:BEGIN 15 :END 17 :MATCH "\\)")))
-                    ((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 18 :END 85 :MATCH "   a. nested item one
+       ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 0 :END 2 :MATCH "-"))
+       ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 2 :END 18 :MATCH
+         "we have \\(x=y\\)")
+        ((:BEGIN 10 :END 17 :ID CLTPT/TESTS::MYPAIR :MATCH "\\(x=y\\)")
+         ((:BEGIN 10 :END 12 :MATCH "\\(")) ((:BEGIN 15 :END 17 :MATCH "\\)")))
+        ((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 18 :END 85 :MATCH "   a. nested item one
       more nested text
    b. nested item two
 "
-                      :INDENT 3)
-                     ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 3 :BEGIN 18 :END 63 :MATCH
-                       "   a. nested item one
+          :INDENT 3)
+         ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 3 :BEGIN 18 :END 63 :MATCH
+           "   a. nested item one
       more nested text
 ")
-                      ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 21 :END 24 :MATCH "a."))
-                      ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 24 :END 63 :MATCH
-                            "nested item one
+          ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 21 :END 24 :MATCH "a."))
+          ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 24 :END 63 :MATCH
+                "nested item one
 more nested text")))
-                     ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 3 :BEGIN 63 :END 85 :MATCH
-                       "   b. nested item two
+         ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 3 :BEGIN 63 :END 85 :MATCH
+           "   b. nested item two
 ")
-                      ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 66 :END 69 :MATCH "b."))
-                      ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 69 :END 85 :MATCH
-                            "nested item two"))))))
-                  ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 0 :BEGIN 85 :END 97 :MATCH
-                    "- item three")
-                   ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 85 :END 87 :MATCH "-"))
-                   ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 87 :END 97 :MATCH
-                     "item three"))))))))
+          ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 66 :END 69 :MATCH "b."))
+          ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 69 :END 85 :MATCH
+                "nested item two"))))))
+      ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 0 :BEGIN 85 :END 97 :MATCH
+        "- item three")
+       ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 85 :END 87 :MATCH "-"))
+       ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 87 :END 97 :MATCH
+         "item three")))))))
+
+(defun org-list-test-2-func ()
+  (let ((text "- item one
+  extra text for one
+- we have \\(x=y\\)
+  a. nested item one
+     more nested text
+     i. even more nested
+  b. nested item two
+- item three"))
+    (cltpt/combinator::parse
+     text
+     (list
+      '(cltpt/org-mode::org-list-matcher
+        ((:pattern (cltpt/combinator::literal "item") :id item-keyword)
+         (:pattern (cltpt/combinator::literal "nested") :id nested-keyword)
+         (:pattern (cltpt/combinator::word-matcher) :id generic-word)))))))
+
+(test org-list-test-2
+  (is
+   (equalp
+    (org-list-test-2-func)
+    '(((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 0 :END 151 :MATCH "- item one
+  extra text for one
+- we have \\(x=y\\)
+  a. nested item one
+     more nested text
+     i. even more nested
+  b. nested item two
+- item three"
+        :INDENT 0)
+       ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 0 :BEGIN 0 :END 32 :MATCH "- item one
+  extra text for one
+")
+        ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 0 :END 2 :MATCH "-"))
+        ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 2 :END 32 :MATCH "item one
+extra text for one")
+         ((:BEGIN 2 :END 6 :ID CLTPT/TESTS::ITEM-KEYWORD :MATCH "item"))
+         ((:BEGIN 7 :END 10 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "one"))
+         ((:BEGIN 11 :END 16 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "extra"))
+         ((:BEGIN 17 :END 21 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "text"))
+         ((:BEGIN 22 :END 25 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "for"))
+         ((:BEGIN 26 :END 29 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "one"))))
+       ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 0 :BEGIN 32 :END 139 :MATCH
+         "- we have \\(x=y\\)
+  a. nested item one
+     more nested text
+     i. even more nested
+  b. nested item two
+")
+        ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 32 :END 34 :MATCH "-"))
+        ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 34 :END 50 :MATCH
+          "we have \\(x=y\\)")
+         ((:BEGIN 34 :END 36 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "we"))
+         ((:BEGIN 37 :END 41 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "have"))
+         ((:BEGIN 44 :END 45 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "x"))
+         ((:BEGIN 46 :END 47 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "y"))
+         ((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 50 :END 139 :MATCH
+           "  a. nested item one
+     more nested text
+     i. even more nested
+  b. nested item two
+"
+           :INDENT 2)
+          ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 2 :BEGIN 50 :END 118 :MATCH
+                "  a. nested item one
+     more nested text
+     i. even more nested
+")
+           ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 52 :END 55 :MATCH "a."))
+           ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 55 :END 93 :MATCH
+                 "nested item one
+more nested text")
+            ((:BEGIN 55 :END 61 :ID CLTPT/TESTS::NESTED-KEYWORD :MATCH "nested"))
+            ((:BEGIN 62 :END 66 :ID CLTPT/TESTS::ITEM-KEYWORD :MATCH "item"))
+            ((:BEGIN 67 :END 70 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "one"))
+            ((:BEGIN 71 :END 75 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "more"))
+            ((:BEGIN 76 :END 82 :ID CLTPT/TESTS::NESTED-KEYWORD :MATCH "nested"))
+            ((:BEGIN 83 :END 87 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "text"))
+            ((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 93 :END 118 :MATCH
+                  "     i. even more nested
+"
+              :INDENT 5)
+             ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 5 :BEGIN 93 :END 118 :MATCH
+                   "     i. even more nested
+")
+              ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 98 :END 101 :MATCH
+                    "i."))
+              ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 101 :END 118 :MATCH
+                    "even more nested")
+               ((:BEGIN 101 :END 105 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "even"))
+               ((:BEGIN 106 :END 110 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "more"))
+               ((:BEGIN 111 :END 117 :ID CLTPT/TESTS::NESTED-KEYWORD :MATCH
+                        "nested")))))))
+          ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 2 :BEGIN 118 :END 139 :MATCH
+                "  b. nested item two
+")
+           ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 120 :END 123 :MATCH "b."))
+           ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 123 :END 139 :MATCH
+                 "nested item two")
+            ((:BEGIN 123 :END 129 :ID CLTPT/TESTS::NESTED-KEYWORD :MATCH "nested"))
+            ((:BEGIN 130 :END 134 :ID CLTPT/TESTS::ITEM-KEYWORD :MATCH "item"))
+            ((:BEGIN 135 :END 138 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "two")))))))
+       ((:ID CLTPT/ORG-MODE::LIST-ITEM :INDENT 0 :BEGIN 139 :END 151 :MATCH
+         "- item three")
+        ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 139 :END 141 :MATCH "-"))
+        ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 141 :END 151 :MATCH
+          "item three")
+         ((:BEGIN 141 :END 145 :ID CLTPT/TESTS::ITEM-KEYWORD :MATCH "item"))
+         ((:BEGIN 146 :END 151 :ID CLTPT/TESTS::GENERIC-WORD :MATCH "three")))))))))
+
+(defun org-list-test-3-func ()
+  (let* ((text "- we have \\(x=y\\)
+   a. nested item one
+      more nested text
+      1. test1
+      2. test2
+   b. nested item two
+- item three")
+         (parsed-list (cltpt/org-mode::org-list-matcher text 0))
+         (html-output (cltpt/org-mode::to-html-list parsed-list)))
+    html-output))
+
+(test org-list-test-3
+  (is
+   (equalp
+    (org-list-test-3-func)
+    "<ul>
+<li>we have \\(x=y\\)<ol type=\"a\">
+<li>nested item one
+more nested text<ol type=\"1\">
+<li>test1</li>
+<li>test2</li>
+</ol>
+</li>
+<li>nested item two</li>
+</ol>
+</li>
+<li>item three</li>
+</ul>
+"
+    )))
+
+(defun org-list-test-4-func ()
+  (let* ((text "- we have \\(x=y\\)
+   a. nested item one
+      more nested text
+      1. test1
+      2. test2
+   b. nested item two
+- item three")
+         (parsed-list (cltpt/org-mode::org-list-matcher text 0))
+         (latex-output (cltpt/org-mode::to-latex-list parsed-list)))
+    latex-output))
+
+(defun org-list-test-5-func ()
+  (let* ((text "- we have [[mylink]]
+   a. nested item one \\(x=y\\)
+      more nested text
+      1. test1
+      2. test2
+   b. nested item two
+- item three"))
+    (cltpt/base::parse
+     text
+     (list 'cltpt/org-mode::org-list 'cltpt/org-mode::org-link))))
 
 ;; latex snippet compilation test
 (defun test-latex-svg ()
@@ -151,18 +315,29 @@ more nested text")))
 
 (defun test-convert-1 ()
   (convert-tree
-   (cltpt/combinator::parse
-    "#(make-block :type 'theorem :let '((a \"some text\")))
+   (cltpt/base::parse
+    "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
   my first block
   %a
-  #(make-block :type 'subtheorem :let '((b \" that will be included on export\")))
+  #(cltpt/base::make-block :type 'subtheorem :let '((b \" that will be included on export\")))
     hello
     %(concatenate 'string a b)
-  #(block-end)
-#(block-end)"
-    (org-mode-text-object-types))
-   'latex
-   (org-mode-text-object-types)))
+  #(cltpt/base::block-end)
+#(cltpt/base::block-end)"
+    (cltpt/org-mode::org-mode-text-object-types))
+   (cltpt/base:text-format-by-name "latex")
+   (cltpt/org-mode::org-mode-text-object-types)))
+
+(defun test-convert-2 ()
+  (convert-tree
+   (cltpt/base::parse
+    "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
+  my first block
+  #a
+#(cltpt/base::block-end)"
+    (cltpt/org-mode::org-mode-text-object-types))
+   (cltpt/base:text-format-by-name "latex")
+   (cltpt/org-mode::org-mode-text-object-types)))
 
 (test test-parse-table
   (let ((table
@@ -206,13 +381,13 @@ more nested text")))
         (cltpt/combinator::all-but "[]")
         (cltpt/combinator::literal "]]"))
        (cltpt/combinator::consec (cltpt/combinator::literal "[[")
-                           (cltpt/combinator::word-digits-hyphen)
-                           (cltpt/combinator::literal "]]"))
+                                 (cltpt/combinator::word-digits-hyphen)
+                                 (cltpt/combinator::literal "]]"))
        (cltpt/combinator::consec (cltpt/combinator::literal "[[")
-                           (cltpt/combinator::word-digits-hyphen)
-                           (cltpt/combinator::literal ":")
-                           (cltpt/combinator::all-but "[]")
-                           (cltpt/combinator::literal "]]")))
+                                 (cltpt/combinator::word-digits-hyphen)
+                                 (cltpt/combinator::literal ":")
+                                 (cltpt/combinator::all-but "[]")
+                                 (cltpt/combinator::literal "]]")))
       :id org-link))))
 
 (test test-parse-any
@@ -317,11 +492,11 @@ more nested text")))
   (fiveam:is
    (equal (cltpt/tests::test-sharp-lisp-1-func)
           '(((:ID CLTPT/TESTS::SHARP-LISP-BLOCK :BEGIN 0 :END 29 :MATCH
-                 "#(format t \"hello)(\\\" there\")")
-            ((:BEGIN 0 :END 1 :MATCH "#"))
-            ((:ID CLTPT/TESTS::LISP-CODE :BEGIN 1 :END 29 :MATCH
-                  "(format t \"hello)(\\\" there\")" :LISP-FORM (FORMAT T "hello)(\" there")
-              :ID CLTPT/COMBINATOR::LISP-FORM-CONTENT)))))))
+              "#(format t \"hello)(\\\" there\")")
+             ((:BEGIN 0 :END 1 :MATCH "#"))
+             ((:ID CLTPT/TESTS::LISP-CODE :BEGIN 1 :END 29 :MATCH
+               "(format t \"hello)(\\\" there\")" :LISP-FORM (FORMAT T "hello)(\" there")
+               :ID CLTPT/COMBINATOR::LISP-FORM-CONTENT)))))))
 
 (defun test-parse-escape-func ()
   (cltpt/combinator::parse
