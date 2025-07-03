@@ -266,7 +266,7 @@ object's region. you should just make it return a symbol like `end-type'."))
                   (read-from-string
                    txt-to-eval))))
             (error (c)
-              (format t "error while evaluating post-lexer macro ~A: ~A.~%" (text-object-text obj) c)
+              (format t "error while evaluating post-lexer macro ~A: ~A.~%" txt-to-eval c)
               (setf macro-eval-result 'broken))
             (:no-error (result1)
               (setf macro-eval-result result1)))

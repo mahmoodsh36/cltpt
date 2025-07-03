@@ -1,11 +1,13 @@
 (in-package :cltpt/latex)
 
+(defvar *inline-math-rule*
+  '(cltpt/combinator:pair
+    (cltpt/combinator:literal "\\(")
+    (cltpt/combinator:literal "\\)")))
 (defclass inline-math (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(cltpt/combinator:pair
-                (cltpt/combinator:literal "\\(")
-                (cltpt/combinator:literal "\\)")))))
+    :initform *inline-math-rule*)))
 
 (defmethod cltpt/base:text-object-convert ((obj inline-math) (fmt (eql latex)))
   (list :text (cltpt/base:text-object-text obj)

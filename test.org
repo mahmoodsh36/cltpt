@@ -61,9 +61,19 @@ then add the first number from the next list to get %new-num
 multiply that by 5 to get %(* new-num 5). anything is possible! this is only a simple example
 #(cltpt/base::/blk)
 
-- 45
+- 45 [[mylink]]
 - 50
 - 10
+
+hi
+
+- we have \(x=y\)
+  a. nested item one
+     more nested text
+     1. test1
+     2. test2
+  b. nested item two
+- item three
 
 the /links/:
 

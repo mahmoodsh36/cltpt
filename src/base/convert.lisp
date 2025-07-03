@@ -21,13 +21,15 @@
          (dest-rule (text-object-rule-from-subclass dest-text-obj-type))
          (src-match (text-object-property text-obj :combinator-match))
          (src-str (getf (car src-match) :match)))
-  ;; (format t "hie ~A, ~A~%" shared-name dest-rule)
     (if (and shared-name dest-rule)
         (let ((transformed-string
                 (cltpt/transformer:reconstruct-string-from-rule
                  dest-rule
                  src-match)))
-          transformed-string)
+          (list :text transformed-string
+                :recurse nil
+                :reparse nil
+                :escape nil))
         (text-object-convert text-obj backend))))
 
 (defun convert-tree (text-obj backend text-object-types)
