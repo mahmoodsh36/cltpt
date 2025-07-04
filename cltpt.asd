@@ -34,9 +34,7 @@
                 :pathname "src/org-mode"
                 :depends-on ("combinator" "base" "latex" "html")
                 :components ((:file "org-mode")
-                             (:file "org-list")
-                             (:file "latex-export")
-                             (:file "html-export")))
+                             (:file "org-list")))
                (:module "commandline"
                 :pathname "src/commandline"
                 :depends-on ("base" "latex" "org-mode" "html")

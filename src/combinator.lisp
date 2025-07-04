@@ -1,8 +1,10 @@
 (defpackage :cltpt/combinator
   (:use :cl :str)
-  (:export :literal :literal-casein :consec :parse :word-matcher
-           :symbol-matcher :scan-all-rules :any :all-but
-           :all-but-newline :atleast-one :lisp-sexp :pair))
+  (:export
+   :literal :literal-casein :consec :parse :word-matcher
+   :symbol-matcher :scan-all-rules :any :all-but
+   :all-but-newline :atleast-one :lisp-sexp :pair
+   :unescaped))
 
 (in-package :cltpt/combinator)
 

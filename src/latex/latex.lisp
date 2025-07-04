@@ -14,6 +14,20 @@
   "\\documentclass[11pt]{article}
 \\usepackage{amsmath}")
 
+(defun generate-latex-preamble (author date title)
+  (format nil "~A
+\\author{~A}
+\\date{~A}
+\\title{~A}
+\\hypersetup{
+ pdfauthor={~A},
+ pdftitle={~A},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={cltpt},
+ pdflang={English}}"
+          *latex-preamble* author date title author title))
+
 (defun make-latex ()
   (cltpt/base:make-text-format
    "latex"

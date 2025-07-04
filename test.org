@@ -11,12 +11,18 @@ some [[mylink1-2:here1][testmore1- 2]] text
 [[attachment:sliding]]
 
 comment here
-\#+begin_comment
+#+begin_comment
 this is a comment
 #+end_comment
+\#+begin_comment
+this is a comment 2
+\#+end_comment
 
 some \*text*
 text *
+
+some \~text~
+text ~
 
 latex here
 \[ x = \sqrt{x^2} \]
@@ -33,6 +39,10 @@ code here
 : whatever2
 : \(11\)
 : wow
+
+#+begin_definition
+hello definition.
+#+end_definition
 
 escaped macro here: \#(format nil "test~A" 1)
 

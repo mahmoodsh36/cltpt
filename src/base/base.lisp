@@ -20,6 +20,7 @@
    :text-object-init
 
    :find-submatch
+   :tree-find
    :region-text))
 
 (in-package :cltpt/base)
