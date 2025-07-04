@@ -29,17 +29,3 @@ returns the path to the produced PDF as a string, or NIL if compilation fails."
     (if (probe-file tmp-pdf)
         (namestring tmp-pdf)
         nil)))
-
-(defun generate-latex-preamble (author date title)
-  (format nil "~A
-\\author{~A}
-\\date{~A}
-\\title{~A}
-\\hypersetup{
- pdfauthor={~A},
- pdftitle={~A},
- pdfkeywords={},
- pdfsubject={},
- pdfcreator={cltpt},
- pdflang={English}}"
-          *latex-preamble* author date title author title))
