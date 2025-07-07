@@ -17,7 +17,6 @@
                              (:file "text-object")
                              (:file "text-algorithms")
                              (:file "text-format")
-                             (:file "trees")
                              (:file "convert")))
                (:module "latex"
                 :pathname "src/latex/"
@@ -30,18 +29,27 @@
                 :pathname "src/html/"
                 :depends-on ("base")
                 :components ((:file "html")))
+               (:module "agenda"
+                :pathname "src/"
+                :depends-on ("base")
+                :components ((:file "agenda")))
+               (:module "roam"
+                :pathname "src/"
+                :depends-on ("base")
+                :components ((:file "roam")))
                (:module "org-mode"
                 :pathname "src/org-mode"
                 :depends-on ("combinator" "base" "latex" "html")
                 :components ((:file "org-mode")
-                             (:file "org-list")))
+                             (:file "org-list")
+                             (:file "org-table")))
                (:module "commandline"
                 :pathname "src/commandline"
                 :depends-on ("base" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
                (:module "extras"
                 :pathname "src/"
-                :depends-on ("base" "latex" "org-mode" "html")
+                :depends-on ("base")
                 :components ((:file "extras")))
                (:module "tests"
                 :pathname "tests/"

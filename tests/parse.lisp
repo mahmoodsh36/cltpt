@@ -354,18 +354,6 @@ more nested text<ol type=\"1\">
            ("123" "456" "789")
            ("end" "row" "test"))))))
 
-;; test building a tree from enclsoing indicies
-;; (test test-build-forest
-;;   (let ((tree (build-forest '((0 29 id1)
-;;                               (2 27 id2)
-;;                               (10 20 id3)
-;;                               (13 17 id4)
-;;                               (22 25 id5)))))
-;;     (print-forest tree)
-;;     (is (equal
-;;          '(((0 29 ID1) ((2 27 ID2) ((22 25 ID5)) ((10 20 ID3) ((13 17 ID4))))))
-;;          tree))))
-
 (defun test-parse-any-func ()
   (cltpt/combinator::parse
    "[[hello:hey][wow]]"
@@ -438,6 +426,52 @@ more nested text<ol type=\"1\">
   (let ((results (run! 'cltpt-suite)))
     (unless results
       (explain! results))))
+
+(defun test-org-table-1 ()
+  (let ((text
+          "| head1 | head2 | head3 |
++------+-------+-------+
+| foo | \\(mymath\\) | baz  |
+| 123 | 456          | 789  |
+|     |              | 1     |
+| end | row          | test |
+some more text"))
+    (cltpt/org-mode::org-table-matcher
+     text
+     0
+     '((:pattern (cltpt/combinator::pair
+                  (cltpt/combinator::literal "\\(")
+                  (cltpt/combinator::literal "\\)")
+                  nil)
+        :id mypair)))))
+
+(defun test-org-table-2 ()
+  (let* ((misaligned-table-text
+          "| name | age|
+|------+----|
+|alice|  25 |
+|  bob |30 |
+|      |    |
+| charlie| 9 |")
+         (parse-tree (cltpt/org-mode::org-table-matcher misaligned-table-text 0)))
+    (format t "--- original misaligned table ---~%~a~%" misaligned-table-text)
+    (when parse-tree
+      (let ((formatted-table-text (cltpt/org-mode::reformat-table parse-tree)))
+        (format t "~%--- reformatted table ---~%~a" formatted-table-text)))))
+
+(defun test-org-table-3 ()
+  (let ((text
+          "| head1 | head2 | head3 |
++------+-------+-------+
+| foo | \\(mymath\\) | baz  |
+| 123 | 456          | 789  |
+|     |              | 1     |
+| end | row          | test |
+some more text"))
+    (cltpt/org-mode::to-latex-table
+     (cltpt/org-mode::org-table-matcher
+      text
+      0))))
 
 (test test-parse-table
   (let ((table
@@ -615,3 +649,11 @@ this is not a match: #tag2
   (fiveam:is
    (string= (cltpt/tests::transformer-test-1-func)
             "\\ref{here1}")))
+
+(defun agenda-test-1 ()
+  ;; we need to "finalize" the classes to be able to use MOP
+  (let* ((result (cltpt/base::parse-file
+                  "test.org"
+                  (cltpt/base:text-format-by-name "org-mode")))
+         (agenda (cltpt/agenda::collect-todos result)))
+    agenda))

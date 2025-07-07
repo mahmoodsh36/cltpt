@@ -1,7 +1,7 @@
 (defpackage :cltpt/combinator
   (:use :cl :str)
   (:export
-   :literal :literal-casein :consec :parse :word-matcher
+   :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :symbol-matcher :scan-all-rules :any :all-but
    :all-but-newline :atleast-one :lisp-sexp :pair
    :unescaped))
@@ -389,3 +389,11 @@ immediately after the match satisfies 'condition-fn'."
       (let ((end-pos (getf (car match) :end)))
         (when (funcall condition-fn str end-pos)
           match)))))
+
+(defun upcase-char-p (str pos)
+  (and (< pos (length str))
+       (upper-case-p (char str pos))
+       1))
+
+(defun upcase-word-matcher (str pos)
+  (match-rule `(atleast-one (upcase-char-p)) str pos))

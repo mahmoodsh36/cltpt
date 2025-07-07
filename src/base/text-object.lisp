@@ -323,9 +323,9 @@ object's region. you should just make it return a symbol like `end-type'."))
 
 (defun map-text-object (text-obj func)
   "traverse the text object tree starting at TEXT-OBJ."
-  (funcall func text-obj)
-  (dolist (child (text-object-children text-obj))
-    (map-text-object child func)))
+  (cons (funcall func text-obj)
+        (loop for child in (text-object-children text-obj)
+          collect (map-text-object child func))))
 
 (defun prev-obj ()
   (text-object-prev-sibling *post-lexer-text-macro-dynamic-object*))

@@ -5,8 +5,9 @@
    :text-format-text-object-types :text-format-by-name
    :convert-file :text-macro :post-lexer-text-macro
    :pcase :make-region
-   :mapcar-forest :convert-tree :text-format-escape :replace-chars-and-escapes
+   :convert-tree :text-format-escape :replace-chars-and-escapes
    :wrap-contents-for-convert
+   :text-format
 
    :document
    :text-object

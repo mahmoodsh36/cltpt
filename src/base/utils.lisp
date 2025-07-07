@@ -58,15 +58,30 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
   (and (consp list1)
        (keywordp (car list1))))
 
-(defun flatten (l depth)
-  "flatten L by at most DEPTH levels."
-  (and l
-       (if (zerop depth)
-           l
-           (if (atom (car l))
-               (cons (car l) (flatten (cdr l) depth))
-               (append (flatten (car l) (1- depth))
-                       (flatten (cdr l) depth))))))
+(defun tree-mapcar (node func &optional cond)
+  "we iterate through the tree one NODE at a time and run FUNC on each, COND
+decides whether to recurse on a specific node. a tree is returned with nodes
+replaced by the results of calling FUNC on them. children are handled first."
+  (if cond
+      (if (and (consp node) (funcall cond node))
+          (cons (funcall func (car node))
+                (loop for child in (cdr node)
+                      collect (tree-mapcar child func cond)))
+          (cons (funcall func (car node))
+                (cdr node)))
+      (if (consp node)
+          (cons (funcall func (car node))
+                (loop for child in (cdr node)
+                      collect (tree-mapcar child func cond)))
+          node)))
+
+(defun tree-find (node item &key (test #'equal) (key #'identity))
+  (tree-mapcar
+   node
+   (lambda (other-node)
+     (when (funcall test item (funcall key other-node))
+       (return-from tree-find other-node))))
+  nil)
 
 (defun find-submatch (match submatch-id)
   (cltpt/base::tree-find
@@ -74,3 +89,8 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
    submatch-id
    :key (lambda (node)
           (getf node :id))))
+
+(defun flatten (l)
+  (cond ((null l) nil)
+        ((atom l) (list l))
+        (t (loop for a in l appending (flatten a)))))
