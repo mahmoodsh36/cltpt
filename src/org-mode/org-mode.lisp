@@ -1,10 +1,9 @@
 (defpackage :cltpt/org-mode
-  (:use :cl :str :cltpt/base :cltpt/latex :ppcre)
+  (:use :cl :str :cltpt/base :cltpt/latex)
   (:import-from
    :cltpt/base :text-object
    :text-macro :post-lexer-text-macro
    :document)
-  (:shadowing-import-from :cl-ppcre split)
   (:import-from
    :cltpt/latex
    :display-math :inline-math :latex-env)
@@ -17,7 +16,7 @@
   (make-text-format
    "org-mode"
    '(org-list
-     ;; org-table
+     org-table
      org-keyword
      org-header
      org-link
@@ -53,24 +52,23 @@
                         cltpt/base:text-macro
                         cltpt/base:post-lexer-text-macro))))
 
-;; A
-(defun parse-keyword-string (s)
-  "given a string S of the form \":kw1 val1 :kw2 :kw3 val3\", returns
-a list of (KEY . VALUE) pairs. if a keyword is not followed by a value,
-its value is NIL."
-  (let ((tokens (str:split " " s))
-        (result)
-        (current-key nil))
-    (dolist (token tokens)
-      (if (and (> (length token) 0)
-               (char= (char token 0) #\:))
-          (progn
-            (setf current-key (intern (string-upcase token) :keyword))
-            (push (cons current-key nil) result))
-          (when current-key
-            (setf (cdr (assoc current-key result :test #'eq)) token)
-            (setf current-key nil))))
-    (nreverse result)))
+;; (defun parse-keyword-string (s)
+;;   "given a string S of the form \":kw1 val1 :kw2 :kw3 val3\", returns
+;; a list of (KEY . VALUE) pairs. if a keyword is not followed by a value,
+;; its value is NIL."
+;;   (let ((tokens (str:split " " s))
+;;         (result)
+;;         (current-key nil))
+;;     (dolist (token tokens)
+;;       (if (and (> (length token) 0)
+;;                (char= (char token 0) #\:))
+;;           (progn
+;;             (setf current-key (intern (string-upcase token) :keyword))
+;;             (push (cons current-key nil) result))
+;;           (when current-key
+;;             (setf (cdr (assoc current-key result :test #'eq)) token)
+;;             (setf current-key nil))))
+;;     (nreverse result)))
 
 (defvar *org-keyword-rule*
   '(cltpt/combinator:consec
@@ -122,26 +120,46 @@ its value is NIL."
     :initform *org-block-rule*))
   (:documentation "org-mode block."))
 
+(defvar *org-header-rule*
+  '(cltpt/combinator:any
+    (cltpt/combinator:consec
+     (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
+      :id stars)
+     (:pattern (cltpt/combinator:upcase-word-matcher)
+      :id todo-keyword)
+     (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+     (:pattern (cltpt/combinator:all-but-newline)
+      :id title))
+    (cltpt/combinator:consec
+     (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
+      :id stars)
+     (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+     (:pattern (cltpt/combinator:all-but-newline)
+      :id title))))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(cltpt/combinator:consec
-                (:pattern
-                 (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
-                 :id stars)
-                (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
-                (:pattern
-                 (cltpt/combinator:all-but-newline)
-                 :id title))))
+    :initform *org-header-rule*))
   (:documentation "org-mode header."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-header) str1 match)
   (let* ((stars (cltpt/base::find-submatch match 'stars))
-         (title (cltpt/base::find-submatch match 'title)))
+         (title (cltpt/base::find-submatch match 'title))
+         (todo-keyword (cltpt/base::find-submatch match 'todo-keyword))
+         (scheduled (encode-universal-time 0 0 10 10 7 2025 0)))
     (setf (cltpt/base:text-object-property obj :level)
           (length (getf stars :match)))
     (setf (cltpt/base:text-object-property obj :title)
-          (getf title :match))))
+          (getf title :match))
+    (setf (cltpt/base:text-object-property obj :todo)
+          (cltpt/agenda:make-todo
+           :title "test1"
+           :description "test2"
+           :scheduled scheduled
+           :deadline nil
+           :tags nil
+           :children nil))
+    ))
 
 (defmethod cltpt/base:text-object-convert ((obj org-header) backend)
   (cltpt/base:pcase backend
@@ -452,45 +470,72 @@ its value is NIL."
 ;; this is very hacky, perhaps we should find a better way to export lists
 ;; and their children
 (defmethod cltpt/base:text-object-convert ((obj org-list) backend)
-  (let ((my-list (deep-copy-org-forest (cltpt/base:text-object-property obj :list)))
-        (possible-children-types *org-mode-inline-text-object-types*))
-    ;; create a new non-org-list object, export it, use the output as a new list
-    ;; reparse, that new list, then export the modified newly parsed list as if
-    ;; it was the original
-    (let ((new-obj (make-instance 'cltpt/base:text-object)))
-      (cltpt/base:text-object-init
-       new-obj
-       (cltpt/base:text-object-text obj)
-       (org-list-matcher (cltpt/base:text-object-text obj) 0))
-      ;; set children of new-obj to those of obj without any nested org-lists
-      ;; otherwise things wont work properly (because nested org-lists get converted)
-      ;; to latex and later we try to parse them as a list
-      (setf (cltpt/base:text-object-children new-obj)
-            (remove-if
-             (lambda (obj)
-               (equal (type-of obj) 'org-list))
-             (cltpt/base:text-object-children obj)))
-      (let* ((new-txt (cltpt/base:convert-tree new-obj
-                                               backend
-                                               (org-mode-text-object-types)))
-             (parsed (org-list-matcher new-txt 0)))
-        (cond
-          ((eq backend cltpt/latex:latex)
-           (list :text (to-latex-list parsed)
-                 :recurse nil
-                 :reparse nil
-                 :escape nil))
-          ((eq backend cltpt/html:html)
-           (list :text (org-list-to-html my-list)
-                 :recurse nil
-                 :reparse nil
-                 :escape nil)))))))
+  ;; create a new non-org-list object, export it, use the output as a new list
+  ;; reparse, that new list, then export the modified newly parsed list as if
+  ;; it was the original
+  (let ((new-obj (make-instance 'cltpt/base:text-object)))
+    (cltpt/base:text-object-init
+     new-obj
+     (cltpt/base:text-object-text obj)
+     (org-list-matcher (cltpt/base:text-object-text obj) 0))
+    ;; set children of new-obj to those of obj without any nested org-lists
+    ;; otherwise things wont work properly (because nested org-lists get converted)
+    ;; to latex and later we try to parse them as a list
+    (setf (cltpt/base:text-object-children new-obj)
+          (remove-if
+           (lambda (obj)
+             (equal (type-of obj) 'org-list))
+           (cltpt/base:text-object-children obj)))
+    (let* ((new-txt (cltpt/base:convert-tree new-obj
+                                             backend
+                                             (org-mode-text-object-types)))
+           (parsed (org-list-matcher new-txt 0)))
+      (cond
+        ((eq backend cltpt/latex:latex)
+         (list :text (to-latex-list parsed)
+               :recurse nil
+               :reparse nil
+               :escape nil))
+        ((eq backend cltpt/html:html)
+         (list :text (to-html-list my-list)
+               :recurse nil
+               :reparse nil
+               :escape nil))))))
 
 (defclass org-table (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '()))
+    :initform `(org-table-matcher
+                ((:pattern ,*org-link-rule* :id org-link)
+                 (:pattern ,cltpt/latex:*inline-math-rule*
+                  :id cltpt/latex:inline-math)))))
   (:documentation "org-mode table."))
+
+;; hacky, like the one for org-list, they need to be improved
+(defmethod cltpt/base:text-object-convert ((obj org-table) backend)
+  (let ((new-obj (make-instance 'cltpt/base:text-object)))
+    (cltpt/base:text-object-init
+     new-obj
+     (cltpt/base:text-object-text obj)
+     (org-table-matcher (cltpt/base:text-object-text obj) 0))
+    (setf (cltpt/base:text-object-children new-obj)
+          (cltpt/base:text-object-children obj))
+    (let* ((new-txt (cltpt/base:convert-tree
+                     new-obj
+                     backend
+                     (list 'cltpt/latex:inline-math)))
+           (parsed (org-table-matcher new-txt 0)))
+      (cond
+        ((eq backend cltpt/latex:latex)
+         (list :text (to-latex-table parsed)
+               :recurse nil
+               :reparse nil
+               :escape nil))
+        ((eq backend cltpt/html:html)
+         (list :text (to-html-table parsed)
+               :recurse nil
+               :reparse nil
+               :escape nil))))))
 
 (defclass org-document (cltpt/base:document)
   ()

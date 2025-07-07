@@ -1,8 +1,11 @@
 (defpackage :cltpt/latex
   (:use :cl :cltpt/base :cltpt/combinator)
   (:shadowing-import-from :cltpt/combinator parse)
-  (:export :latex :display-math :inline-math :latex-env
-           :generate-latex-preamble :*latex-preamble*))
+  (:export
+   :latex :display-math
+   :inline-math :*inline-math-rule*
+   :latex-env
+   :generate-latex-preamble :*latex-preamble*))
 
 (in-package :cltpt/latex)
 
@@ -41,7 +44,7 @@
 (defvar *latex-escape-table*
   '((#\& . "\\&")
     (#\~ . "\\textasciitilde{}")
-    (#\\ . "\\\\")
+    (#\\ . "\\textbackslash{}")
     (#\_ . "\\_")
     (#\# . "\\#")))
 

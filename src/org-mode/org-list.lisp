@@ -1,8 +1,9 @@
 (in-package :cltpt/org-mode)
 
-(defun get-line-info (str pos)
+(defun org-list-get-line-info (str pos)
   (when (>= pos (length str))
-    (return-from get-line-info (values "" (length str) (length str) t)))
+    (return-from org-list-get-line-info
+      (values "" (length str) (length str) t)))
   (let* ((line-start (or (position #\newline str :end pos :from-end t) -1))
          (actual-line-start (1+ line-start))
          (line-end (or (position #\newline str :start actual-line-start)
@@ -71,7 +72,7 @@
          (bullet-node)
          (bullet-string-actual initial-bullet-marker)
          (bullet-struct-char-length)
-         (current-line-text (nth-value 0 (get-line-info str item-line-start-offset)))
+         (current-line-text (nth-value 0 (org-list-get-line-info str item-line-start-offset)))
          (text-content-absolute-start-offset item-line-start-offset))
     (multiple-value-bind (p-is-bullet p-marker p-text-after p-bullet-len)
         (parse-bullet-from-line-text current-line-text current-item-indent)
@@ -91,7 +92,7 @@
         (return-from parse-single-list-item (values nil item-line-start-offset)))
     (let* ((collected-text-lines (list initial-text-on-bullet-line))
            (pos-after-initial-bullet-line
-             (nth-value 2 (get-line-info str item-line-start-offset)))
+             (nth-value 2 (org-list-get-line-info str item-line-start-offset)))
            (current-scan-pos pos-after-initial-bullet-line)
            (end-of-this-item-text-block pos-after-initial-bullet-line))
       (loop
@@ -99,7 +100,7 @@
           (setf end-of-this-item-text-block current-scan-pos)
           (return))
         (multiple-value-bind (next-line-text _nextlnst nxtlnparse _islast)
-            (get-line-info str current-scan-pos)
+            (org-list-get-line-info str current-scan-pos)
           (let ((indent-on-next-line (count-leading-spaces next-line-text)))
             (cond ((<= indent-on-next-line current-item-indent)
                    (setf end-of-this-item-text-block current-scan-pos)
@@ -137,7 +138,7 @@
                           text-content-absolute-start-offset)))))
         (when (< current-scan-pos (length str))
           (multiple-value-bind (line-at-children-start _l _nl _is)
-              (get-line-info str current-scan-pos)
+              (org-list-get-line-info str current-scan-pos)
             (when line-at-children-start
               (let ((child-indent (count-leading-spaces line-at-children-start)))
                 (when (> child-indent current-item-indent)
@@ -183,7 +184,7 @@
       (when (or (not (numberp current-pos))
                 (>= current-pos (length str)))
         (return))
-      (multiple-value-bind (line-text line-start) (get-line-info str current-pos)
+      (multiple-value-bind (line-text line-start) (org-list-get-line-info str current-pos)
         (unless line-text (return))
         (setf current-pos line-start)
         (let ((indent-on-this-line (count-leading-spaces line-text)))
@@ -209,7 +210,7 @@
 
 (defun org-list-matcher (str pos &optional inline-rules)
   (multiple-value-bind (first-line-text first-line-start-offset)
-      (get-line-info str pos)
+      (org-list-get-line-info str pos)
     (unless (= pos first-line-start-offset)
       (return-from org-list-matcher (values nil pos)))
     (when (or (null first-line-text)

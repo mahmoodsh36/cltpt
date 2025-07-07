@@ -41,6 +41,13 @@
 (defmethod text-format-convert ((fmt1 text-format) (fmt2 text-format) text)
   (convert-text fmt1 fmt2 text))
 
+(defun parse-file (filepath fmt)
+  (let* ((text (uiop:read-file-string filepath))
+         (text-tree (parse text
+                           (text-format-text-object-types fmt)
+                           :doc-type (text-format-text-document-type fmt))))
+    text-tree))
+
 (defun convert-file (fmt1 fmt2 src-file dest-file)
   (let* ((text (uiop:read-file-string src-file))
          (result (convert-text fmt1 fmt2 text)))
