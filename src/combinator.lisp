@@ -316,22 +316,37 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
            (match-rule (car compiled) str pos))))
     (t (error "invalid rule: ~A" rule))))
 
+;; the hash table thing is a heuristic that makes things slightly faster
+(defun hash-rules (rules)
+  (let ((hash (make-hash-table :test 'equal)))
+    (loop for rule in rules
+          do (when (getf rule :on-char)
+               (push rule (gethash (getf rule :on-char) hash))))
+    hash))
+
 (defun scan-all-rules (str rules &optional (start-idx 0) (end-idx (length str)))
-  (let ((events)
-        (i start-idx))
+  (let* ((events)
+         (i start-idx)
+         (rule-hash (hash-rules rules))
+         (hashed-rules (loop for value being the hash-values of rule-hash
+                             append value))
+         (unhashed-rules (set-difference rules hashed-rules :test #'equal)))
     (loop while (< i end-idx)
-          do (let ((matched))
-               (loop for rule in rules
-                     for raw-match = (match-rule rule str i)
-                     while (not matched)
-                     when raw-match
-                       do (let* ((match-result (normalize-match raw-match rule str i)))
-                            ;; (when (<= (getf (car match-result) :end) end-idx)
-                            (setf i (getf (car match-result) :end))
-                            (push match-result events)
-                            (setf matched t))
-                     finally (unless matched
-                               (incf i)))))
+          do (let ((matched)
+                   (current-char (char str i)))
+               (labels ((handle-rule (rule)
+                          (let ((raw-match (match-rule rule str i)))
+                            (when raw-match
+                              (let* ((match-result (normalize-match raw-match rule str i)))
+                                ;; (when (<= (getf (car match-result) :end) end-idx)
+                                (setf i (getf (car match-result) :end))
+                                (push match-result events)
+                                (setf matched t))))))
+                 (loop for rule in (union unhashed-rules
+                                          (gethash current-char rule-hash))
+                       do (handle-rule rule)
+                       finally (unless matched
+                                 (incf i))))))
     (nreverse events)))
 
 (defun parse (str rules)

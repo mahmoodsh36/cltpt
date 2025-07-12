@@ -71,14 +71,15 @@
 ;;     (nreverse result)))
 
 (defvar *org-keyword-rule*
-  '(cltpt/combinator:consec
+  '(:pattern (cltpt/combinator:consec
     (cltpt/combinator:literal "#+")
     (:pattern (cltpt/combinator:symbol-matcher)
      :id keyword)
     (cltpt/combinator:literal ":")
     (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
     (:pattern (cltpt/combinator:all-but-newline)
-     :id value)))
+     :id value))
+    :on-char #\#))
 (defclass org-keyword (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -109,11 +110,13 @@
         :id end-type))
       :id end))))
 (defvar *org-block-rule*
-  `(cltpt/combinator:any
-    (cltpt/combinator:consec
-     ,*org-keyword-rule*
+  `(:pattern
+    (cltpt/combinator:any
+     (cltpt/combinator:consec
+      ,*org-keyword-rule*
+      ,*org-block-no-kw-rule*)
      ,*org-block-no-kw-rule*)
-    ,*org-block-no-kw-rule*))
+    :on-char #\#))
 (defclass org-block (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -187,23 +190,25 @@
 ;;   (:documentation "e.g. the timestamp in CLOSED: [2023-12-28 Thu 19:32:11]"))
 
 (defvar *org-header-rule*
-  '(cltpt/combinator:when-match
-    (cltpt/combinator:any
-     (cltpt/combinator:consec
-      (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
-       :id stars)
-      (:pattern (cltpt/combinator:upcase-word-matcher)
-       :id todo-keyword)
-      (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
-      (:pattern (cltpt/combinator:all-but-newline)
-       :id title))
-     (cltpt/combinator:consec
-      (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
-       :id stars)
-      (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
-      (:pattern (cltpt/combinator:all-but-newline)
-       :id title)))
-    cltpt/combinator:at-line-start-p))
+  '(:pattern
+    (cltpt/combinator:when-match
+     (cltpt/combinator:any
+      (cltpt/combinator:consec
+       (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
+        :id stars)
+       (:pattern (cltpt/combinator:upcase-word-matcher)
+        :id todo-keyword)
+       (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+       (:pattern (cltpt/combinator:all-but-newline)
+        :id title))
+      (cltpt/combinator:consec
+       (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
+        :id stars)
+       (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+       (:pattern (cltpt/combinator:all-but-newline)
+        :id title)))
+     cltpt/combinator:at-line-start-p)
+    :on-char #\*))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -377,13 +382,15 @@
       ""))
 
 (defvar *org-drawer-rule*
-  '(cltpt/combinator:pair
-    (cltpt/combinator:followed-by
-     ":%w:"
-     cltpt/combinator:at-line-end-p)
-    (cltpt/combinator:when-match
-     (cltpt/combinator:literal-casein ":end:")
-     cltpt/combinator:at-line-start-p)))
+  '(:pattern
+    (cltpt/combinator:pair
+     (cltpt/combinator:followed-by
+      ":%w:"
+      cltpt/combinator:at-line-end-p)
+     (cltpt/combinator:when-match
+      (cltpt/combinator:literal-casein ":end:")
+      cltpt/combinator:at-line-start-p))
+    :on-char #\:))
 (defclass org-drawer (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -487,28 +494,30 @@
   (:documentation "a link."))
 
 (defvar *org-link-rule*
-  '(cltpt/combinator:any
-    ;; [[type:dest][desc]]
-    (cltpt/combinator:consec
-     "[["
-     (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
-     ":"
-     (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-     "]["
-     (:pattern (cltpt/combinator:all-but "[]") :id link-desc)
-     "]]")
-    ;; [[dest]]
-    (cltpt/combinator:consec
-     "[["
-     (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-     "]]")
-    ;; [[type:dest]]
-    (cltpt/combinator:consec
-     "[["
-     (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
-     ":"
-     (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-     "]]")))
+  '(:pattern
+    (cltpt/combinator:any
+     ;; [[type:dest][desc]]
+     (cltpt/combinator:consec
+      "[["
+      (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
+      ":"
+      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+      "]["
+      (:pattern (cltpt/combinator:all-but "[]") :id link-desc)
+      "]]")
+     ;; [[dest]]
+     (cltpt/combinator:consec
+      "[["
+      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+      "]]")
+     ;; [[type:dest]]
+     (cltpt/combinator:consec
+      "[["
+      (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
+      ":"
+      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+      "]]"))
+    :on-char #\[))
 (defclass org-link (cltpt/base:text-object)
   ((cltpt/base::shared-name
     :allocation :class
@@ -544,10 +553,12 @@
 (defclass org-list (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform `(org-list-matcher
-                ((:pattern ,*org-link-rule* :id org-link)
-                 (:pattern ,cltpt/latex::*inline-math-rule*
-                  :id cltpt/latex::inline-math)))))
+    :initform `(:pattern
+                (org-list-matcher
+                 ((:pattern ,*org-link-rule* :id org-link)
+                  (:pattern ,cltpt/latex::*inline-math-rule*
+                   :id cltpt/latex::inline-math)))
+                :on-char #\#)))
   (:documentation "org-mode list."))
 
 (defun deep-copy-org-forest (tree)
@@ -715,7 +726,8 @@
                  nil
                  nil
                  nil)
-                :escapable #\*)))
+                :escapable #\*
+                :on-char #\*)))
   (:documentation "org-mode emphasized text (surrounded by asterisks)."))
 
 (defun compress-contents-region-by-one (obj)
@@ -739,12 +751,14 @@
      (cltpt/base:wrap-contents-for-convert obj "<b>" "</b>"))))
 
 (defvar *org-italic-rule*
-  '(cltpt/combinator:pair
-    (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-    (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-    nil
-    nil
-    nil))
+  '(:pattern
+    (cltpt/combinator:pair
+     (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
+     (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
+     nil
+     nil
+     nil)
+    :on-char #\/))
 (defclass org-italic (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -772,7 +786,8 @@
        (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
        (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
        nil nil nil)
-      :escapable #\~)))
+      :escapable #\~
+      :on-char #\~)))
   (:documentation "org-mode inline code (surrounded by tildes)."))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-inline-code))

@@ -17,9 +17,11 @@
 (defclass display-math (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(cltpt/combinator:pair
-                (cltpt/combinator:literal "\\[")
-                (cltpt/combinator:literal "\\]")))))
+    :initform '(:pattern
+                (cltpt/combinator:pair
+                 (cltpt/combinator:literal "\\[")
+                 (cltpt/combinator:literal "\\]"))
+                :on-char #\\))))
 
 (defmethod cltpt/base:text-object-convert ((obj display-math)
                                            (fmt (eql latex)))
@@ -32,7 +34,8 @@
   ((cltpt/base::rule
     :allocation :class
     :initform
-    (list 'pair "\\begin{%W}" "\\end{%W}")))
+    (list :pattern (list 'pair "\\begin{%W}" "\\end{%W}")
+          :on-char #\\)))
   (:documentation "latex environment."))
 
 (defclass latex-link (cltpt/base:text-object)
@@ -41,11 +44,13 @@
     :initform 'cltpt/base::link)
    (cltpt/base::rule
     :allocation :class
-    :initform '(cltpt/combinator:consec
-                "\\ref{"
-                (:pattern (cltpt/combinator::symbol-matcher)
-                 :id link-dest)
-                "}")))
+    :initform '(:pattern
+                (cltpt/combinator:consec
+                 "\\ref{"
+                 (:pattern (cltpt/combinator::symbol-matcher)
+                  :id link-dest)
+                 "}")
+                :on-char #\\)))
   (:documentation "latex link."))
 
 ;; do we need this?

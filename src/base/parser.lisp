@@ -119,25 +119,26 @@
             (loop for type1 in text-object-types
                   collect (let ((rule (text-object-rule-from-subclass type1)))
                             rule))))
-         (matches (cltpt/combinator::parse str1 data)))
+         (matches (cltpt/combinator:parse str1 data)))
     (loop for m in matches
           do (handle-match str1 m text-objects text-object-types))
     ;; here we build the text object forest (collection of trees) properly
-    (let ((top-level (remove-if (lambda (item)
-                                  (text-object-parent item))
-                                (second text-objects))))
-      (let ((doc (make-instance doc-type :text str1)))
-        (setf (text-object-text-region doc)
-              (make-region :begin 0 :end (length str1)))
-        (mapc
-         (lambda (entry)
-           (text-object-set-parent entry doc)
-           (text-object-adjust-to-parent entry doc))
-         top-level)
-        (setf (text-object-children doc) top-level)
-        ;; we need to finalize only after the top-level doc object has been set as parent
-        (finalize-doc doc)
-        doc))))
+    (let ((top-level (remove-if
+                      (lambda (item)
+                        (text-object-parent item))
+                      (second text-objects)))
+          (doc (make-instance doc-type :text str1)))
+      (setf (text-object-text-region doc)
+            (make-region :begin 0 :end (length str1)))
+      (mapc
+       (lambda (entry)
+         (text-object-set-parent entry doc)
+         (text-object-adjust-to-parent entry doc))
+       top-level)
+      (setf (text-object-children doc) top-level)
+      ;; we need to finalize only after the top-level doc object has been set as parent
+      (finalize-doc doc)
+      doc)))
 
 (defun finalize-doc (doc)
   (loop for child in (text-object-children doc)
