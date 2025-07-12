@@ -4,12 +4,17 @@
 
 (in-package :cltpt/agenda)
 
+(defstruct state
+  start
+  name
+  is-done) ;; done may mean cancelled or archived, etc.. not just DONE
+
 (defstruct todo
   title
   description
   scheduled
   deadline
-  state
+  state-history
   tags
   children
   parent
@@ -35,8 +40,8 @@
              (text-object-agenda-data obj)))
     (remove-if-not
      'identity
-     (cltpt/base::flatten
-      (cltpt/base::map-text-object obj-tree #'my-lambda)))))
+     (cltpt/base:flatten
+      (cltpt/base:map-text-object obj-tree #'my-lambda)))))
 
 (defmethod text-object-agenda-change-state ((fmt1 cltpt/base:text-format) obj-tree)
   )

@@ -1,8 +1,20 @@
 * my main header
-properties here
-:properties:
-:id: hello
-:end:
+CLOSED: [2024-10-29 Tue 16:41:04]
+CLOSED: [2024-10-29 Tue 16:41:03]
+:PROPERTIES:
+:LAST_REPEAT: [2024-10-29 Tue 16:40:36]
+:END:
+- State "DONE"       from "TODO"       [2024-10-29 Tue 16:41:04]
+- State "CANCELED"   from "TODO"       [2024-10-29 Tue 16:40:36]
+- State "MISSED"     from "TODO"       [2024-10-15 Tue 19:46:43]
+- State "DONE"       from "TODO"       [2024-10-15 Tue 19:46:40]
+- State "DONE"       from "TODO"       [2024-10-01 Tue 22:46:31]
+- State "MISSED"     from "TODO"       [2024-09-24 Tue 23:12:42]
+- State "DONE"       from "TODO"       [2024-09-24 Tue 23:12:34]
+- State "DONE"       from "TODO"       [2024-09-10 Tue 15:14:29] \\
+  done like an hour or so ago
+- State "DONE"       from "TODO"       [2024-09-03 Tue 16:31:49]
+- State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
 
 
 #+mykeyword: value

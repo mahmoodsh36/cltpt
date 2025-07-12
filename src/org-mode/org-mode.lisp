@@ -27,8 +27,8 @@
      org-italic
      org-emph
      org-inline-code
-     cltpt/base:text-macro
-     cltpt/base:post-lexer-text-macro
+     ;; cltpt/base:text-macro
+     ;; cltpt/base:post-lexer-text-macro
      )
    'org-document))
 
@@ -120,45 +120,135 @@
     :initform *org-block-rule*))
   (:documentation "org-mode block."))
 
+(defvar *org-timestamp-rule*
+  '(cltpt/combinator:consec
+    "<"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id year)
+    "-"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id month)
+    "-"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id day)
+    " "
+    (:pattern (cltpt/combinator:word-matcher)
+     :id weekday)
+    " "
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id hour)
+    ":"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id minute)
+    ":"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id second)
+    ">"))
+(defclass org-timestamp (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-timestamp-rule*))
+  (:documentation "a timestamp/date. e.g. <2023-12-28 Thu 18:30:00>."))
+
+(defvar *org-timestamp-bracket-rule*
+  '(cltpt/combinator:consec
+    "["
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id year)
+    "-"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id month)
+    "-"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id day)
+    " "
+    (:pattern (cltpt/combinator:word-matcher)
+     :id weekday)
+    " "
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id hour)
+    ":"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id minute)
+    ":"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id second)
+    "]"))
+(defclass org-timestamp-bracket (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-timestamp-bracket-rule*))
+  (:documentation "a timestamp/date. e.g. [2023-12-28 Thu 18:30:00]."))
+
+;; (defclass org-todo-state-timestamp (cltpt/base:text-object)
+;;   ((cltpt/base::rule
+;;     :allocation :class
+;;     :initform ))
+;;   (:documentation "e.g. the timestamp in CLOSED: [2023-12-28 Thu 19:32:11]"))
+
 (defvar *org-header-rule*
-  '(cltpt/combinator:any
-    (cltpt/combinator:consec
-     (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
-      :id stars)
-     (:pattern (cltpt/combinator:upcase-word-matcher)
-      :id todo-keyword)
-     (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
-     (:pattern (cltpt/combinator:all-but-newline)
-      :id title))
-    (cltpt/combinator:consec
-     (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
-      :id stars)
-     (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
-     (:pattern (cltpt/combinator:all-but-newline)
-      :id title))))
+  '(cltpt/combinator:when-match
+    (cltpt/combinator:any
+     (cltpt/combinator:consec
+      (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
+       :id stars)
+      (:pattern (cltpt/combinator:upcase-word-matcher)
+       :id todo-keyword)
+      (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+      (:pattern (cltpt/combinator:all-but-newline)
+       :id title))
+     (cltpt/combinator:consec
+      (:pattern (cltpt/combinator:atleast-one (cltpt/combinator:literal "*"))
+       :id stars)
+      (cltpt/combinator:atleast-one (cltpt/combinator:literal " "))
+      (:pattern (cltpt/combinator:all-but-newline)
+       :id title)))
+    cltpt/combinator:at-line-start-p))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
     :initform *org-header-rule*))
   (:documentation "org-mode header."))
 
+;; TODO: an org-header needs to check the next children and see if any of them
+;; are candidates for TODO data
 (defmethod cltpt/base:text-object-init :after ((obj org-header) str1 match)
-  (let* ((stars (cltpt/base::find-submatch match 'stars))
-         (title (cltpt/base::find-submatch match 'title))
-         (todo-keyword (cltpt/base::find-submatch match 'todo-keyword))
-         (scheduled (encode-universal-time 0 0 10 10 7 2025 0)))
+  (let* ((stars (cltpt/base:find-submatch match 'stars))
+         (title (cltpt/base:find-submatch match 'title)))
     (setf (cltpt/base:text-object-property obj :level)
           (length (getf stars :match)))
     (setf (cltpt/base:text-object-property obj :title)
           (getf title :match))
-    (setf (cltpt/base:text-object-property obj :todo)
+    (org-header-init-agenda obj str1 match)))
+
+;; an org-header needs to check whether agenda data follows it
+(defun org-header-init-agenda (header str1 match)
+  (let* ((todo-keyword (cltpt/base:find-submatch match 'todo-keyword))
+         (scheduled (encode-universal-time 0 0 10 10 7 2025 0))
+         (idx (region-end (text-object-text-region header)))
+         (rule
+           `(cltpt/combinator:atleast-one
+             (cltpt/combinator:consec
+              (cltpt/combinator:any
+               (cltpt/combinator:consec
+                (:pattern (cltpt/combinator:literal "CLOSED: ")
+                 :id closed)
+                ,*org-timestamp-bracket-rule*)
+               (org-list-matcher)
+               (:pattern ,*org-drawer-rule* :id org-drawer))
+              (cltpt/combinator:literal ,(string #\newline)))))
+         (agenda-match (cltpt/combinator:match-rule rule str1 (1+ idx)))
+         (closed (cltpt/base:find-submatch-all agenda-match 'closed))
+         (states))
+    (setf (cltpt/base:text-object-property header :todo)
           (cltpt/agenda:make-todo
            :title "test1"
            :description "test2"
            :scheduled scheduled
            :deadline nil
            :tags nil
-           :children nil))
+           :state-history nil
+           ))
     ))
 
 (defmethod cltpt/base:text-object-convert ((obj org-header) backend)
@@ -286,16 +376,18 @@
       (cltpt/base:text-object-text obj)
       ""))
 
+(defvar *org-drawer-rule*
+  '(cltpt/combinator:pair
+    (cltpt/combinator:followed-by
+     ":%w:"
+     cltpt/combinator:at-line-end-p)
+    (cltpt/combinator:when-match
+     (cltpt/combinator:literal-casein ":end:")
+     cltpt/combinator:at-line-start-p)))
 (defclass org-drawer (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(cltpt/combinator::pair
-                (cltpt/combinator::followed-by
-                 ":%w:"
-                 cltpt/combinator::at-line-end-p)
-                (cltpt/combinator::when-match
-                 (cltpt/combinator:literal-casein ":end:")
-                 cltpt/combinator::at-line-start-p))))
+    :initform *org-drawer-rule*))
   (:documentation "org-mode drawer."))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
@@ -505,10 +597,12 @@
 (defclass org-table (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform `(org-table-matcher
-                ((:pattern ,*org-link-rule* :id org-link)
-                 (:pattern ,cltpt/latex:*inline-math-rule*
-                  :id cltpt/latex:inline-math)))))
+    :initform `(:pattern
+                (org-table-matcher
+                 ((:pattern ,*org-link-rule* :id org-link)
+                  (:pattern ,cltpt/latex:*inline-math-rule*
+                   :id cltpt/latex:inline-math)))
+                :on-char #\|)))
   (:documentation "org-mode table."))
 
 ;; hacky, like the one for org-list, they need to be improved

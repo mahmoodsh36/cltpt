@@ -651,9 +651,37 @@ this is not a match: #tag2
             "\\ref{here1}")))
 
 (defun agenda-test-1 ()
-  ;; we need to "finalize" the classes to be able to use MOP
   (let* ((result (cltpt/base::parse-file
                   "test.org"
                   (cltpt/base:text-format-by-name "org-mode")))
          (agenda (cltpt/agenda::collect-todos result)))
     agenda))
+
+(defun roam-test-1 ()
+  (time
+   (let* ((rmr (cltpt/roam:from-files
+                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
+                   :regex ".*\\.org"
+                   :format "org-mode")))))
+     ;; '((:path ("/home/mahmooz/brain/notes/")
+     ;;    :regex "16564.*\\.org"
+     ;;    :format "org-mode")))))
+     (format t
+             "found ~A nodes in a total of ~A documents"
+             (length (cltpt/roam:roamer-nodes rmr))
+             (find-if
+              (lambda (node)
+                (not (cltpt/base:text-object-parent node)))
+              (cltpt/roam:roamer-nodes rmr))))))
+
+(defun test-org-timestamp-1 ()
+  (cltpt/combinator:match-rule
+   cltpt/org-mode::*org-timestamp-rule*
+   "<2023-12-28 Thu 18:30:00>"
+   0))
+
+(defun test-combinator-number-1 ()
+  (cltpt/combinator:match-rule
+   '(cltpt/combinator:natural-number-matcher)
+   "2023"
+   0))
