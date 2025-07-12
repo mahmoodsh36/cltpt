@@ -1,11 +1,12 @@
-(defpackage :cltpt/extras
+(defpackage :cltpt/zoo
   (:use :cl)
   (:import-from :cltpt/base :text-block
                 :text-object-property :wrap-contents-for-convert
                 :text-object-convert :pcase)
   (:import-from :cltpt/latex :latex)
-  (:import-from :cltpt/html :html))
-(in-package :cltpt/extras)
+  (:import-from :cltpt/html :html)
+  (:export))
+(in-package :cltpt/zoo)
 
 ;; some stuff needs to be separated from the base code because it is dependent
 ;; on other modules, i will keep them here for now until i find a better way

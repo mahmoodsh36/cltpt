@@ -4,7 +4,8 @@
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :symbol-matcher :scan-all-rules :any :all-but
    :all-but-newline :atleast-one :lisp-sexp :pair
-   :unescaped))
+   :unescaped :natural-number-matcher :when-match
+   :at-line-start-p :at-line-end-p :followed-by :match-rule))
 
 (in-package :cltpt/combinator)
 
@@ -101,46 +102,39 @@
                 :match (subseq str start pos))
           (nreverse matches))))
 
-;; (defun atleast-one (str pos matcher)
-;;   (let ((original-start pos)
-;;         (current-pos pos)
-;;         (all-children-matches)
-;;         (matched-something))
-;;     (loop
-;;       (when (>= current-pos (length str)) (return))
-;;       (let* ((normalized-sub-match (match-rule-normalized matcher str current-pos))
-;;              (sub-match-len (when normalized-sub-match
-;;                               (- (getf (car normalized-sub-match) :end)
-;;                                  (getf (car normalized-sub-match) :begin)))))
-;;         (if (and normalized-sub-match sub-match-len (plusp sub-match-len))
-;;             (progn
-;;               (setf current-pos (getf (car normalized-sub-match) :end))
-;;               (push normalized-sub-match all-children-matches)
-;;               (setf matched-something t))
-;;             (return))))
-;;     (when matched-something
-;;       (cons (list :begin original-start
-;;                   :end current-pos
-;;                   :match (subseq str original-start current-pos))
-;;             (nreverse all-children-matches)))))
-
-;; very inefficient, calls subparser many times
 (defun atleast-one (str pos matcher)
-  (let ((start pos))
-    (if (or (>= pos (length str))
-            (not (match-rule matcher str pos)))
-        (return-from atleast-one nil)
-        (loop while (< pos (length str))
-              while (match-rule matcher str pos)
-              for match-len = (match-rule matcher str pos)
-              do (incf pos match-len)))
-    (- pos start)))
+  (let ((start pos)
+        (matches))
+    (loop while (< pos (length str))
+          for match = (match-rule-normalized matcher str pos)
+          while match
+          for len = (when match
+                      (- (getf (car match) :end)
+                         (getf (car match) :begin)))
+          do (if (and match len (plusp len))
+                 (progn
+                   (setf pos (getf (car match) :end))
+                   (push match matches))
+                 (return)))
+    (when matches
+      (cons (list :begin start
+                  :end pos
+                  :match (subseq str start pos))
+            (nreverse matches)))))
 
 (defun symbol-matcher (str pos)
   (match-rule '(atleast-one (symbol-char)) str pos))
 
 (defun word-matcher (str pos)
   (match-rule `(atleast-one (eng-char-p)) str pos))
+
+(defun digit-p (str pos)
+  (and (< pos (length str))
+       (digit-char-p (char str pos))
+       1))
+
+(defun natural-number-matcher (str pos)
+  (match-rule `(atleast-one (digit-p)) str pos))
 
 (defun pair (str pos opening-rule closing-rule
              &optional rules-for-content pair-id (allow-multiline t))

@@ -30,11 +30,11 @@
                 :depends-on ("base")
                 :components ((:file "html")))
                (:module "agenda"
-                :pathname "src/"
+                :pathname "src/extra/"
                 :depends-on ("base")
                 :components ((:file "agenda")))
                (:module "roam"
-                :pathname "src/"
+                :pathname "src/extra/"
                 :depends-on ("base")
                 :components ((:file "roam")))
                (:module "org-mode"
@@ -43,14 +43,14 @@
                 :components ((:file "org-mode")
                              (:file "org-list")
                              (:file "org-table")))
+               (:module "zoo"
+                :pathname "src/"
+                :depends-on ("base")
+                :components ((:file "zoo")))
                (:module "commandline"
                 :pathname "src/commandline"
                 :depends-on ("base" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
-               (:module "extras"
-                :pathname "src/"
-                :depends-on ("base")
-                :components ((:file "extras")))
                (:module "tests"
                 :pathname "tests/"
                 :depends-on ("base" "org-mode")
