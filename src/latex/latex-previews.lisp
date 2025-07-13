@@ -44,8 +44,8 @@ returns an association list of (hash . svg-file-path). if the SVG file for a sni
 this function does nothing for that snippet."
   (unless snippets
     (return-from generate-svgs-for-latex nil))
-  (ensure-directory *latex-previews-tmp-directory*)
-  (let* ((snippet-hashes (mapcar #'md5-str snippets))
+  (cltpt/base::ensure-directory *latex-previews-tmp-directory*)
+  (let* ((snippet-hashes (mapcar #'cltpt/base::md5-str snippets))
          (expected-svgs (mapcar
                          (lambda (hash)
                            (merge-pathnames
@@ -69,7 +69,7 @@ this function does nothing for that snippet."
                                ".svg")
                   *latex-previews-tmp-directory*)))
          snippet-hashes)))
-    (let* ((combined-hash (md5-str (apply #'concatenate 'string snippet-hashes)))
+    (let* ((combined-hash (cltpt/base::md5-str (apply #'concatenate 'string snippet-hashes)))
            (multi-page-base (concatenate 'string *preview-filename-prefix* combined-hash))
            ;; build the intermediate SVG naming pattern.
            ;; here we use "-%9p.svg" so dvisvgm substitutes a 9-digit, zero-padded page number.
