@@ -137,11 +137,14 @@ returns a list of (start . end) cons pairs for each segment."
     (1- pos)
     pos))
 
+***REMOVED***
+
 (defun to-html-table (parse-tree)
+  "converts a table parse tree to an equivalent HTML table."
   (when (and parse-tree (eq (getf (car parse-tree) :id) 'org-table))
-    (let ((children (cdr parse-tree))
-          (header-p (and (> (length children) 1)
-                         (eq (getf (caar (second children)) :id) 'h-separator))))
+    (let* ((children (cdr parse-tree))
+           (header-p (and (> (length children) 1)
+                          (eq (getf (car (second children)) :id) 'h-separator))))
       (with-output-to-string (s)
         (write-string "<table>" s)
         (loop for row-node in children

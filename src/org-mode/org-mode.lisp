@@ -12,6 +12,7 @@
 
 (in-package :cltpt/org-mode)
 
+;; the `pair' matchers are the slowest
 (defun make-org-mode ()
   (make-text-format
    "org-mode"
@@ -23,12 +24,12 @@
      org-block
      org-drawer
      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
-     ;; org-babel-results org-babel-results-colon
+     org-babel-results
      org-italic
      org-emph
      org-inline-code
-     ;; cltpt/base:text-macro
-     ;; cltpt/base:post-lexer-text-macro
+     cltpt/base:text-macro
+     cltpt/base:post-lexer-text-macro
      )
    'org-document))
 
@@ -249,6 +250,7 @@
           (cltpt/agenda:make-todo
            :title "test1"
            :description "test2"
+           :state (getf todo-keyword :match)
            :scheduled scheduled
            :deadline nil
            :tags nil
@@ -301,8 +303,27 @@
 (defclass org-babel-results (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform (list '(cltpt/combinator:literal-casein "#+results:"))))
+    :initform `(cltpt/combinator:consec
+                (cltpt/combinator:literal-casein "#+results:")
+                ,(string #\newline)
+                (cltpt/combinator:atleast-one
+                 (cltpt/combinator:any
+                  (cltpt/combinator:consec
+                   (cltpt/combinator:literal ": ")
+                   (cltpt/combinator:all-but-newline)
+                   ,(string #\newline))
+                  (cltpt/combinator:consec
+                   (cltpt/combinator:literal ": ")
+                   (cltpt/combinator:all-but-newline)))))))
   (:documentation "org-babel evaluation results."))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-babel-results) str1 match)
+  (format t "here ~A~%" obj))
+
+(defmethod cltpt/base:text-object-convert ((obj org-babel-results) backend)
+  (format nil
+          ""
+          :recurse nil))
 
 ;; this does what is necessary to actually make the object contain the element after
 ;; #+results because initially its only matched as a "keyword".
@@ -558,7 +579,7 @@
                  ((:pattern ,*org-link-rule* :id org-link)
                   (:pattern ,cltpt/latex::*inline-math-rule*
                    :id cltpt/latex::inline-math)))
-                :on-char #\#)))
+                :on-char #\-)))
   (:documentation "org-mode list."))
 
 (defun deep-copy-org-forest (tree)
@@ -573,6 +594,7 @@
 ;; this is very hacky, perhaps we should find a better way to export lists
 ;; and their children
 (defmethod cltpt/base:text-object-convert ((obj org-list) backend)
+  (format t "hellosasd==========================================~%" obj)
   ;; create a new non-org-list object, export it, use the output as a new list
   ;; reparse, that new list, then export the modified newly parsed list as if
   ;; it was the original
@@ -600,7 +622,7 @@
                :reparse nil
                :escape nil))
         ((eq backend cltpt/html:html)
-         (list :text (to-html-list my-list)
+         (list :text (to-html-list parsed)
                :recurse nil
                :reparse nil
                :escape nil))))))
@@ -655,7 +677,7 @@
                  (typep obj 'cltpt/latex:display-math)
                  (typep obj 'cltpt/latex:latex-env))
          (push (cltpt/base:text-object-text obj) mylist))))
-    (generate-svgs-for-latex mylist)))
+    (cltpt/latex::generate-svgs-for-latex mylist)))
 
 (defun generate-html-header (author date title)
   "<head></head>")

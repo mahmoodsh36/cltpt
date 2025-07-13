@@ -44,10 +44,11 @@
       (cltpt/base:text-format-by-name "latex")
       "test.org"
       "test.out.tex")
-     ;; (export-org-file
-     ;;  "test.org"
-     ;;  "test.out.html"
-     ;;  'html)
+     (cltpt/base:convert-file
+      (cltpt/base:text-format-by-name "org-mode")
+      (cltpt/base:text-format-by-name "html")
+      "test.org"
+      "test.out.html")
      nil)))
 
 (test org-keyword-parse-test
