@@ -232,11 +232,13 @@ object's region. you should just make it return a symbol like `end-type'."))
 (defclass text-macro (text-object)
   ((rule
     :allocation :class
-    :initform '(cltpt/combinator::unescaped
-                (cltpt/combinator::consec
-                 (cltpt/combinator::literal "#")
-                 (:pattern (cltpt/combinator::lisp-sexp)
-                  :id lisp-code))))))
+    :initform '(:pattern
+                (cltpt/combinator:unescaped
+                 (cltpt/combinator:consec
+                  (cltpt/combinator:literal "#")
+                  (:pattern (cltpt/combinator::lisp-sexp)
+                   :id lisp-code)))
+                :on-char #\#))))
 
 (defun is-not-before-parenthesis (str1 pos match-str)
   (not (char= (char str1 (+ pos (length match-str)))
@@ -245,10 +247,12 @@ object's region. you should just make it return a symbol like `end-type'."))
 (defclass post-lexer-text-macro (text-object)
   ((rule
     :allocation :class
-    :initform '(cltpt/combinator::consec
-                (cltpt/combinator::literal "%")
-                (:pattern (cltpt/combinator::lisp-sexp)
-                 :id lisp-code)))))
+    :initform '(:pattern
+                (cltpt/combinator::consec
+                 (cltpt/combinator::literal "%")
+                 (:pattern (cltpt/combinator::lisp-sexp)
+                  :id lisp-code))
+                :on-char #\%))))
 
 (defun eval-post-lexer-macro (obj)
   ;; we cache results to avoid re-eval which could be slow

@@ -1,9 +1,11 @@
 (in-package :cltpt/latex)
 
 (defvar *inline-math-rule*
-  '(cltpt/combinator:pair
-    (cltpt/combinator:literal "\\(")
-    (cltpt/combinator:literal "\\)")))
+  '(:pattern
+    (cltpt/combinator:pair
+     (cltpt/combinator:literal "\\(")
+     (cltpt/combinator:literal "\\)"))
+    :on-char #\\))
 (defclass inline-math (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class

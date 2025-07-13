@@ -4,6 +4,11 @@
 
 (in-package :cltpt/agenda)
 
+(defstruct duration
+  start-date
+  end-date
+  repeat)
+
 (defstruct state
   start
   name
@@ -13,7 +18,9 @@
   title
   description
   scheduled
+  timed ;; list of timestamps
   deadline
+  state ;; a string (keyword)
   state-history
   tags
   children

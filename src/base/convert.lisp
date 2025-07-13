@@ -18,7 +18,8 @@
                  (text-format-text-object-types backend)
                  :key (lambda (entry)
                         (text-object-shared-name-from-subclass entry))))
-         (dest-rule (text-object-rule-from-subclass dest-text-obj-type))
+         (dest-rule (when dest-text-obj-type
+                      (text-object-rule-from-subclass dest-text-obj-type)))
          (src-match (text-object-property text-obj :combinator-match))
          (src-str (getf (car src-match) :match)))
     (if (and shared-name dest-rule)
