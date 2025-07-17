@@ -18,6 +18,12 @@ convert from org to latex:
   ./run.sh -f test.org -c -t out.tex
 #+end_src
 
+list titles and ids of org files in a directory:
+
+#+begin_src sh :eval no
+  ./run.sh -f path/to/dir/ --action show-info --action-arg 'title: %title, id: %id'
+#+end_src
+
 * goals
 
 - [ ] an org-mode-like experience for lem - this is one of the main goals, it is essential
