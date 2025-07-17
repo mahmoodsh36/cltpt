@@ -8,7 +8,7 @@
    :cltpt/latex
    :display-math :inline-math :latex-env)
   (:export :org-list-matcher :org-header :org-list
-           :org-mode))
+           :org-mode :org-mode-text-object-types))
 
 (in-package :cltpt/org-mode)
 
@@ -28,8 +28,8 @@
      org-italic
      org-emph
      org-inline-code
-     ;; cltpt/base:text-macro
-     ;; cltpt/base:post-lexer-text-macro
+     cltpt/base:text-macro
+     cltpt/base:post-lexer-text-macro
      )
    'org-document))
 
