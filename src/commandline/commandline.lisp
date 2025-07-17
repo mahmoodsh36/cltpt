@@ -22,13 +22,13 @@
     :short-name #\h
     ;; :long-name "help"
     :key :help)
-   (clingon:make-option
-    :string
-    :description "directory holding files."
-    :short-name #\d
-    :long-name "dir"
-    :initial-value (uiop:native-namestring "~/notes/")
-    :key :dir)
+   ;; (clingon:make-option
+   ;;  :string
+   ;;  :description "directory holding files."
+   ;;  :short-name #\d
+   ;;  :long-name "dir"
+   ;;  :initial-value (uiop:native-namestring "~/notes/")
+   ;;  :key :dir)
    (clingon:make-option
     :string
     :description "the file to act on."
@@ -58,7 +58,7 @@
     :short-name #\t
     :key :dest-file)
    (clingon:make-option
-    :flag
+    :string
     :description "action to run on specified file."
     :long-name "action"
     :key :action)))
@@ -73,24 +73,39 @@
 
 (defun top-level-handler (cmd)
   (let* ((args (clingon:command-arguments cmd))
-         (my-dir (clingon:getopt cmd :dir))
          (to-list-titles (clingon:getopt cmd :list-titles))
          (to-help (clingon:getopt cmd :help))
-         (src-file (clingon:getopt cmd :file))
+         (action (clingon:getopt cmd :action))
+         (myfile (clingon:getopt cmd :file))
          (to-convert (clingon:getopt cmd :convert))
          (dest-file (clingon:getopt cmd :dest-file))
          (dest-format (or (text-format-by-name (clingon:getopt cmd :dest-format))
                           (and dest-file (infer-format-name-from-filepath dest-file))))
          (src-format (or (text-format-by-name (clingon:getopt cmd :src-format))
-                         (and src-file (infer-format-name-from-filepath src-file))))
+                         (and myfile (infer-format-name-from-filepath myfile))))
          (app (clingon:command-parent cmd)))
     (if to-help
         (clingon:print-usage cmd t)
-        (progn
-          (when to-list-titles
-            (mapcar 'print (list-org-titles my-dir)))
-          (when to-convert
-            (convert-file src-format dest-format src-file dest-file))))))
+        (if action
+            (let* ((rmr (cltpt/roam:from-files
+                         `((:path ,(list myfile)
+                            :regex ".*\\.org"
+                            :format "org-mode"))))
+                   (nodes (cltpt/roam:roamer-nodes rmr)))
+              (loop for node in nodes
+                    do (funcall (intern (string-upcase action) :cltpt/commandline)
+                                node)))
+            (progn
+              (when to-list-titles
+                (mapcar 'print (list-org-titles my-dir)))
+              (when to-convert
+                (convert-file src-format dest-format src-file dest-file)))))))
+
+(defun show-title (node)
+  (format t "~A~%" (cltpt/roam:node-title node)))
+
+(defun show-file (node)
+  (format t "~A~%" (cltpt/roam:node-file node)))
 
 (defun commandline-main (argv)
   (let ((app (top-level-command)))
@@ -113,7 +128,8 @@
                            (title))
                       (mapc
                        (lambda (entry)
-                         (when (string= (text-object-property entry :keyword) "title")
+                         (when (string= (text-object-property entry :keyword)
+                                        "title")
                            (setf title (text-object-property entry :value))))
                        result)
                       title))))))

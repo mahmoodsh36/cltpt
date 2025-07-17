@@ -236,7 +236,7 @@ object's region. you should just make it return a symbol like `end-type'."))
                 (cltpt/combinator:unescaped
                  (cltpt/combinator:consec
                   (cltpt/combinator:literal "#")
-                  (:pattern (cltpt/combinator::lisp-sexp)
+                  (:pattern (cltpt/combinator:lisp-sexp)
                    :id lisp-code)))
                 :on-char #\#))))
 
