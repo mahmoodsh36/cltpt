@@ -61,7 +61,13 @@
     :string
     :description "action to run on specified file."
     :long-name "action"
-    :key :action)))
+    :key :action)
+   (clingon:make-option
+    :string
+    :description "arguments to pass to function running the specified action."
+    :long-name "action-arg"
+    :short-name #\a
+    :key :action-args)))
 
 (defun infer-format-name-from-filepath (fp)
   (let ((ext (pathname-type (pathname fp))))
@@ -74,13 +80,16 @@
 (defun top-level-handler (cmd)
   (let* ((args (clingon:command-arguments cmd))
          (to-list-titles (clingon:getopt cmd :list-titles))
+         (action-args (when (clingon:getopt cmd :action-args)
+                        (list (clingon:getopt cmd :action-args))))
          (to-help (clingon:getopt cmd :help))
          (action (clingon:getopt cmd :action))
          (myfile (clingon:getopt cmd :file))
          (to-convert (clingon:getopt cmd :convert))
          (dest-file (clingon:getopt cmd :dest-file))
          (dest-format (or (text-format-by-name (clingon:getopt cmd :dest-format))
-                          (and dest-file (infer-format-name-from-filepath dest-file))))
+                          (and dest-file
+                               (infer-format-name-from-filepath dest-file))))
          (src-format (or (text-format-by-name (clingon:getopt cmd :src-format))
                          (and myfile (infer-format-name-from-filepath myfile))))
          (app (clingon:command-parent cmd)))
@@ -93,19 +102,31 @@
                             :format "org-mode"))))
                    (nodes (cltpt/roam:roamer-nodes rmr)))
               (loop for node in nodes
-                    do (funcall (intern (string-upcase action) :cltpt/commandline)
-                                node)))
+                    do (apply (intern (string-upcase action) :cltpt/commandline)
+                              (cons node
+                                    action-args))))
             (progn
               (when to-list-titles
                 (mapcar 'print (list-org-titles my-dir)))
               (when to-convert
                 (convert-file src-format dest-format src-file dest-file)))))))
 
-(defun show-title (node)
-  (format t "~A~%" (cltpt/roam:node-title node)))
-
-(defun show-file (node)
-  (format t "~A~%" (cltpt/roam:node-file node)))
+(defun show-info (node format-str)
+  (cltpt/base:bind-and-eval
+   `((title ,(cltpt/roam:node-title node))
+     (file ,(cltpt/roam:node-file node))
+     (id ,(cltpt/roam:node-id node)))
+   (lambda ()
+     ;; need to use in-package to access the variables bound above
+     (in-package :cltpt/commandline)
+     (let ((result
+             (cltpt/base:convert-tree
+              (cltpt/base:parse
+               format-str
+               (cltpt/org-mode:org-mode-text-object-types))
+              (cltpt/base:text-format-by-name "latex") ;; just use latex for now
+              (cltpt/org-mode:org-mode-text-object-types))))
+       (format t "~A~%" result)))))
 
 (defun commandline-main (argv)
   (let ((app (top-level-command)))

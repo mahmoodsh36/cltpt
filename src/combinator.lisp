@@ -280,10 +280,7 @@ before the final closing rule is found."
       (with-input-from-string (s str :start pos)
         (handler-case
             (setf lisp-form (read s))
-          (reader-error (c)
-            (setf read-error c))
-          #+sbcl
-          (sb-int:simple-stream-error (c)
+          (error (c)
             (setf read-error c)))
         (unless read-error
           (setf chars-consumed (file-position s))

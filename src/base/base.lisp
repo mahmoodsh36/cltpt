@@ -12,6 +12,7 @@
    :tree-find
    :pcase
    :file-has-extension-p
+   :bind-and-eval :bind-and-eval*
 
    :convert-tree
 
