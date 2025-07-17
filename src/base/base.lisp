@@ -11,6 +11,7 @@
    :find-submatch :find-submatch-all
    :tree-find
    :pcase
+   :file-has-extension-p
 
    :convert-tree
 

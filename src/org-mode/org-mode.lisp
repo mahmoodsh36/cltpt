@@ -28,8 +28,8 @@
      org-italic
      org-emph
      org-inline-code
-     cltpt/base:text-macro
-     cltpt/base:post-lexer-text-macro
+     ;; cltpt/base:text-macro
+     ;; cltpt/base:post-lexer-text-macro
      )
    'org-document))
 
@@ -52,24 +52,6 @@
                         cltpt/latex:inline-math
                         cltpt/base:text-macro
                         cltpt/base:post-lexer-text-macro))))
-
-;; (defun parse-keyword-string (s)
-;;   "given a string S of the form \":kw1 val1 :kw2 :kw3 val3\", returns
-;; a list of (KEY . VALUE) pairs. if a keyword is not followed by a value,
-;; its value is NIL."
-;;   (let ((tokens (str:split " " s))
-;;         (result)
-;;         (current-key nil))
-;;     (dolist (token tokens)
-;;       (if (and (> (length token) 0)
-;;                (char= (char token 0) #\:))
-;;           (progn
-;;             (setf current-key (intern (string-upcase token) :keyword))
-;;             (push (cons current-key nil) result))
-;;           (when current-key
-;;             (setf (cdr (assoc current-key result :test #'eq)) token)
-;;             (setf current-key nil))))
-;;     (nreverse result)))
 
 (defvar *org-keyword-rule*
   '(:pattern (cltpt/combinator:consec
@@ -216,7 +198,7 @@
     :initform *org-header-rule*))
   (:documentation "org-mode header."))
 
-;; TODO: an org-header needs to check the next children and see if any of them
+;; TODO: an org-header needs to check the next siblings and see if any of them
 ;; are candidates for TODO data
 (defmethod cltpt/base:text-object-init :after ((obj org-header) str1 match)
   (let* ((stars (cltpt/base:find-submatch match 'stars))
@@ -225,7 +207,13 @@
           (length (getf stars :match)))
     (setf (cltpt/base:text-object-property obj :title)
           (getf title :match))
-    (org-header-init-agenda obj str1 match)))
+    (org-header-init-agenda obj str1 match)
+    (setf (cltpt/base:text-object-property obj :roam-node)
+          (cltpt/roam:make-node
+           :id "test-id"
+           :title (getf title :match)
+           :desc nil
+           :todo nil))))
 
 ;; an org-header needs to check whether agenda data follows it
 (defun org-header-init-agenda (header str1 match)
@@ -318,7 +306,7 @@
   (:documentation "org-babel evaluation results."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-babel-results) str1 match)
-  (format t "here ~A~%" obj))
+  )
 
 (defmethod cltpt/base:text-object-convert ((obj org-babel-results) backend)
   (format nil
@@ -594,7 +582,6 @@
 ;; this is very hacky, perhaps we should find a better way to export lists
 ;; and their children
 (defmethod cltpt/base:text-object-convert ((obj org-list) backend)
-  (format t "hellosasd==========================================~%" obj)
   ;; create a new non-org-list object, export it, use the output as a new list
   ;; reparse, that new list, then export the modified newly parsed list as if
   ;; it was the original
@@ -667,6 +654,22 @@
 (defclass org-document (cltpt/base:document)
   ()
   (:documentation "org-mode document."))
+
+(defmethod cltpt/roam:text-object-roam-data ((doc org-document))
+  (let ((title))
+    (cltpt/base:map-text-object
+     doc
+     (lambda (obj)
+       (when (typep obj 'org-keyword)
+         (let ((kw-name (cltpt/base:text-object-property obj :keyword))
+               (kw-value (cltpt/base:text-object-property obj :value)))
+           (when (string= kw-name "title")
+             (setf title kw-value))))))
+    (cltpt/roam:make-node
+     :id "test-id"
+     :title title
+     :desc nil
+     :todo nil)))
 
 (defun ensure-latex-previews-generated (org-doc)
   (let ((mylist))
@@ -823,15 +826,3 @@
        result))
     ((eq backend cltpt/html:html)
      (cltpt/base:wrap-contents-for-convert obj "<pre><code>" "</code></pre>"))))
-
-(defun convert-org-doc (org-doc backend)
-  (cltpt/base:convert-tree org-doc
-                           backend
-                           (org-mode-text-object-types)))
-
-(defun convert-org-file (src dest &optional (backend 'latex))
-  (with-open-file (f dest
-                     :direction :output
-                     :if-exists :supersede
-                     :if-does-not-exist :create)
-    (write-sequence (convert-org-doc (parse-org-file src) backend) f)))

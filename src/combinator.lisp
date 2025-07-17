@@ -274,16 +274,18 @@ before the final closing rule is found."
         (read-error)
         (chars-consumed 0)
         (form-str))
-    (when (< pos (length str))
-      (with-input-from-string (s (subseq str pos))
+    (when (and (< pos (length str))
+               ;; dont read it if it starts with space (default behavior by `read')
+               (not (char-equal (char str pos) #\space)))
+      (with-input-from-string (s str :start pos)
         (handler-case
-            (let ((*read-suppress*)
-                  (*read-eval*))
-              (setf lisp-form (read s nil :eof)))
-          (reader-error (c) (setf read-error c))
+            (setf lisp-form (read s))
+          (reader-error (c)
+            (setf read-error c))
           #+sbcl
-          (sb-int:simple-stream-error (c) (setf read-error c)))
-        (unless (or read-error (eq lisp-form :eof))
+          (sb-int:simple-stream-error (c)
+            (setf read-error c)))
+        (unless read-error
           (setf chars-consumed (file-position s))
           (when (> chars-consumed 0)
              (setf form-str (subseq str pos (+ pos chars-consumed)))))))
@@ -291,7 +293,6 @@ before the final closing rule is found."
         (cons (list :begin pos
                     :end (+ pos chars-consumed)
                     :match form-str
-                    :lisp-form lisp-form
                     :id 'lisp-form-content)
               nil)
         nil)))

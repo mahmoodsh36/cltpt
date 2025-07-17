@@ -1,3 +1,4 @@
+#+title: my doc
 * my main header
 CLOSED: [2024-10-29 Tue 16:41:04]
 CLOSED: [2024-10-29 Tue 16:41:03]

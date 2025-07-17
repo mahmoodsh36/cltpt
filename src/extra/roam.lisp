@@ -1,13 +1,15 @@
 (defpackage :cltpt/roam
   (:use :cl :cltpt/base)
-  (:export :from-files :roamer-rescan :roamer-nodes))
+  (:export :from-files :roamer-rescan :roamer-nodes
+   :node-id :node-title :node-desc :node-file :node-todo :node-text-obj
+   :make-node :text-object-roam-data))
 
 (in-package :cltpt/roam)
 
 (defstruct node
   id
   title
-  description
+  desc
   todo ;; should we have this?
   text-obj
   file ;; we can do this better
@@ -60,58 +62,51 @@
 
 (defun find-files (file-rules)
   (let ((file-rule-alist)) ;; maps a raw filepath to the rule it was found for
-    (loop for file-rule in file-rules
-          for paths = (getf file-rule :path)
-          for regex = (getf file-rule :regex)
-          for ext = (getf file-rule :ext)
-          for recurse = (getf file-rule :recurse)
-          for format = (getf file-rule :format)
-          do (loop
-               for path in (if (consp paths) paths (cons paths nil))
-               do (if (uiop:directory-pathname-p (uiop:ensure-pathname path))
-                      (if recurse
-                          (cl-fad:walk-directory
-                           path
-                           (lambda (path)
-                             (if ext
-                                 (when (cltpt/base::file-has-extension-p
-                                        path
-                                        (if (consp ext)
-                                            ext
-                                            (cons ext nil)))
-                                   (push (cons path file-rule) file-rule-alist))
-                                 (push (cons path file-rule) file-rule-alist)))
-                           :match regex)
-                          (loop
-                            for path in (cltpt/base::directory-files-matching
-                                         path
-                                         regex)
-                            do (if ext
-                                   (when (cltpt/base::file-has-extension-p
-                                          path
-                                          (if (consp ext)
-                                              ext
-                                              (cons ext nil)))
-                                     (push (cons path file-rule) file-rule-alist))
-                                   (push (cons path file-rule) file-rule-alist)))))))
+    (labels ((handle-file (filepath file-rule)
+               (let ((ext (getf file-rule :ext)))
+                 (if ext
+                     (when (cltpt/base:file-has-extension-p
+                            filepath
+                            (if (consp ext)
+                                ext
+                                (cons ext nil)))
+                       (push (cons filepath file-rule) file-rule-alist))
+                     (push (cons filepath file-rule) file-rule-alist)))))
+      (loop for file-rule in file-rules
+            for paths = (getf file-rule :path)
+            for regex = (getf file-rule :regex)
+            for recurse = (getf file-rule :recurse)
+            do (loop
+                 for path in (if (consp paths) paths (cons paths nil))
+                 do (if (uiop:directory-pathname-p (uiop:ensure-pathname path))
+                        (if recurse
+                            (cl-fad:walk-directory
+                             path
+                             (lambda (path)
+                               (handle-file path file-rule))
+                             :match regex)
+                            (loop
+                              for path in (cltpt/base::directory-files-matching
+                                           path
+                                           regex)
+                              do (handle-file path file-rule)))
+                        (handle-file path file-rule)))))
     file-rule-alist))
 
 (defmethod roamer-rescan ((rmr roamer))
   (setf (roamer-nodes rmr) nil)
   (let ((file-rule-alist (find-files (roamer-files rmr))))
     (loop for (file . file-rule) in file-rule-alist
-          for fmt = (cltpt/base::text-format-by-name (getf file-rule :format))
-          do (let* ((parsed (cltpt/base:parse-file
-                            file
-                            fmt))
-                    (node (make-node
-                           :id nil
-                           :title nil
-                           :description nil
-                           :todo nil
-                           :text-obj parsed
-                           :file file)))
-               (push (roamer-nodes rmr) node)))))
+          for fmt = (cltpt/base:text-format-by-name (getf file-rule :format))
+          do (let ((parsed (cltpt/base:parse-file file fmt)))
+               (cltpt/base:map-text-object
+                parsed
+                (lambda (text-obj)
+                  (let ((node (text-object-roam-data text-obj)))
+                    (when node
+                      (setf (node-text-obj node) text-obj)
+                      (setf (node-file node) file)
+                      (push node (roamer-nodes rmr))))))))))
 
 (defmethod text-object-roam-data ((obj cltpt/base:text-object))
   (cltpt/base:text-object-property obj :roam-node))

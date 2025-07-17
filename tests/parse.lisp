@@ -670,10 +670,11 @@ this is not a match: #tag2
      (format t
              "found ~A nodes in a total of ~A documents"
              (length (cltpt/roam:roamer-nodes rmr))
-             (find-if
-              (lambda (node)
-                (not (cltpt/base:text-object-parent node)))
-              (cltpt/roam:roamer-nodes rmr))))))
+             (length
+              (remove-if
+               (lambda (node)
+                 (cltpt/base:text-object-parent (cltpt/roam:node-text-obj node)))
+               (cltpt/roam:roamer-nodes rmr)))))))
 
 (defun test-org-timestamp-1 ()
   (cltpt/combinator:match-rule
