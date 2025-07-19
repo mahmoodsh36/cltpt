@@ -154,3 +154,10 @@ TEST checks for equality between ITEM and `(key (car node))'."
            (cl-ppcre:scan regex (namestring path)))
          files)
         files)))
+
+(defun change-extension (path new-ext)
+  "change the extension of PATH to NEW-EXT."
+  (let* ((pathname (pathname path))
+         (name (file-namestring (make-pathname :name (pathname-name pathname)
+                                               :type new-ext))))
+    (namestring (merge-pathnames name (pathname path)))))
