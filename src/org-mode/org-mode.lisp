@@ -28,8 +28,8 @@
      org-italic
      org-emph
      org-inline-code
-     cltpt/base:text-macro
-     cltpt/base:post-lexer-text-macro
+     ;; cltpt/base:text-macro
+     ;; cltpt/base:post-lexer-text-macro
      )
    'org-document))
 
