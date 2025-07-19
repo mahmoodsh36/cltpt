@@ -15,7 +15,7 @@ the code uses some sbcl-specific libraries for now, so it is unlikely that it wi
 convert from org to latex:
 
 #+begin_src sh :eval no
-  ./run.sh -f test.org -c -t out.tex
+  ./run.sh -f test.org --action convert --action-arg org --action-arg tex
 #+end_src
 
 list titles and ids of org files in a directory:
