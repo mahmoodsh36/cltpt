@@ -48,7 +48,7 @@
                 :depends-on ("base")
                 :components ((:file "zoo")))
                (:module "commandline"
-                :pathname "src/commandline"
+                :pathname "src/extra"
                 :depends-on ("base" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
                (:module "tests"
