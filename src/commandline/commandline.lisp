@@ -22,25 +22,12 @@
     :short-name #\h
     ;; :long-name "help"
     :key :help)
-   ;; (clingon:make-option
-   ;;  :string
-   ;;  :description "directory holding files."
-   ;;  :short-name #\d
-   ;;  :long-name "dir"
-   ;;  :initial-value (uiop:native-namestring "~/notes/")
-   ;;  :key :dir)
    (clingon:make-option
-    :string
-    :description "the file to act on."
+    :list
+    :description "the files to act on."
     :short-name #\f
     :long-name "file"
-    :key :file)
-   (clingon:make-option
-    :flag
-    :description "choose to convert the file specified with `-f`."
-    :short-name #\c
-    :long-name "convert"
-    :key :convert)
+    :key :files)
    (clingon:make-option
     :string
     :description "when acting on a file, it is possible to provide the intended source format. if unprovided, it will be guessed from the filename extension."
@@ -48,68 +35,36 @@
     :key :src-format)
    (clingon:make-option
     :string
-    :description "destination format when converting."
-    :long-name "dest-format"
-    :key :dest-format)
-   (clingon:make-option
-    :string
-    :description "destination filepath when converting."
-    :long-name "dest-file"
-    :short-name #\t
-    :key :dest-file)
-   (clingon:make-option
-    :string
     :description "action to run on specified file."
     :long-name "action"
     :key :action)
    (clingon:make-option
-    :string
+    :list
     :description "arguments to pass to function running the specified action."
     :long-name "action-arg"
     :short-name #\a
     :key :action-args)))
 
-(defun infer-format-name-from-filepath (fp)
-  (let ((ext (pathname-type (pathname fp))))
-    (cond
-      ((equal ext "org")
-       cltpt/org-mode:org-mode)
-      ((equal ext "tex")
-       cltpt/latex:latex))))
-
 (defun top-level-handler (cmd)
-  (let* ((args (clingon:command-arguments cmd))
-         (to-list-titles (clingon:getopt cmd :list-titles))
+  (let* (;; (args (clingon:command-arguments cmd))
+         ;; (app (clingon:command-parent cmd))
          (action-args (when (clingon:getopt cmd :action-args)
-                        (list (clingon:getopt cmd :action-args))))
+                        (clingon:getopt cmd :action-args)))
          (to-help (clingon:getopt cmd :help))
          (action (clingon:getopt cmd :action))
-         (myfile (clingon:getopt cmd :file))
-         (to-convert (clingon:getopt cmd :convert))
-         (dest-file (clingon:getopt cmd :dest-file))
-         (dest-format (or (text-format-by-name (clingon:getopt cmd :dest-format))
-                          (and dest-file
-                               (infer-format-name-from-filepath dest-file))))
-         (src-format (or (text-format-by-name (clingon:getopt cmd :src-format))
-                         (and myfile (infer-format-name-from-filepath myfile))))
-         (app (clingon:command-parent cmd)))
-    (if to-help
-        (clingon:print-usage cmd t)
-        (if action
-            (let* ((rmr (cltpt/roam:from-files
-                         `((:path ,(list myfile)
-                            :regex ".*\\.org"
-                            :format "org-mode"))))
-                   (nodes (cltpt/roam:roamer-nodes rmr)))
-              (loop for node in nodes
-                    do (apply (intern (string-upcase action) :cltpt/commandline)
-                              (cons node
-                                    action-args))))
-            (progn
-              (when to-list-titles
-                (mapcar 'print (list-org-titles my-dir)))
-              (when to-convert
-                (convert-file src-format dest-format src-file dest-file)))))))
+         (files (clingon:getopt cmd :files)))
+    (cond
+      (to-help (clingon:print-usage cmd t))
+      (action
+       (let* ((rmr (cltpt/roam:from-files
+                    `((:path ,files
+                       :regex ".*\\.org"
+                       :format "org-mode"))))
+              (nodes (cltpt/roam:roamer-nodes rmr)))
+         (loop for node in nodes
+               do (apply (intern (string-upcase action) :cltpt/commandline)
+                         (cons node
+                               action-args))))))))
 
 (defun show-info (node format-str)
   (cltpt/base:bind-and-eval
@@ -128,29 +83,34 @@
               (cltpt/org-mode:org-mode-text-object-types))))
        (format t "~A~%" result)))))
 
+;; this is problematic because it may convert the same file multiple times
+;; if the file contains multiple roam nodes (e.g. headers etc)
+(defun convert (node src-format-name dest-format-name)
+  (labels ((alias-to-name (alias)
+             (cond
+               ((string= "org" alias) "org-mode")
+               ((string= "tex" alias) "latex")
+               ((string= "md" alias) "markdown")
+               (otherwise alias)))
+           (name-to-alias (name)
+             (cond
+               ((string= "org-mode" name) "org")
+               ((string= "latex" name) "tex")
+               ((string= "markdown" name) "md")
+               (otherwise name))))
+    (setf src-format-name (alias-to-name src-format-name))
+    (setf dest-format-name (alias-to-name dest-format-name))
+    (let* ((src-file (cltpt/roam:node-file node))
+           (dest-file (cltpt/base:change-extension
+                       src-file
+                       (name-to-alias dest-format-name))))
+      (format t "converting ~A to ~A~%" src-file dest-file)
+      (cltpt/base:convert-file
+       (cltpt/base:text-format-by-name src-format-name)
+       (cltpt/base:text-format-by-name dest-format-name)
+       src-file
+       dest-file))))
+
 (defun commandline-main (argv)
   (let ((app (top-level-command)))
     (clingon:run app argv)))
-
-(defun list-org-files (dir)
-  (directory (format nil "~A*.org" dir)))
-
-(defun list-org-titles (dir)
-  (time
-   (let ((object-types (list (find-class 'org-keyword))))
-     ;; needed for MOP to work
-     (mapcar 'sb-mop:finalize-inheritance object-types)
-     (remove-if-not
-      'identity
-      (loop for org-file in (list-org-files dir)
-            collect (let* ((result (parse (uiop:read-file-string org-file)
-                                          object-types
-                                          :as-doc nil))
-                           (title))
-                      (mapc
-                       (lambda (entry)
-                         (when (string= (text-object-property entry :keyword)
-                                        "title")
-                           (setf title (text-object-property entry :value))))
-                       result)
-                      title))))))
