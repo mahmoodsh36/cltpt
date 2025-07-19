@@ -355,3 +355,17 @@ object's region. you should just make it return a symbol like `end-type'."))
     (loop for (key value) on kws by #'cddr
           do (setf (text-object-property obj key) value))
     obj))
+
+;; inefficient :(, takes O(log(n)) when it should take O(1)
+(defmethod text-object-begin-in-root ((text-obj text-object))
+  "where the text object begins in the root-most parent."
+  (let ((begin (region-begin (text-object-text-region text-obj)))
+        (parent (text-object-parent text-obj)))
+    (if parent
+        (+ begin (text-object-begin-in-root parent))
+        begin)))
+
+(defmethod text-object-end-in-root ((text-obj text-object))
+  "where the text object begins in the root-most parent."
+  (let ((begin-in-root (text-object-begin-in-root text-obj)))
+    (+ begin-in-root (region-length (text-object-text-region text-obj)))))
