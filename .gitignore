@@ -2,3 +2,4 @@ test.out
 test.out.tex
 test.out.html
 personal
+*.fasl
