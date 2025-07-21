@@ -3,6 +3,7 @@
 CLOSED: [2024-10-29 Tue 16:41:04]
 CLOSED: [2024-10-29 Tue 16:41:03]
 :PROPERTIES:
+:ID: my-id
 :LAST_REPEAT: [2024-10-29 Tue 16:40:36]
 :END:
 - State "DONE"       from "TODO"       [2024-10-29 Tue 16:41:04]

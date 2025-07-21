@@ -369,3 +369,11 @@ object's region. you should just make it return a symbol like `end-type'."))
   "where the text object begins in the root-most parent."
   (let ((begin-in-root (text-object-begin-in-root text-obj)))
     (+ begin-in-root (region-length (text-object-text-region text-obj)))))
+
+(defmethod find-children-recursively ((text-obj text-object) cond)
+  (let ((results))
+    (labels ((add-if (obj)
+               (when (funcall cond obj)
+                 (push obj results))))
+      (cltpt/base:map-text-object text-obj #'add-if))
+    results))

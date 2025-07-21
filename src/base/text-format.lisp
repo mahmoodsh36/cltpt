@@ -48,24 +48,6 @@
                            :doc-type (text-format-text-document-type fmt))))
     text-tree))
 
-(defun convert-file (fmt1 fmt2 src-file dest-file)
-  (let* ((text (uiop:read-file-string src-file))
-         (result (convert-text fmt1 fmt2 text)))
-    (with-open-file (f dest-file
-                       :direction :output
-                       :if-exists :supersede
-                       :if-does-not-exist :create)
-      (write-sequence result f))))
-
-(defun convert-text (fmt1 fmt2 text)
-  (let* ((text-tree (parse text
-                           (text-format-text-object-types fmt1)
-                           :doc-type (text-format-text-document-type fmt1)))
-         (result (convert-tree text-tree
-                               fmt2
-                               (text-format-text-object-types fmt1))))
-    result))
-
 (defun text-format-by-name (name)
   (find name *text-formats* :key 'text-format-name :test 'string=))
 
