@@ -2,6 +2,7 @@
   (:use :cl :str)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
+   :consec-atleast-one
    :symbol-matcher :scan-all-rules :any :all-but
    :all-but-newline :atleast-one :lisp-sexp :pair
    :unescaped :natural-number-matcher :when-match
@@ -101,6 +102,25 @@
                 :end pos
                 :match (subseq str start pos))
           (nreverse matches))))
+
+(defun consec-atleast-one (str pos &rest all)
+  (let ((start pos)
+        (matches))
+    (loop for one in all
+          for match = (match-rule-normalized one str pos)
+          for len = (when match
+                      (- (getf (car match) :end)
+                         (getf (car match) :begin)))
+          do (if (and match len (plusp len))
+                 (progn
+                   (setf pos (getf (car match) :end))
+                   (push match matches))
+                 (return)))
+    (when matches
+      (cons (list :begin start
+                  :end pos
+                  :match (subseq str start pos))
+            (nreverse matches)))))
 
 (defun atleast-one (str pos matcher)
   (let ((start pos)

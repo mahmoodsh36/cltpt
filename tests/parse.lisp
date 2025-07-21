@@ -334,7 +334,7 @@ more nested text<ol type=\"1\">
    (cltpt/base::parse
     "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
   my first block
-  #a
+  %a
 #(cltpt/base::block-end)"
     (cltpt/org-mode::org-mode-text-object-types))
    (cltpt/base:text-format-by-name "latex")

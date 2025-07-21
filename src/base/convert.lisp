@@ -162,3 +162,21 @@
               for result = (convert-rule-with-shared-patterns subrule)
               when result
                 return result))))
+
+(defun convert-file (fmt1 fmt2 src-file dest-file)
+  (let* ((text (uiop:read-file-string src-file))
+         (result (convert-text fmt1 fmt2 text)))
+    (with-open-file (f dest-file
+                       :direction :output
+                       :if-exists :supersede
+                       :if-does-not-exist :create)
+      (write-sequence result f))))
+
+(defun convert-text (fmt1 fmt2 text)
+  (let* ((text-tree (parse text
+                           (text-format-text-object-types fmt1)
+                           :doc-type (text-format-text-document-type fmt1)))
+         (result (convert-tree text-tree
+                               fmt2
+                               (text-format-text-object-types fmt1))))
+    result))
