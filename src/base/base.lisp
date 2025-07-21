@@ -26,10 +26,12 @@
    :text-object-finalize :text-object-parent :text-object-next-sibling
    :text-object-prev-sibling :text-object-contents
    :text-object-property :text-object-text :text-object-text-region
+   :text-object-properties
    :text-object-init
    :text-object-begin-in-root :text-object-end-in-root
    :make-region
    :wrap-contents-for-convert
+   :find-children-recursively
 
    :region-text))
 

@@ -59,59 +59,6 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
   (and (consp list1)
        (keywordp (car list1))))
 
-(defun tree-mapcar (node func &optional cond)
-  "we iterate through the tree one NODE at a time and run FUNC on each, COND
-decides whether to recurse on a specific node. a tree is returned with nodes
-replaced by the results of calling FUNC on them. children are handled first."
-  (if cond
-      (if (and (consp node) (funcall cond node))
-          (cons (funcall func (car node))
-                (loop for child in (cdr node)
-                      collect (tree-mapcar child func cond)))
-          (cons (funcall func (car node))
-                (cdr node)))
-      (if (consp node)
-          (cons (funcall func (car node))
-                (loop for child in (cdr node)
-                      collect (tree-mapcar child func cond)))
-          node)))
-
-(defun tree-find (node item &key (test #'equal) (key #'identity))
-  "find `ITEM' from the `car' of some node in the tree NODE.
-TEST checks for equality between ITEM and `(key (car node))'."
-  (tree-mapcar
-   node
-   (lambda (other-node)
-     (when (funcall test item (funcall key other-node))
-       (return-from tree-find other-node))))
-  nil)
-
-(defun tree-find-all (node item &key (test #'equal) (key #'identity))
-  "similar to `tree-find' but returns all instances matched from the tree."
-  (let ((result))
-    (tree-mapcar
-     node
-     (lambda (other-node)
-       (when (funcall test item (funcall key other-node))
-         (push other-node result))))
-    result))
-
-(defun find-submatch (match submatch-id)
-  "from a combinator-returned MATCH, find a sub-match by its SUBMATCH-ID."
-  (tree-find
-   match
-   submatch-id
-   :key (lambda (node)
-          (getf node :id))))
-
-(defun find-submatch-all (match submatch-id)
-  "similar to `find-submatch', but returns all matches."
-  (tree-find-all
-   match
-   submatch-id
-   :key (lambda (node)
-          (getf node :id))))
-
 (defun flatten (l)
   "flatten a tree: turn it into a list."
   (cond ((null l) nil)
@@ -161,3 +108,48 @@ TEST checks for equality between ITEM and `(key (car node))'."
          (name (file-namestring (make-pathname :name (pathname-name pathname)
                                                :type new-ext))))
     (namestring (merge-pathnames name (pathname path)))))
+
+(defun tree-mapcons (node func)
+  "we iterate through the tree one subtree at a time and run FUNC on each.
+children are handled first."
+  (when (consp node)
+    (progn
+      (loop for child in (cdr node)
+            do (tree-mapcons child func))
+      (funcall func node))))
+
+(defun tree-find (node item &key (test #'equal) (key #'identity))
+  "find `ITEM' from the `car' of some node in the tree NODE.
+TEST checks for equality between ITEM and `(key (car node))'."
+  (tree-mapcons
+   node
+   (lambda (other-node)
+     (when (funcall test item (funcall key other-node))
+       (return-from tree-find other-node))))
+  nil)
+
+(defun tree-find-all (node item &key (test #'equal) (key #'identity))
+  "similar to `tree-find' but returns all instances matched from the tree."
+  (let ((result))
+    (tree-mapcons
+     node
+     (lambda (other-node)
+       (when (funcall test item (funcall key other-node))
+         (push other-node result))))
+    result))
+
+(defun find-submatch (match submatch-id)
+  "from a combinator-returned MATCH, find a sub-match by its SUBMATCH-ID."
+  (tree-find
+   match
+   submatch-id
+   :key (lambda (node)
+          (getf (car node) :id))))
+
+(defun find-submatch-all (match submatch-id)
+  "similar to `find-submatch', but returns all matches."
+  (tree-find-all
+   match
+   submatch-id
+   :key (lambda (node)
+          (getf (car node) :id))))
