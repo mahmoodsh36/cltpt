@@ -377,3 +377,14 @@ object's region. you should just make it return a symbol like `end-type'."))
                  (push obj results))))
       (cltpt/base:map-text-object text-obj #'add-if))
     results))
+
+(defmethod find-children ((text-obj text-object) cond)
+  (remove-if-not cond (text-object-children text-obj)))
+
+(defmethod list-children-recursively ((text-obj text-object))
+  "lists all nested children text objects of TEXT-OBJ. including the object itself."
+  (let ((results))
+    (labels ((handle (obj)
+               (push obj results)))
+      (cltpt/base:map-text-object text-obj #'handle))
+    results))

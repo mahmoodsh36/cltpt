@@ -8,6 +8,7 @@ the project depends on the following packages which could be installed using qui
 - clingon
 - ironclad
 - fiveam
+- local-time
 
 the code uses some sbcl-specific libraries for now, so it is unlikely that it will run on other dialects.
 
