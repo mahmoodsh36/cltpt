@@ -651,13 +651,6 @@ this is not a match: #tag2
    (string= (cltpt/tests::transformer-test-1-func)
             "\\ref{here1}")))
 
-(defun agenda-test-1 ()
-  (let* ((result (cltpt/base::parse-file
-                  "test.org"
-                  (cltpt/base:text-format-by-name "org-mode")))
-         (agenda (cltpt/agenda::collect-todos result)))
-    agenda))
-
 (defun roam-test-1 ()
   (time
    (let* ((rmr (cltpt/roam:from-files
@@ -676,6 +669,14 @@ this is not a match: #tag2
                  (cltpt/base:text-object-parent (cltpt/roam:node-text-obj node)))
                (cltpt/roam:roamer-nodes rmr)))))))
 
+(defun agenda-test-1 ()
+  (let* ((rmr (cltpt/roam:from-files
+                '((:path ("/home/mahmooz/brain/daily/")
+                   :regex ".*\\.org"
+                   :format "org-mode"))))
+         (agenda (cltpt/agenda:from-roamer rmr)))
+    agenda))
+
 (defun test-org-timestamp-1 ()
   (cltpt/combinator:match-rule
    cltpt/org-mode::*org-timestamp-rule*
@@ -687,3 +688,18 @@ this is not a match: #tag2
    '(cltpt/combinator:natural-number-matcher)
    "2023"
    0))
+
+(defun org-header-parse-test-1 ()
+  (cltpt/combinator::parse
+   "
+* TODO my main header
+SCHEDULED: <2024-10-29 Tue 16:41:04>
+CLOSED: [2024-10-29 Tue 16:41:03]
+<2025-07-25 Fri 10:00:00>
+:PROPERTIES:
+:ID: my-id
+:LAST_REPEAT: [2024-10-29 Tue 16:40:36]
+:END:
+"
+   (list
+    cltpt/org-mode::*org-header-rule*)))

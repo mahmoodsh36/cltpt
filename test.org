@@ -1,7 +1,7 @@
 #+title: my doc
-* my main header
-CLOSED: [2024-10-29 Tue 16:41:04]
-CLOSED: [2024-10-29 Tue 16:41:03]
+* TODO due task
+SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
+<2025-07-25 Fri 10:00:00>
 :PROPERTIES:
 :ID: my-id
 :LAST_REPEAT: [2024-10-29 Tue 16:40:36]
@@ -18,6 +18,20 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 - State "DONE"       from "TODO"       [2024-09-03 Tue 16:31:49]
 - State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
 
+* TODO another due task
+SCHEDULED: <2024-10-15 Tue 16:41:04> DEADLINE: <2024-10-15 Tue 16:51:04>
+
+* TODO my secondary header
+SCHEDULED: <2025-07-26 Sat 10:55>
+
+** TODO do something
+SCHEDULED: <2025-07-27 Sun 10:55:00>
+
+** TODO do something else
+SCHEDULED: <2025-07-27 Sun 17:55:00>
+
+** TODO send the professor a mail
+DEADLINE: <2025-07-30 Wed 10:00>
 
 #+mykeyword: value
 some [[mylink1-2:here1][testmore1- 2]] text

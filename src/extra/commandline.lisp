@@ -78,9 +78,9 @@
              (cltpt/base:convert-tree
               (cltpt/base:parse
                format-str
-               (cltpt/org-mode:org-mode-text-object-types))
+               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
               (cltpt/base:text-format-by-name "latex") ;; just use latex for now
-              (cltpt/org-mode:org-mode-text-object-types))))
+              (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
        (format t "~A~%" result)))))
 
 ;; this is problematic because it may convert the same file multiple times
