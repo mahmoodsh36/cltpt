@@ -1,8 +1,8 @@
 (defpackage :cltpt/roam
   (:use :cl :cltpt/base)
   (:export :from-files :roamer-rescan :roamer-nodes
-   :node-id :node-title :node-desc :node-file :node-todo :node-text-obj
-   :make-node :text-object-roam-data))
+   :node-id :node-title :node-desc :node-file :node-text-obj
+   :make-node :text-object-roam-data :roamer))
 
 (in-package :cltpt/roam)
 
@@ -10,7 +10,6 @@
   id
   title
   desc
-  todo ;; should we have this?
   text-obj
   file ;; we can do this better
   )

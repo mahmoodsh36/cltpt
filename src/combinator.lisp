@@ -4,9 +4,10 @@
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one
    :symbol-matcher :scan-all-rules :any :all-but
-   :all-but-newline :atleast-one :lisp-sexp :pair
+   :all-but-newline :atleast-one :atleast-one-discard :lisp-sexp :pair
    :unescaped :natural-number-matcher :when-match
-   :at-line-start-p :at-line-end-p :followed-by :match-rule))
+   :at-line-start-p :at-line-end-p :followed-by :match-rule
+   :separated-atleast-one))
 
 (in-package :cltpt/combinator)
 
@@ -122,6 +123,36 @@
                   :match (subseq str start pos))
             (nreverse matches)))))
 
+;; a consecutive set of matchers, separated by a specific matcher. atleast one
+;; note that this also detects a separator at the end, should be an easy fix
+(defun separated-atleast-one (str pos sep-matcher matcher)
+  "apply the sequence of matcher `ALL' separated by `SEP-MATCHER'."
+  (let ((start pos)
+        (matches)
+        (first t)
+        (sep-match))
+    (loop
+      do (unless first
+           ;; match separator
+           (let ((match (match-rule-normalized sep-matcher str pos)))
+             (unless match
+               (return))
+             (setf pos (getf (car match) :end))
+             (setf sep-match match)))
+         (let ((match (match-rule-normalized matcher str pos)))
+           (unless match
+             (return))
+           (setf pos (getf (car match) :end))
+           (when first
+             (push sep-match matches))
+           (push match matches))
+         (setf first nil))
+    (when matches
+      (cons (list :begin start
+                  :end pos
+                  :match (subseq str start pos))
+            (nreverse matches)))))
+
 (defun atleast-one (str pos matcher)
   (let ((start pos)
         (matches))
@@ -142,11 +173,29 @@
                   :match (subseq str start pos))
             (nreverse matches)))))
 
+(defun atleast-one-discard (str pos matcher)
+  "like `atleast-one', but doesnt collect submatches. better performance."
+  (let ((start pos))
+    (loop while (< pos (length str))
+          for match = (match-rule-normalized matcher str pos)
+          while match
+          for len = (when match
+                      (- (getf (car match) :end)
+                         (getf (car match) :begin)))
+          do (if (and match len (plusp len))
+                 (setf pos (getf (car match) :end))
+                 (return)))
+    (when (> pos start)
+      (cons (list :begin start
+                  :end pos
+                  :match (subseq str start pos))
+            nil))))
+
 (defun symbol-matcher (str pos)
-  (match-rule '(atleast-one (symbol-char)) str pos))
+  (match-rule '(atleast-one-discard (symbol-char)) str pos))
 
 (defun word-matcher (str pos)
-  (match-rule `(atleast-one (eng-char-p)) str pos))
+  (match-rule `(atleast-one-discard (eng-char-p)) str pos))
 
 (defun digit-p (str pos)
   (and (< pos (length str))
@@ -154,7 +203,7 @@
        1))
 
 (defun natural-number-matcher (str pos)
-  (match-rule `(atleast-one (digit-p)) str pos))
+  (match-rule `(atleast-one-discard (digit-p)) str pos))
 
 (defun pair (str pos opening-rule closing-rule
              &optional rules-for-content pair-id (allow-multiline t))
@@ -321,11 +370,19 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
     ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
      (apply (car rule) str pos (cdr rule)))
     ((and (listp rule) (getf rule :pattern))
-     (let ((sub-pattern-match (match-rule-normalized (getf rule :pattern) str pos)))
-       (when sub-pattern-match
-         (let* ((parent-info (car sub-pattern-match))
-                (new-parent-info (list* :id (getf rule :id) parent-info)))
-           (cons new-parent-info (cdr sub-pattern-match))))))
+     ;; exploit :on-char here too, for some (small?) gains
+     (unless (and (getf rule :on-char)
+                  (< pos (length str))
+                  (not (char= (char str pos) (getf rule :on-char))))
+       (let ((sub-pattern-match
+               (match-rule-normalized
+                (getf rule :pattern)
+                str
+                pos)))
+         (when sub-pattern-match
+           (let* ((parent-info (car sub-pattern-match))
+                  (new-parent-info (list* :id (getf rule :id) parent-info)))
+             (cons new-parent-info (cdr sub-pattern-match)))))))
     ((stringp rule)
      (let ((compiled (compile-rule-string rule)))
        (if (> (length compiled) 1)
@@ -423,4 +480,4 @@ immediately after the match satisfies 'condition-fn'."
        1))
 
 (defun upcase-word-matcher (str pos)
-  (match-rule `(atleast-one (upcase-char-p)) str pos))
+  (match-rule `(atleast-one-discard (upcase-char-p)) str pos))

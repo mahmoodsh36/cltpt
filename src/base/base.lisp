@@ -31,7 +31,7 @@
    :text-object-begin-in-root :text-object-end-in-root
    :make-region
    :wrap-contents-for-convert
-   :find-children-recursively
+   :find-children-recursively :find-children :list-children-recursively
 
    :region-text))
 
