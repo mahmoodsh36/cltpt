@@ -19,6 +19,10 @@
 (defmethod region-text ((r region) str1)
   (subseq str1 (region-begin r) (region-end r)))
 
+(defmethod region-contains ((r region) pos)
+  (and (< pos (region-end r))
+       (>= pos (region-begin r))))
+
 (defmethod region-length ((r region))
   (with-slots (begin end) r
     (- end begin)))
@@ -132,7 +136,9 @@ object's region. you should just make it return a symbol like `end-type'."))
   (if (text-object-parent child)
       (delete child (text-object-children (text-object-parent child))))
   (setf (text-object-parent child) parent)
-  (push child (text-object-children parent)))
+  ;; we dont need this do we?
+  ;; (push child (text-object-children parent))
+  )
 
 (defmethod print-object ((obj text-object) stream)
   (print-unreadable-object (obj stream :type t)
@@ -142,6 +148,7 @@ object's region. you should just make it return a symbol like `end-type'."))
             (if (slot-boundp obj 'text) (str:prune 10 (text-object-text obj)) nil))))
 
 ;; this is actually the slowest way to traverse siblings
+;; TODO: easy to optimize
 (defmethod text-object-next-sibling ((obj text-object))
   (with-slots (parent) obj
     (when parent
@@ -150,6 +157,7 @@ object's region. you should just make it return a symbol like `end-type'."))
           (elt (text-object-children parent) (1+ idx)))))))
 
 ;; this is actually the slowest way to traverse siblings
+;; TODO: easy to optimize
 (defmethod text-object-prev-sibling ((obj text-object))
   (with-slots (parent) obj
     (when parent
@@ -158,8 +166,7 @@ object's region. you should just make it return a symbol like `end-type'."))
           (elt (text-object-children parent) (1- idx)))))))
 
 (defmethod text-object-finalize ((obj text-object))
-  "default finalize function, does nothing."
-  )
+  "default finalize function, does nothing.")
 
 (defclass document (text-object)
   ()
@@ -239,10 +246,6 @@ object's region. you should just make it return a symbol like `end-type'."))
                   (:pattern (cltpt/combinator:lisp-sexp)
                    :id lisp-code)))
                 :on-char #\#))))
-
-(defun is-not-before-parenthesis (str1 pos match-str)
-  (not (char= (char str1 (+ pos (length match-str)))
-              #\()))
 
 (defclass post-lexer-text-macro (text-object)
   ((rule
@@ -390,3 +393,18 @@ object's region. you should just make it return a symbol like `end-type'."))
                (push obj results)))
       (cltpt/base:map-text-object text-obj #'handle))
     results))
+
+(defmethod child-at-pos ((text-obj text-object) pos)
+  "find the leaf-most child that encloses the index POS."
+  (loop for child in (text-object-children text-obj)
+        do (when (region-contains (text-object-text-region child) pos)
+             (return-from child-at-pos
+               (if (text-object-children child)
+                   (or
+                    (child-at-pos
+                     child
+                     (+ pos
+                        (region-begin
+                         (text-object-text-region child))))
+                    child)
+                   child)))))
