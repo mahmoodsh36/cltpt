@@ -21,7 +21,7 @@
                                       text-object-types)))
                (when obj
                  (if (listp obj)
-                     (loop for item in (reverse obj)
+                     (loop for item in obj
                            do (push item child-results))
                      (push obj child-results)))))
     (if (member (getf main-match :id) text-object-types)
@@ -97,13 +97,13 @@
                 (text-object-init new-text-object str1 match)
                 new-text-object))
           ;; loop in children, if any return text objects, set them as children of this
-          (loop for item in child-results
+          (loop for item in (nreverse child-results)
                 do (text-object-set-parent item new-text-object)
                    (text-object-adjust-to-parent item new-text-object))
           (when is-new-object
             (push new-text-object (getf text-objects :objects))
             new-text-object))
-        (reverse child-results))))
+        child-results)))
 
 (defun parse (str1
               text-object-types
@@ -123,10 +123,12 @@
     (loop for m in matches
           do (handle-match str1 m text-objects text-object-types))
     ;; here we build the text object forest (collection of trees) properly
-    (let ((top-level (remove-if
-                      (lambda (item)
-                        (text-object-parent item))
-                      (second text-objects)))
+    (let ((top-level
+            (reverse
+             (remove-if
+              (lambda (item)
+                (text-object-parent item))
+              (second text-objects))))
           (doc (make-instance doc-type :text str1)))
       (setf (text-object-text-region doc)
             (make-region :begin 0 :end (length str1)))
