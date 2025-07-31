@@ -32,6 +32,7 @@
    :make-region
    :wrap-contents-for-convert
    :find-children-recursively :find-children :list-children-recursively
+   :child-at-pos :region-contains
 
    :region-text))
 
