@@ -25,24 +25,9 @@
     :accessor roamer-files
     :documentation "files/directories we load the nodes from.")))
 
-;; example of files:
-#|
-(:path '("dir1" "dir2" "file.md")
- :recurse nil
- :regex nil ;; ".*\.(org|tex|md)"
- :ext nil ;; '("org" "tex" "md")
- :format "org-mode"
-       )
-(:path '("dir1" "dir2" "file.m")
- :recurse nil
- :regex nil ;; ".*\.(org|tex|md)"
- :ext nil ;; '("org" "tex" "md")
- :format "latex"
-       )
-|#
-
-;; takes a set of files, returns a roamer
 (defun from-files (files)
+  "see documentation of `find-files' for FILES. takes a set of rules, returns a
+`roamer' object."
   (let ((rmr (make-roamer :files files)))
     (roamer-rescan rmr)
     rmr))
@@ -60,6 +45,12 @@
   )
 
 (defun find-files (file-rules)
+  "takes a list of rules for files to find.
+each rule is a plist that can contain the following params.
+:path - path of file/directory,
+:regex - a regex to match against the files found,
+:recurse - if :path is a directory, this says whether to recursively look for files,
+:format - unused here, but tells us which format to use to parse the files found."
   (let ((file-rule-alist)) ;; maps a raw filepath to the rule it was found for
     (labels ((handle-file (filepath file-rule)
                (let ((ext (getf file-rule :ext)))

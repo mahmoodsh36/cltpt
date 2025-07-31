@@ -248,9 +248,9 @@ object's region. you should just make it return a symbol like `end-type'."))
   ((rule
     :allocation :class
     :initform '(:pattern
-                (cltpt/combinator::consec
-                 (cltpt/combinator::literal "%")
-                 (:pattern (cltpt/combinator::lisp-sexp)
+                (cltpt/combinator:consec
+                 (cltpt/combinator:literal "%")
+                 (:pattern (cltpt/combinator:lisp-sexp)
                   :id lisp-code))
                 :on-char #\%))))
 
@@ -356,6 +356,7 @@ object's region. you should just make it return a symbol like `end-type'."))
           do (setf (text-object-property obj key) value))
     obj))
 
+;; TODO: easy to optimize
 ;; inefficient :(, takes O(log(n)) when it should take O(1)
 (defmethod text-object-begin-in-root ((text-obj text-object))
   "where the text object begins in the root-most parent."
@@ -365,6 +366,7 @@ object's region. you should just make it return a symbol like `end-type'."))
         (+ begin (text-object-begin-in-root parent))
         begin)))
 
+;; TODO: easy to optimize
 (defmethod text-object-end-in-root ((text-obj text-object))
   "where the text object begins in the root-most parent."
   (let ((begin-in-root (text-object-begin-in-root text-obj)))
