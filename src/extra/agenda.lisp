@@ -49,7 +49,7 @@ the new agenda object will contain all the todos found in the nodes of the roame
           for todo = (text-object-agenda-data obj)
           do
              (when todo
-               (setf (todo-node todo) obj)
+               (setf (todo-node todo) node)
                (push todo results)))
     (make-instance 'agenda :todos results)))
 
