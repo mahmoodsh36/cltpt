@@ -95,7 +95,6 @@ this function does nothing for that snippet."
                                      *latex-previews-tmp-directory*)))
           (when (probe-file path)
             (delete-file path))))
-      (format t "here================================== ~A~%" fmt-path)
       (when recompile
         (uiop:delete-file-if-exists fmt-path))
       (ensure-cached-format fmt-path)

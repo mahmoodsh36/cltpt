@@ -16,14 +16,16 @@
         :recurse t
         :escape nil))
 
+(defvar *display-math-rule*
+  '(:pattern
+    (cltpt/combinator:pair
+     (cltpt/combinator:literal "\\[")
+     (cltpt/combinator:literal "\\]"))
+    :on-char #\\))
 (defclass display-math (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform '(:pattern
-                (cltpt/combinator:pair
-                 (cltpt/combinator:literal "\\[")
-                 (cltpt/combinator:literal "\\]"))
-                :on-char #\\))))
+    :initform *display-math-rule*)))
 
 (defmethod cltpt/base:text-object-convert ((obj display-math)
                                            (fmt (eql latex)))
@@ -32,12 +34,17 @@
         :recurse t
         :escape nil))
 
+
+(defvar *latex-env-rule*
+  '(:pattern
+    (cltpt/combinator:pair
+     "\\begin{%W}"
+     "\\end{%W}")
+    :on-char #\\))
 (defclass latex-env (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform
-    (list :pattern (list 'pair "\\begin{%W}" "\\end{%W}")
-          :on-char #\\)))
+    :initform *latex-env-rule*))
   (:documentation "latex environment."))
 
 (defclass latex-link (cltpt/base:text-object)
@@ -55,7 +62,7 @@
                 :on-char #\\)))
   (:documentation "latex link."))
 
-;; do we need this?
+;; no need for this but ill keep it
 ;; (defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql latex)))
 ;;   (list :text (cltpt/base:text-object-text obj)
 ;;         :reparse nil
