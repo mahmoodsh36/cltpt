@@ -45,7 +45,7 @@
                              (:file "org-table")))
                (:module "zoo"
                 :pathname "src/"
-                :depends-on ("base")
+                :depends-on ("base" "latex" "html" "org-mode")
                 :components ((:file "zoo")))
                (:module "commandline"
                 :pathname "src/extra"

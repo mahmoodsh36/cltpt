@@ -2,6 +2,7 @@
   (:use :cl :cltpt/base)
   (:export :from-files :roamer-rescan :roamer-nodes
    :node-id :node-title :node-desc :node-file :node-text-obj
+   :node-file-rule
    :make-node :text-object-roam-data :roamer))
 
 (in-package :cltpt/roam)
@@ -12,6 +13,7 @@
   desc
   text-obj
   file ;; we can do this better
+  file-rule ;; file rule from which the node was constructed we can do this better
   )
 
 (defclass roamer ()
@@ -96,6 +98,7 @@ each rule is a plist that can contain the following params.
                     (when node
                       (setf (node-text-obj node) text-obj)
                       (setf (node-file node) file)
+                      (setf (node-file-rule node) file-rule)
                       (push node (roamer-nodes rmr))))))))))
 
 (defmethod text-object-roam-data ((obj cltpt/base:text-object))

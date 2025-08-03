@@ -109,6 +109,15 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
                                                :type new-ext))))
     (namestring (merge-pathnames name (pathname path)))))
 
+(defun path-without-extension (path)
+  (let* ((pathname (pathname path))
+         (dir (pathname-directory pathname))
+         (name (pathname-name pathname)))
+    (namestring (make-pathname :directory dir :name name :type nil))))
+
+(defun base-name-no-ext (path)
+  (namestring (make-pathname :name (pathname-name path))))
+
 (defun tree-mapcons (node func)
   "we iterate through the tree one subtree at a time and run FUNC on each.
 children are handled first."

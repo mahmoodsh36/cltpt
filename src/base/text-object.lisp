@@ -132,13 +132,13 @@ object's region. you should just make it return a symbol like `end-type'."))
   "where the text object ends relative to its parent."
   (region-end (text-object-text-region text-obj)))
 
+;; TODO: this doesnt take into account ordering of children in parent, it just
+;; *pushes* into the parent
 (defmethod text-object-set-parent ((child text-object) (parent text-object))
   (if (text-object-parent child)
       (delete child (text-object-children (text-object-parent child))))
   (setf (text-object-parent child) parent)
-  ;; we dont need this do we?
-  ;; (push child (text-object-children parent))
-  )
+  (push child (text-object-children parent)))
 
 (defmethod print-object ((obj text-object) stream)
   (print-unreadable-object (obj stream :type t)

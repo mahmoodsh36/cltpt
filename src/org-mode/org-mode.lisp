@@ -34,25 +34,15 @@
      )
    'org-document))
 
-;; `text-format' instance
-(defvar org-mode (make-org-mode))
-;; whether to convert with preamble/postamble, etc
-(defvar *org-mode-convert-with-boilerplate* t)
-;; for detecting objects inside table cells, lists, etc
-(defvar *org-mode-inline-text-object-types*)
+(defvar org-mode
+  (make-org-mode)
+  "`text-format' instance of the org-mode format.")
+(defvar *org-mode-convert-with-boilerplate*
+  t
+  "whether to convert with preamble/postamble.")
 
 (defun org-mode-text-object-types ()
   (cltpt/base:text-format-text-object-types org-mode))
-
-;; eval-when wouldnt be enough here..
-(defmethod asdf:perform :after ((op asdf:load-op) (system (eql (asdf:find-system "cltpt"))))
-  (setf *org-mode-inline-text-object-types*
-        (intersection (org-mode-text-object-types)
-                      '(org-link
-                        org-emph org-italic org-inline-code
-                        cltpt/latex:inline-math
-                        cltpt/base:text-macro
-                        cltpt/base:post-lexer-text-macro))))
 
 (defvar *org-drawer-rule*
   '(:pattern
@@ -595,25 +585,22 @@
     (setf (cltpt/base:text-object-property obj :type)
           (getf link-type-match :match))))
 
+(defun copy-rule-with-id (rule id)
+  (let ((copy (copy-tree rule)))
+    (setf (getf copy :id) id)
+    copy))
+
 (defclass org-list (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
     :initform `(:pattern
                 (org-list-matcher
-                 ((:pattern ,*org-link-rule* :id org-link)
-                  (:pattern ,cltpt/latex::*inline-math-rule*
-                   :id cltpt/latex::inline-math)))
+                 (,(copy-rule-with-id *org-link-rule* 'org-link)
+                  ,(copy-rule-with-id
+                    cltpt/latex:*inline-math-rule*
+                    'cltpt/latex:inline-math)))
                 :on-char #\-)))
   (:documentation "org-mode list."))
-
-(defun deep-copy-org-forest (tree)
-  (cond ((null tree) nil)
-        ((consp tree)
-         (cons (deep-copy-org-forest (car tree))
-               (deep-copy-org-forest (cdr tree))))
-        ((stringp tree)
-         (copy-seq tree))
-        (t tree)))
 
 ;; this is very hacky, perhaps we should find a better way to export lists
 ;; and their children
@@ -634,6 +621,9 @@
            (lambda (obj)
              (equal (type-of obj) 'org-list))
            (cltpt/base:text-object-children obj)))
+    ;; we create a new intermediate object, treat it as raw text,
+    ;; parse other types of text objects and convert them, then parse the result
+    ;; as a list
     (let* ((new-txt (cltpt/base:convert-tree new-obj
                                              backend
                                              (org-mode-text-object-types)))
@@ -657,7 +647,7 @@
                 (org-table-matcher
                  ((:pattern ,*org-link-rule* :id org-link)
                   (:pattern ,cltpt/latex:*inline-math-rule*
-                   :id cltpt/latex:inline-math)))
+                   :id cltpt/latex::inline-math)))
                 :on-char #\|)))
   (:documentation "org-mode table."))
 
@@ -691,21 +681,28 @@
   ()
   (:documentation "org-mode document."))
 
-(defmethod cltpt/roam:text-object-roam-data ((doc org-document))
-  (let ((title))
-    ;; TODO: here we dont need to iterate through all objects recursive.
-    (cltpt/base:map-text-object
-     doc
-     (lambda (obj)
-       (when (typep obj 'org-keyword)
-         (let ((kw-name (cltpt/base:text-object-property obj :keyword))
-               (kw-value (cltpt/base:text-object-property obj :value)))
-           (when (string= kw-name "title")
-             (setf title kw-value))))))
-    (cltpt/roam:make-node
-     :id "test-id"
-     :title title
-     :desc nil)))
+;; TODO: grab ID from document-level property drawer
+(defmethod cltpt/base:text-object-finalize ((obj org-document))
+  (let* ((doc-title)
+         (doc-id))
+    (labels ((is-keyword (obj2)
+               (typep obj2 'org-keyword)))
+      (loop for kw in (find-children obj #'is-keyword)
+            do (let ((kw-name (cltpt/base:text-object-property kw :keyword))
+                     (kw-value (cltpt/base:text-object-property kw :value)))
+                 (when (string= kw-name "title")
+                   (setf doc-title kw-value))
+                 ;; denote-style identifier
+                 (when (string= kw-name "identifier")
+                   (setf doc-id kw-value))
+                 )))
+    ;; initialize roam data
+    (setf (cltpt/base:text-object-property obj :roam-node)
+          (cltpt/roam:make-node
+           :id doc-id
+           :title doc-title
+           :desc nil
+           :text-obj obj))))
 
 (defun ensure-latex-previews-generated (org-doc)
   (let ((mylist))
@@ -716,7 +713,7 @@
                  (typep obj 'cltpt/latex:display-math)
                  (typep obj 'cltpt/latex:latex-env))
          (push (cltpt/base:text-object-text obj) mylist))))
-    (cltpt/latex::generate-svgs-for-latex mylist)))
+    (cltpt/latex:generate-svgs-for-latex mylist)))
 
 (defun generate-html-header (author date title)
   "<head></head>")
@@ -862,3 +859,27 @@
        result))
     ((eq backend cltpt/html:html)
      (cltpt/base:wrap-contents-for-convert obj "<pre><code>" "</code></pre>"))))
+
+;; wrap text for exporting within specific "tags".
+(defun within-tags (open-tag inner-text close-tag)
+  (let* ((text (concatenate 'string
+                            open-tag
+                            inner-text
+                            close-tag)))
+    (list :text text
+          :recurse t
+          :reparse-region (cltpt/base:make-region
+                           :begin (length open-tag)
+                           :end (- (length text) (length close-tag)))
+          :reparse t)))
+
+(defmethod cltpt/base:text-object-convert ((obj org-link) backend)
+  (cond
+    ((eq backend cltpt/html:html)
+     (let* ((desc (cltpt/base:text-object-property obj :desc))
+            (dest (cltpt/base:text-object-property obj :dest))
+            (type (cltpt/base:text-object-property obj :type))
+            (final-desc (or desc dest))
+            (open-tag (format nil "<a href='~A'>" dest)))
+       (when dest
+         (within-tags open-tag final-desc "</a>"))))))

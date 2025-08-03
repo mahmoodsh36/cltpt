@@ -97,13 +97,16 @@
                 (text-object-init new-text-object str1 match)
                 new-text-object))
           ;; loop in children, if any return text objects, set them as children of this
-          (loop for item in (nreverse child-results)
+          ;; the children are already reversed, here we are inserting them also
+          ;; in reverse order using *push* (by `text-object-set-parent'),
+          ;; but this means they'll be ordered in the parent correctly
+          (loop for item in child-results
                 do (text-object-set-parent item new-text-object)
                    (text-object-adjust-to-parent item new-text-object))
           (when is-new-object
             (push new-text-object (getf text-objects :objects))
             new-text-object))
-        child-results)))
+        (reverse child-results))))
 
 (defun parse (str1
               text-object-types

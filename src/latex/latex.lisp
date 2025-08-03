@@ -5,13 +5,10 @@
    :latex :display-math
    :inline-math :*inline-math-rule*
    :latex-env
-   :generate-latex-preamble :*latex-preamble*))
+   :generate-latex-preamble :*latex-preamble* :*latex-preview-preamble*
+   :generate-svgs-for-latex))
 
 (in-package :cltpt/latex)
-
-;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
-(defvar *html-export-with-latex-method*
-  'svg)
 
 (defvar *latex-preamble*
   "\\documentclass[11pt]{article}
@@ -53,10 +50,3 @@
 
 (defmethod cltpt/base:text-format-escape ((fmt (eql latex)) text escapable-chars)
   (cltpt/base:replace-chars-and-escapes text *latex-escape-table* escapable-chars))
-
-(defun latex-fragment-to-html (latex-code is-inline)
-  (case *html-export-with-latex-method*
-    ('svg
-     (let ((img-filepath))
-       (let ((img-filepath (cdar (generate-svgs-for-latex (list latex-code)))))
-         (format nil "<img src='~A'></img>" img-filepath))))))
