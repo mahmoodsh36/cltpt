@@ -31,10 +31,28 @@
      (let ((img-filepath))
        (let ((img-filepath (cdar (cltpt/latex:generate-svgs-for-latex
                                   (list latex-code)))))
-         (format nil "<img src='~A'></img>" img-filepath))))))
+         (if is-inline
+             (format nil
+                     "<img src='~A' class='inline-math'></img>"
+                     img-filepath)
+             (format nil
+                     "<br><img src='~A' class='display-math'></img><br>"
+                     img-filepath)))))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)
                                            (fmt (eql cltpt/html:html)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) t)
+        :recurse nil
+        :escape nil))
+
+(defmethod cltpt/base:text-object-convert ((obj cltpt/latex:display-math)
+                                           (fmt (eql cltpt/html:html)))
+  (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
+        :recurse nil
+        :escape nil))
+
+(defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
+                                           (fmt (eql cltpt/html:html)))
+  (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse nil
         :escape nil))

@@ -3,8 +3,8 @@
   (:shadowing-import-from :cltpt/combinator parse)
   (:export
    :latex :display-math
-   :inline-math :*inline-math-rule*
-   :latex-env
+   :inline-math :*inline-math-rule* :display-math :*display-math-rule*
+   :latex-env :*latex-env-rule*
    :generate-latex-preamble :*latex-preamble* :*latex-preview-preamble*
    :generate-svgs-for-latex))
 
@@ -12,7 +12,8 @@
 
 (defvar *latex-preamble*
   "\\documentclass[11pt]{article}
-\\usepackage{amsmath}")
+\\usepackage{amsmath}
+\\usepackage{hyperref}")
 
 (defun generate-latex-preamble (author date title)
   (format nil "~A

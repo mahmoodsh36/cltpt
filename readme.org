@@ -17,6 +17,10 @@ the code uses some sbcl-specific libraries for now, so it is unlikely that it wi
 convert files:
 
 #+begin_src sh :eval no
+  ./run.sh convert -r '(:path "/home/mahmooz/brain/notes/1684594232.org" :regex ".*\\.org" :format "org-mode")' -d html -o '/tmp/%(identity basename).html'
+#+end_src
+
+#+begin_src sh :eval no
   ./run.sh convert -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -d latex -o '/tmp/%(identity title).tex'
 #+end_src
 

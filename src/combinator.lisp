@@ -60,6 +60,7 @@
   (when (or (eng-alphanump str pos)
             (char= (char str pos) #\-)
             (char= (char str pos) #\_)
+            (char= (char str pos) #\*)
             (char= (char str pos) #\$))
     1))
 
@@ -395,7 +396,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
 (defun hash-rules (rules)
   (let ((hash (make-hash-table :test 'equal)))
     (loop for rule in rules
-          do (when (getf rule :on-char)
+          do (when (and (keywordp (car rule)) (getf rule :on-char))
                (push rule (gethash (getf rule :on-char) hash))))
     hash))
 
