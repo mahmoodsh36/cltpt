@@ -13,16 +13,17 @@ the project depends on the following packages which could be installed using qui
 the code uses some sbcl-specific libraries for now, so it is unlikely that it will run on other dialects.
 
 * example usage
-convert from org to latex:
+
+convert files:
 
 #+begin_src sh :eval no
-  ./run.sh -f test.org --action convert --action-arg org --action-arg tex
+  ./run.sh convert -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -d latex -o '/tmp/%(identity title).tex'
 #+end_src
 
-list titles and ids of org files in a directory:
+roam (query) files
 
 #+begin_src sh :eval no
-  ./run.sh -f path/to/dir/ --action show-info --action-arg 'title: %title, id: %id'
+  ./run.sh roam -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -o 'title: %title, id: %id, file: '
 #+end_src
 
 * goals

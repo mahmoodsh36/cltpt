@@ -1,15 +1,20 @@
 (in-package :cltpt/latex)
 
-(defparameter *latex-previews-tmp-directory* #P"/tmp/")
-(defparameter *latex-previews-preamble-filename* "preamble") ;; appended with .fmt
-(defparameter *latex-command* "latex")
-(defparameter *dvisvgm-command* "dvisvgm")
-(defparameter *preview-filename-prefix* "cltpt-snippet-")
+(defvar *latex-previews-tmp-directory* #P"/tmp/")
+(defvar *latex-previews-preamble-filename* "preamble") ;; appended with .fmt
+(defvar *latex-command* "latex")
+(defvar *dvisvgm-command* "dvisvgm")
+(defvar *preview-filename-prefix* "cltpt-snippet-")
+(defvar *latex-preview-preamble*
+  "\\documentclass[11pt]{article}
+\\usepackage{amsmath}
+\\usepackage{amssymb}
+")
 
 (defun ensure-cached-format (format-path)
   "ensure that the cached format file exists at FORMAT-PATH.
 if it doesnt exist, generate it by dumping the preamble.
-uses *latex-command* and *latex-preamble*."
+uses *latex-command* and *latex-preview-preamble*."
   (unless (probe-file format-path)
     (let ((preamble-file (merge-pathnames "preamble.tex" *latex-previews-tmp-directory*)))
       (with-open-file (out preamble-file
@@ -18,7 +23,7 @@ uses *latex-command* and *latex-preamble*."
         (format out "~A
 \\usepackage[active,tightpage,auctex,dvips]{preview}
 \\dump~%"
-                *latex-preamble*))
+                *latex-preview-preamble*))
       (multiple-value-bind (out-str err-str exit-code)
           (uiop:run-program
            (list *latex-command*
@@ -90,13 +95,12 @@ this function does nothing for that snippet."
                                      *latex-previews-tmp-directory*)))
           (when (probe-file path)
             (delete-file path))))
+      (format t "here================================== ~A~%" fmt-path)
       (when recompile
         (uiop:delete-file-if-exists fmt-path))
       (ensure-cached-format fmt-path)
       ;; write the multi-page tex file.
       (with-open-file (out tex-file :direction :output :if-exists :supersede)
-        (format out "\\documentclass{standalone}~%")
-        (format out "\\begin{document}~%")
         (dolist (snippet snippets)
           (format out "\\begin{preview}~%")
           (format out "~A~%" snippet)

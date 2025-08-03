@@ -13,7 +13,7 @@
    :pcase
    :file-has-extension-p
    :bind-and-eval :bind-and-eval*
-   :change-extension
+   :change-extension :path-without-extension :base-name-no-ext
 
    :convert-tree
 

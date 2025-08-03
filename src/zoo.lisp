@@ -24,3 +24,17 @@
        (wrap-contents-for-convert obj
                                   (format nil "<~A>" type1)
                                   (format nil "</~A>" type1))))))
+
+(defun latex-fragment-to-html (latex-code is-inline)
+  (case cltpt/html::*html-export-latex-method*
+    (cltpt/html::svg
+     (let ((img-filepath))
+       (let ((img-filepath (cdar (cltpt/latex:generate-svgs-for-latex
+                                  (list latex-code)))))
+         (format nil "<img src='~A'></img>" img-filepath))))))
+
+(defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)
+                                           (fmt (eql cltpt/html:html)))
+  (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) t)
+        :recurse nil
+        :escape nil))

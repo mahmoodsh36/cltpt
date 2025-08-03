@@ -12,6 +12,7 @@
    :license "MIT"
    :authors '("Mahmood Sheikh <mahmod.m2015@gmail.com>")
    :handler #'top-level-handler
+   :sub-commands (list (convert-command) (roam-command))
    :options (cli-options)))
 
 (defun cli-options ()
@@ -21,56 +22,25 @@
     :description "help."
     :short-name #\h
     ;; :long-name "help"
-    :key :help)
-   (clingon:make-option
-    :list
-    :description "the files to act on."
-    :short-name #\f
-    :long-name "file"
-    :key :files)
-   (clingon:make-option
-    :string
-    :description "when acting on a file, it is possible to provide the intended source format. if unprovided, it will be guessed from the filename extension."
-    :long-name "src-format"
-    :key :src-format)
-   (clingon:make-option
-    :string
-    :description "action to run on specified file."
-    :long-name "action"
-    :key :action)
-   (clingon:make-option
-    :list
-    :description "arguments to pass to function running the specified action."
-    :long-name "action-arg"
-    :short-name #\a
-    :key :action-args)))
+    :key :help)))
 
 (defun top-level-handler (cmd)
   (let* (;; (args (clingon:command-arguments cmd))
          ;; (app (clingon:command-parent cmd))
-         (action-args (when (clingon:getopt cmd :action-args)
-                        (clingon:getopt cmd :action-args)))
-         (to-help (clingon:getopt cmd :help))
-         (action (clingon:getopt cmd :action))
-         (files (clingon:getopt cmd :files)))
+         (to-help (clingon:getopt cmd :help)))
     (cond
       (to-help (clingon:print-usage cmd t))
-      (action
-       (let* ((rmr (cltpt/roam:from-files
-                    `((:path ,files
-                       :regex ".*\\.org"
-                       :format "org-mode"))))
-              (nodes (cltpt/roam:roamer-nodes rmr)))
-         (loop for node in nodes
-               do (apply (intern (string-upcase action) :cltpt/commandline)
-                         (cons node
-                               action-args))))))))
+      )))
 
-(defun show-info (node format-str)
+(defun node-info-format-str (node format-str)
+  "takes a roam node and a string, returns a new string with some 'placeholders'
+replaced."
   (cltpt/base:bind-and-eval
    `((title ,(cltpt/roam:node-title node))
      (file ,(cltpt/roam:node-file node))
-     (id ,(cltpt/roam:node-id node)))
+     (id ,(cltpt/roam:node-id node))
+     (file-no-ext ,(cltpt/base:path-without-extension (cltpt/roam:node-file node)))
+     (basename ,(cltpt/base:base-name-no-ext (cltpt/roam:node-file node))))
    (lambda ()
      ;; need to use in-package to access the variables bound above
      (in-package :cltpt/commandline)
@@ -81,35 +51,156 @@
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
               (cltpt/base:text-format-by-name "latex") ;; just use latex for now
               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
-       (format t "~A~%" result)))))
+       result))))
 
-;; this is problematic because it may convert the same file multiple times
-;; if the file contains multiple roam nodes (e.g. headers etc)
-(defun convert (node src-format-name dest-format-name)
-  (labels ((alias-to-name (alias)
-             (cond
-               ((string= "org" alias) "org-mode")
-               ((string= "tex" alias) "latex")
-               ((string= "md" alias) "markdown")
-               (otherwise alias)))
-           (name-to-alias (name)
-             (cond
-               ((string= "org-mode" name) "org")
-               ((string= "latex" name) "tex")
-               ((string= "markdown" name) "md")
-               (otherwise name))))
-    (setf src-format-name (alias-to-name src-format-name))
-    (setf dest-format-name (alias-to-name dest-format-name))
-    (let* ((src-file (cltpt/roam:node-file node))
-           (dest-file (cltpt/base:change-extension
-                       src-file
-                       (name-to-alias dest-format-name))))
-      (format t "converting ~A to ~A~%" src-file dest-file)
-      (cltpt/base:convert-file
-       (cltpt/base:text-format-by-name src-format-name)
-       (cltpt/base:text-format-by-name dest-format-name)
-       src-file
-       dest-file))))
+;; (defun convert (node src-format-name dest-format-name)
+;;   (labels ((alias-to-name (alias)
+;;              (cond
+;;                ((string= "org" alias) "org-mode")
+;;                ((string= "tex" alias) "latex")
+;;                ((string= "md" alias) "markdown")
+;;                (otherwise alias)))
+;;            (name-to-alias (name)
+;;              (cond
+;;                ((string= "org-mode" name) "org")
+;;                ((string= "latex" name) "tex")
+;;                ((string= "markdown" name) "md")
+;;                (otherwise name))))
+;;     (setf src-format-name (alias-to-name src-format-name))
+;;     (setf dest-format-name (alias-to-name dest-format-name))
+;;     (let* ((src-file (cltpt/roam:node-file node))
+;;            (dest-file (cltpt/base:change-extension
+;;                        src-file
+;;                        (name-to-alias dest-format-name))))
+;;       (format t "converting ~A to ~A~%" src-file dest-file)
+;;       (cltpt/base:convert-file
+;;        (cltpt/base:text-format-by-name src-format-name)
+;;        (cltpt/base:text-format-by-name dest-format-name)
+;;        src-file
+;;        dest-file))))
+
+(defun roamer-from-file-rules (file-rules)
+  (cltpt/roam:from-files
+   (mapcar
+    (lambda (r)
+      (read-from-string r))
+    file-rules)))
+
+;; the current way we do this is problematic because some files might get converted
+;; multiple times if they return many nodes (headers etc)
+(defun convert-handler (cmd)
+  "the handler for the `convert' command"
+  (let* ((args (clingon:command-arguments cmd))
+         (src-format (cltpt/base:text-format-by-name
+                      (clingon:getopt cmd :src-format)))
+         (dest-format (cltpt/base:text-format-by-name
+                      (clingon:getopt cmd :dest-format)))
+         (files (clingon:getopt cmd :files))
+         (file-rules (clingon:getopt cmd :rules))
+         (output-file-format (clingon:getopt cmd :output-file-format))
+         (roamer (if file-rules
+                     (roamer-from-file-rules file-rules)
+                     (cltpt/roam:from-files files))))
+    (when (and roamer output-file-format dest-format)
+      (let ((nodes (cltpt/roam:roamer-nodes roamer)))
+        (loop for node in nodes
+              do (let ((in-file (cltpt/roam:node-file node))
+                       (out-file (node-info-format-str node output-file-format))
+                       (actual-src-format
+                         (or src-format
+                             (cltpt/base:text-format-by-name
+                              (getf (cltpt/roam:node-file-rule node) :format)))))
+                   (format t "writing from ~A to ~A~%" in-file out-file)
+                   (cltpt/base:convert-file actual-src-format
+                                            dest-format
+                                            in-file
+                                            out-file)))))))
+
+(defun convert-command ()
+  (clingon:make-command
+   :name "convert"
+   :description "convert files."
+   ;; :usage "[options] [arguments ...]"
+   :options (convert-options)
+   :handler #'convert-handler))
+
+(defun convert-options ()
+  (list
+   (clingon:make-option
+    :list
+    :description "the files to act on."
+    :short-name #\f
+    :long-name "file"
+    :key :files)
+   (clingon:make-option
+    :list
+    :description "the file rules to pass to `cltpt/base:roamer'."
+    :short-name #\r
+    :long-name "rule"
+    :key :rules)
+   (clingon:make-option
+    :string
+    :short-name #\s
+    :description "when converting a file, it is possible to provide the intended source format. if unprovided, it will be guessed from the filename extension."
+    :long-name "src-format"
+    :key :src-format)
+   (clingon:make-option
+    :string
+    :short-name #\d
+    :description "the format to convert to."
+    :long-name "dest-format"
+    :key :dest-format)
+   (clingon:make-option
+    :string
+    :short-name #\o
+    :description "the output file name format."
+    :long-name "out"
+    :key :output-file-format)))
+
+(defun roam-handler (cmd)
+  "the handler for the `roam' command"
+  (let* ((args (clingon:command-arguments cmd))
+         (files (clingon:getopt cmd :files))
+         (file-rules (clingon:getopt cmd :rules))
+         (output-format (clingon:getopt cmd :output-format))
+         (roamer (if file-rules
+                     (roamer-from-file-rules file-rules)
+                     (when files
+                       (cltpt/roam:from-files files)))))
+    (when roamer
+      (let ((nodes (cltpt/roam:roamer-nodes roamer)))
+        (loop for node in nodes
+              do (let ((output (node-info-format-str node output-format)))
+                   (format t "~A~%" output)))))))
+
+(defun roam-command ()
+  (clingon:make-command
+   :name "roam"
+   :description "query information about your files"
+   ;; :usage "[options] [arguments ...]"
+   :options (roam-options)
+   :handler #'roam-handler))
+
+(defun roam-options ()
+  (list
+   (clingon:make-option
+    :list
+    :description "the files to act on."
+    :short-name #\f
+    :long-name "file"
+    :key :files)
+   (clingon:make-option
+    :list
+    :description "the file rules to pass to `cltpt/base:roamer'."
+    :short-name #\r
+    :long-name "rule"
+    :key :rules)
+   (clingon:make-option
+    :string
+    :short-name #\o
+    :description "the output format for the info of a roam node."
+    :long-name "out"
+    :key :output-format)))
 
 (defun commandline-main (argv)
   (let ((app (top-level-command)))

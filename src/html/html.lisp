@@ -10,9 +10,11 @@
    '(display-math inline-math latex-env
      text-macro post-lexer-text-macro)))
 
-(defvar html)
-(eval-when (:load-toplevel :execute)
-  (setf html (make-html)))
+(defvar html (make-html))
+
+;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
+(defvar *html-export-latex-method*
+  'svg)
 
 ;; (defmethod text-format-escape ((fmt (eql html)) text escapable-chars)
 ;;   text)

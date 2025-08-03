@@ -11,6 +11,8 @@
                    (getf rule :escapable)))))
 
 (defun text-object-convert-helper (text-obj backend)
+  ;; if the text-object type has a :shared-name, we may want to treat it
+  ;; in a special way.
   (let* ((shared-name (text-object-shared-name-from-subclass
                        (class-name (class-of text-obj))))
          (dest-text-obj-type
@@ -166,7 +168,7 @@
 (defun convert-file (fmt1 fmt2 src-file dest-file)
   (let* ((text (uiop:read-file-string src-file))
          (result (convert-text fmt1 fmt2 text)))
-    (with-open-file (f dest-file
+    (with-open-file (f (uiop:parse-unix-namestring dest-file)
                        :direction :output
                        :if-exists :supersede
                        :if-does-not-exist :create)
