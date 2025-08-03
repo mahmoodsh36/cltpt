@@ -10,7 +10,7 @@
    :flatten
    :find-submatch :find-submatch-all
    :tree-find
-   :pcase
+   :pcase :plistp
    :file-has-extension-p
    :bind-and-eval :bind-and-eval*
    :change-extension :path-without-extension :base-name-no-ext
@@ -33,6 +33,7 @@
    :wrap-contents-for-convert
    :find-children-recursively :find-children :list-children-recursively
    :child-at-pos :region-contains
+   :text-object-rule-from-subclass
 
    :region-text))
 

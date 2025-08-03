@@ -47,6 +47,7 @@
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "html")
+      ;; "/home/mahmooz/brain/notes/1684594232.org"
       "test.org"
       "test.out.html")
      nil)))
@@ -703,3 +704,13 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 "
    (list
     cltpt/org-mode::*org-header-rule*)))
+
+(defun latex-env-parse-test-1 ()
+  (cltpt/combinator::parse
+   "
+\\begin{gather}
+some math here
+\\end{gather}
+"
+   (list
+    cltpt/latex::*latex-env-rule*)))
