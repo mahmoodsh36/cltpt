@@ -29,6 +29,7 @@
      org-italic
      org-emph
      org-inline-code
+     org-comment
      ;; cltpt/base:text-macro
      ;; cltpt/base:post-lexer-text-macro
      )
@@ -101,20 +102,40 @@
   "")
 
 (defvar *org-keyword-rule*
-  '(:pattern (cltpt/combinator:consec
-    (cltpt/combinator:literal "#+")
-    (:pattern (cltpt/combinator:symbol-matcher)
-     :id keyword)
-    (cltpt/combinator:literal ":")
-    (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-    (:pattern (cltpt/combinator:all-but-newline)
-     :id value))
+  '(:pattern
+    (cltpt/combinator:consec
+     (cltpt/combinator:literal "#+")
+     (:pattern (cltpt/combinator:symbol-matcher)
+      :id keyword)
+     (cltpt/combinator:literal ":")
+     (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+     (:pattern (cltpt/combinator:all-but-newline)
+      :id value))
     :on-char #\#))
 (defclass org-keyword (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
     :initform *org-keyword-rule*))
   (:documentation "org-mode file-level keyword."))
+
+(defvar *org-comment-rule*
+  '(:pattern
+    (cltpt/combinator:when-match
+     (cltpt/combinator:consec
+      (cltpt/combinator:literal "# ")
+      (cltpt/combinator:all-but-newline))
+     cltpt/combinator:at-line-start-p)
+    :on-char #\#))
+(defclass org-comment (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-comment-rule*))
+  (:documentation "comment line in org-mode."))
+
+(defmethod cltpt/base:text-object-convert ((obj org-comment) backend)
+  (format nil
+          ""
+          :recurse nil))
 
 (defvar *org-timestamp-rule*
   '(cltpt/combinator:consec
@@ -377,30 +398,52 @@
              :reparse-region inner-region
              :recurse t)))))
 
+(defvar *org-babel-results-rule*
+  `(cltpt/combinator:consec
+    (cltpt/combinator:any
+     (cltpt/combinator:literal-casein "#+results:")
+     (cltpt/combinator:consec
+      (cltpt/combinator:literal-casein "#+results[")
+      (cltpt/combinator:symbol-matcher)
+      "]:"))
+    (cltpt/combinator:atleast-one
+     (cltpt/combinator:consec
+      ,(string #\newline)
+      (:pattern
+       (cltpt/combinator:any
+        (cltpt/combinator:consec
+         (cltpt/combinator:literal ": ")
+         (cltpt/combinator:all-but-newline))
+        (cltpt/combinator:literal ": "))
+       :id output-line)))))
 (defclass org-babel-results (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform `(cltpt/combinator:consec
-                (cltpt/combinator:literal-casein "#+results:")
-                ,(string #\newline)
-                (cltpt/combinator:atleast-one
-                 (cltpt/combinator:any
-                  (cltpt/combinator:consec
-                   (cltpt/combinator:literal ": ")
-                   (cltpt/combinator:all-but-newline)
-                   ,(string #\newline))
-                  (cltpt/combinator:consec
-                   (cltpt/combinator:literal ": ")
-                   (cltpt/combinator:all-but-newline)))))))
+    :initform *org-babel-results-rule*))
   (:documentation "org-babel evaluation results."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-babel-results) str1 match)
   )
 
 (defmethod cltpt/base:text-object-convert ((obj org-babel-results) backend)
-  (format nil
-          ""
-          :recurse nil))
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (output-line-matches (cltpt/base:find-submatch-all match 'output-line))
+         (output-text (str:join
+                       (string #\newline)
+                       (mapcar
+                        (lambda (output-line-match)
+                          (subseq (getf (car output-line-match) :match) 2))
+                        output-line-matches))))
+    (cond
+      ((eq backend cltpt/latex:latex)
+       (list :text output-text
+             :recurse nil
+             :reparse nil
+             :escape nil))
+      ((eq backend cltpt/html:html)
+       (within-tags "<code class='org-babel-results'><pre>"
+                    output-text
+                    "</code></pre>")))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-babel-results) backend)
   (let ((results (cltpt/base:text-object-property obj :value)))
@@ -895,7 +938,7 @@
                :escape-region inner-region)))
       ((eq backend cltpt/html:html)
        (let* ((open-tag (if (string= block-type "src")
-                            (format nil "<pre><code>" block-type)
+                            (format nil "<pre class='org-src'><code>" block-type)
                             (format nil "<div class='~A org-block'>" block-type)))
               (close-tag (if (string= block-type "src")
                              (format nil "</code></pre>" block-type)
