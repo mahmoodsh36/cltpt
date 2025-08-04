@@ -52,6 +52,21 @@
       "test.out.html")
      nil)))
 
+(defun test-org-convert-1 ()
+  (time
+   (progn
+     (cltpt/base:convert-file
+      (cltpt/base:text-format-by-name "org-mode")
+      (cltpt/base:text-format-by-name "latex")
+      "/home/mahmooz/brain/notes/1684594232.org"
+      "/tmp/test.out.tex")
+     (cltpt/base:convert-file
+      (cltpt/base:text-format-by-name "org-mode")
+      (cltpt/base:text-format-by-name "html")
+      "/home/mahmooz/brain/notes/1684594232.org"
+      "/tmp/test.out.html")
+     nil)))
+
 (test org-keyword-parse-test
   (is
    (equalp
@@ -714,3 +729,19 @@ some math here
 "
    (list
     cltpt/latex::*latex-env-rule*)))
+
+(defun org-babel-results-parse-test-1 ()
+  (cltpt/combinator::parse
+   "
+#+RESULTS[dbde93ab692f9e8701baf65653d4f407e1852306]:
+: 
+: \"doing 100k epochs\" 
+: loss: 0.07140527340555194
+: this should equal 0: #(0.0193214891516944)
+: this should equal 1: #(0.9785556472163439)
+: this should equal 1: #(0.9836150950875087)
+: this should equal 0: #(0.28466690862319854)
+: this should equal 0: #(0.014254526557710118)
+"
+   (list
+    cltpt/org-mode::*org-babel-results-rule*)))
