@@ -11,7 +11,7 @@
   (ironclad:byte-array-to-hex-string
    (ironclad:digest-sequence
     :md5
-    (ironclad:ascii-string-to-byte-array s))))
+    (sb-ext:string-to-octets s :external-format :utf-8))))
 
 ;; this is a temporary workaround because `find-class' is really slow..
 (defparameter *class-map* (make-hash-table))
@@ -162,3 +162,10 @@ TEST checks for equality between ITEM and `(key (car node))'."
    submatch-id
    :key (lambda (node)
           (getf (car node) :id))))
+
+(defun delete-files-by-regex (directory-path regex)
+  "deletes files in a directory whose names matches REGEX."
+  (let ((all-files (directory (merge-pathnames "*.*" directory-path))))
+    (loop for file in all-files
+          do (when (cl-ppcre:scan regex (file-namestring file))
+               (delete-file file)))))

@@ -58,12 +58,12 @@
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "latex")
-      "/home/mahmooz/brain/notes/1684594232.org"
+      "/home/mahmooz/brain/notes/1656672670.org"
       "/tmp/test.out.tex")
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "html")
-      "/home/mahmooz/brain/notes/1684594232.org"
+      "/home/mahmooz/brain/notes/1656672670.org"
       "/tmp/test.out.html")
      nil)))
 
@@ -745,3 +745,14 @@ some math here
 "
    (list
     cltpt/org-mode::*org-babel-results-rule*)))
+
+(defun roam-convert-test-1 ()
+  (time
+   (let* ((rmr (cltpt/roam:from-files
+                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
+                   :regex ".*\\.org"
+                   :format "org-mode")))))
+     ;; '((:path ("/home/mahmooz/brain/notes/")
+     ;;    :regex "16564.*\\.org"
+     ;;    :format "org-mode")))))
+     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp"))))

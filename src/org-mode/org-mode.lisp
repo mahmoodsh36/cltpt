@@ -503,16 +503,16 @@
       "]["
       (:pattern (cltpt/combinator:all-but "[]") :id link-desc)
       "]]")
-     ;; [[dest]]
-     (cltpt/combinator:consec
-      "[["
-      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-      "]]")
      ;; [[type:dest]]
      (cltpt/combinator:consec
       "[["
       (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
       ":"
+      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+      "]]")
+     ;; [[dest]]
+     (cltpt/combinator:consec
+      "[["
       (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
       "]]"))
     :on-char #\[))
@@ -524,6 +524,27 @@
     :allocation :class
     :initform *org-link-rule*))
   (:documentation "org-mode link."))
+
+(defmethod cltpt/base:text-object-convert ((obj org-link) backend)
+  (cond
+    ((eq backend cltpt/html:html)
+     (let* ((desc (cltpt/base:text-object-property obj :desc))
+            (dest (cltpt/base:text-object-property obj :dest))
+            (type (cltpt/base:text-object-property obj :type))
+            (final-desc (or desc dest))
+            (open-tag (format nil "<a href='~A'>" dest)))
+       (when dest
+         (if (and cltpt/roam:*convert-roamer*
+                  (member type '("blk" "id" "denote") :test 'equal))
+             (let* ((dest-node (cltpt/roam:get-node-by-id
+                                cltpt/roam:*convert-roamer*
+                                dest))
+                    (dest-file (when dest-node (cltpt/roam:node-file dest-node))))
+               (when dest-file
+                 (setf dest-file (cltpt/base:change-extension dest-file "html"))
+                 (within-tags (format nil "<a href='~A'>" dest-file)
+                              final-desc "</a>")))
+             (within-tags open-tag final-desc "</a>")))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
   (let ((link-type-match (car (cltpt/base:find-submatch match 'link-type)))
@@ -840,17 +861,6 @@
                            :begin (length open-tag)
                            :end (- (length text) (length close-tag)))
           :reparse t)))
-
-(defmethod cltpt/base:text-object-convert ((obj org-link) backend)
-  (cond
-    ((eq backend cltpt/html:html)
-     (let* ((desc (cltpt/base:text-object-property obj :desc))
-            (dest (cltpt/base:text-object-property obj :dest))
-            (type (cltpt/base:text-object-property obj :type))
-            (final-desc (or desc dest))
-            (open-tag (format nil "<a href='~A'>" dest)))
-       (when dest
-         (within-tags open-tag final-desc "</a>"))))))
 
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair
