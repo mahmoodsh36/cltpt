@@ -36,6 +36,18 @@ uses *latex-command* and *latex-preview-preamble*."
            :wait t))
       (delete-file preamble-file))))
 
+(defun clear-cached-format ()
+  (let* ((fmt-path (merge-pathnames
+                    (concatenate
+                     'string
+                     *latex-previews-preamble-filename* ".fmt")
+                    *latex-previews-tmp-directory*)))
+    (uiop:delete-file-if-exists fmt-path)))
+
+(defun clear-all ()
+  (clear-cached-format)
+  (cltpt/base::delete-files-by-regex #p"/tmp/" *preview-filename-prefix*))
+
 (defun cleanup-temp-files (base-name)
   "delete temporary files associated with BASE-NAME in *latex-previews-tmp-directory*."
   (dolist (ext '(".tex" ".dvi" ".aux" ".log"))
@@ -100,6 +112,7 @@ this function does nothing for that snippet."
       (ensure-cached-format fmt-path)
       ;; write the multi-page tex file.
       (with-open-file (out tex-file :direction :output :if-exists :supersede)
+        (format out "\\begin{document}~%\\setlength\\abovedisplayskip{0pt}~%")
         (dolist (snippet snippets)
           (format out "\\begin{preview}~%")
           (format out "~A~%" snippet)
@@ -117,6 +130,7 @@ this function does nothing for that snippet."
                          (namestring *latex-previews-tmp-directory*))
                  (namestring tex-file))
            :output t
+           :error-output t
            :ignore-error-status t
            :wait t))
       ;; convert the dvi file to svg(s) using dvisvgm.
@@ -131,7 +145,8 @@ this function does nothing for that snippet."
                  "--bbox=preview"
                  "-o" svg-name-pattern)
            :output t
-           :wait t))
+           :wait t
+           :ignore-error-status t))
       ;; rename each generated SVG file to include the corresponding snippet hash.
       (let ((result
               (loop
