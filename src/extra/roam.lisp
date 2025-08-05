@@ -2,8 +2,8 @@
   (:use :cl :cltpt/base)
   (:export :from-files :roamer-rescan :roamer-nodes
    :node-id :node-title :node-desc :node-file :node-text-obj
-   :node-file-rule
-   :make-node :text-object-roam-data :roamer))
+   :node-file-rule :roamer-node-id-hashtable :get-node-by-id :convert-all
+   :make-node :text-object-roam-data :roamer :*convert-roamer*))
 
 (in-package :cltpt/roam)
 
@@ -25,7 +25,15 @@
     :initarg :files
     :initform nil
     :accessor roamer-files
-    :documentation "files/directories we load the nodes from.")))
+    :documentation "files/directories we load the nodes from.")
+   (node-id-hashtable
+    :initform (make-hash-table :test 'equal)
+    :accessor roamer-node-id-hashtable
+    :documentation "map a node to its id.")))
+
+(defvar *convert-roamer*
+  nil
+  "dynamically bound `roamer' instance for conversion function to use of, e.g. for retrieval of node by id using `get-node-by-id'")
 
 (defun from-files (files)
   "see documentation of `find-files' for FILES. takes a set of rules, returns a
@@ -87,6 +95,8 @@ each rule is a plist that can contain the following params.
 
 (defmethod roamer-rescan ((rmr roamer))
   (setf (roamer-nodes rmr) nil)
+  (setf (roamer-node-id-hashtable rmr)
+        (make-hash-table :test 'equal))
   (let ((file-rule-alist (find-files (roamer-files rmr))))
     (loop for (file . file-rule) in file-rule-alist
           for fmt = (cltpt/base:text-format-by-name (getf file-rule :format))
@@ -99,7 +109,44 @@ each rule is a plist that can contain the following params.
                       (setf (node-text-obj node) text-obj)
                       (setf (node-file node) file)
                       (setf (node-file-rule node) file-rule)
-                      (push node (roamer-nodes rmr))))))))))
+                      (push node (roamer-nodes rmr))
+                      (when (node-id node)
+                        (setf
+                         (gethash
+                          (node-id node)
+                          (roamer-node-id-hashtable rmr))
+                         node))))))))))
 
 (defmethod text-object-roam-data ((obj cltpt/base:text-object))
   (cltpt/base:text-object-property obj :roam-node))
+
+(defmethod get-node-by-id ((rmr roamer) id)
+  (gethash
+   id
+   (roamer-node-id-hashtable rmr)))
+
+(defmethod convert-all ((rmr roamer) (dest-format cltpt/base:text-format) dest-dir)
+  (cltpt/base::ensure-directory dest-dir)
+  (let ((files-done (make-hash-table :test 'equal))
+        (*convert-roamer* rmr))
+    (loop for node in (roamer-nodes rmr)
+          do (let ((is-done (gethash (node-file node) files-done)))
+               (loop for errors-out in '("1665769036.org" "1656672670.org" "1691879374.org")
+                     do (when (search
+                               errors-out
+                               (uiop:unix-namestring (node-file node)) :test 'equal)
+                          (setf is-done t)))
+               (unless is-done
+                 (format t "converting ~A~%" (node-file node))
+                 (cltpt/base:convert-file
+                  (cltpt/base:text-format-by-name
+                   (getf (node-file-rule node) :format))
+                  dest-format
+                  (node-file node)
+                  (uiop:merge-pathnames*
+                   (uiop:ensure-directory-pathname dest-dir)
+                   (format nil "~A.~A"
+                           (cltpt/base:base-name-no-ext
+                            (cltpt/roam:node-file node))
+                           (cltpt/base:text-format-name dest-format))))
+                 (setf (gethash (node-file node) files-done) t))))))

@@ -34,6 +34,7 @@
    :find-children-recursively :find-children :list-children-recursively
    :child-at-pos :region-contains
    :text-object-rule-from-subclass
+   :text-format-name
 
    :region-text))
 
