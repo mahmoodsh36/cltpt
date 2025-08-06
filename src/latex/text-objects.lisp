@@ -62,9 +62,8 @@
                 :on-char #\\)))
   (:documentation "latex link."))
 
-;; no need for this but ill keep it
-;; (defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql latex)))
-;;   (list :text (cltpt/base:text-object-text obj)
-;;         :reparse nil
-;;         :recurse nil
-;;         :escape nil))
+(defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql latex)))
+  (list :text (cltpt/base:text-object-text obj)
+        :reparse nil
+        :recurse nil
+        :escape nil))
