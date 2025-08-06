@@ -654,7 +654,7 @@
        (setf (getf result :reparse-region) nil)
        result))
     ((eq backend cltpt/html:html)
-     (cltpt/base:wrap-contents-for-convert obj "<pre><code>" "</code></pre>"))))
+     (cltpt/base:wrap-contents-for-convert obj "<code>" "</code>"))))
 
 (defclass org-table (cltpt/base:text-object)
   ((cltpt/base::rule
