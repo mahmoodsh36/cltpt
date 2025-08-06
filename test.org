@@ -70,6 +70,10 @@ code here
 : \(11\)
 : wow
 
+\begin{dummy}
+  this is a test
+\end{dummy}
+
 #+begin_definition
 hello definition.
 #+end_definition

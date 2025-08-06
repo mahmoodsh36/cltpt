@@ -108,6 +108,21 @@
             new-text-object))
         (reverse child-results))))
 
+;; modifies the tree of a rule, replaces 'eval' instance with the evaluation result
+(defun post-process-rule (rule)
+  (if (listp rule)
+      (if (null rule)
+          nil
+          (if (and (symbolp (car rule)) (string= (car rule) 'eval))
+              (eval (cadr rule))
+              (if (symbolp (car rule))
+                  (cons (car rule)
+                        (loop for child in (cdr rule)
+                              collect (post-process-rule child)))
+                  (loop for child in rule
+                        collect (post-process-rule child)))))
+      rule))
+
 (defun parse (str1
               text-object-types
               &key
@@ -121,7 +136,7 @@
             'identity
             (loop for type1 in text-object-types
                   collect (let ((rule (text-object-rule-from-subclass type1)))
-                            rule))))
+                            (post-process-rule rule)))))
          (matches (cltpt/combinator:parse str1 data)))
     (loop for m in matches
           do (handle-match str1 m text-objects text-object-types))

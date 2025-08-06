@@ -903,6 +903,16 @@
     :initform *org-src-block-rule*))
   (:documentation "org-mode src block."))
 
+(defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
+  (let* ((begin-match (car (cltpt/base:find-submatch match 'begin)))
+         (end-match (car (cltpt/base:find-submatch match 'end)))
+         (keywords-str (car (cltpt/base:find-submatch match 'keywords))))
+    (setf (cltpt/base:text-object-property obj :contents-region)
+          (cltpt/base:make-region :begin (- (getf begin-match :end)
+                                            (getf begin-match :begin))
+                                  :end (- (getf end-match :begin)
+                                          (getf begin-match :begin))))))
+
 ;; should take an isntance of `org-src-block' or `org-block', but that isnt ensured
 (defmethod convert-block ((obj text-object) backend block-type is-code)
   (cond
@@ -969,14 +979,15 @@
         :id end-type))
       :id end))
     ;; an org-block can contain every other object except headers
-    ,(mapcar
+    (eval
+     (mapcar
       (lambda (subclass-name)
         (copy-rule-with-id
          (cltpt/base:text-object-rule-from-subclass subclass-name)
          subclass-name))
       (set-difference
        (org-mode-text-object-types)
-       '(org-header org-block)))))
+       '(org-header org-block))))))
 (defvar *org-block-rule*
   `(:pattern
     (cltpt/combinator:any
