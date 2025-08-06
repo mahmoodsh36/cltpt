@@ -47,6 +47,21 @@
 (defun org-mode-text-object-types ()
   (cltpt/base:text-format-text-object-types org-mode))
 
+(defun org-mode-inline-text-object-types ()
+  (intersection
+   '(org-link web-link org-inline-code org-emph org-italic
+     cltpt/latex:display-math cltpt/latex:inline-math)
+   (org-mode-text-object-types)))
+
+(defvar *org-inline-text-objects-rule*
+  '(eval
+    (mapcar
+     (lambda (subclass-name)
+       (copy-rule-with-id
+        (cltpt/base:text-object-rule-from-subclass subclass-name)
+        subclass-name))
+     (org-mode-inline-text-object-types))))
+
 (defvar *org-drawer-rule*
   '(:pattern
     (cltpt/combinator:pair
@@ -579,16 +594,7 @@
     :allocation :class
     :initform `(:pattern
                 (org-list-matcher
-                 (,(copy-rule-with-id *org-link-rule* 'org-link)
-                  ,(copy-rule-with-id
-                    cltpt/latex:*inline-math-rule*
-                    'cltpt/latex:inline-math)
-                  ,(copy-rule-with-id
-                    cltpt/latex:*display-math-rule*
-                    'cltpt/latex:display-math)
-                  ,(copy-rule-with-id
-                    cltpt/latex:*latex-env-rule*
-                    'cltpt/latex:latex-env)))
+                 ,*org-inline-text-objects-rule*)
                 :on-char #\-)))
   (:documentation "org-mode list."))
 
@@ -661,17 +667,7 @@
     :allocation :class
     :initform `(:pattern
                 (org-table-matcher
-                 ((:pattern ,*org-link-rule* :id org-link)
-                  ,(copy-rule-with-id
-                    cltpt/latex:*inline-math-rule*
-                    'cltpt/latex:inline-math)
-                  ,(copy-rule-with-id
-                    cltpt/latex:*display-math-rule*
-                    'cltpt/latex:display-math)
-                  ,(copy-rule-with-id
-                    cltpt/latex:*latex-env-rule*
-                    'cltpt/latex:latex-env)
-                  (:pattern ,*org-inline-code-rule* :id org-inline-code)))
+                 ,*org-inline-text-objects-rule*)
                 :on-char #\|)))
   (:documentation "org-mode table."))
 
@@ -979,15 +975,7 @@
         :id end-type))
       :id end))
     ;; an org-block can contain every other object except headers
-    (eval
-     (mapcar
-      (lambda (subclass-name)
-        (copy-rule-with-id
-         (cltpt/base:text-object-rule-from-subclass subclass-name)
-         subclass-name))
-      (set-difference
-       (org-mode-text-object-types)
-       '(org-header org-block))))))
+    ,*org-inline-text-objects-rule*))
 (defvar *org-block-rule*
   `(:pattern
     (cltpt/combinator:any
