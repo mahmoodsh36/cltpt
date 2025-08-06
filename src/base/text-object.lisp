@@ -98,7 +98,7 @@ object's region. you should just make it return a symbol like `end-type'."))
 ;; :reparse-region - the region of the text that is given that is reparsed, if at all,
 ;; :recurse - whether to convert children as well.
 (defgeneric text-object-convert (text-obj backend)
-  (:documentation "function that takes a cltpt text-object and converts it to the specificed backend. this function is invoked when converting, it should return two values, a string and a boolean indicating whether to handle the converting of its children or not."))
+  (:documentation ""))
 
 (defmethod text-object-convert ((obj text-object) backend)
   "default convert function."
