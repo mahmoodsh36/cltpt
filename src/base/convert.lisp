@@ -40,11 +40,9 @@
          ;; (result (text-object-convert text-obj backend))
          (result-is-string (typep result 'string))
          (to-escape (or result-is-string
-                        (getf result :escape)
-                        (getf result :escape-region)))
+                        (getf result :escape)))
          (to-reparse (unless result-is-string
-                       (or (getf result :reparse)
-                           (getf result :reparse-region))))
+                       (getf result :reparse)))
          (region-to-reparse (when (and to-reparse (not result-is-string))
                               (getf result :reparse-region)))
          (convert-text

@@ -22,6 +22,7 @@
      org-keyword
      org-header
      org-link
+     org-src-block
      org-block
      org-drawer
      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
@@ -30,6 +31,7 @@
      org-emph
      org-inline-code
      org-comment
+     web-link
      ;; cltpt/base:text-macro
      ;; cltpt/base:post-lexer-text-macro
      )
@@ -481,16 +483,6 @@
           ""
           :recurse nil))
 
-(defclass text-link (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform `(:pattern
-                (cltpt/combinator:consec
-                 (cltpt/combinator:literal "[[")
-                 (:pattern (cltpt/combinator:literal "][]]")
-                  :id link)))))
-  (:documentation "a link."))
-
 (defvar *org-link-rule*
   '(:pattern
     (cltpt/combinator:any
@@ -556,6 +548,24 @@
           (getf link-dest-match :match))
     (setf (cltpt/base:text-object-property obj :type)
           (getf link-type-match :match))))
+
+;; we're not being clever about it
+(defvar *web-link-rule*
+  '(:pattern
+    (cltpt/combinator:consec
+     "https://"
+     (cltpt/combinator:all-but-whitespace))
+    :on-char #\h))
+(defclass web-link (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *web-link-rule*))
+  (:documentation "a web link."))
+
+(defmethod cltpt/base:text-object-convert ((obj web-link) backend)
+  (cond
+    ((eq backend cltpt/html:html)
+     (format t "<a href='~A'></a>" (cltpt/base:text-object-text obj)))))
 
 (defun copy-rule-with-id (rule id)
   (if (cltpt/base::plistp rule)
@@ -862,6 +872,79 @@
                            :end (- (length text) (length close-tag)))
           :reparse t)))
 
+;; TODO: make org-src-block contain #+results too
+(defvar *org-src-block-no-kw-rule*
+  `(cltpt/combinator:pair
+    (cltpt/combinator:unescaped
+     (:pattern
+      (cltpt/combinator:any
+       (cltpt/combinator:consec
+        (cltpt/combinator:literal "#+begin_src")
+        (:pattern (cltpt/combinator:all-but-newline)
+         :id keywords))
+       (cltpt/combinator:literal "#+begin_src"))
+      :id begin))
+    (cltpt/combinator:unescaped
+     (:pattern (cltpt/combinator:literal "#+end_src")
+      :id end))
+    ;; unlike an `org-block', org-src-block shouldnt contain children (for now)
+    nil))
+(defvar *org-src-block-rule*
+  `(:pattern
+    (cltpt/combinator:any
+     (cltpt/combinator:consec
+      ,*org-keyword-rule*
+      ,*org-src-block-no-kw-rule*)
+     ,*org-src-block-no-kw-rule*)
+    :on-char #\#))
+(defclass org-src-block (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-src-block-rule*))
+  (:documentation "org-mode src block."))
+
+;; should take an isntance of `org-src-block' or `org-block', but that isnt ensured
+(defmethod convert-block ((obj text-object) backend block-type is-code)
+  (cond
+    ((member block-type (list "comment" "my_comment") :test 'string=)
+     (list :text "" :reparse t))
+    ((eq backend cltpt/latex:latex)
+     (let* ((begin-tag (format nil "\\begin{~A}" block-type))
+            (end-tag (format nil "\\end{~A}" block-type))
+            (my-text (concatenate 'string
+                                  begin-tag
+                                  (cltpt/base:text-object-contents obj)
+                                  end-tag))
+            (inner-region
+              (cltpt/base:make-region
+               :begin (length begin-tag)
+               :end (- (length my-text) (length end-tag)))))
+       (list :text my-text
+             :reparse (not is-code)
+             :escape (not is-code)
+             :reparse-region inner-region
+             :escape-region inner-region)))
+    ((eq backend cltpt/html:html)
+     (let* ((open-tag (if is-code
+                          "<pre class='org-src'><code>"
+                          (format nil "<div class='~A org-block'>" block-type)))
+            (close-tag (if is-code
+                           "</code></pre>"
+                           "</div>"))
+            (text (concatenate 'string
+                               open-tag
+                               (cltpt/base:text-object-contents obj)
+                               close-tag)))
+       (list :text text
+             :recurse (not is-code)
+             :reparse (not is-code)
+             :reparse-region (cltpt/base:make-region
+                              :begin (length open-tag)
+                              :end (- (length text) (length close-tag))))))))
+
+(defmethod cltpt/base:text-object-convert ((obj org-src-block) backend)
+  (convert-block obj backend "lstlisting" t))
+
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair
     (cltpt/combinator:unescaped
@@ -923,42 +1006,4 @@
                                           (getf begin-match :begin))))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-block) backend)
-  (let ((block-type (cltpt/base:text-object-property obj :type))
-        (is-verbatim))
-    (when (string= block-type "src")
-      (setf is-verbatim t))
-    (cond
-      ((member block-type (list "comment" "my_comment") :test 'string=)
-       (list :text "" :reparse t))
-      ((eq backend cltpt/latex:latex)
-       (let* ((begin-tag (format nil "\\begin{~A}" block-type))
-              (end-tag (format nil "\\end{~A}" block-type))
-              (my-text (concatenate 'string
-                                    begin-tag
-                                    (cltpt/base:text-object-contents obj)
-                                    end-tag))
-              (inner-region (cltpt/base:make-region :begin (length begin-tag)
-                                                    :end (- (length my-text) (length end-tag)))))
-         (when (string= block-type "src")
-           (setf block-type "lstlisting"))
-         (list :text my-text
-               :reparse (not is-verbatim)
-               :escape (not is-verbatim)
-               :reparse-region inner-region
-               :escape-region inner-region)))
-      ((eq backend cltpt/html:html)
-       (let* ((open-tag (if (string= block-type "src")
-                            (format nil "<pre class='org-src'><code>" block-type)
-                            (format nil "<div class='~A org-block'>" block-type)))
-              (close-tag (if (string= block-type "src")
-                             (format nil "</code></pre>" block-type)
-                             (format nil "</div>" block-type)))
-              (text (concatenate 'string
-                                 open-tag
-                                 (cltpt/base:text-object-contents obj)
-                                 close-tag)))
-         (list :text text
-               :recurse t
-               :reparse-region (cltpt/base:make-region :begin (length open-tag)
-                                                       :end (- (length text) (length close-tag)))
-               :reparse t))))))
+  (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
