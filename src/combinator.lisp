@@ -7,7 +7,7 @@
    :all-but-newline :atleast-one :atleast-one-discard :lisp-sexp :pair
    :unescaped :natural-number-matcher :when-match
    :at-line-start-p :at-line-end-p :followed-by :match-rule
-   :separated-atleast-one))
+   :separated-atleast-one :all-but-whitespace))
 
 (in-package :cltpt/combinator)
 
@@ -86,6 +86,10 @@
 
 (defun all-but-newline (str pos)
   (all-but str pos (string #\newline)))
+
+;; we should add more chars that quality as whitespace
+(defun all-but-whitespace (str pos)
+  (all-but str pos (concatenate 'string " " (string #\newline))))
 
 (defun consec (str pos &rest all)
   (let ((start pos)
