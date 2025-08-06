@@ -565,7 +565,7 @@
 (defmethod cltpt/base:text-object-convert ((obj web-link) backend)
   (cond
     ((eq backend cltpt/html:html)
-     (format t "<a href='~A'></a>" (cltpt/base:text-object-text obj)))))
+     (format nil "<a href='~A'></a>" (cltpt/base:text-object-text obj)))))
 
 (defun copy-rule-with-id (rule id)
   (if (cltpt/base::plistp rule)
