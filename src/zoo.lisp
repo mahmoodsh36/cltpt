@@ -33,10 +33,10 @@
                                   (list latex-code)))))
          (if is-inline
              (format nil
-                     "<img src='~A' class='inline-math'></img>"
+                     "<img src='~A' class='inline-math' />"
                      img-filepath)
              (format nil
-                     "<br><img src='~A' class='display-math'></img><br>"
+                     "<br><img src='~A' class='display-math' /><br>"
                      img-filepath)))))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)

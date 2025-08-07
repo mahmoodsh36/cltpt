@@ -131,11 +131,6 @@ each rule is a plist that can contain the following params.
         (*convert-roamer* rmr))
     (loop for node in (roamer-nodes rmr)
           do (let ((is-done (gethash (node-file node) files-done)))
-               (loop for errors-out in '("1665769036.org" "1656672670.org" "1691879374.org")
-                     do (when (search
-                               errors-out
-                               (uiop:unix-namestring (node-file node)) :test 'equal)
-                          (setf is-done t)))
                (unless is-done
                  (format t "converting ~A~%" (node-file node))
                  (cltpt/base:convert-file
