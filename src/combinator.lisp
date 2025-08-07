@@ -29,34 +29,40 @@
       (normalize-match raw-match rule str pos))))
 
 (defun any (str pos &rest all)
+  "match any of the given combinator rules."
   (loop for one in all
         for match = (match-rule-normalized one str pos)
         do (when match
              (return-from any match))))
 
 (defun literal (str pos substr)
+  "match a literal string."
   (let ((sublen (length substr)))
     (when (and (<= (+ pos sublen) (length str))
                (string= str substr :start1 pos :end1 (+ pos sublen) :end2 sublen))
       sublen)))
 
 (defun literal-casein (str pos substr)
+  "match a literal string, case-insensitive."
   (let ((sublen (length substr)))
     (when (<= (+ pos sublen) (length str))
       (when (string-equal (subseq str pos (+ pos sublen)) substr)
         sublen))))
 
 (defun eng-char-p (str pos)
+  "match an english character."
   (when (< pos (length str))
     (when (alpha-char-p (char str pos))
       1)))
 
 (defun eng-alphanump (str pos)
+  "match an english character or a digit."
   (when (or (alpha-char-p (char str pos))
             (digit-char-p (char str pos)))
     1))
 
 (defun symbol-char (str pos)
+  "helper for `symbol-matcher'."
   (when (or (eng-alphanump str pos)
             (char= (char str pos) #\-)
             (char= (char str pos) #\_)
@@ -64,7 +70,12 @@
             (char= (char str pos) #\$))
     1))
 
+(defun symbol-matcher (str pos)
+  "matches a 'symbol', which may include some special characters."
+  (match-rule '(atleast-one-discard (symbol-char)) str pos))
+
 (defun all-but (str pos exceptions)
+  "match everything but the characters in EXCEPTIONS."
   (let ((start pos))
     (loop while (< pos (length str))
           for c = (char str pos)
@@ -85,13 +96,16 @@
     (- pos start)))
 
 (defun all-but-newline (str pos)
+  "match all characters but a newline."
   (all-but str pos (string #\newline)))
 
 ;; we should add more chars that quality as whitespace
 (defun all-but-whitespace (str pos)
+  "match all characters but whitespaces."
   (all-but str pos (concatenate 'string " " (string #\newline))))
 
 (defun consec (str pos &rest all)
+  "match a consecutive set of rules, each one has to be present."
   (let ((start pos)
         (matches))
     (loop for one in all
@@ -110,6 +124,10 @@
           (nreverse matches))))
 
 (defun consec-atleast-one (str pos &rest all)
+  "match a consecutive set of rules, atleast the first has to be present.
+
+the matcher stops once it encounters a rule that hasnt been matched, and returns
+the consecutive matches up to that point."
   (let ((start pos)
         (matches))
     (loop for one in all
@@ -159,6 +177,7 @@
             (nreverse matches)))))
 
 (defun atleast-one (str pos matcher)
+  "match the rule MATCHER atleast once."
   (let ((start pos)
         (matches))
     (loop while (< pos (length str))
@@ -196,18 +215,19 @@
                   :match (subseq str start pos))
             nil))))
 
-(defun symbol-matcher (str pos)
-  (match-rule '(atleast-one-discard (symbol-char)) str pos))
-
+;; shouldnt we be matching words from any language?
 (defun word-matcher (str pos)
+  "match an english word."
   (match-rule `(atleast-one-discard (eng-char-p)) str pos))
 
 (defun digit-p (str pos)
+  "returns 1 if char at POS of STR is a digit, NIL otherwise."
   (and (< pos (length str))
        (digit-char-p (char str pos))
        1))
 
 (defun natural-number-matcher (str pos)
+  "matches a natural number."
   (match-rule `(atleast-one-discard (digit-p)) str pos))
 
 (defun pair (str pos opening-rule closing-rule
@@ -309,8 +329,10 @@ before the final closing rule is found."
             )))
     (compile-rule-string-helper str my-replacements)))
 
-;; atleast one
+;; i forgot why we're matching dollar signs here, should probably remove that
+;; and use symbol-matcher instead where this was needed.
 (defun word-digits-hyphen (str pos)
+  "matches a (non-empty) word with hyphens, underscores or dollar signs."
   (let ((start pos))
     (if (or (>= pos (length str))
             (not (or (alpha-char-p (char str pos))
@@ -330,6 +352,7 @@ before the final closing rule is found."
     (- pos start)))
 
 (defun word-digits (str pos)
+  "matches a (non-empty) word (possibly) with digits."
   (let ((start pos))
     (if (or (>= pos (length str))
             (not (or (alpha-char-p (char str pos))
@@ -398,6 +421,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
 
 ;; the hash table thing is a heuristic that makes things slightly faster
 (defun hash-rules (rules)
+  "construct a hash table by :on-char of the list of plists RULES."
   (let ((hash (make-hash-table :test 'equal)))
     (loop for rule in rules
           do (when (and (keywordp (car rule)) (getf rule :on-char))
@@ -405,6 +429,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
     hash))
 
 (defun scan-all-rules (str rules &optional (start-idx 0) (end-idx (length str)))
+  "iterate through STR, apply each matcher of RULES repeatedly at each position."
   (let* ((events)
          (i start-idx)
          (rule-hash (hash-rules rules))
@@ -480,9 +505,11 @@ immediately after the match satisfies 'condition-fn'."
           match)))))
 
 (defun upcase-char-p (str pos)
+  "returns 1 if the char at POS of STR is an uppercase character."
   (and (< pos (length str))
        (upper-case-p (char str pos))
        1))
 
 (defun upcase-word-matcher (str pos)
+  "matches an uppercase (non-empty) word."
   (match-rule `(atleast-one-discard (upcase-char-p)) str pos))
