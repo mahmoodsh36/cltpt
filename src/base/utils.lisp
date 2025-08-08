@@ -109,6 +109,15 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
                                                :type new-ext))))
     (namestring (merge-pathnames name (pathname path)))))
 
+(defun change-dir (path new-dir)
+  "change the directory of PATH to NEW-DIR."
+  (let ((file-part (make-pathname :name (pathname-name path)
+                                  :type (pathname-type path)
+                                  :version (pathname-version path)))
+        (dir-part (make-pathname :name nil :type nil :version nil
+                                 :defaults new-dir)))
+    (merge-pathnames file-part dir-part)))
+
 (defun path-without-extension (path)
   (let* ((pathname (pathname path))
          (dir (pathname-directory pathname))

@@ -13,6 +13,10 @@
 
 (in-package :cltpt/org-mode)
 
+(defvar *org-convert-dest-dir*
+  (uiop:merge-pathnames* (uiop:temporary-directory) "cltpt-org")
+  "output directory for files converted from org-mode format.")
+
 ;; the `pair' matchers are the slowest
 (defun make-org-mode ()
   (make-text-format
@@ -549,6 +553,7 @@
                     (dest-file (when dest-node (cltpt/roam:node-file dest-node))))
                (when dest-file
                  (setf dest-file (cltpt/base:change-extension dest-file "html"))
+                 (setf dest-file (cltpt/base:change-dir dest-file *org-convert-dest-dir*))
                  (within-tags (format nil "<a href='~A'>" dest-file)
                               final-desc "</a>")))
              (within-tags open-tag final-desc "</a>")))))))
