@@ -14,11 +14,19 @@ the code uses some sbcl-specific libraries for now, so it is unlikely that it wi
 
 * example usage
 
-convert files:
+convert a single file from org to html (the ~%~ part is for "formatting" with lisp code):
+
+#+begin_src sh :eval no
+  ./run.sh convert -f 'test.org' -d html -o '/tmp/%(identity basename).html'
+#+end_src
+
+convert a bunch of files from org to html:
 
 #+begin_src sh :eval no
   ./run.sh convert -r '(:path "/home/mahmooz/brain/notes/1684594232.org" :regex ".*\\.org" :format "org-mode")' -d html -o '/tmp/%(identity basename).html'
 #+end_src
+
+convert a bunch of files from org to latex:
 
 #+begin_src sh :eval no
   ./run.sh convert -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -d latex -o '/tmp/%(identity title).tex'

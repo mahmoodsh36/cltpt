@@ -32,27 +32,6 @@
       (to-help (clingon:print-usage cmd t))
       )))
 
-(defun node-info-format-str (node format-str)
-  "takes a roam node and a string, returns a new string with some 'placeholders'
-replaced."
-  (cltpt/base:bind-and-eval
-   `((title ,(cltpt/roam:node-title node))
-     (file ,(cltpt/roam:node-file node))
-     (id ,(cltpt/roam:node-id node))
-     (file-no-ext ,(cltpt/base:path-without-extension (cltpt/roam:node-file node)))
-     (basename ,(cltpt/base:base-name-no-ext (cltpt/roam:node-file node))))
-   (lambda ()
-     ;; need to use in-package to access the variables bound above
-     (in-package :cltpt/commandline)
-     (let ((result
-             (cltpt/base:convert-tree
-              (cltpt/base:parse
-               format-str
-               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-              (cltpt/base:text-format-by-name "latex") ;; just use latex for now
-              (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
-       result))))
-
 ;; (defun convert (node src-format-name dest-format-name)
 ;;   (labels ((alias-to-name (alias)
 ;;              (cond
@@ -102,19 +81,7 @@ replaced."
                      (roamer-from-file-rules file-rules)
                      (cltpt/roam:from-files files))))
     (when (and roamer output-file-format dest-format)
-      (let ((nodes (cltpt/roam:roamer-nodes roamer)))
-        (loop for node in nodes
-              do (let ((in-file (cltpt/roam:node-file node))
-                       (out-file (node-info-format-str node output-file-format))
-                       (actual-src-format
-                         (or src-format
-                             (cltpt/base:text-format-by-name
-                              (getf (cltpt/roam:node-file-rule node) :format)))))
-                   (format t "writing from ~A to ~A~%" in-file out-file)
-                   (cltpt/base:convert-file actual-src-format
-                                            dest-format
-                                            in-file
-                                            out-file)))))))
+      (cltpt/roam:convert-all roamer dest-format output-file-format))))
 
 (defun convert-command ()
   (clingon:make-command

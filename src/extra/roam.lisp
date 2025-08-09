@@ -3,6 +3,7 @@
   (:export :from-files :roamer-rescan :roamer-nodes
    :node-id :node-title :node-desc :node-file :node-text-obj
    :node-file-rule :roamer-node-id-hashtable :get-node-by-id :convert-all
+   :node-format :node-info-format-str
    :make-node :text-object-roam-data :roamer :*convert-roamer*))
 
 (in-package :cltpt/roam)
@@ -14,6 +15,7 @@
   text-obj
   file ;; we can do this better
   file-rule ;; file rule from which the node was constructed we can do this better
+  format
   )
 
 (defclass roamer ()
@@ -61,7 +63,11 @@ each rule is a plist that can contain the following params.
 :regex - a regex to match against the files found,
 :recurse - if :path is a directory, this says whether to recursively look for files,
 :format - unused here, but tells us which format to use to parse the files found."
-  (let ((file-rule-alist)) ;; maps a raw filepath to the rule it was found for
+  (let (;; maps a raw filepath to the rule it was found for
+        (file-rule-alist)
+        ;; strings are just filepaths of individual files, nothing smart about it
+        (file-rules-string (remove-if-not 'stringp file-rules))
+        (file-rules-plist (remove-if-not 'plistp file-rules)))
     (labels ((handle-file (filepath file-rule)
                (let ((ext (getf file-rule :ext)))
                  (if ext
@@ -72,7 +78,7 @@ each rule is a plist that can contain the following params.
                                 (cons ext nil)))
                        (push (cons filepath file-rule) file-rule-alist))
                      (push (cons filepath file-rule) file-rule-alist)))))
-      (loop for file-rule in file-rules
+      (loop for file-rule in file-rules-plist
             for paths = (getf file-rule :path)
             for regex = (getf file-rule :regex)
             for recurse = (getf file-rule :recurse)
@@ -90,7 +96,9 @@ each rule is a plist that can contain the following params.
                                            path
                                            regex)
                               do (handle-file path file-rule)))
-                        (handle-file path file-rule)))))
+                        (handle-file path file-rule))))
+      (loop for filepath in file-rules-string
+            do (push (cons filepath filepath) file-rule-alist)))
     file-rule-alist))
 
 (defmethod roamer-rescan ((rmr roamer))
@@ -99,8 +107,12 @@ each rule is a plist that can contain the following params.
         (make-hash-table :test 'equal))
   (let ((file-rule-alist (find-files (roamer-files rmr))))
     (loop for (file . file-rule) in file-rule-alist
-          for fmt = (cltpt/base:text-format-by-name (getf file-rule :format))
-          do (let ((parsed (cltpt/base:parse-file file fmt)))
+          do (let* ((fmt (if (plistp file-rule)
+                             (cltpt/base:text-format-by-name
+                              (getf file-rule :format))
+                             (cltpt/base:text-format-from-alias
+                              (cltpt/base:file-ext file-rule))))
+                   (parsed (cltpt/base:parse-file file fmt)))
                (cltpt/base:map-text-object
                 parsed
                 (lambda (text-obj)
@@ -109,6 +121,7 @@ each rule is a plist that can contain the following params.
                       (setf (node-text-obj node) text-obj)
                       (setf (node-file node) file)
                       (setf (node-file-rule node) file-rule)
+                      (setf (node-format node) fmt)
                       (push node (roamer-nodes rmr))
                       (when (node-id node)
                         (setf
@@ -125,23 +138,40 @@ each rule is a plist that can contain the following params.
    id
    (roamer-node-id-hashtable rmr)))
 
-(defmethod convert-all ((rmr roamer) (dest-format cltpt/base:text-format) dest-dir)
-  (cltpt/base::ensure-directory dest-dir)
+(defmethod convert-all ((rmr roamer)
+                        (dest-format cltpt/base:text-format)
+                        output-file-format)
   (let ((files-done (make-hash-table :test 'equal))
         (*convert-roamer* rmr))
     (loop for node in (roamer-nodes rmr)
-          do (let ((is-done (gethash (node-file node) files-done)))
+          do (let* ((in-file (node-file node))
+                    (is-done (gethash in-file files-done))
+                    (out-file (node-info-format-str node output-file-format)))
                (unless is-done
-                 (format t "converting ~A~%" (node-file node))
+                 (format t "converting ~A to ~A~%" in-file out-file)
                  (cltpt/base:convert-file
-                  (cltpt/base:text-format-by-name
-                   (getf (node-file-rule node) :format))
+                  (node-format node)
                   dest-format
-                  (node-file node)
-                  (uiop:merge-pathnames*
-                   (uiop:ensure-directory-pathname dest-dir)
-                   (format nil "~A.~A"
-                           (cltpt/base:base-name-no-ext
-                            (cltpt/roam:node-file node))
-                           (cltpt/base:text-format-name dest-format))))
-                 (setf (gethash (node-file node) files-done) t))))))
+                  in-file
+                  out-file)
+                 (setf (gethash in-file files-done) t))))))
+
+(defmethod node-info-format-str ((node node) format-str)
+  "takes a roam node and a string, returns a new string with some 'placeholders'replaced."
+  (cltpt/base:bind-and-eval
+   `((title ,(cltpt/roam:node-title node))
+     (file ,(cltpt/roam:node-file node))
+     (id ,(cltpt/roam:node-id node))
+     (file-no-ext ,(cltpt/base:path-without-extension (cltpt/roam:node-file node)))
+     (basename ,(cltpt/base:base-name-no-ext (cltpt/roam:node-file node))))
+   (lambda ()
+     ;; need to use in-package to access the variables bound above
+     (in-package :cltpt/roam)
+     (let ((result
+             (cltpt/base:convert-tree
+              (cltpt/base:parse
+               format-str
+               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
+              (cltpt/base:text-format-by-name "latex") ;; just use latex for now
+              (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
+       result))))
