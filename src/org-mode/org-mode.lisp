@@ -95,8 +95,8 @@
 
 ;; ideally we should be using a hashmap, but it probably doesnt matter here.
 (defmethod org-drawer-get ((obj org-drawer) key)
-  (assoc key (cltpt/base:text-object-property obj :alist)
-         :test 'equal))
+  (cdr (assoc key (cltpt/base:text-object-property obj :alist)
+              :test 'equal)))
 
 (defmethod (setf org-drawer-get) (value (obj org-drawer) key)
   (push (cons key value) (cltpt/base:text-object-property obj :alist)))
@@ -706,21 +706,30 @@
   ()
   (:documentation "org-mode document."))
 
-;; TODO: grab ID from document-level property drawer
 (defmethod cltpt/base:text-object-finalize ((obj org-document))
   (let* ((doc-title)
-         (doc-id))
-    (labels ((is-keyword (obj2)
-               (typep obj2 'org-keyword)))
-      (loop for kw in (find-children obj #'is-keyword)
-            do (let ((kw-name (cltpt/base:text-object-property kw :keyword))
-                     (kw-value (cltpt/base:text-object-property kw :value)))
-                 (when (string= kw-name "title")
-                   (setf doc-title kw-value))
-                 ;; denote-style identifier
-                 (when (string= kw-name "identifier")
-                   (setf doc-id kw-value))
-                 )))
+         (doc-id)
+         (first-child (car (cltpt/base:text-object-children obj)))
+         (first-child-is-drawer (typep first-child 'org-drawer)))
+    ;; detect id and title of document, either through property drawer at the top
+    ;; or using keywords
+    (when first-child-is-drawer
+      (setf doc-id (org-drawer-get first-child "ID")))
+    (loop for child in (if first-child-is-drawer
+                           (cdr (cltpt/base:text-object-children obj))
+                           (cltpt/base:text-object-children obj))
+          while (typep child 'org-keyword)
+          do (let ((kw-name (cltpt/base:text-object-property child :keyword))
+                   (kw-value (cltpt/base:text-object-property child :value)))
+               (when (string= kw-name "title")
+                 (setf doc-title kw-value))
+               ;; denote-style identifier
+               (when (string= kw-name "identifier")
+                 (setf doc-id kw-value))
+               ))
+    ;; set metadata in the object itself
+    (setf (cltpt/base:text-object-property obj :title) doc-title)
+    (setf (cltpt/base:text-object-property obj :id) doc-id)
     ;; initialize roam data
     (setf (cltpt/base:text-object-property obj :roam-node)
           (cltpt/roam:make-node
