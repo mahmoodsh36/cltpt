@@ -6,6 +6,11 @@
 (defvar *special-text-object-names*
   '(anchor link task))
 
+(defvar *format-alias-alist*
+  '(("org" . "org-mode")
+    ("tex" . "latex"))
+  "an alist of (alias . format-name).")
+
 (defclass text-format ()
   ((name
     :initarg :name
@@ -56,3 +61,8 @@
 ;; default one
 (defmethod text-format-escape ((fmt text-format) text escapable-chars)
   text)
+
+(defun text-format-from-alias (alias)
+  "utility function to grab a text format using its alias. the aliases are hard-coded."
+  (text-format-by-name
+   (cdr (assoc alias *format-alias-alist* :test 'equal))))

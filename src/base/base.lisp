@@ -11,9 +11,10 @@
    :find-submatch :find-submatch-all
    :tree-find
    :pcase :plistp
-   :file-has-extension-p
    :bind-and-eval :bind-and-eval*
+
    :change-extension :path-without-extension :base-name-no-ext :change-dir
+   :file-has-extension-p :file-ext
 
    :convert-tree
 
@@ -34,7 +35,7 @@
    :find-children-recursively :find-children :list-children-recursively
    :child-at-pos :region-contains
    :text-object-rule-from-subclass
-   :text-format-name
+   :text-format-name :text-format-from-alias
 
    :region-text))
 
