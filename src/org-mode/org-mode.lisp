@@ -880,13 +880,13 @@
      (:pattern
       (cltpt/combinator:any
        (cltpt/combinator:consec
-        (cltpt/combinator:literal "#+begin_src")
+        (cltpt/combinator:literal-casein "#+begin_src")
         (:pattern (cltpt/combinator:all-but-newline)
          :id keywords))
-       (cltpt/combinator:literal "#+begin_src"))
+       (cltpt/combinator:literal-casein "#+begin_src"))
       :id begin))
     (cltpt/combinator:unescaped
-     (:pattern (cltpt/combinator:literal "#+end_src")
+     (:pattern (cltpt/combinator:literal-casein "#+end_src")
       :id end))
     ;; unlike an `org-block', org-src-block shouldnt contain children (for now)
     nil))
@@ -962,20 +962,20 @@
      (:pattern
       (cltpt/combinator:any
        (cltpt/combinator:consec
-        (cltpt/combinator:literal "#+begin_")
+        (cltpt/combinator:literal-casein "#+begin_")
         (:pattern (cltpt/combinator:symbol-matcher)
          :id begin-type)
         (:pattern (cltpt/combinator:all-but-newline)
          :id keywords))
        (cltpt/combinator:consec
-        (cltpt/combinator:literal "#+begin_")
+        (cltpt/combinator:literal-casein "#+begin_")
         (:pattern (cltpt/combinator:symbol-matcher)
          :id begin-type)))
       :id begin))
     (cltpt/combinator:unescaped
      (:pattern
       (cltpt/combinator:consec
-       (cltpt/combinator:literal "#+end_")
+       (cltpt/combinator:literal-casein "#+end_")
        (:pattern (cltpt/combinator:symbol-matcher)
         :id end-type))
       :id end))
