@@ -84,6 +84,8 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
 ;;                      node))))
 ;;     (flatten-if-too-deep tree)))
 
+(defun file-ext (filepath)
+  (string-downcase (pathname-type filepath)))
 
 (defun file-has-extension-p (path exts)
   "check if PATH ends with one of the extensions in EXTS."
