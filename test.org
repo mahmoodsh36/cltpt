@@ -1,3 +1,6 @@
+:PROPERTIES:
+:ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
+:END:
 #+title: my doc
 * TODO due task
 SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
