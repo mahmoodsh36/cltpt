@@ -35,7 +35,7 @@ convert a bunch of files from org to latex:
 roam (query) files
 
 #+begin_src sh :eval no
-  ./run.sh roam -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -o 'title: %title, id: %id, file: '
+  ./run.sh roam -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -o 'title: %title, id: %id, file: %file'
 #+end_src
 
 * goals
