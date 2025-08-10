@@ -227,30 +227,32 @@
                                  year)))
 
 (defvar *org-timestamp-bracket-rule*
-  '(cltpt/combinator:consec
-    "["
-    (:pattern (cltpt/combinator:natural-number-matcher)
-     :id year)
-    "-"
-    (:pattern (cltpt/combinator:natural-number-matcher)
-     :id month)
-    "-"
-    (:pattern (cltpt/combinator:natural-number-matcher)
-     :id day)
-    " "
-    (:pattern (cltpt/combinator:word-matcher)
-     :id weekday)
-    (cltpt/combinator:consec-atleast-one
+  '(:pattern
+    (cltpt/combinator:consec
+     "["
+     (:pattern (cltpt/combinator:natural-number-matcher)
+      :id year)
+     "-"
+     (:pattern (cltpt/combinator:natural-number-matcher)
+      :id month)
+     "-"
+     (:pattern (cltpt/combinator:natural-number-matcher)
+      :id day)
      " "
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id hour)
-     ":"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id minute)
-     ":"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id second))
-    "]"))
+     (:pattern (cltpt/combinator:word-matcher)
+      :id weekday)
+     (cltpt/combinator:consec-atleast-one
+      " "
+      (:pattern (cltpt/combinator:natural-number-matcher)
+       :id hour)
+      ":"
+      (:pattern (cltpt/combinator:natural-number-matcher)
+       :id minute)
+      ":"
+      (:pattern (cltpt/combinator:natural-number-matcher)
+       :id second))
+     "]")
+    :on-char #\[))
 (defclass org-timestamp-bracket (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -355,8 +357,7 @@
             (:pattern (cltpt/combinator:upcase-word-matcher)
              :id name)
             ": "
-            (:pattern ,*org-timestamp-bracket-rule*
-             :id timestamp))
+            ,(copy-rule-with-id *org-timestamp-bracket-rule* 'timestamp))
            :id action-inactive)))
         ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
         ,(copy-rule-with-id *org-list-rule* 'org-list)
