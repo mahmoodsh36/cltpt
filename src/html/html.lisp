@@ -1,20 +1,81 @@
 (defpackage :cltpt/html
   (:use :cl :cltpt/base :cltpt/latex)
-  (:export :html))
+  (:export :html :generate-html-preamble :*html-static-route*))
 
 (in-package :cltpt/html)
 
 (defun make-html ()
   (make-text-format
    "html"
-   '(display-math inline-math latex-env
-     text-macro post-lexer-text-macro)))
+   '(display-math
+     inline-math
+     latex-env
+     ;; text-macro
+     ;; post-lexer-text-macro
+     )))
 
-(defvar html (make-html))
+(defvar html
+  (make-html)
+  "the instance of `cltpt/base:text-object' for the html format.")
 
 ;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
 (defvar *html-export-latex-method*
   'svg)
+
+(defvar *html-static-route*
+  nil
+  "the static path to which the links generated for html will point.
+
+if nil, the paths will be absolute, otherwise, they will be join with the given
+directory path.")
+
+(defvar *html-postamble*
+  "</body>
+</html>"
+  "a template for html conversion.")
+
+(defvar *html-preamble*
+  "<html>
+<head>
+  <title> %title </title>
+</head>
+  <body>"
+  "a template for html conversion.")
+
+(defmethod cltpt/base:text-format-generate-preamble ((fmt text-format)
+                                                     (doc document))
+  (cltpt/base:bind-and-eval
+   `((title "mytitle")
+     (author "myauthor")
+     (date "mydate"))
+   (lambda ()
+     ;; need to use in-package to access the variables bound above
+     (in-package :cltpt/html)
+     (let ((result
+             (cltpt/base:convert-tree
+              (cltpt/base:parse
+               *html-preamble*
+               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
+              html
+              nil)))
+       result))))
+
+(defmethod cltpt/base:text-format-generate-postamble ((fmt text-format) (doc document))
+  (cltpt/base:bind-and-eval
+   `((title "mytitle")
+     (author "myauthor")
+     (date "mydate"))
+   (lambda ()
+     ;; need to use in-package to access the variables bound above
+     (in-package :cltpt/html)
+     (let ((result
+             (cltpt/base:convert-tree
+              (cltpt/base:parse
+               *html-postamble*
+               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
+              html
+              nil)))
+       result))))
 
 ;; (defmethod text-format-escape ((fmt (eql html)) text escapable-chars)
 ;;   text)
