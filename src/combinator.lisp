@@ -7,7 +7,7 @@
    :all-but-newline :atleast-one :atleast-one-discard :lisp-sexp :pair
    :unescaped :natural-number-matcher :when-match
    :at-line-start-p :at-line-end-p :followed-by :match-rule
-   :separated-atleast-one :all-but-whitespace))
+   :separated-atleast-one :all-but-whitespace :handle-rule-string))
 
 (in-package :cltpt/combinator)
 
@@ -329,6 +329,13 @@ before the final closing rule is found."
             )))
     (compile-rule-string-helper str my-replacements)))
 
+(defun handle-rule-string (str)
+  (let ((compiled (compile-rule-string str)))
+    (if (> (length compiled) 1)
+        ;; if stringified pattern compiles to multiple rules we use `consec'.
+        (cons 'consec compiled)
+        (car compiled))))
+
 ;; i forgot why we're matching dollar signs here, should probably remove that
 ;; and use symbol-matcher instead where this was needed.
 (defun word-digits-hyphen (str pos)
@@ -412,11 +419,13 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                   (new-parent-info (list* :id (getf rule :id) parent-info)))
              (cons new-parent-info (cdr sub-pattern-match)))))))
     ((stringp rule)
-     (let ((compiled (compile-rule-string rule)))
-       (if (> (length compiled) 1)
-           ;; if stringified pattern compiles to multiple rules we use `consec'.
-           (match-rule (cons 'consec compiled) str pos)
-           (match-rule (car compiled) str pos))))
+     (match-rule (list 'literal rule) str pos)
+     ;; (let ((compiled (compile-rule-string rule)))
+     ;;   (if (> (length compiled) 1)
+     ;;       ;; if stringified pattern compiles to multiple rules we use `consec'.
+     ;;       (match-rule (cons 'consec compiled) str pos)
+     ;;       (match-rule (car compiled) str pos)))
+     )
     (t (error "invalid rule: ~A" rule))))
 
 ;; the hash table thing is a heuristic that makes things slightly faster
