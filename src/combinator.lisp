@@ -46,7 +46,7 @@
   "match a literal string, case-insensitive."
   (let ((sublen (length substr)))
     (when (<= (+ pos sublen) (length str))
-      (when (string-equal (subseq str pos (+ pos sublen)) substr)
+      (when (string-equal str substr :start1 pos :end1 (+ pos sublen) :end2 sublen)
         sublen))))
 
 (defun eng-char-p (str pos)

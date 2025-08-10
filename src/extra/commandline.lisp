@@ -137,7 +137,7 @@
     (when roamer
       (let ((nodes (cltpt/roam:roamer-nodes roamer)))
         (loop for node in nodes
-              do (let ((output (node-info-format-str node output-format)))
+              do (let ((output (cltpt/roam:node-info-format-str node output-format)))
                    (format t "~A~%" output)))))))
 
 (defun roam-command ()
