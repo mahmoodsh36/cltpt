@@ -8,8 +8,8 @@
    :cltpt/latex
    :display-math :inline-math :latex-env)
   (:export :org-list-matcher :org-header :org-list
-           :org-mode :org-mode-text-object-types
-           :org-block))
+   :org-mode :org-mode-text-object-types
+   :org-block))
 
 (in-package :cltpt/org-mode)
 
@@ -56,6 +56,13 @@
    '(org-link web-link org-inline-code org-emph org-italic
      cltpt/latex:display-math cltpt/latex:inline-math)
    (org-mode-text-object-types)))
+
+(defun copy-rule-with-id (rule id)
+  (if (cltpt/base::plistp rule)
+      (let ((copy (copy-tree rule)))
+        (setf (getf copy :id) id)
+        copy)
+      (list :pattern rule :id id)))
 
 (defvar *org-inline-text-objects-rule*
   '(eval
@@ -159,30 +166,32 @@
           :recurse nil))
 
 (defvar *org-timestamp-rule*
-  '(cltpt/combinator:consec
-    "<"
-    (:pattern (cltpt/combinator:natural-number-matcher)
-     :id year)
-    "-"
-    (:pattern (cltpt/combinator:natural-number-matcher)
-     :id month)
-    "-"
-    (:pattern (cltpt/combinator:natural-number-matcher)
-     :id day)
-    " "
-    (:pattern (cltpt/combinator:word-matcher)
-     :id weekday)
-    (cltpt/combinator:consec-atleast-one
+  '(:pattern
+    (cltpt/combinator:consec
+     "<"
+     (:pattern (cltpt/combinator:natural-number-matcher)
+      :id year)
+     "-"
+     (:pattern (cltpt/combinator:natural-number-matcher)
+      :id month)
+     "-"
+     (:pattern (cltpt/combinator:natural-number-matcher)
+      :id day)
      " "
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id hour)
-     ":"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id minute)
-     ":"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id second))
-    ">"))
+     (:pattern (cltpt/combinator:word-matcher)
+      :id weekday)
+     (cltpt/combinator:consec-atleast-one
+      " "
+      (:pattern (cltpt/combinator:natural-number-matcher)
+       :id hour)
+      ":"
+      (:pattern (cltpt/combinator:natural-number-matcher)
+       :id minute)
+      ":"
+      (:pattern (cltpt/combinator:natural-number-matcher)
+       :id second))
+     ">")
+    :on-char #\<))
 (defclass org-timestamp (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -254,6 +263,55 @@
 ;;     :initform ))
 ;;   (:documentation "e.g. the timestamp in CLOSED: [2023-12-28 Thu 19:32:11]"))
 
+(defvar *org-list-rule*
+  `(:pattern
+    (org-list-matcher
+     ,*org-inline-text-objects-rule*)
+    :on-char #\-))
+(defclass org-list (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-list-rule*))
+  (:documentation "org-mode list."))
+
+;; this is very hacky, perhaps we should find a better way to export lists
+;; and their children
+(defmethod cltpt/base:text-object-convert ((obj org-list) backend)
+  ;; create a new non-org-list object, export it, use the output as a new list
+  ;; reparse, that new list, then export the modified newly parsed list as if
+  ;; it was the original
+  (let ((new-obj (make-instance 'cltpt/base:text-object)))
+    (cltpt/base:text-object-init
+     new-obj
+     (cltpt/base:text-object-text obj)
+     (org-list-matcher (cltpt/base:text-object-text obj) 0))
+    ;; set children of new-obj to those of obj without any nested org-lists
+    ;; otherwise things wont work properly (because nested org-lists get converted)
+    ;; to latex and later we try to parse them as a list
+    (setf (cltpt/base:text-object-children new-obj)
+          (remove-if
+           (lambda (obj)
+             (equal (type-of obj) 'org-list))
+           (cltpt/base:text-object-children obj)))
+    ;; we create a new intermediate object, treat it as raw text,
+    ;; parse other types of text objects and convert them, then parse the result
+    ;; as a list
+    (let* ((new-txt (cltpt/base:convert-tree new-obj
+                                             backend
+                                             (org-mode-text-object-types)))
+           (parsed (org-list-matcher new-txt 0)))
+      (cond
+        ((eq backend cltpt/latex:latex)
+         (list :text (to-latex-list parsed)
+               :recurse nil
+               :reparse nil
+               :escape nil))
+        ((eq backend cltpt/html:html)
+         (list :text (to-html-list parsed)
+               :recurse nil
+               :reparse nil
+               :escape nil))))))
+
 (defvar *org-header-rule*
   `(:pattern
     (cltpt/combinator:consec-atleast-one
@@ -290,8 +348,7 @@
             (:pattern (cltpt/combinator:upcase-word-matcher)
              :id name)
             ": "
-            (:pattern ,*org-timestamp-rule*
-             :id timestamp))
+            ,(copy-rule-with-id *org-timestamp-rule* 'timestamp))
            :id action-active)
           (:pattern
            (cltpt/combinator:consec
@@ -301,10 +358,9 @@
             (:pattern ,*org-timestamp-bracket-rule*
              :id timestamp))
            :id action-inactive)))
-        (:pattern ,*org-timestamp-rule*
-         :id todo-timestamp)
-        (org-list-matcher)
-        (:pattern ,*org-drawer-rule* :id org-drawer)))))
+        ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
+        ,(copy-rule-with-id *org-list-rule* 'org-list)
+        ,(copy-rule-with-id *org-drawer-rule* 'org-drawer)))))
     :on-char #\*))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -586,60 +642,6 @@
   (cond
     ((eq backend cltpt/html:html)
      (format nil "<a href='~A'></a>" (cltpt/base:text-object-text obj)))))
-
-(defun copy-rule-with-id (rule id)
-  (if (cltpt/base::plistp rule)
-      (let ((copy (copy-tree rule)))
-        (setf (getf copy :id) id)
-        copy)
-      (list :pattern rule :id id)))
-
-(defclass org-list (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform `(:pattern
-                (org-list-matcher
-                 ,*org-inline-text-objects-rule*)
-                :on-char #\-)))
-  (:documentation "org-mode list."))
-
-;; this is very hacky, perhaps we should find a better way to export lists
-;; and their children
-(defmethod cltpt/base:text-object-convert ((obj org-list) backend)
-  ;; create a new non-org-list object, export it, use the output as a new list
-  ;; reparse, that new list, then export the modified newly parsed list as if
-  ;; it was the original
-  (let ((new-obj (make-instance 'cltpt/base:text-object)))
-    (cltpt/base:text-object-init
-     new-obj
-     (cltpt/base:text-object-text obj)
-     (org-list-matcher (cltpt/base:text-object-text obj) 0))
-    ;; set children of new-obj to those of obj without any nested org-lists
-    ;; otherwise things wont work properly (because nested org-lists get converted)
-    ;; to latex and later we try to parse them as a list
-    (setf (cltpt/base:text-object-children new-obj)
-          (remove-if
-           (lambda (obj)
-             (equal (type-of obj) 'org-list))
-           (cltpt/base:text-object-children obj)))
-    ;; we create a new intermediate object, treat it as raw text,
-    ;; parse other types of text objects and convert them, then parse the result
-    ;; as a list
-    (let* ((new-txt (cltpt/base:convert-tree new-obj
-                                             backend
-                                             (org-mode-text-object-types)))
-           (parsed (org-list-matcher new-txt 0)))
-      (cond
-        ((eq backend cltpt/latex:latex)
-         (list :text (to-latex-list parsed)
-               :recurse nil
-               :reparse nil
-               :escape nil))
-        ((eq backend cltpt/html:html)
-         (list :text (to-html-list parsed)
-               :recurse nil
-               :reparse nil
-               :escape nil))))))
 
 (defvar *org-inline-code-rule*
   '(:pattern
