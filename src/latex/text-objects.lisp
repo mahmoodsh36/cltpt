@@ -36,10 +36,10 @@
 
 
 (defvar *latex-env-rule*
-  '(:pattern
+  `(:pattern
     (cltpt/combinator:pair
-     "\\begin{%W}"
-     "\\end{%W}")
+     ,(cltpt/combinator:handle-rule-string "\\begin{%W}")
+     ,(cltpt/combinator:handle-rule-string "\\end{%W}"))
     :on-char #\\))
 (defclass latex-env (cltpt/base:text-object)
   ((cltpt/base::rule

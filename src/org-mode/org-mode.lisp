@@ -67,10 +67,10 @@
      (org-mode-inline-text-object-types))))
 
 (defvar *org-drawer-rule*
-  '(:pattern
+  `(:pattern
     (cltpt/combinator:pair
      (cltpt/combinator:followed-by
-      (:pattern ":%w:"
+      (:pattern ,(cltpt/combinator:handle-rule-string ":%w:")
        :id drawer-open-tag)
       cltpt/combinator:at-line-end-p)
      (cltpt/combinator:when-match
@@ -571,7 +571,7 @@
 
 ;; we're not being clever about it
 (defvar *web-link-rule*
-  '(:pattern
+  `(:pattern
     (cltpt/combinator:consec
      "https://"
      (cltpt/combinator:all-but-whitespace))
