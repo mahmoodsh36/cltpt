@@ -599,8 +599,7 @@
      (let* ((desc (cltpt/base:text-object-property obj :desc))
             (dest (cltpt/base:text-object-property obj :dest))
             (type (cltpt/base:text-object-property obj :type))
-            (final-desc (or desc dest))
-            (open-tag (format nil "<a href='~A'>" dest)))
+            (final-desc (or desc dest)))
        (when dest
          (if (and cltpt/roam:*convert-roamer*
                   (member type '("blk" "id" "denote") :test 'equal))
@@ -610,10 +609,20 @@
                     (dest-file (when dest-node (cltpt/roam:node-file dest-node))))
                (when dest-file
                  (setf dest-file (cltpt/base:change-extension dest-file "html"))
-                 (setf dest-file (cltpt/base:change-dir dest-file *org-convert-dest-dir*))
+                 (if cltpt/html:*html-static-route*
+                     (setf dest-file
+                           (cltpt/base:change-dir dest-file cltpt/html:*html-static-route*))
+                     (setf dest-file
+                           (cltpt/base:change-dir dest-file *org-convert-dest-dir*)))
                  (within-tags (format nil "<a href='~A'>" dest-file)
                               final-desc "</a>")))
-             (within-tags open-tag final-desc "</a>")))))))
+             (within-tags
+              (if cltpt/html:*html-static-route*
+                  (format nil "<a href='~A'>"
+                          (cltpt/base:change-dir dest cltpt/html:*html-static-route*))
+                  (format nil "<a href='~A'>" dest))
+              final-desc
+              "</a>")))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
   (let ((link-type-match (car (cltpt/base:find-submatch match 'link-type)))
@@ -752,9 +761,6 @@
          (push (cltpt/base:text-object-text obj) mylist))))
     (cltpt/latex:generate-svgs-for-latex mylist)))
 
-(defun generate-html-header (author date title)
-  "<head></head>")
-
 (defmethod cltpt/base:text-object-convert ((obj org-document) backend)
   (cltpt/base:pcase backend
     (cltpt/latex:latex
@@ -788,15 +794,17 @@
     (cltpt/html:html
      (let* ((my-preamble
               (concatenate 'string
-                           "<html>"
+                           (cltpt/base:text-format-generate-preamble
+                            cltpt/html:html
+                            obj)
                            (string #\newline)
-                           (generate-html-header "authorhere" "datehere" "titlehere")
-                           (string #\newline)
-                           "<body><div id='content'>"
+                           "<div id='content'>"
                            (string #\newline)))
             (my-postamble (concatenate 'string
                                        (string #\newline)
-                                       "</div></body></html>"))
+                                       (cltpt/base:text-format-generate-postamble
+                                        cltpt/html:html
+                                        obj)))
             (my-text (concatenate 'string
                                   my-preamble
                                   (cltpt/base:text-object-text obj)

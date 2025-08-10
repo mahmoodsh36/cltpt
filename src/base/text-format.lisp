@@ -62,6 +62,10 @@
 (defmethod text-format-escape ((fmt text-format) text escapable-chars)
   text)
 
+;; takes a text-format and a document, returns formatted postamble/preamble
+(defgeneric text-format-generate-preamble (fmt doc))
+(defgeneric text-format-generate-postamble (fmt doc))
+
 (defun text-format-from-alias (alias)
   "utility function to grab a text format using its alias. the aliases are hard-coded."
   (text-format-by-name

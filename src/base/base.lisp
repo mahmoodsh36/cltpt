@@ -36,6 +36,7 @@
    :child-at-pos :region-contains
    :text-object-rule-from-subclass
    :text-format-name :text-format-from-alias
+   :text-format-generate-preamble :text-format-generate-postamble
 
    :region-text))
 
