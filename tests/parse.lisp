@@ -755,4 +755,4 @@ some math here
      ;; '((:path ("/home/mahmooz/brain/notes/")
      ;;    :regex "16564.*\\.org"
      ;;    :format "org-mode")))))
-     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp"))))
+     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))

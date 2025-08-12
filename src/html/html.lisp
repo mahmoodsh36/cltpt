@@ -1,6 +1,7 @@
 (defpackage :cltpt/html
   (:use :cl :cltpt/base :cltpt/latex)
-  (:export :html :generate-html-preamble :*html-static-route*))
+  (:export :html :generate-html-preamble :*html-static-route*
+           :*html-postamble* :*html-preamble*))
 
 (in-package :cltpt/html)
 
