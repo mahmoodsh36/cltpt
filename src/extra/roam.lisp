@@ -4,7 +4,8 @@
    :node-id :node-title :node-desc :node-file :node-text-obj
    :node-file-rule :roamer-node-id-hashtable :get-node-by-id :convert-all
    :node-format :node-info-format-str
-   :make-node :text-object-roam-data :roamer :*convert-roamer*))
+           :make-node :text-object-roam-data :roamer :*convert-roamer*
+           :*roam-convert-data*))
 
 (in-package :cltpt/roam)
 
@@ -33,9 +34,13 @@
     :accessor roamer-node-id-hashtable
     :documentation "map a node to its id.")))
 
-(defvar *convert-roamer*
+(defvar *roam-convert-data*
   nil
-  "dynamically bound `roamer' instance for conversion function to use of, e.g. for retrieval of node by id using `get-node-by-id'")
+  "dynamically bound metadata to pass down from roamer to conversion functions of objects.
+at the very least has to include a `roamer' instance for conversion functions to make use of. e.g. for retrieval of node by id using `get-node-by-id'.
+form:
+  `(:output-file-format nil
+    :roamer nil)'")
 
 (defun from-files (files)
   "see documentation of `find-files' for FILES. takes a set of rules, returns a
@@ -142,7 +147,9 @@ each rule is a plist that can contain the following params.
                         (dest-format cltpt/base:text-format)
                         output-file-format)
   (let ((files-done (make-hash-table :test 'equal))
-        (*convert-roamer* rmr))
+        (*roam-convert-data*
+          (list :roamer rmr
+                :output-file-format output-file-format)))
     (loop for node in (roamer-nodes rmr)
           do (let* ((in-file (node-file node))
                     (is-done (gethash in-file files-done))
@@ -172,6 +179,6 @@ each rule is a plist that can contain the following params.
               (cltpt/base:parse
                format-str
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-              (cltpt/base:text-format-by-name "latex") ;; just use latex for now
+              (cltpt/base:text-format-by-name "org-mode") ;; just use org for now
               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
        result))))

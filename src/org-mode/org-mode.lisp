@@ -8,13 +8,15 @@
    :cltpt/latex
    :display-math :inline-math :latex-env)
   (:export :org-list-matcher :org-header :org-list
-   :org-mode :org-mode-text-object-types
+   :org-mode :org-mode-text-object-types :*org-convert-dest-dir*
    :org-block))
 
 (in-package :cltpt/org-mode)
 
 (defvar *org-convert-dest-dir*
-  (uiop:merge-pathnames* (uiop:temporary-directory) "cltpt-org")
+  (namestring
+   (uiop:ensure-directory-pathname
+    (uiop:merge-pathnames* (uiop:temporary-directory) "cltpt-org")))
   "output directory for files converted from org-mode format.")
 
 ;; the `pair' matchers are the slowest
@@ -601,10 +603,10 @@
             (type (cltpt/base:text-object-property obj :type))
             (final-desc (or desc dest)))
        (when dest
-         (if (and cltpt/roam:*convert-roamer*
+         (if (and cltpt/roam:*roam-convert-data*
                   (member type '("blk" "id" "denote") :test 'equal))
              (let* ((dest-node (cltpt/roam:get-node-by-id
-                                cltpt/roam:*convert-roamer*
+                                (getf cltpt/roam:*roam-convert-data* :roamer)
                                 dest))
                     (dest-file (when dest-node (cltpt/roam:node-file dest-node))))
                (when dest-file
