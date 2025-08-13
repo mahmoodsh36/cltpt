@@ -15,7 +15,6 @@
                              (:file "transformer")
                              (:file "utils")
                              (:file "text-object")
-                             (:file "text-algorithms")
                              (:file "text-format")
                              (:file "convert")))
                (:module "latex"
