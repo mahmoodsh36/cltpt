@@ -3,8 +3,8 @@
 (defvar *inline-math-rule*
   '(:pattern
     (cltpt/combinator:pair
-     (cltpt/combinator:literal "\\(")
-     (cltpt/combinator:literal "\\)"))
+     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\("))
+     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\)")))
     :on-char #\\))
 (defclass inline-math (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -19,8 +19,8 @@
 (defvar *display-math-rule*
   '(:pattern
     (cltpt/combinator:pair
-     (cltpt/combinator:literal "\\[")
-     (cltpt/combinator:literal "\\]"))
+     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\["))
+     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\]")))
     :on-char #\\))
 (defclass display-math (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -34,12 +34,11 @@
         :recurse t
         :escape nil))
 
-
 (defvar *latex-env-rule*
   `(:pattern
     (cltpt/combinator:pair
-     ,(cltpt/combinator:handle-rule-string "\\begin{%W}")
-     ,(cltpt/combinator:handle-rule-string "\\end{%W}"))
+     (cltpt/combinator:unescaped ,(cltpt/combinator:handle-rule-string "\\begin{%W}"))
+     (cltpt/combinator:unescaped ,(cltpt/combinator:handle-rule-string "\\end{%W}")))
     :on-char #\\))
 (defclass latex-env (cltpt/base:text-object)
   ((cltpt/base::rule

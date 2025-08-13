@@ -55,15 +55,17 @@
 (defun test-org-convert-1 ()
   (time
    (progn
-     (cltpt/base:convert-file
-      (cltpt/base:text-format-by-name "org-mode")
-      (cltpt/base:text-format-by-name "latex")
-      "/home/mahmooz/brain/notes/1656672670.org"
-      "/tmp/test.out.tex")
+     ;; (cltpt/base:convert-file
+     ;;  (cltpt/base:text-format-by-name "org-mode")
+     ;;  (cltpt/base:text-format-by-name "latex")
+     ;;  ;; "/home/mahmooz/brain/notes/1752690904.866355.org"
+     ;;  "/tmp/test.org"
+     ;;  "/tmp/test.out.tex")
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "html")
-      "/home/mahmooz/brain/notes/1656672670.org"
+      ;; "/home/mahmooz/brain/notes/1752690904.866355.org"
+      "/tmp/test.org"
       "/tmp/test.out.html")
      nil)))
 
@@ -324,6 +326,21 @@ more nested text<ol type=\"1\">
     (cltpt/base::parse
      text
      (list 'cltpt/org-mode::org-list 'cltpt/org-mode::org-link))))
+
+(defun org-list-test-6-func ()
+  (let ((text "- actual cost is 1. the potential changes from \\(2n-M\\) to \\(2(n+1)-M\\) is
+  \\[ \\text{amort}(\\text{Insert-Last}) = 1+(2(n+1)-M)-(2n-M) = 1+2 = 3 \\]
+- /case 2: array is full (\\(n=M\\))/.
+  actual cost is \\(M+1\\) (copy \\(M\\) elements, insert 1). the state changes from \\(\\Phi(M,M)\\) to \\(\\Phi(2M,M+1)\\).
+  \\begin{gather*}
+    \\Phi_{\\text{before}} = 2M-M = M\\\\
+    \\Phi_{\\text{after}} = 2(M+1)-2M = 2\\\\
+    \\text{amort}(\\text{Insert-Last}) = (M+1)+(2-M) = 3
+  \\end{gather*}"))
+    (cltpt/org-mode::org-list-matcher
+     text
+     0
+     (cltpt/org-mode::org-mode-inline-text-object-rule))))
 
 ;; latex snippet compilation test
 (defun test-latex-svg ()
