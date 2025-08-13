@@ -38,6 +38,7 @@
    :text-object-rule-from-subclass
    :text-format-name :text-format-from-alias
    :text-format-generate-preamble :text-format-generate-postamble
+   :text-object-clone
 
    :region-text))
 

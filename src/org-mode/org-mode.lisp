@@ -610,21 +610,12 @@
             (type (cltpt/base:text-object-property obj :type))
             (final-desc (or desc dest)))
        (when dest
-         (if (and cltpt/roam:*roam-convert-data*
-                  (member type '("blk" "id" "denote") :test 'equal))
-             (let* ((dest-node (cltpt/roam:get-node-by-id
-                                (getf cltpt/roam:*roam-convert-data* :roamer)
-                                dest))
-                    (dest-file (when dest-node (cltpt/roam:node-file dest-node))))
-               (when dest-file
-                 (setf dest-file (cltpt/base:change-extension dest-file "html"))
-                 (if cltpt/html:*html-static-route*
-                     (setf dest-file
-                           (cltpt/base:change-dir dest-file cltpt/html:*html-static-route*))
-                     (setf dest-file
-                           (cltpt/base:change-dir dest-file *org-convert-dest-dir*)))
-                 (within-tags (format nil "<a href='~A'>" dest-file)
-                              final-desc "</a>")))
+         (if cltpt/roam:*roam-convert-data*
+             (cltpt/roam:convert-link
+              (getf cltpt/roam:*roam-convert-data* :roamer)
+              obj
+              (getf cltpt/roam:*roam-convert-data* :output-file-format)
+              backend)
              (within-tags
               (if cltpt/html:*html-static-route*
                   (format nil "<a href='~A'>"
