@@ -14,7 +14,8 @@
    :bind-and-eval :bind-and-eval*
 
    :change-extension :path-without-extension :base-name-no-ext :change-dir
-   :file-has-extension-p :file-ext
+   :file-has-extension-p :file-ext :basename
+   :ensure-directory
 
    :convert-tree
 
