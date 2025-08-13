@@ -35,14 +35,22 @@
                 :escape nil))
         (text-object-convert text-obj backend))))
 
-(defun convert-tree (text-obj backend text-object-types)
+(defun convert-tree (text-obj backend text-object-types
+                     &optional
+                       (reparse nil reparse-supplied)
+                       (recurse nil recurse-supplied)
+                       (escape nil escape-supplied))
   (let* ((result (text-object-convert-helper text-obj backend))
          ;; (result (text-object-convert text-obj backend))
          (result-is-string (typep result 'string))
-         (to-escape (or result-is-string
-                        (getf result :escape)))
-         (to-reparse (unless result-is-string
-                       (getf result :reparse)))
+         (to-escape (if escape-supplied
+                        escape
+                        (or result-is-string
+                            (getf result :escape))))
+         (to-reparse (if reparse-supplied
+                         reparse
+                         (unless result-is-string
+                           (getf result :reparse))))
          (region-to-reparse (when (and to-reparse (not result-is-string))
                               (getf result :reparse-region)))
          (convert-text
@@ -51,8 +59,10 @@
                (getf result :text)))
          (region-to-escape (when (and to-escape (not result-is-string))
                              (getf result :escape-region)))
-         (to-recurse (or (unless result-is-string (getf result :recurse))
-                         to-reparse))
+         (to-recurse (if recurse-supplied
+                         recurse
+                         (or (unless result-is-string (getf result :recurse))
+                             to-reparse)))
          (escapables (collect-escapables text-object-types)))
     (when *debug*
       (format t "converting object ~A~%" text-obj))
