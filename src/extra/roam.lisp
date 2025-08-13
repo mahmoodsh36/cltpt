@@ -1,11 +1,11 @@
 (defpackage :cltpt/roam
   (:use :cl :cltpt/base)
-  (:export :from-files :roamer-rescan :roamer-nodes
-   :node-id :node-title :node-desc :node-file :node-text-obj
-   :node-file-rule :roamer-node-id-hashtable :get-node-by-id :convert-all
-   :node-format :node-info-format-str
-           :make-node :text-object-roam-data :roamer :*convert-roamer*
-           :*roam-convert-data*))
+  (:export
+   :from-files :roamer-rescan :roamer-nodes
+   :node-id :node-title :node-desc :node-file :node-text-obj :node-file-rule
+   :roamer-node-id-hashtable :get-node-by-id :convert-all
+   :node-format :node-info-format-str :make-node :text-object-roam-data
+   :roamer :*convert-roamer* :*roam-convert-data* :convert-link))
 
 (in-package :cltpt/roam)
 
@@ -182,3 +182,32 @@ each rule is a plist that can contain the following params.
                (cltpt/base:text-format-by-name "org-mode") ;; just use org for now
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
        result))))
+
+(defmethod convert-link ((rmr roamer)
+                         (link-obj cltpt/base:text-object)
+                         output-file-format
+                         backend)
+  "when converting links, we need to be aware of the roamer we're working with,
+in order to be able to get the destination of the link incase it is an id-link.
+this function handles an object that should have the properties of a link,
+which may include the destination, description and type."
+  (let* ((desc (cltpt/base:text-object-property link-obj :desc))
+         (dest (cltpt/base:text-object-property link-obj :dest))
+         (type (cltpt/base:text-object-property link-obj :type)))
+    (if (member type '("blk" "id" "denote") :test 'equal)
+        (let* ((dest-node (cltpt/roam:get-node-by-id
+                           (getf cltpt/roam:*roam-convert-data* :roamer)
+                           dest))
+               (dest-file (when dest-node (cltpt/roam:node-file dest-node))))
+          (when dest-file
+            (setf dest-file (node-info-format-str dest-node output-file-format))
+            (let ((new-obj (cltpt/base:text-object-clone link-obj))
+                  ;; set this dynamically to make the conversion function
+                  ;; not call this function again
+                  (cltpt/roam:*roam-convert-data*))
+              (setf (cltpt/base:text-object-property new-obj :dest) dest-file)
+              (cltpt/base:text-object-convert new-obj backend))))
+        ;; set this dynamically to make the conversion function
+        ;; not call this function again
+        (let ((cltpt/roam:*roam-convert-data*))
+          (cltpt/base:text-object-convert link-obj backend)))))
