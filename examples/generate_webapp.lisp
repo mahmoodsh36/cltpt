@@ -27,8 +27,6 @@
   <a href='/search.html'>search</a>
   <a href='/about.html'>about</a>
 </div>")
-         (cltpt/org-mode:*org-convert-dest-dir*
-           (truename "~/blog/"))
          (cltpt/html:*html-static-route* "/")
          (*my-metadata*
            (list :other-head-contents other-head-contents
@@ -44,10 +42,10 @@
   #(getf cl-user::*my-metadata* :other-preamble-contents)
 ")
          (rmr (cltpt/roam:from-files
-               '((:path ("/home/mahmooz/brain/notes/")
+               '((:path ("/home/mahmooz/notes/")
                   :regex ".*\\.org"
                   :format "org-mode")))))
     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html")
-                            "%(identity cltpt/org-mode:*org-convert-dest-dir*)/%(cl-user::title-to-filename title).html")))
+                            "~/blog/%(cl-user::title-to-filename title).html")))
 
 ;; (generate)

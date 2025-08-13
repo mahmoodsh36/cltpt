@@ -51,8 +51,8 @@ directory path.")
      (date "mydate"))
    (lambda ()
      ;; need to use in-package to access the variables bound above
-     (in-package :cltpt/html)
-     (let ((result
+     (let ((*package* (find-package :cltpt/html))
+           (result
              (cltpt/base:convert-tree
               (cltpt/base:parse
                *html-preamble*
@@ -68,8 +68,8 @@ directory path.")
      (date "mydate"))
    (lambda ()
      ;; need to use in-package to access the variables bound above
-     (in-package :cltpt/html)
-     (let ((result
+     (let ((*package* (find-package :cltpt/html))
+           (result
              (cltpt/base:convert-tree
               (cltpt/base:parse
                *html-postamble*
