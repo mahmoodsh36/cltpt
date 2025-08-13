@@ -311,7 +311,6 @@
                                              t
                                              nil))
            (parsed (org-list-matcher new-txt 0)))
-      (format t "here1 ~A~%" new-txt)
       (cond
         ((eq backend cltpt/latex:latex)
          (list :text (to-latex-list parsed)
