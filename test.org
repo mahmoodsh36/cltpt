@@ -21,6 +21,23 @@ SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 - State "DONE"       from "TODO"       [2024-09-03 Tue 16:31:49]
 - State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
 
+test math
+
+\[
+\det\left[\begin{array}{cc}
+a_2 & b_2 \\
+a_3 & b_3
+\end{array}\right] \\[2ex]
+\det\left[\begin{array}{cc}
+a_1 & b_1 \\
+a_2 & b_2
+\end{array}\right]
+\end{array} \right] = \begin{bmatrix}
+a_2 b_3 - a_3 b_2 \\
+-a_1 b_3 + a_3 b_1 \\
+a_1 b_2 - a_2 b_1
+\end{bmatrix}. \]
+
 * TODO another due task
 SCHEDULED: <2024-10-15 Tue 16:41:04> DEADLINE: <2024-10-15 Tue 16:51:04>
 

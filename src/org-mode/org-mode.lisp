@@ -56,7 +56,7 @@
 (defun org-mode-inline-text-object-types ()
   (intersection
    '(org-link web-link org-inline-code org-emph org-italic
-     cltpt/latex:display-math cltpt/latex:inline-math)
+     cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env)
    (org-mode-text-object-types)))
 
 (defun copy-rule-with-id (rule id)
@@ -66,14 +66,17 @@
         copy)
       (list :pattern rule :id id)))
 
+(defun org-mode-inline-text-object-rule ()
+  (mapcar
+   (lambda (subclass-name)
+     (copy-rule-with-id
+      (cltpt/base:text-object-rule-from-subclass subclass-name)
+      subclass-name))
+   (org-mode-inline-text-object-types)))
+
 (defvar *org-inline-text-objects-rule*
   '(eval
-    (mapcar
-     (lambda (subclass-name)
-       (copy-rule-with-id
-        (cltpt/base:text-object-rule-from-subclass subclass-name)
-        subclass-name))
-     (org-mode-inline-text-object-types))))
+    (org-mode-inline-text-object-rule)))
 
 (defvar *org-drawer-rule*
   `(:pattern
@@ -284,26 +287,31 @@
   ;; create a new non-org-list object, export it, use the output as a new list
   ;; reparse, that new list, then export the modified newly parsed list as if
   ;; it was the original
-  (let ((new-obj (make-instance 'cltpt/base:text-object)))
+  (let* ((list-text (cltpt/base:text-object-text obj))
+         (new-children (cltpt/base:text-object-children
+                        (cltpt/base:parse list-text
+                                          (org-mode-inline-text-object-types))))
+         (new-obj (make-instance 'cltpt/base:text-object)))
     (cltpt/base:text-object-init
      new-obj
-     (cltpt/base:text-object-text obj)
-     (org-list-matcher (cltpt/base:text-object-text obj) 0))
+     list-text
+     (cltpt/base:text-object-property obj :combinator-match))
     ;; set children of new-obj to those of obj without any nested org-lists
     ;; otherwise things wont work properly (because nested org-lists get converted)
     ;; to latex and later we try to parse them as a list
     (setf (cltpt/base:text-object-children new-obj)
-          (remove-if
-           (lambda (obj)
-             (equal (type-of obj) 'org-list))
-           (cltpt/base:text-object-children obj)))
+          new-children)
     ;; we create a new intermediate object, treat it as raw text,
     ;; parse other types of text objects and convert them, then parse the result
     ;; as a list
     (let* ((new-txt (cltpt/base:convert-tree new-obj
                                              backend
-                                             (org-mode-text-object-types)))
+                                             (org-mode-inline-text-object-types)
+                                             nil
+                                             t
+                                             nil))
            (parsed (org-list-matcher new-txt 0)))
+      (format t "here1 ~A~%" new-txt)
       (cond
         ((eq backend cltpt/latex:latex)
          (list :text (to-latex-list parsed)

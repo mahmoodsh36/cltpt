@@ -172,13 +172,13 @@ each rule is a plist that can contain the following params.
      (file-no-ext ,(cltpt/base:path-without-extension (cltpt/roam:node-file node)))
      (basename ,(cltpt/base:base-name-no-ext (cltpt/roam:node-file node))))
    (lambda ()
-     ;; need to use in-package to access the variables bound above
-     (in-package :cltpt/roam)
-     (let ((result
-             (cltpt/base:convert-tree
-              (cltpt/base:parse
-               format-str
-               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-              (cltpt/base:text-format-by-name "org-mode") ;; just use org for now
-              (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
+     (let* (;; need to make it execute in-package to access the variables bound above
+            (*package* (find-package :cltpt/roam))
+            (result
+              (cltpt/base:convert-tree
+               (cltpt/base:parse
+                format-str
+                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
+               (cltpt/base:text-format-by-name "org-mode") ;; just use org for now
+               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
        result))))
