@@ -8,8 +8,7 @@
 (defvar *latex-preview-preamble*
   "\\documentclass[11pt]{article}
 \\usepackage{amsmath}
-\\usepackage{amssymb}
-")
+\\usepackage{amssymb}")
 
 (defun ensure-cached-format (format-path)
   "ensure that the cached format file exists at FORMAT-PATH.

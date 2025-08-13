@@ -8,16 +8,10 @@
    :cltpt/latex
    :display-math :inline-math :latex-env)
   (:export :org-list-matcher :org-header :org-list
-   :org-mode :org-mode-text-object-types :*org-convert-dest-dir*
+   :org-mode :org-mode-text-object-types
    :org-block))
 
 (in-package :cltpt/org-mode)
-
-(defvar *org-convert-dest-dir*
-  (namestring
-   (uiop:ensure-directory-pathname
-    (uiop:merge-pathnames* (uiop:temporary-directory) "cltpt-org")))
-  "output directory for files converted from org-mode format.")
 
 ;; the `pair' matchers are the slowest
 (defun make-org-mode ()
