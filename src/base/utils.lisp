@@ -5,7 +5,7 @@
 
 (defun ensure-directory (dir)
   (unless (probe-file dir)
-    (uiop:ensure-directory-pathname dir)))
+    (ensure-directories-exist dir)))
 
 (defun md5-str (s)
   (ironclad:byte-array-to-hex-string
@@ -125,6 +125,9 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
          (dir (pathname-directory pathname))
          (name (pathname-name pathname)))
     (namestring (make-pathname :directory dir :name name :type nil))))
+
+(defun basename (path)
+  (namestring (make-pathname :name (pathname-name path) :type (pathname-type path))))
 
 (defun base-name-no-ext (path)
   (namestring (make-pathname :name (pathname-name path))))
