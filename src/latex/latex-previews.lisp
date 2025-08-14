@@ -47,12 +47,14 @@ uses *latex-command* and *latex-preview-preamble*."
 (defun clear-all ()
   (clear-cached-format)
   (cltpt/base::delete-files-by-regex #p"/tmp/" *preview-filename-prefix*)
-  (cltpt/base::delete-files-by-regex *latex-previews-cache-directory* *preview-filename-prefix*))
+  (cltpt/base::delete-files-by-regex *latex-previews-cache-directory*
+                                     *preview-filename-prefix*))
 
 (defun cleanup-temp-files (base-name)
   "delete temporary files associated with BASE-NAME in *latex-previews-tmp-directory*."
   (dolist (ext '(".tex" ".dvi" ".aux" ".log"))
-    (let ((path (merge-pathnames (concatenate 'string base-name ext) *latex-previews-tmp-directory*)))
+    (let ((path (merge-pathnames (concatenate 'string base-name ext)
+                                 *latex-previews-tmp-directory*)))
       (when (probe-file path)
         (delete-file path)))))
 
@@ -72,10 +74,9 @@ this function does nothing for that snippet."
                                          *preview-filename-prefix*
                                          hash
                                          ".svg")
-                            *latex-previews-tmp-directory*))
+                            *latex-previews-cache-directory*))
                          snippet-hashes)))
-    ;; check cache for existing SVGs and copy them to tmp directory
-    ;; also track which ones we found in cache
+    ;; check tmp cache for existing SVGs, also track which ones we found
     (let ((found-in-cache))
       (unless recompile
         (loop for hash in snippet-hashes
@@ -87,8 +88,7 @@ this function does nothing for that snippet."
                                              ".svg")
                                 *latex-previews-cache-directory*)
               when (probe-file cached-svg)
-              do (uiop:copy-file cached-svg expected-svg)
-              (push hash found-in-cache)))
+                do (push hash found-in-cache)))
       ;; if all expected SVG files exist in cache (and we're not forcing a recompile), return them.
       (when (and (not recompile)
                  (= (length found-in-cache) (length snippet-hashes)))
@@ -101,7 +101,7 @@ this function does nothing for that snippet."
                                  *preview-filename-prefix*
                                  hash
                                  ".svg")
-                    *latex-previews-tmp-directory*)))
+                    *latex-previews-cache-directory*)))
            snippet-hashes))))
     ;; for snippets not found in cache, we need to generate them
     ;; continue with the rest of the function for those that weren't found in cache
@@ -174,21 +174,24 @@ this function does nothing for that snippet."
              (loop
               for i from 1 to (length snippets)
               for hash in snippet-hashes
-              for old-svg = (merge-pathnames (format nil
-                                                     "~A-~9,'0d.svg"
-                                                     multi-page-base
-                                                     i)
-                                             *latex-previews-tmp-directory*)
-              for new-svg = (merge-pathnames (concatenate 'string
-                                                          *preview-filename-prefix*
-                                                          hash
-                                                          ".svg")
-                                             *latex-previews-tmp-directory*)
-              for cached-svg = (merge-pathnames (concatenate 'string
-                                                             *preview-filename-prefix*
-                                                             hash
-                                                             ".svg")
-                                                *latex-previews-cache-directory*)
+              for old-svg = (merge-pathnames
+                             (format nil
+                                     "~A-~9,'0d.svg"
+                                     multi-page-base
+                                     i)
+                             *latex-previews-tmp-directory*)
+              for new-svg = (merge-pathnames
+                             (concatenate 'string
+                                          *preview-filename-prefix*
+                                          hash
+                                          ".svg")
+                             *latex-previews-tmp-directory*)
+              for cached-svg = (merge-pathnames
+                                (concatenate 'string
+                                             *preview-filename-prefix*
+                                             hash
+                                             ".svg")
+                                *latex-previews-cache-directory*)
               do (when (probe-file old-svg)
                    (rename-file old-svg new-svg)
                    ;; copy to cache directory
@@ -203,6 +206,6 @@ this function does nothing for that snippet."
                                          *preview-filename-prefix*
                                          hash
                                          ".svg")
-                            *latex-previews-tmp-directory*)))
+                            *latex-previews-cache-directory*)))
                         snippet-hashes)))))
         result))))
