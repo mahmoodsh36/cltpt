@@ -184,8 +184,11 @@ tables
 
 | head1 | head2 | head3 |
 +------+-------+-------+
-| foo | \(mymath\)   | baz  |
-| 123 | 456          | 789  |
-|     |              |      |
-|     |              |      |
-| end | row          | test |
+| foo | \(mymath\) | baz  |
+| 123 | 456        | 789  |
+|     |            |      |
+|     |            |      |
+| end | row        | test |
+
+
+\( more math \)
