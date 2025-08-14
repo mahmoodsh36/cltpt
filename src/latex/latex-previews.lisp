@@ -1,6 +1,7 @@
 (in-package :cltpt/latex)
 
 (defvar *latex-previews-tmp-directory* #P"/tmp/")
+(defvar *latex-previews-cache-directory* #P"/tmp/cltpt-cache/")
 (defvar *latex-previews-preamble-filename* "preamble") ;; appended with .fmt
 (defvar *latex-command* "latex")
 (defvar *dvisvgm-command* "dvisvgm")
@@ -45,7 +46,8 @@ uses *latex-command* and *latex-preview-preamble*."
 
 (defun clear-all ()
   (clear-cached-format)
-  (cltpt/base::delete-files-by-regex #p"/tmp/" *preview-filename-prefix*))
+  (cltpt/base::delete-files-by-regex #p"/tmp/" *preview-filename-prefix*)
+  (cltpt/base::delete-files-by-regex *latex-previews-cache-directory* *preview-filename-prefix*))
 
 (defun cleanup-temp-files (base-name)
   "delete temporary files associated with BASE-NAME in *latex-previews-tmp-directory*."
@@ -61,6 +63,7 @@ this function does nothing for that snippet."
   (unless snippets
     (return-from generate-svgs-for-latex nil))
   (cltpt/base::ensure-directory *latex-previews-tmp-directory*)
+  (cltpt/base::ensure-directory *latex-previews-cache-directory*)
   (let* ((snippet-hashes (mapcar #'cltpt/base::md5-str snippets))
          (expected-svgs (mapcar
                          (lambda (hash)
@@ -71,31 +74,51 @@ this function does nothing for that snippet."
                                          ".svg")
                             *latex-previews-tmp-directory*))
                          snippet-hashes)))
-    ;; if all expected SVG files exist (and we're not forcing a recompile), return them.
-    (when (and (not recompile)
-               (every #'probe-file expected-svgs))
-      (return-from generate-svgs-for-latex
-        (mapcar
-         (lambda (hash)
-           (cons hash
-                 (merge-pathnames
-                  (concatenate 'string
-                               *preview-filename-prefix*
-                               hash
-                               ".svg")
-                  *latex-previews-tmp-directory*)))
-         snippet-hashes)))
-    (let* ((combined-hash (cltpt/base::md5-str (apply #'concatenate 'string snippet-hashes)))
-           (multi-page-base (concatenate 'string *preview-filename-prefix* combined-hash))
+    ;; check cache for existing SVGs and copy them to tmp directory
+    ;; also track which ones we found in cache
+    (let ((found-in-cache))
+      (unless recompile
+        (loop for hash in snippet-hashes
+              for expected-svg in expected-svgs
+              for cached-svg = (merge-pathnames
+                                (concatenate 'string
+                                             *preview-filename-prefix*
+                                             hash
+                                             ".svg")
+                                *latex-previews-cache-directory*)
+              when (probe-file cached-svg)
+              do (uiop:copy-file cached-svg expected-svg)
+              (push hash found-in-cache)))
+      ;; if all expected SVG files exist in cache (and we're not forcing a recompile), return them.
+      (when (and (not recompile)
+                 (= (length found-in-cache) (length snippet-hashes)))
+        (return-from generate-svgs-for-latex
+          (mapcar
+           (lambda (hash)
+             (cons hash
+                   (merge-pathnames
+                    (concatenate 'string
+                                 *preview-filename-prefix*
+                                 hash
+                                 ".svg")
+                    *latex-previews-tmp-directory*)))
+           snippet-hashes))))
+    ;; for snippets not found in cache, we need to generate them
+    ;; continue with the rest of the function for those that weren't found in cache
+    (let* ((combined-hash (cltpt/base::md5-str
+                           (apply #'concatenate 'string snippet-hashes)))
+           (multi-page-base (concatenate 'string
+                                         *preview-filename-prefix* combined-hash))
            ;; build the intermediate SVG naming pattern.
            ;; here we use "-%9p.svg" so dvisvgm substitutes a 9-digit, zero-padded page number.
            (svg-name-pattern (concatenate 'string
                                           (namestring *latex-previews-tmp-directory*)
                                           multi-page-base
                                           "-%9p.svg"))
-           (fmt-path (merge-pathnames (concatenate 'string
-                                                   *latex-previews-preamble-filename* ".fmt")
-                                      *latex-previews-tmp-directory*))
+           (fmt-path (merge-pathnames
+                      (concatenate 'string
+                                   *latex-previews-preamble-filename* ".fmt")
+                      *latex-previews-tmp-directory*))
            (tex-file (merge-pathnames (concatenate 'string multi-page-base ".tex")
                                       *latex-previews-tmp-directory*))
            (dvi-file (merge-pathnames (concatenate 'string multi-page-base ".dvi")
@@ -111,12 +134,12 @@ this function does nothing for that snippet."
       (ensure-cached-format fmt-path)
       ;; write the multi-page tex file.
       (with-open-file (out tex-file :direction :output :if-exists :supersede)
-        (format out "\\begin{document}~%\\setlength\\abovedisplayskip{0pt}~%")
-        (dolist (snippet snippets)
-          (format out "\\begin{preview}~%")
-          (format out "~A~%" snippet)
-          (format out "\\end{preview}\\newpage~%"))
-        (format out "\\end{document}~%"))
+                      (format out "\\begin{document}~%\\setlength\\abovedisplayskip{0pt}~%")
+                      (dolist (snippet snippets)
+                        (format out "\\begin{preview}~%")
+                        (format out "~A~%" snippet)
+                        (format out "\\end{preview}\\newpage~%"))
+                      (format out "\\end{document}~%"))
       ;; compile the tex file to produce a dvi.
       (multiple-value-bind (latex-out latex-err latex-exit)
           (uiop:run-program
@@ -148,31 +171,38 @@ this function does nothing for that snippet."
            :ignore-error-status t))
       ;; rename each generated SVG file to include the corresponding snippet hash.
       (let ((result
-              (loop
-                for i from 1 to (length snippets)
-                for hash in snippet-hashes
-                for old-svg = (merge-pathnames (format nil
-                                                       "~A-~9,'0d.svg"
-                                                       multi-page-base
-                                                       i)
-                                               *latex-previews-tmp-directory*)
-                for new-svg = (merge-pathnames (concatenate 'string
-                                                            *preview-filename-prefix*
-                                                            hash
-                                                            ".svg")
-                                               *latex-previews-tmp-directory*)
-                do (when (probe-file old-svg)
-                     (rename-file old-svg new-svg))
-                finally (return
-                          (mapcar
-                           (lambda (hash)
-                             (cons
-                              hash
-                              (merge-pathnames
-                               (concatenate 'string
-                                            *preview-filename-prefix*
-                                            hash
-                                            ".svg")
-                               *latex-previews-tmp-directory*)))
-                           snippet-hashes)))))
+             (loop
+              for i from 1 to (length snippets)
+              for hash in snippet-hashes
+              for old-svg = (merge-pathnames (format nil
+                                                     "~A-~9,'0d.svg"
+                                                     multi-page-base
+                                                     i)
+                                             *latex-previews-tmp-directory*)
+              for new-svg = (merge-pathnames (concatenate 'string
+                                                          *preview-filename-prefix*
+                                                          hash
+                                                          ".svg")
+                                             *latex-previews-tmp-directory*)
+              for cached-svg = (merge-pathnames (concatenate 'string
+                                                             *preview-filename-prefix*
+                                                             hash
+                                                             ".svg")
+                                                *latex-previews-cache-directory*)
+              do (when (probe-file old-svg)
+                   (rename-file old-svg new-svg)
+                   ;; copy to cache directory
+                   (uiop:copy-file new-svg cached-svg))
+              finally (return
+                       (mapcar
+                        (lambda (hash)
+                          (cons
+                           hash
+                           (merge-pathnames
+                            (concatenate 'string
+                                         *preview-filename-prefix*
+                                         hash
+                                         ".svg")
+                            *latex-previews-tmp-directory*)))
+                        snippet-hashes)))))
         result))))
