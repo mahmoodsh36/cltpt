@@ -740,7 +740,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun latex-env-parse-test-1 ()
   (cltpt/combinator::parse
    "
-\\begin{gather}
+\\\\begin{gather}
 some math here
 \\end{gather}
 "
@@ -773,3 +773,20 @@ some math here
      ;;    :regex "16564.*\\.org"
      ;;    :format "org-mode")))))
      (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
+
+(defun org-block-test-1 ()
+  (let* ((text "\\begin{gather}
+hey
+\\end{gather}
+\\\\[ math here \\]
+#+begin_src python
+  heyi
+#+end_src
+
+* DONE does this work
+
+something more
+"))
+    (cltpt/base::parse
+     text
+     (cltpt/org-mode:org-mode-text-object-types))))

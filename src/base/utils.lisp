@@ -126,7 +126,7 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
          (name (pathname-name pathname)))
     (namestring (make-pathname :directory dir :name name :type nil))))
 
-(defun basename (path)
+(defun file-basename (path)
   (namestring (make-pathname :name (pathname-name path) :type (pathname-type path))))
 
 (defun base-name-no-ext (path)

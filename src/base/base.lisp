@@ -14,7 +14,7 @@
    :bind-and-eval :bind-and-eval*
 
    :change-extension :path-without-extension :base-name-no-ext :change-dir
-   :file-has-extension-p :file-ext :basename
+   :file-has-extension-p :file-ext :file-basename
    :ensure-directory
 
    :convert-tree
@@ -23,7 +23,7 @@
    :text-object
    :region-end :region-begin :region-length
    :text-object-convert :text-object-children
-   :map-text-object
+   :map-text-object :map-text-object-with-pos-in-root
    :text-object-begin :text-object-end
    :text-object-finalize :text-object-parent :text-object-next-sibling
    :text-object-prev-sibling :text-object-contents
