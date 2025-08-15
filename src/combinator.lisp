@@ -458,6 +458,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                                 (setf matched t))))))
                  (loop for rule in (union unhashed-rules
                                           (gethash current-char rule-hash))
+                       until matched
                        do (handle-rule rule)
                        finally (unless matched
                                  (incf i))))))

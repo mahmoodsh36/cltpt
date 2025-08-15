@@ -422,3 +422,12 @@ object's region. you should just make it return a symbol like `end-type'."))
           (loop for child in (text-object-children text-obj)
                 collect (text-object-clone child)))
     new-obj))
+
+(defun map-text-object-with-pos-in-root (text-obj func &optional (pos 0))
+  "traverse the text object tree starting at TEXT-OBJ. POS is the position of
+TEXT-OBJ according to the root. this is more efficient than iterating through objects
+and grabbing each position of each object through its ascendants in the tree."
+  (let ((new-pos (+ pos (text-object-begin text-obj))))
+    (cons (funcall func text-obj pos)
+          (loop for child in (text-object-children text-obj)
+                collect (map-text-object-with-pos-in-root child func new-pos)))))
