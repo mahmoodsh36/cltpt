@@ -1,5 +1,9 @@
 (in-package :cltpt/base)
 
+(defvar *convert-escape-newlines*
+  t
+  "whether to escape newlines on conversion. see `text-format-escape'.")
+
 (defun extract-modified-substring (str1 func main-region modification-region)
   "extract and modify the substring in MODIFICATION-REGION contained in MAIN-REGION of
 string STR1. notice that MODIFICATION-REGION can be wider and even disjoint from MAIN-REGION."
@@ -49,7 +53,7 @@ the '\\' and processes the char normally (replace or emit)."
                      (princ (or replacement ch) out)))))))
 
 (defun escape-text (text backend escapable-chars)
-  (text-format-escape backend text escapable-chars))
+  (text-format-escape backend text escapable-chars *convert-escape-newlines*))
 
 (defun collect-escapables (text-object-types)
   (remove-if-not

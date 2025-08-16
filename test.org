@@ -21,6 +21,11 @@ SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 - State "DONE"       from "TODO"       [2024-09-03 Tue 16:31:49]
 - State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
 
+
+a. more text
+b. more text2
+c. more lists
+
 test math
 
 \[
@@ -183,12 +188,12 @@ tables
 
 
 | head1 | head2 | head3 |
-+------+-------+-------+
-| foo | \(mymath\) | baz  |
-| 123 | 456        | 789  |
-|     |            |      |
-|     |            |      |
-| end | row        | test |
+|-------+-------+-------|
+| foo   |       | baz   |
+| 123   | 456   | 789   |
+|       |       |       |
+|       |       |       |
+| end   | row   | test  |
 
 
 \( more math \)

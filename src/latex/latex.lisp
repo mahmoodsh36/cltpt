@@ -44,10 +44,21 @@
     (#\~ . "\\textasciitilde{}")
     (#\\ . "\\textbackslash{}")
     (#\_ . "\\_")
-    (#\# . "\\#")))
+    (#\# . "\\#")
+    (#\newline . "\\\\")))
 
-(defun latex-escape (s escapable-chars)
-  s)
-
-(defmethod cltpt/base:text-format-escape ((fmt (eql latex)) text escapable-chars)
-  (cltpt/base:replace-chars-and-escapes text *latex-escape-table* escapable-chars))
+(defmethod cltpt/base:text-format-escape ((fmt (eql latex))
+                                          text
+                                          escapable-chars
+                                          escape-newlines)
+  (if escape-newlines
+      (cltpt/base:replace-chars-and-escapes
+       ;; replace any sequence of newlines with a single newline
+       ;; TODO: make into customizable behavior
+       (cltpt/base:compress-consec text #\newline)
+       *latex-escape-table*
+       escapable-chars)
+      (cltpt/base:replace-chars-and-escapes
+       text
+       (remove #\newline *latex-escape-table* :key #'car)
+       escapable-chars)))

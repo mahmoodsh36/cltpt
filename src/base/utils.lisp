@@ -183,3 +183,14 @@ TEST checks for equality between ITEM and `(key (car node))'."
     (loop for file in all-files
           do (when (cl-ppcre:scan regex (file-namestring file))
                (delete-file file)))))
+
+(defun compress-consec (s char-to-compress)
+  "compresses runs of a specific character into a single instance. aaab -> ab."
+  (with-output-to-string (out)
+    (loop for current-char across s
+          with last-char = nil
+          do
+             (unless (and (char= current-char char-to-compress)
+                          (and last-char (char= last-char char-to-compress)))
+               (write-char current-char out))
+             (setf last-char current-char))))
