@@ -36,7 +36,7 @@
                      "<img src='~A' class='inline-math' />"
                      img-filepath)
              (format nil
-                     "<br><img src='~A' class='display-math' /><br>"
+                     "<img src='~A' class='display-math' />"
                      img-filepath)))))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)

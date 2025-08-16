@@ -265,10 +265,8 @@
 ;;   (:documentation "e.g. the timestamp in CLOSED: [2023-12-28 Thu 19:32:11]"))
 
 (defvar *org-list-rule*
-  `(:pattern
-    (org-list-matcher
-     ,*org-inline-text-objects-rule*)
-    :on-char #\-))
+  `(org-list-matcher
+     ,*org-inline-text-objects-rule*))
 (defclass org-list (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -694,7 +692,10 @@
     (let* ((new-txt (cltpt/base:convert-tree
                      new-obj
                      backend
-                     (org-mode-text-object-types)))
+                     (org-mode-inline-text-object-types)
+                     nil
+                     t
+                     nil))
            (parsed (org-table-matcher new-txt 0)))
       (cond
         ((eq backend cltpt/latex:latex)
@@ -791,11 +792,8 @@
                            (cltpt/base:text-format-generate-preamble
                             cltpt/html:html
                             obj)
-                           (string #\newline)
-                           "<div id='content'>"
-                           (string #\newline)))
+                           "<div id='content'>"))
             (my-postamble (concatenate 'string
-                                       (string #\newline)
                                        (cltpt/base:text-format-generate-postamble
                                         cltpt/html:html
                                         obj)))

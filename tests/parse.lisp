@@ -502,7 +502,7 @@ some more text"))
 |     |              | 1     |
 | end | row          | test |
 some more text"))
-    (cltpt/org-mode::to-latex-table
+    (cltpt/org-mode::to-html-table
      (cltpt/org-mode::org-table-matcher
       text
       0))))

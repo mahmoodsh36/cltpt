@@ -36,7 +36,8 @@ directory path.")
   "a template for html conversion.")
 
 (defvar *html-preamble*
-  "<html>
+  "<!DOCTYPE html>
+<html>
 <head>
   <title> %title </title>
 </head>
@@ -58,6 +59,9 @@ directory path.")
                *html-preamble*
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
               html
+              nil
+              nil
+              t
               nil)))
        result))))
 
@@ -78,5 +82,21 @@ directory path.")
               nil)))
        result))))
 
-;; (defmethod text-format-escape ((fmt (eql html)) text escapable-chars)
-;;   text)
+(defvar *html-escape-table*
+  '((#\newline . "<br>")))
+
+(defmethod cltpt/base:text-format-escape ((fmt (eql html))
+                                          text
+                                          escapable-chars
+                                          escape-newlines)
+  (if escape-newlines
+      (cltpt/base:replace-chars-and-escapes
+       ;; replace any sequence of newlines with a single newline
+       ;; TODO: make into customizable behavior
+       (cltpt/base:compress-consec text #\newline)
+       *html-escape-table*
+       escapable-chars)
+      (cltpt/base:replace-chars-and-escapes
+       text
+       (remove #\newline *html-escape-table* :key #'car)
+       escapable-chars)))
