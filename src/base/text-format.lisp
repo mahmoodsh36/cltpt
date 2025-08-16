@@ -44,9 +44,11 @@
     fmt))
 
 (defmethod text-format-convert ((fmt1 text-format) (fmt2 text-format) text)
+  "convert TEXT from FMT1 to FMT2."
   (convert-text fmt1 fmt2 text))
 
 (defun parse-file (filepath fmt)
+  "takes a FILEPATH and a `text-format' FMT, returns the parsed object tree."
   (let* ((text (uiop:read-file-string filepath))
          (text-tree (parse text
                            (text-format-text-object-types fmt)
@@ -54,17 +56,28 @@
     text-tree))
 
 (defun text-format-by-name (name)
+  "takes the name of a `text-format', returns the object."
   (find name *text-formats* :key 'text-format-name :test 'string=))
 
-(defgeneric text-format-escape (fmt text escapable-chars))
+(defgeneric text-format-escape (fmt text escapable-chars escape-newlines)
+  (:documentation "handles special characters when converting across formats.
+
+- FMT: destination `text-format' we are converting to,
+- TEXT: string for escaping,
+- ESCAPABLE-CHARS: an alist mapping a char to an escape sequence, see `cltpt/latex:*latex-escape-table*',
+- ESCAPE-NEWLINES: whether to escape newlines too."))
 
 ;; default one
-(defmethod text-format-escape ((fmt text-format) text escapable-chars)
+(defmethod text-format-escape ((fmt text-format)
+                               text
+                               escapable-chars
+                               escape-newlines)
   text)
 
-;; takes a text-format and a document, returns formatted postamble/preamble
-(defgeneric text-format-generate-preamble (fmt doc))
-(defgeneric text-format-generate-postamble (fmt doc))
+(defgeneric text-format-generate-preamble (fmt doc)
+  (:documentation "takes a text-format and a document, returns formatted postamble/preamble"))
+(defgeneric text-format-generate-postamble (fmt doc)
+  (:documentation "takes a text-format and a document, returns formatted postamble/preamble"))
 
 (defun text-format-from-alias (alias)
   "utility function to grab a text format using its alias. the aliases are hard-coded."
