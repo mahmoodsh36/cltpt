@@ -8,44 +8,48 @@
    :cltpt/latex
    :display-math :inline-math :latex-env)
   (:export :org-list-matcher :org-header :org-list
-   :org-mode :org-mode-text-object-types
+   :*org-mode* :org-mode-text-object-types
    :org-block))
 
 (in-package :cltpt/org-mode)
+
+(defvar *org-enable-macros* nil)
 
 ;; the `pair' matchers are the slowest
 (defun make-org-mode ()
   (make-text-format
    "org-mode"
-   '(org-list
-     org-table
-     org-keyword
-     org-header
-     org-link
-     org-src-block
-     org-block
-     org-drawer
-     cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
-     org-babel-results
-     org-italic
-     org-emph
-     org-inline-code
-     org-comment
-     web-link
-     ;; cltpt/base:text-macro
-     ;; cltpt/base:post-lexer-text-macro
-     )
+   (union
+    '(org-list
+      org-table
+      org-keyword
+      org-header
+      org-link
+      org-src-block
+      org-block
+      org-drawer
+      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
+      org-babel-results
+      org-italic
+      org-emph
+      org-inline-code
+      org-comment
+      web-link)
+    (when *org-enable-macros*
+      cltpt/base:text-macro
+      cltpt/base:post-lexer-text-macro))
    'org-document))
 
-(defvar org-mode
+(defvar *org-mode*
   (make-org-mode)
   "`text-format' instance of the org-mode format.")
+
 (defvar *org-mode-convert-with-boilerplate*
   t
   "whether to convert with preamble/postamble.")
 
 (defun org-mode-text-object-types ()
-  (cltpt/base:text-format-text-object-types org-mode))
+  (cltpt/base:text-format-text-object-types *org-mode*))
 
 (defun org-mode-inline-text-object-types ()
   (intersection
@@ -304,12 +308,12 @@
                                              nil))
            (parsed (org-list-matcher new-txt 0)))
       (cond
-        ((eq backend cltpt/latex:latex)
+        ((eq backend cltpt/latex:*latex*)
          (list :text (to-latex-list parsed)
                :recurse nil
                :reparse nil
                :escape nil))
-        ((eq backend cltpt/html:html)
+        ((eq backend cltpt/html:*html*)
          (list :text (to-html-list parsed)
                :recurse nil
                :reparse nil
@@ -436,7 +440,7 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-header) backend)
   (cltpt/base:pcase backend
-    (cltpt/latex:latex
+    (cltpt/latex:*latex*
      (let* ((begin-text
               (format
                nil
@@ -456,7 +460,7 @@
              :reparse t
              :reparse-region inner-region
              :recurse t)))
-    (cltpt/html:html
+    (cltpt/html:*html*
      (let* ((begin-text (format
                          nil
                          "<h~A>"
@@ -514,12 +518,12 @@
                           (subseq (getf (car output-line-match) :match) 2))
                         output-line-matches))))
     (cond
-      ((eq backend cltpt/latex:latex)
+      ((eq backend cltpt/latex:*latex*)
        (list :text output-text
              :recurse nil
              :reparse nil
              :escape nil))
-      ((eq backend cltpt/html:html)
+      ((eq backend cltpt/html:*html*)
        (within-tags "<code class='org-babel-results'><pre>"
                     output-text
                     "</code></pre>")))))
@@ -596,7 +600,7 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-link) backend)
   (cond
-    ((eq backend cltpt/html:html)
+    ((eq backend cltpt/html:*html*)
      (let* ((desc (cltpt/base:text-object-property obj :desc))
             (dest (cltpt/base:text-object-property obj :dest))
             (type (cltpt/base:text-object-property obj :type))
@@ -642,7 +646,7 @@
 
 (defmethod cltpt/base:text-object-convert ((obj web-link) backend)
   (cond
-    ((eq backend cltpt/html:html)
+    ((eq backend cltpt/html:*html*)
      (format nil "<a href='~A'></a>" (cltpt/base:text-object-text obj)))))
 
 (defvar *org-inline-code-rule*
@@ -664,11 +668,11 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-inline-code) backend)
   (cond
-    ((eq backend cltpt/latex:latex)
+    ((eq backend cltpt/latex:*latex*)
      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\verb{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
-    ((eq backend cltpt/html:html)
+    ((eq backend cltpt/html:*html*)
      (cltpt/base:wrap-contents-for-convert obj "<code>" "</code>"))))
 
 (defclass org-table (cltpt/base:text-object)
@@ -698,12 +702,12 @@
                      nil))
            (parsed (org-table-matcher new-txt 0)))
       (cond
-        ((eq backend cltpt/latex:latex)
+        ((eq backend cltpt/latex:*latex*)
          (list :text (to-latex-table parsed)
                :recurse nil
                :reparse nil
                :escape nil))
-        ((eq backend cltpt/html:html)
+        ((eq backend cltpt/html:*html*)
          (list :text (to-html-table parsed)
                :recurse nil
                :reparse nil
@@ -758,7 +762,7 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-document) backend)
   (cltpt/base:pcase backend
-    (cltpt/latex:latex
+    (cltpt/latex:*latex*
      (let* ((my-preamble
               (if *org-mode-convert-with-boilerplate*
                   (concatenate 'string
@@ -786,16 +790,16 @@
              :escape t
              ;; dont escape the commands in the preamble
              :escape-region inner-region)))
-    (cltpt/html:html
+    (cltpt/html:*html*
      (let* ((my-preamble
               (concatenate 'string
                            (cltpt/base:text-format-generate-preamble
-                            cltpt/html:html
+                            cltpt/html:*html*
                             obj)
                            "<div id='content'>"))
             (my-postamble (concatenate 'string
                                        (cltpt/base:text-format-generate-postamble
-                                        cltpt/html:html
+                                        cltpt/html:*html*
                                         obj)))
             (my-text (concatenate 'string
                                   my-preamble
@@ -838,11 +842,11 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-emph) backend)
   (cond
-    ((eq backend cltpt/latex:latex)
+    ((eq backend cltpt/latex:*latex*)
      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textbf{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
-    ((eq backend cltpt/html:html)
+    ((eq backend cltpt/html:*html*)
      (cltpt/base:wrap-contents-for-convert obj "<b>" "</b>"))))
 
 (defvar *org-italic-rule*
@@ -865,11 +869,11 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-italic) backend)
   (cond
-    ((eq backend cltpt/latex:latex)
+    ((eq backend cltpt/latex:*latex*)
      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textit{" "}")))
        (setf (getf result :reparse-region) nil)
        result))
-    ((eq backend cltpt/html:html)
+    ((eq backend cltpt/html:*html*)
      (cltpt/base:wrap-contents-for-convert obj "<i>" "</i>"))))
 
 ;; wrap text for exporting within specific "tags".
@@ -931,7 +935,7 @@
   (cond
     ((member block-type (list "comment" "my_comment") :test 'string=)
      (list :text "" :reparse t))
-    ((eq backend cltpt/latex:latex)
+    ((eq backend cltpt/latex:*latex*)
      (let* ((begin-tag (format nil "\\begin{~A}" block-type))
             (end-tag (format nil "\\end{~A}" block-type))
             (my-text (concatenate 'string
@@ -947,7 +951,7 @@
              :escape (not is-code)
              :reparse-region inner-region
              :escape-region inner-region)))
-    ((eq backend cltpt/html:html)
+    ((eq backend cltpt/html:*html*)
      (let* ((open-tag (if is-code
                           "<pre class='org-src'><code>"
                           (format nil "<div class='~A org-block'>" block-type)))

@@ -11,7 +11,7 @@
     :allocation :class
     :initform *inline-math-rule*)))
 
-(defmethod cltpt/base:text-object-convert ((obj inline-math) (fmt (eql latex)))
+(defmethod cltpt/base:text-object-convert ((obj inline-math) (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
         :recurse t
         :escape nil))
@@ -28,7 +28,7 @@
     :initform *display-math-rule*)))
 
 (defmethod cltpt/base:text-object-convert ((obj display-math)
-                                           (fmt (eql latex)))
+                                           (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
         :reparse nil
         :recurse t
@@ -61,7 +61,7 @@
                 :on-char #\\)))
   (:documentation "latex link."))
 
-(defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql latex)))
+(defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
         :reparse nil
         :recurse nil

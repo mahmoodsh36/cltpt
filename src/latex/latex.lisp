@@ -2,7 +2,7 @@
   (:use :cl :cltpt/base :cltpt/combinator)
   (:shadowing-import-from :cltpt/combinator parse)
   (:export
-   :latex :display-math
+   :*latex* :display-math
    :inline-math :*inline-math-rule* :display-math :*display-math-rule*
    :latex-env :*latex-env-rule*
    :generate-latex-preamble :*latex-preamble* :*latex-preview-preamble*
@@ -35,9 +35,10 @@
    '(display-math inline-math latex-env
      latex-link
      cltpt/base:text-macro cltpt/base:post-lexer-text-macro)))
-(defvar latex)
-(eval-when (:load-toplevel :execute)
-  (setf latex (make-latex)))
+
+(defvar *latex*
+  (make-latex)
+  "`text-format' instance of the latex format.")
 
 (defvar *latex-escape-table*
   '((#\& . "\\&")
@@ -47,7 +48,7 @@
     (#\# . "\\#")
     (#\newline . "\\\\")))
 
-(defmethod cltpt/base:text-format-escape ((fmt (eql latex))
+(defmethod cltpt/base:text-format-escape ((fmt (eql *latex*))
                                           text
                                           escapable-chars
                                           escape-newlines)
