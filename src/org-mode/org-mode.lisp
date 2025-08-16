@@ -992,7 +992,15 @@
         :id end-type))
       :id end))
     ;; an org-block can contain every other object except headers
-    ,*org-inline-text-objects-rule*))
+    (eval
+     (mapcar
+      (lambda (subclass-name)
+        (copy-rule-with-id
+         (cltpt/base:text-object-rule-from-subclass subclass-name)
+         subclass-name))
+      (set-difference (org-mode-text-object-types)
+                      '(org-header org-block)
+                      :test 'equal)))))
 (defvar *org-block-rule*
   `(:pattern
     (cltpt/combinator:any
