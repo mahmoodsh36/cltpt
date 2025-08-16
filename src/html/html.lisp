@@ -1,6 +1,6 @@
 (defpackage :cltpt/html
   (:use :cl :cltpt/base :cltpt/latex)
-  (:export :html :generate-html-preamble :*html-static-route*
+  (:export :*html* :generate-html-preamble :*html-static-route*
            :*html-postamble* :*html-preamble*))
 
 (in-package :cltpt/html)
@@ -15,7 +15,7 @@
      ;; post-lexer-text-macro
      )))
 
-(defvar html
+(defvar *html*
   (make-html)
   "the instance of `cltpt/base:text-object' for the html format.")
 
@@ -58,7 +58,7 @@ directory path.")
               (cltpt/base:parse
                *html-preamble*
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-              html
+              *html*
               nil
               nil
               t
@@ -78,14 +78,14 @@ directory path.")
               (cltpt/base:parse
                *html-postamble*
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-              html
+              *html*
               nil)))
        result))))
 
 (defvar *html-escape-table*
   '((#\newline . "<br>")))
 
-(defmethod cltpt/base:text-format-escape ((fmt (eql html))
+(defmethod cltpt/base:text-format-escape ((fmt (eql *html*))
                                           text
                                           escapable-chars
                                           escape-newlines)
