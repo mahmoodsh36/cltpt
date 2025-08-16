@@ -310,11 +310,40 @@ object's region. you should just make it return a symbol like `end-type'."))
     (setf (gethash mytype *finalized-map*) t))
   t)
 
+;; modifies the tree of a rule, replaces 'eval' instance with the evaluation result
+(defun post-process-rule (rule)
+  (if (listp rule)
+      (if (null rule)
+          nil
+          (if (and (symbolp (car rule)) (string= (car rule) 'eval))
+              (loop for child in (eval (cadr rule))
+                    collect (post-process-rule child))
+              (if (symbolp (car rule))
+                  (cons (car rule)
+                        (loop for child in (cdr rule)
+                              collect (post-process-rule child)))
+                  (loop for child in rule
+                        collect (post-process-rule child)))))
+      rule))
+
+(defvar *text-object-rule-hash*
+  (make-hash-table :test 'equal)
+  "a hashtable mapping symbols of `text-object' subclasses to their combinator rules.")
 (defun text-object-rule-from-subclass (subclass)
   ;; we need to finalize it, otherwise it'll error out.
   (ensure-finalized subclass)
   ;; (sb-mop:finalize-inheritance (find-class-faster subclass))
-  (let ((rule (slot-value (sb-mop:class-prototype (find-class-faster subclass)) 'rule)))
+  (let ((stored-rule (gethash subclass *text-object-rule-hash*))
+        (rule))
+    (if stored-rule
+        (setf rule stored-rule)
+        (progn
+          (setf rule
+                (post-process-rule
+                 (slot-value
+                  (sb-mop:class-prototype (find-class-faster subclass))
+                  'rule)))
+          (setf (gethash subclass *text-object-rule-hash*) rule)))
     (unless (plistp rule)
       (setf rule (list :pattern rule :id subclass)))
     (unless (getf rule :id)
