@@ -7,7 +7,8 @@
    :all-but-newline :atleast-one :atleast-one-discard :lisp-sexp :pair
    :unescaped :natural-number-matcher :when-match
    :at-line-start-p :at-line-end-p :followed-by :match-rule
-   :separated-atleast-one :all-but-whitespace :handle-rule-string))
+   :separated-atleast-one :all-but-whitespace :handle-rule-string
+   :all-upto-pattern :succeeded-by))
 
 (in-package :cltpt/combinator)
 
@@ -514,6 +515,16 @@ immediately after the match satisfies 'condition-fn'."
       (let ((end-pos (getf (car match) :end)))
         (when (funcall condition-fn str end-pos)
           match)))))
+(defun succeeded-by (str pos pattern successor-pattern)
+  "match PATTERN only if it is immediately followed by SUCCESSOR-
+PATTERN.
+  the SUCCESSOR-PATTERN is not captured as part of the match."
+  (let ((pattern-match (match-rule-normalized pattern str pos)))
+    (when pattern-match
+      (let* ((match-end (getf (car pattern-match) :end))
+             (successor-match (match-rule-normalized successor-pattern str match-end)))
+        (when successor-match
+          pattern-match)))))
 
 (defun upcase-char-p (str pos)
   "returns 1 if the char at POS of STR is an uppercase character."
@@ -524,3 +535,17 @@ immediately after the match satisfies 'condition-fn'."
 (defun upcase-word-matcher (str pos)
   "matches an uppercase (non-empty) word."
   (match-rule `(atleast-one-discard (upcase-char-p)) str pos))
+
+(defun all-upto-pattern (str pos delimiter-rule)
+  "match all characters up to but not including the pattern defined by DELIMITER-RULE.
+returns the matched substring and its bounds."
+  (let ((start pos))
+    (loop while (< pos (length str))
+          for match = (match-rule-normalized delimiter-rule str pos)
+          while (not match)
+          do (incf pos))
+    (when (> pos start)
+      (cons (list :begin start
+                  :end pos
+                  :match (subseq str start pos))
+            nil))))

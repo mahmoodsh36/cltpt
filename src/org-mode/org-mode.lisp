@@ -891,7 +891,7 @@
           :reparse t)))
 
 (defvar *keywords-rule*
-  '(:pattern
+  `(:pattern
     (cltpt/combinator:consec
      (cltpt/combinator:literal " ")
      (cltpt/combinator:separated-atleast-one
@@ -905,19 +905,27 @@
          (:pattern (cltpt/combinator:symbol-matcher)
           :id keyword)
          (cltpt/combinator:literal " ")
-         (:pattern (cltpt/combinator:lisp-sexp)
-          :id value))
+         (cltpt/combinator:succeeded-by
+          (:pattern (cltpt/combinator:lisp-sexp)
+           :id value)
+          ;; we make sure to capture lisp expressions only if they are succeeded
+          ;; by " :" because otherwise we might capture a word that is part
+          ;; of a sequence of words, like ":title my title", which is a case
+          ;; that should be handled by the following rule, not this one.
+          (cltpt/combinator:literal " :")))
         :id keywords-entry)
-       ;; otherwise capture a single word
-       ;; this isnt good
-       ;; TOOO: handle cases such as `:kw multi word value :otherkw otherval`
+       ;; capture all until the next " :", or until the line ends.
        (:pattern
         (cltpt/combinator:consec
          (cltpt/combinator:literal ":")
          (:pattern (cltpt/combinator:symbol-matcher)
           :id keyword)
          (cltpt/combinator:literal " ")
-         (:pattern (cltpt/combinator:all-but-whitespace)
+         (:pattern
+          (cltpt/combinator:all-upto-pattern
+           (cltpt/combinator:any
+            (cltpt/combinator:literal ,(string #\newline))
+            (cltpt/combinator:literal " :")))
           :id value))
         :id keywords-entry))))
     :id keywords))
