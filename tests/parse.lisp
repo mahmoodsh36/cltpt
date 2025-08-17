@@ -790,3 +790,9 @@ something more
     (cltpt/base::parse
      text
      (cltpt/org-mode:org-mode-text-object-types))))
+
+(defun keywords-test-1 ()
+  (cltpt/combinator::parse
+   " :hello-there test :hello2 test2"
+   (list
+    cltpt/org-mode::*keywords-rule*)))

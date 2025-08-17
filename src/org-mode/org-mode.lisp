@@ -890,6 +890,38 @@
                            :end (- (length text) (length close-tag)))
           :reparse t)))
 
+(defvar *keywords-rule*
+  '(:pattern
+    (cltpt/combinator:consec
+     (cltpt/combinator:literal " ")
+     (cltpt/combinator:separated-atleast-one
+      (cltpt/combinator:literal " ")
+      (cltpt/combinator:any
+       ;; this should capture strings or lisp expressions provided
+       ;; as a value of a keyword
+       (:pattern
+        (cltpt/combinator:consec
+         (cltpt/combinator:literal ":")
+         (:pattern (cltpt/combinator:symbol-matcher)
+          :id keyword)
+         (cltpt/combinator:literal " ")
+         (:pattern (cltpt/combinator:lisp-sexp)
+          :id value))
+        :id keywords-entry)
+       ;; otherwise capture a single word
+       ;; this isnt good
+       ;; TOOO: handle cases such as `:kw multi word value :otherkw otherval`
+       (:pattern
+        (cltpt/combinator:consec
+         (cltpt/combinator:literal ":")
+         (:pattern (cltpt/combinator:symbol-matcher)
+          :id keyword)
+         (cltpt/combinator:literal " ")
+         (:pattern (cltpt/combinator:all-but-whitespace)
+          :id value))
+        :id keywords-entry))))
+    :id keywords))
+
 ;; TODO: make org-src-block contain #+results too
 (defvar *org-src-block-no-kw-rule*
   `(cltpt/combinator:pair
@@ -898,8 +930,7 @@
       (cltpt/combinator:any
        (cltpt/combinator:consec
         (cltpt/combinator:literal-casein "#+begin_src")
-        (:pattern (cltpt/combinator:all-but-newline)
-         :id keywords))
+        ,*keywords-rule*)
        (cltpt/combinator:literal-casein "#+begin_src"))
       :id begin))
     (cltpt/combinator:unescaped
@@ -924,51 +955,71 @@
 (defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
   (let* ((begin-match (car (cltpt/base:find-submatch match 'begin)))
          (end-match (car (cltpt/base:find-submatch match 'end)))
-         (keywords-str (car (cltpt/base:find-submatch match 'keywords))))
+         (keywords-match (cltpt/base:find-submatch match 'keywords)))
     (setf (cltpt/base:text-object-property obj :contents-region)
           (cltpt/base:make-region :begin (- (getf begin-match :end)
                                             (getf begin-match :begin))
                                   :end (- (getf end-match :begin)
-                                          (getf begin-match :begin))))))
+                                          (getf begin-match :begin))))
+    (handle-block-keywords obj)))
 
 ;; should take an isntance of `org-src-block' or `org-block', but that isnt ensured
 (defmethod convert-block ((obj text-object) backend block-type is-code)
-  (cond
-    ((member block-type (list "comment" "my_comment") :test 'string=)
-     (list :text "" :reparse t))
-    ((eq backend cltpt/latex:*latex*)
-     (let* ((begin-tag (format nil "\\begin{~A}" block-type))
-            (end-tag (format nil "\\end{~A}" block-type))
-            (my-text (concatenate 'string
-                                  begin-tag
-                                  (cltpt/base:text-object-contents obj)
-                                  end-tag))
-            (inner-region
-              (cltpt/base:make-region
-               :begin (length begin-tag)
-               :end (- (length my-text) (length end-tag)))))
-       (list :text my-text
-             :reparse (not is-code)
-             :escape (not is-code)
-             :reparse-region inner-region
-             :escape-region inner-region)))
-    ((eq backend cltpt/html:*html*)
-     (let* ((open-tag (if is-code
-                          "<pre class='org-src'><code>"
-                          (format nil "<div class='~A org-block'>" block-type)))
-            (close-tag (if is-code
-                           "</code></pre>"
-                           "</div>"))
-            (text (concatenate 'string
-                               open-tag
-                               (cltpt/base:text-object-contents obj)
-                               close-tag)))
-       (list :text text
-             :recurse (not is-code)
-             :reparse (not is-code)
-             :reparse-region (cltpt/base:make-region
-                              :begin (length open-tag)
-                              :end (- (length text) (length close-tag))))))))
+  (let ((exports-keyword
+          (cdr (assoc "exports"
+                      (text-object-property obj :keywords-alist)
+                      :test 'equal))))
+    (cond
+      ;; if we have `:exports none', we shouldnt export
+      ((and exports-keyword (string= exports-keyword "none"))
+       (list :text "" :reparse t))
+      ((member block-type (list "comment" "my_comment") :test 'string=)
+       (list :text "" :reparse t))
+      ((eq backend cltpt/latex:*latex*)
+       (let* ((begin-tag (format nil "\\begin{~A}" block-type))
+              (end-tag (format nil "\\end{~A}" block-type))
+              (my-text (concatenate 'string
+                                    begin-tag
+                                    (cltpt/base:text-object-contents obj)
+                                    end-tag))
+              (inner-region
+                (cltpt/base:make-region
+                 :begin (length begin-tag)
+                 :end (- (length my-text) (length end-tag)))))
+         (list :text my-text
+               :reparse (not is-code)
+               :escape (not is-code)
+               :reparse-region inner-region
+               :escape-region inner-region)))
+      ((eq backend cltpt/html:*html*)
+       (let* ((open-tag (if is-code
+                            "<pre class='org-src'><code>"
+                            (format nil "<div class='~A org-block'>" block-type)))
+              (close-tag (if is-code
+                             "</code></pre>"
+                             "</div>"))
+              (text (concatenate 'string
+                                 open-tag
+                                 (cltpt/base:text-object-contents obj)
+                                 close-tag)))
+         (list :text text
+               :recurse (not is-code)
+               :reparse (not is-code)
+               :reparse-region (cltpt/base:make-region
+                                :begin (length open-tag)
+                                :end (- (length text) (length close-tag)))))))))
+
+(defmethod handle-block-keywords ((obj text-object))
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (entries
+           (cltpt/base:find-submatch-all (cltpt/base:find-submatch match 'keywords)
+                                         'keywords-entry)))
+    (loop for entry in entries
+          for kw-match = (car (cltpt/base:find-submatch entry 'keyword))
+          for val-match = (car (cltpt/base:find-submatch entry 'value))
+          for kw = (getf kw-match :match)
+          for val = (getf val-match :match)
+          do (push (cons kw val) (text-object-property obj :keywords-alist)))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block) backend)
   (convert-block obj backend "lstlisting" t))
@@ -982,8 +1033,7 @@
         (cltpt/combinator:literal-casein "#+begin_")
         (:pattern (cltpt/combinator:symbol-matcher)
          :id begin-type)
-        (:pattern (cltpt/combinator:all-but-newline)
-         :id keywords))
+        ,*keywords-rule*)
        (cltpt/combinator:consec
         (cltpt/combinator:literal-casein "#+begin_")
         (:pattern (cltpt/combinator:symbol-matcher)
@@ -1025,14 +1075,15 @@
   (let* ((begin-type-match (car (cltpt/base:find-submatch match 'begin-type)))
          (begin-type (getf begin-type-match :match))
          (begin-match (car (cltpt/base:find-submatch match 'begin)))
-         (end-match (car (cltpt/base:find-submatch match 'end)))
-         (keywords-str (car (cltpt/base:find-submatch match 'keywords))))
+         (end-match (car (cltpt/base:find-submatch match 'end))))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
     (setf (cltpt/base:text-object-property obj :contents-region)
           (cltpt/base:make-region :begin (- (getf begin-match :end)
                                             (getf begin-match :begin))
                                   :end (- (getf end-match :begin)
-                                          (getf begin-match :begin))))))
+                                          (getf begin-match :begin))))
+    ;; handle keywords
+    (handle-block-keywords obj)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-block) backend)
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
