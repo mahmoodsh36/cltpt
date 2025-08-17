@@ -391,11 +391,12 @@ before the final closing rule is found."
           (when (> chars-consumed 0)
              (setf form-str (subseq str pos (+ pos chars-consumed)))))))
     (if (and form-str (> chars-consumed 0))
-        (cons (list :begin pos
-                    :end (+ pos chars-consumed)
-                    :match form-str
-                    :id 'lisp-form-content)
-              nil)
+        (let ((trimmed-form-str (string-right-trim '(#\Space #\Newline #\Tab #\Return) form-str)))
+          (cons (list :begin pos
+                      :end (+ pos (length trimmed-form-str))
+                      :match trimmed-form-str
+                      :id 'lisp-form-content)
+                nil))
         nil)))
 
 (defun match-rule (rule str pos)

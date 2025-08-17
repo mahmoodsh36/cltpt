@@ -99,7 +99,7 @@ code here
   this is a test
 \end{dummy}
 
-#+begin_definition
+#+begin_definition :defines vector :name def-vector :exports none
 hello definition.
 #+end_definition
 
