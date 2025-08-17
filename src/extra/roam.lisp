@@ -154,7 +154,7 @@ each rule is a plist that can contain the following params.
           do (let* ((in-file (node-file node))
                     (is-done (gethash in-file files-done))
                     (out-file (node-info-format-str node output-file-format)))
-               (unless is-done
+               (when (and (typep (node-text-obj node) 'document) (not is-done))
                  (format t "converting ~A to ~A~%" in-file out-file)
                  (cltpt/base:convert-file
                   (node-format node)

@@ -21,11 +21,19 @@ SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 - State "DONE"       from "TODO"       [2024-09-03 Tue 16:31:49]
 - State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
 
+#+begin_definition :defines standard thing :name def-ac-standard
+an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
+1. the circuit is divided into layers, such that edges only connect vertices between subsequent layers.
+2. in each layer there are only \(\textbooland\) or \(\textboolor\) gates (except the input layer).
+3. in subsequent layers there are only different types of gates (e.g. an AND layer is followed by an OR layer, and vice versa).
+we say the circuit is /very standard/ if the indegree of each gate in the first (non-input) layer is at most \(2\log(S)\), where \(S\) is the size of the circuit.
+#+end_definition
 
-a. more text
-b. more text2
-c. more lists
-
+1. more text
+2. more text2
+3. more lists
+interesting
+here
 test math
 
 \[
