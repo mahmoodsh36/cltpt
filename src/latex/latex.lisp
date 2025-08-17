@@ -6,7 +6,7 @@
    :inline-math :*inline-math-rule* :display-math :*display-math-rule*
    :latex-env :*latex-env-rule*
    :generate-latex-preamble :*latex-preamble* :*latex-preview-preamble*
-   :*latex-previews-cache-directory* :generate-svgs-for-latex))
+   :*latex-previews-cache-directory* :generate-svgs-for-latex :init))
 
 (in-package :cltpt/latex)
 
@@ -36,8 +36,11 @@
      latex-link
      cltpt/base:text-macro cltpt/base:post-lexer-text-macro)))
 
+(defun init ()
+  )
+
 (defvar *latex*
-  (make-latex)
+  (make-text-format "latex")
   "`text-format' instance of the latex format.")
 
 (defvar *latex-escape-table*

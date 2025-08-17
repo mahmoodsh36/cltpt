@@ -5,7 +5,7 @@
                 :text-object-convert :pcase)
   (:import-from :cltpt/latex :*latex*)
   (:import-from :cltpt/html :*html*)
-  (:export))
+  (:export :init))
 (in-package :cltpt/zoo)
 
 ;; some stuff needs to be separated from the base code because it is dependent
@@ -42,19 +42,22 @@
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) t)
-        :recurse nil
+        :recurse t
+        :reparse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:display-math)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse nil
+        :reparse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
-        :recurse nil
+        :recurse t
+        :reparse nil
         :escape nil))
 
 (defun init ()
@@ -62,8 +65,8 @@
 
 it may be necessary to call this function after modifying some customization
 variables such as `cltpt/org-mode::*org-enable-macros*'."
-  (setf cltpt/org-mode:*org-mode* (cltpt/org-mode::make-org-mode))
-  (setf cltpt/latex**latex* (cltpt/latex::make-latex))
-  (setf cltpt/html:*html* (cltpt/html::make-html)))
+  (cltpt/html:init)
+  (cltpt/org-mode:init)
+  (cltpt/latex:init))
 
 (init)

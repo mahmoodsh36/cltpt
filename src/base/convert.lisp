@@ -237,7 +237,7 @@ the '\\' and processes the char normally (replace or emit)."
 (defun convert-text (fmt1 fmt2 text)
   (let* ((text-tree (parse text
                            (text-format-text-object-types fmt1)
-                           :doc-type (text-format-text-document-type fmt1)))
+                           :doc-type (text-format-document-type fmt1)))
          (result (convert-tree text-tree
                                fmt2
                                (text-format-text-object-types fmt1))))
