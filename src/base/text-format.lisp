@@ -20,9 +20,9 @@
     :initarg :text-object-types
     :accessor text-format-text-object-types
     :documentation "the `text-object' subclasses that the format corresponds to.")
-   (text-document-type
-    :initarg :text-document-type
-    :accessor text-format-text-document-type
+   (document-type
+    :initarg :document-type
+    :accessor text-format-document-type
     :documentation "the `text-document' (sub)class that corresponds to this format.")
    (special-text-objects
     :initarg :special-text-objects
@@ -32,7 +32,7 @@
 (defgeneric text-format-convert (src-text-format dest-text-format text)
   (:documentation "convert from one text format into another."))
 
-(defun make-text-format (name text-object-types &optional (doc-type 'document))
+(defun make-text-format (name &optional text-object-types (doc-type 'document))
   (let ((fmt (make-instance 'text-format))
         (existent (text-format-by-name name)))
     (when existent
@@ -40,7 +40,7 @@
     (push fmt *text-formats*)
     (setf (text-format-name fmt) name)
     (setf (text-format-text-object-types fmt) text-object-types)
-    (setf (text-format-text-document-type fmt) doc-type)
+    (setf (text-format-document-type fmt) doc-type)
     fmt))
 
 (defmethod text-format-convert ((fmt1 text-format) (fmt2 text-format) text)
@@ -52,7 +52,7 @@
   (let* ((text (uiop:read-file-string filepath))
          (text-tree (parse text
                            (text-format-text-object-types fmt)
-                           :doc-type (text-format-text-document-type fmt))))
+                           :doc-type (text-format-document-type fmt))))
     text-tree))
 
 (defun text-format-by-name (name)

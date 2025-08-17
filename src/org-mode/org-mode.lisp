@@ -9,39 +9,40 @@
    :display-math :inline-math :latex-env)
   (:export :org-list-matcher :org-header :org-list
    :*org-mode* :org-mode-text-object-types
-   :org-block))
+   :org-block :init))
 
 (in-package :cltpt/org-mode)
 
 (defvar *org-enable-macros* nil)
 
-;; the `pair' matchers are the slowest
-(defun make-org-mode ()
-  (make-text-format
-   "org-mode"
-   (union
-    '(org-list
-      org-table
-      org-keyword
-      org-header
-      org-link
-      org-src-block
-      org-block
-      org-drawer
-      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
-      org-babel-results
-      org-italic
-      org-emph
-      org-inline-code
-      org-comment
-      web-link)
-    (when *org-enable-macros*
-      cltpt/base:text-macro
-      cltpt/base:post-lexer-text-macro))
-   'org-document))
+(defun init ()
+  (setf (cltpt/base:text-format-text-object-types *org-mode*)
+        (union
+         '(org-list
+           org-table
+           org-keyword
+           org-header
+           org-link
+           org-src-block
+           org-block
+           org-drawer
+           cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
+           org-babel-results
+           org-italic
+           org-emph
+           org-inline-code
+           org-comment
+           web-link)
+         (when *org-enable-macros*
+           cltpt/base:text-macro
+           cltpt/base:post-lexer-text-macro)))
+  (setf (cltpt/base:text-format-name *org-mode*)
+        "org-mode")
+  (setf (cltpt/base:text-format-document-type *org-mode*)
+        'org-document))
 
 (defvar *org-mode*
-  (make-org-mode)
+  (make-text-format "org-mode")
   "`text-format' instance of the org-mode format.")
 
 (defvar *org-mode-convert-with-boilerplate*

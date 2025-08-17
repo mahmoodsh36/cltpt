@@ -1,23 +1,26 @@
 (defpackage :cltpt/html
   (:use :cl :cltpt/base :cltpt/latex)
   (:export :*html* :generate-html-preamble :*html-static-route*
-           :*html-postamble* :*html-preamble*))
+           :*html-postamble* :*html-preamble* :init))
 
 (in-package :cltpt/html)
 
-(defun make-html ()
-  (make-text-format
-   "html"
-   '(display-math
-     inline-math
-     latex-env
+(defvar *html*
+  (make-text-format "html")
+  "the instance of `cltpt/base:text-object' for the html format.")
+
+(defun init ()
+  (setf
+   (cltpt/base:text-format-text-object-types *html*)
+   '(cltpt/latex:display-math
+     cltpt/latex:inline-math
+     cltpt/latex:latex-env
      ;; text-macro
      ;; post-lexer-text-macro
-     )))
-
-(defvar *html*
-  (make-html)
-  "the instance of `cltpt/base:text-object' for the html format.")
+     ))
+  (setf
+   (cltpt/base:text-format-name *html*)
+    "html"))
 
 ;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
 (defvar *html-export-latex-method*
