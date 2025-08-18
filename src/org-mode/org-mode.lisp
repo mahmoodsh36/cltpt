@@ -962,6 +962,10 @@
                                           (getf begin-match :begin))))
     (handle-block-keywords obj)))
 
+;; placeholder
+(defun to-raw-html-string (mystr)
+  mystr)
+
 ;; should take an instance of `org-src-block' or `org-block', but that isnt ensured
 (defmethod convert-block ((obj text-object) backend block-type is-code)
   (let ((exports-keyword
@@ -991,9 +995,22 @@
                :reparse-region inner-region
                :escape-region inner-region)))
       ((eq backend cltpt/html:*html*)
-       (let* ((open-tag (if is-code
-                            "<pre class='org-src'><code>"
-                            (format nil "<div class='~A org-block'>" block-type)))
+       (let* ((props
+                (loop for (key . value)
+                        in (cltpt/base:text-object-property obj :keywords-alist)
+                      for result = (unless (member key '("exports" "results"))
+                                     (format nil
+                                             "data-~A='~A'"
+                                             key
+                                             (to-raw-html-string value)))
+                      when result collect result))
+              (open-tag
+                (if is-code
+                    "<pre class='org-src'><code>"
+                    (format nil
+                            "<div class='~A org-block' ~A>"
+                            block-type
+                            (str:join " " props))))
               (close-tag (if is-code
                              "</code></pre>"
                              "</div>"))
@@ -1107,7 +1124,7 @@
          ;; we look for the last instance of 'end because otherwise
          ;; we might capture the 'end of another block nested
          ;; within this one
-         (end-match (car (cltpt/base::find-submatch-last match 'end))))
+         (end-match (car (cltpt/base:find-submatch-last match 'end))))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
     (setf (cltpt/base:text-object-property obj :contents-region)
           (cltpt/base:make-region :begin (- (getf begin-match :end)
