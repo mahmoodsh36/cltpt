@@ -796,3 +796,34 @@ something more
    " :hello-there test :hello2 test2"
    (list
     cltpt/org-mode::*keywords-rule*)))
+
+(defun org-src-block-test-1 ()
+  (cltpt/combinator::parse
+   "
+#+begin_src python :results output
+  import requests
+  print('whatever')
+  print('whatever2')
+#+end_src
+
+#+RESULTS:
+: whatever
+: whatever2
+: \(11\)
+: wow
+"
+   (list
+    cltpt/org-mode::*org-src-block-rule*)))
+
+(defun org-src-block-test-2 ()
+  (cltpt/combinator::parse
+   "
+#+begin_src python :results output
+  do nothing
+#+end_src
+
+#+RESULTS[ca08ab2a6a58662675694033105ab0b331611fa2]:
+[[file:~/brain/out/jyBtMrE.svg]]
+"
+   (list
+    cltpt/org-mode::*org-src-block-rule*)))

@@ -27,7 +27,6 @@
            org-block
            org-drawer
            cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
-           org-babel-results
            org-italic
            org-emph
            org-inline-code
@@ -149,6 +148,25 @@
     :allocation :class
     :initform *org-keyword-rule*))
   (:documentation "org-mode file-level keyword."))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
+  (let* ((value-match (car (cltpt/base:find-submatch match 'value)))
+         (keyword-match (car (cltpt/base:find-submatch match 'keyword))))
+    (setf (cltpt/base:text-object-property obj :value)
+          (getf value-match :match))
+    (setf (cltpt/base:text-object-property obj :keyword)
+          (getf keyword-match :match))))
+
+(defmethod cltpt/base:text-object-convert ((obj org-keyword) backend)
+  ;; was used for debugging
+  #+nil
+  (format nil
+          "keyword: ~A, val: ~A"
+          (cltpt/base:text-object-property obj :keyword)
+          (cltpt/base:text-object-property obj :value))
+  (format nil
+          ""
+          :recurse nil))
 
 (defvar *org-comment-rule*
   '(:pattern
@@ -481,89 +499,6 @@
              :reparse t
              :reparse-region inner-region
              :recurse t)))))
-
-(defvar *org-babel-results-rule*
-  `(cltpt/combinator:consec
-    (cltpt/combinator:any
-     (cltpt/combinator:literal-casein "#+results:")
-     (cltpt/combinator:consec
-      (cltpt/combinator:literal-casein "#+results[")
-      (cltpt/combinator:symbol-matcher)
-      "]:"))
-    (cltpt/combinator:atleast-one
-     (cltpt/combinator:consec
-      ,(string #\newline)
-      (:pattern
-       (cltpt/combinator:any
-        (cltpt/combinator:consec
-         (cltpt/combinator:literal ": ")
-         (cltpt/combinator:all-but-newline))
-        (cltpt/combinator:literal ": "))
-       :id output-line)))))
-(defclass org-babel-results (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-babel-results-rule*))
-  (:documentation "org-babel evaluation results."))
-
-(defmethod cltpt/base:text-object-init :after ((obj org-babel-results) str1 match)
-  )
-
-(defmethod cltpt/base:text-object-convert ((obj org-babel-results) backend)
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-         (output-line-matches (cltpt/base:find-submatch-all match 'output-line))
-         (output-text (str:join
-                       (string #\newline)
-                       (mapcar
-                        (lambda (output-line-match)
-                          (subseq (getf (car output-line-match) :match) 2))
-                        output-line-matches))))
-    (cond
-      ((eq backend cltpt/latex:*latex*)
-       (list :text output-text
-             :recurse nil
-             :reparse nil
-             :escape nil))
-      ((eq backend cltpt/html:*html*)
-       (within-tags "<code class='org-babel-results'><pre>"
-                    output-text
-                    "</code></pre>")))))
-
-(defmethod cltpt/base:text-object-convert ((obj org-babel-results) backend)
-  (let ((results (cltpt/base:text-object-property obj :value)))
-    (when (typep results 'text-object)
-      (setf (cltpt/base:text-object-property results :converts) t))
-    ""))
-
-(defclass org-babel-results-colon (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform '(:region (cltpt/combinator:literal ": ")
-                :disallow t))))
-
-(defmethod cltpt/base:text-object-convert ((obj org-babel-results-colon) backend)
-  (if (cltpt/base:text-object-property obj :converts t)
-      (cltpt/base:text-object-text obj)
-      ""))
-
-(defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
-  (let* ((value-match (car (cltpt/base:find-submatch match 'value)))
-         (keyword-match (car (cltpt/base:find-submatch match 'keyword))))
-    (setf (cltpt/base:text-object-property obj :value)
-          (getf value-match :match))
-    (setf (cltpt/base:text-object-property obj :keyword)
-          (getf keyword-match :match))))
-
-(defmethod cltpt/base:text-object-convert ((obj org-keyword) backend)
-  ;; was used for debugging
-  #+nil
-  (format nil
-          "keyword: ~A, val: ~A"
-          (cltpt/base:text-object-property obj :keyword)
-          (cltpt/base:text-object-property obj :value))
-  (format nil
-          ""
-          :recurse nil))
 
 (defvar *org-link-rule*
   '(:pattern
@@ -929,6 +864,43 @@
     :id keywords))
 
 ;; TODO: make org-src-block contain #+results too
+(defvar *org-babel-results-rule*
+  `(cltpt/combinator:consec
+    (cltpt/combinator:any
+     (cltpt/combinator:literal-casein "#+results:")
+     (cltpt/combinator:consec
+      (cltpt/combinator:literal-casein "#+results[")
+      (cltpt/combinator:symbol-matcher)
+      (cltpt/combinator:literal "]:")))
+    (cltpt/combinator:any
+     #| detect syntax like
+     #+RESULTS[c419e84a898b0cdd18b49e14c750b71743921b86]:
+     : (5 1 7 4)
+     : more text
+     : more text
+     |#
+     (cltpt/combinator:atleast-one
+      (cltpt/combinator:consec
+       (cltpt/combinator:literal ,(string #\newline))
+       (:pattern
+        (cltpt/combinator:any
+         (cltpt/combinator:consec
+          (cltpt/combinator:literal ": ")
+          (cltpt/combinator:all-but-newline))
+         (cltpt/combinator:literal ": "))
+        :id output-line)))
+     #| detect syntax like
+     #+RESULTS[ca08ab2a6a58662675694033105ab0b331611fa2]:
+     [[file:/tmp/jyBtMrE.svg]]
+
+     the possible elements could be org-link, org-table, org-block
+     |#
+     (cltpt/combinator:consec
+      (cltpt/combinator:literal ,(string #\newline))
+      (cltpt/combinator:any
+       ,(copy-rule-with-id *org-list-rule* 'org-list)
+       ;; ,(copy-rule-with-id *org-block-rule* 'org-block)
+       ,(copy-rule-with-id *org-link-rule* 'org-link))))))
 (defvar *org-src-block-no-kw-rule*
   `(cltpt/combinator:pair
     (cltpt/combinator:unescaped
@@ -953,9 +925,24 @@
 (defvar *org-src-block-rule*
   `(:pattern
     (cltpt/combinator:any
+     ;; block with keywords and execution results
+     (cltpt/combinator:consec
+      ,*org-keyword-rule*
+      ,*org-src-block-no-kw-rule*
+      (cltpt/combinator:literal ,(string #\newline))
+      (cltpt/combinator:literal ,(string #\newline))
+      ,*org-babel-results-rule*)
+     ;; block with keywords but no execution results
      (cltpt/combinator:consec
       ,*org-keyword-rule*
       ,*org-src-block-no-kw-rule*)
+     ;; block with results but no keywords
+     (cltpt/combinator:consec
+      ,*org-src-block-no-kw-rule*
+      (cltpt/combinator:literal ,(string #\newline))
+      (cltpt/combinator:literal ,(string #\newline))
+      ,*org-babel-results-rule*)
+     ;; block with no keywords and no results
      ,*org-src-block-no-kw-rule*)
     :on-char #\#))
 (defclass org-src-block (cltpt/base:text-object)
@@ -1035,6 +1022,27 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block) backend)
   (convert-block obj backend "lstlisting" t))
+
+;; copied from older code needs to be rewritten.
+(defmethod convert-babel-results ((obj org-src-block) backend)
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (output-line-matches (cltpt/base:find-submatch-all match 'output-line))
+         (output-text (str:join
+                       (string #\newline)
+                       (mapcar
+                        (lambda (output-line-match)
+                          (subseq (getf (car output-line-match) :match) 2))
+                        output-line-matches))))
+    (cond
+      ((eq backend cltpt/latex:*latex*)
+       (list :text output-text
+             :recurse nil
+             :reparse nil
+             :escape nil))
+      ((eq backend cltpt/html:*html*)
+       (within-tags "<code class='org-babel-results'><pre>"
+                    output-text
+                    "</code></pre>")))))
 
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair

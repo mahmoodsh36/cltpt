@@ -126,6 +126,13 @@ code here
 : \(11\)
 : wow
 
+#+begin_src python :results output
+  do nothing
+#+end_src
+
+#+RESULTS[ca08ab2a6a58662675694033105ab0b331611fa2]:
+[[file:~/brain/out/jyBtMrE.svg]]
+
 \begin{dummy}
   this is a test
 \end{dummy}
