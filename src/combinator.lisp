@@ -526,6 +526,15 @@ the SUCCESSOR-PATTERN is not captured as part of the match."
         (when successor-match
           pattern-match)))))
 
+(defun unsucceeded-by (str pos pattern successor-pattern)
+  "match PATTERN only if it is not followed by SUCCESSOR-PATTERN."
+  (let ((pattern-match (match-rule-normalized pattern str pos)))
+    (when pattern-match
+      (let* ((match-end (getf (car pattern-match) :end))
+             (successor-match (when match-end (match-rule-normalized successor-pattern str match-end))))
+        (unless successor-match
+          pattern-match)))))
+
 (defun upcase-char-p (str pos)
   "returns 1 if the char at POS of STR is an uppercase character."
   (and (< pos (length str))
