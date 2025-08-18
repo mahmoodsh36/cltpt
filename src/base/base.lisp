@@ -8,7 +8,7 @@
    :text-format
    :parse-file
    :flatten
-   :find-submatch :find-submatch-all
+   :find-submatch :find-submatch-all :find-submatch-last
    :tree-find
    :pcase :plistp
    :bind-and-eval :bind-and-eval*
