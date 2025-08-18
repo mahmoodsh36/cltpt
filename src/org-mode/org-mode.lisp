@@ -732,7 +732,7 @@
                            (cltpt/base:text-format-generate-preamble
                             cltpt/html:*html*
                             obj)
-                           "<div id='content'>"))
+                           "<div class='content'>"))
             (my-postamble (concatenate 'string
                                        (cltpt/base:text-format-generate-postamble
                                         cltpt/html:*html*
