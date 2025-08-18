@@ -971,7 +971,7 @@
                                           (getf begin-match :begin))))
     (handle-block-keywords obj)))
 
-;; should take an isntance of `org-src-block' or `org-block', but that isnt ensured
+;; should take an instance of `org-src-block' or `org-block', but that isnt ensured
 (defmethod convert-block ((obj text-object) backend block-type is-code)
   (let ((exports-keyword
           (cdr (assoc "exports"

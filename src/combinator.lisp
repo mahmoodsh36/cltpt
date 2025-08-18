@@ -515,10 +515,10 @@ immediately after the match satisfies 'condition-fn'."
       (let ((end-pos (getf (car match) :end)))
         (when (funcall condition-fn str end-pos)
           match)))))
+
 (defun succeeded-by (str pos pattern successor-pattern)
-  "match PATTERN only if it is immediately followed by SUCCESSOR-
-PATTERN.
-  the SUCCESSOR-PATTERN is not captured as part of the match."
+  "match PATTERN only if it is immediately followed by SUCCESSOR-PATTERN.
+the SUCCESSOR-PATTERN is not captured as part of the match."
   (let ((pattern-match (match-rule-normalized pattern str pos)))
     (when pattern-match
       (let* ((match-end (getf (car pattern-match) :end))

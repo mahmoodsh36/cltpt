@@ -29,6 +29,29 @@ an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
 we say the circuit is /very standard/ if the indegree of each gate in the first (non-input) layer is at most \(2\log(S)\), where \(S\) is the size of the circuit.
 #+end_definition
 
+#+begin_question
+wow
+
+#+begin_answer
+what
+#+end_answer
+
+#+begin_src latex :file (cached-file "P9jJoKl.svg") :cache yes
+  \begin{alg}
+    \SetKwFunction{func}{\textsc{Relax}}
+    \fn{\func{G,u,v}} {
+      $time\_passed \gets d[u]$\;
+      $actual\_weight \gets \textsc{Google-Updated-Weight}(time\_passed, (u,v))$\;
+      \If {$d[v] > d[u] + actual\_weight$} {
+        $d[v] \gets d[u] + actual\_weight$\;
+        $p[v] \gets u$\;
+      }
+    }
+  \end{alg}
+#+end_src
+hey
+#+end_question
+
 1. more text
 2. more text2
 3. more lists
