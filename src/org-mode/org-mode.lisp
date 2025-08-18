@@ -1096,6 +1096,9 @@
   (let* ((begin-type-match (car (cltpt/base:find-submatch match 'begin-type)))
          (begin-type (getf begin-type-match :match))
          (begin-match (car (cltpt/base:find-submatch match 'begin)))
+         ;; we look for the last instance of 'end because otherwise
+         ;; we might capture the 'end of another block nested
+         ;; within this one
          (end-match (car (cltpt/base::find-submatch-last match 'end))))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
     (setf (cltpt/base:text-object-property obj :contents-region)
