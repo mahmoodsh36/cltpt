@@ -892,42 +892,40 @@
 
 (defvar *keywords-rule*
   `(:pattern
-    (cltpt/combinator:consec
+    (cltpt/combinator:separated-atleast-one
      (cltpt/combinator:literal " ")
-     (cltpt/combinator:separated-atleast-one
-      (cltpt/combinator:literal " ")
-      (cltpt/combinator:any
-       ;; this should capture strings or lisp expressions provided
-       ;; as a value of a keyword
-       (:pattern
-        (cltpt/combinator:consec
-         (cltpt/combinator:literal ":")
-         (:pattern (cltpt/combinator:symbol-matcher)
-          :id keyword)
-         (cltpt/combinator:literal " ")
-         (cltpt/combinator:succeeded-by
-          (:pattern (cltpt/combinator:lisp-sexp)
-           :id value)
-          ;; we make sure to capture lisp expressions only if they are succeeded
-          ;; by " :" because otherwise we might capture a word that is part
-          ;; of a sequence of words, like ":title my title", which is a case
-          ;; that should be handled by the following rule, not this one.
-          (cltpt/combinator:literal " :")))
-        :id keywords-entry)
-       ;; capture all until the next " :", or until the line ends.
-       (:pattern
-        (cltpt/combinator:consec
-         (cltpt/combinator:literal ":")
-         (:pattern (cltpt/combinator:symbol-matcher)
-          :id keyword)
-         (cltpt/combinator:literal " ")
-         (:pattern
-          (cltpt/combinator:all-upto-pattern
-           (cltpt/combinator:any
-            (cltpt/combinator:literal ,(string #\newline))
-            (cltpt/combinator:literal " :")))
-          :id value))
-        :id keywords-entry))))
+     (cltpt/combinator:any
+      ;; this should capture strings or lisp expressions provided
+      ;; as a value of a keyword
+      (:pattern
+       (cltpt/combinator:consec
+        (cltpt/combinator:literal ":")
+        (:pattern (cltpt/combinator:symbol-matcher)
+         :id keyword)
+        (cltpt/combinator:literal " ")
+        (cltpt/combinator:succeeded-by
+         (:pattern (cltpt/combinator:lisp-sexp)
+          :id value)
+         ;; we make sure to capture lisp expressions only if they are succeeded
+         ;; by " :" because otherwise we might capture a word that is part
+         ;; of a sequence of words, like ":title my title", which is a case
+         ;; that should be handled by the following rule, not this one.
+         (cltpt/combinator:literal " :")))
+       :id keywords-entry)
+      ;; capture all until the next " :", or until the line ends.
+      (:pattern
+       (cltpt/combinator:consec
+        (cltpt/combinator:literal ":")
+        (:pattern (cltpt/combinator:symbol-matcher)
+         :id keyword)
+        (cltpt/combinator:literal " ")
+        (:pattern
+         (cltpt/combinator:all-upto-pattern
+          (cltpt/combinator:any
+           (cltpt/combinator:literal ,(string #\newline))
+           (cltpt/combinator:literal " :")))
+         :id value))
+       :id keywords-entry)))
     :id keywords))
 
 ;; TODO: make org-src-block contain #+results too
@@ -938,8 +936,14 @@
       (cltpt/combinator:any
        (cltpt/combinator:consec
         (cltpt/combinator:literal-casein "#+begin_src")
+        (cltpt/combinator:literal " ")
+        (cltpt/combinator:symbol-matcher)
+        (cltpt/combinator:literal " ")
         ,*keywords-rule*)
-       (cltpt/combinator:literal-casein "#+begin_src"))
+       (cltpt/combinator:consec
+        (cltpt/combinator:literal-casein "#+begin_src")
+        (cltpt/combinator:literal " ")
+        (cltpt/combinator:symbol-matcher)))
       :id begin))
     (cltpt/combinator:unescaped
      (:pattern (cltpt/combinator:literal-casein "#+end_src")
@@ -1038,19 +1042,26 @@
      (:pattern
       (cltpt/combinator:any
        (cltpt/combinator:consec
-        (cltpt/combinator:literal-casein "#+begin_")
+        (cltpt/combinator::unsucceeded-by
+         (cltpt/combinator:literal-casein "#+begin_")
+         (cltpt/combinator:literal-casein "src"))
         (:pattern (cltpt/combinator:symbol-matcher)
          :id begin-type)
+        (cltpt/combinator:literal " ")
         ,*keywords-rule*)
        (cltpt/combinator:consec
+        (cltpt/combinator::unsucceeded-by
         (cltpt/combinator:literal-casein "#+begin_")
+        (cltpt/combinator:literal-casein "src"))
         (:pattern (cltpt/combinator:symbol-matcher)
          :id begin-type)))
       :id begin))
     (cltpt/combinator:unescaped
      (:pattern
       (cltpt/combinator:consec
-       (cltpt/combinator:literal-casein "#+end_")
+       (cltpt/combinator::unsucceeded-by
+        (cltpt/combinator:literal-casein "#+end_")
+        (cltpt/combinator:literal-casein "src"))
        (:pattern (cltpt/combinator:symbol-matcher)
         :id end-type))
       :id end))
@@ -1061,9 +1072,11 @@
         (copy-rule-with-id
          (cltpt/base:text-object-rule-from-subclass subclass-name)
          subclass-name))
-      (set-difference (org-mode-text-object-types)
-                      '(org-header org-block)
-                      :test 'equal)))))
+      ;; reverse because we want to maintain the order of items, which `set-difference' changes
+      (reverse
+       (set-difference (org-mode-text-object-types)
+                       '(org-header org-block)
+                       :test 'equal))))))
 (defvar *org-block-rule*
   `(:pattern
     (cltpt/combinator:any
@@ -1083,7 +1096,7 @@
   (let* ((begin-type-match (car (cltpt/base:find-submatch match 'begin-type)))
          (begin-type (getf begin-type-match :match))
          (begin-match (car (cltpt/base:find-submatch match 'begin)))
-         (end-match (car (cltpt/base:find-submatch match 'end))))
+         (end-match (car (cltpt/base::find-submatch-last match 'end))))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
     (setf (cltpt/base:text-object-property obj :contents-region)
           (cltpt/base:make-region :begin (- (getf begin-match :end)

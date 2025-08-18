@@ -169,6 +169,16 @@ TEST checks for equality between ITEM and `(key (car node))'."
    :key (lambda (node)
           (getf (car node) :id))))
 
+(defun find-submatch-last (match submatch-id)
+  "from a combinator-returned MATCH, find a sub-match by its SUBMATCH-ID. return the last such submatch found."
+  (let ((last-found))
+    (tree-mapcons
+     match
+     (lambda (submatch)
+       (when (equal submatch-id (getf (car submatch) :id))
+         (setf last-found submatch))))
+    last-found))
+
 (defun find-submatch-all (match submatch-id)
   "similar to `find-submatch', but returns all matches."
   (tree-find-all
