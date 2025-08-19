@@ -41,7 +41,7 @@ returns a list of (start . end) cons pairs for each segment."
                 line-end)
             (>= line-end (length str)))))
 
-(defun parse-table-row (str line-start line-end inline-rules)
+(defun parse-table-row (ctx str line-start line-end inline-rules)
   (let* ((trimmed-indices (find-trim-indices str line-start line-end))
          (start (car trimmed-indices))
          (end (cdr trimmed-indices)))
@@ -76,7 +76,7 @@ returns a list of (start . end) cons pairs for each segment."
                            (inline-children
                              (when (and inline-rules (plusp (length cell-text)))
                                (adjust-match-offsets
-                                (cltpt/combinator::scan-all-rules cell-text inline-rules)
+                                (cltpt/combinator::scan-all-rules ctx cell-text inline-rules)
                                 cell-content-start))))
                       (push (cons (list :id 'table-cell
                                         :begin cell-content-start
@@ -93,7 +93,7 @@ returns a list of (start . end) cons pairs for each segment."
         ;; not a valid table row
         (t (values nil line-start))))))
 
-(defun org-table-matcher (str pos &optional inline-rules)
+(defun org-table-matcher (ctx str pos &optional inline-rules)
   "main function to find and parse an entire org-mode table."
   (multiple-value-bind (first-line-start first-line-end)
       (org-table-get-line-info str pos)
@@ -113,7 +113,7 @@ returns a list of (start . end) cons pairs for each segment."
             (org-table-get-line-info str current-pos)
           (setf table-end-pos line-start)
           (multiple-value-bind (row-node row-end-pos)
-              (parse-table-row str line-start line-end inline-rules)
+              (parse-table-row ctx str line-start line-end inline-rules)
             (if row-node
                 (progn
                   (push row-node row-nodes)

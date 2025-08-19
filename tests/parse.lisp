@@ -532,6 +532,7 @@ some more text"))
                :id ending)
               ,other-rules))))
     (cltpt/combinator::scan-all-rules
+     nil
      "(my nested (text) (more (#+nested)))"
      rules)))
 
@@ -603,6 +604,7 @@ some more text"))
               nil
               nil))))
     (cltpt/combinator::scan-all-rules
+     nil
      "\\**my text #+here* *hello there* *more
 here* here"
      rules)))
@@ -619,6 +621,7 @@ here* here"
               nil
               nil))))
     (cltpt/combinator::scan-all-rules
+     nil
      "\\**my text #+here* *hello there* *more
 here* here"
      rules)))
@@ -630,6 +633,7 @@ here* here"
                       'cltpt/combinator::at-line-end-p))
          (rules (list rule1)))
     (cltpt/combinator::scan-all-rules
+     nil
      "#tag1
 a #tag2 in the middle
 and a final #tag3"
@@ -642,6 +646,7 @@ and a final #tag3"
                       #'cltpt/combinator::at-line-start-p))
          (rules (list rule1)))
     (cltpt/combinator::scan-all-rules
+     nil
      "#tag1 is on line 1
 this is not a match: #tag2
 #tag3 is on line 3"

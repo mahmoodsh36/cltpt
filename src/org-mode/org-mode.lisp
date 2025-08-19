@@ -25,6 +25,7 @@
            org-link
            org-src-block
            org-block
+           org-prop-drawer
            org-drawer
            cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
            org-italic
@@ -72,15 +73,22 @@
       subclass-name))
    (org-mode-inline-text-object-types)))
 
+(defun org-mode-text-object-types-except (exceptions)
+  (reverse
+   (set-difference (org-mode-text-object-types)
+                   exceptions
+                   :test 'equal)))
+
 (defvar *org-inline-text-objects-rule*
   '(eval
     (org-mode-inline-text-object-rule)))
 
-(defvar *org-drawer-rule*
+;; even though a property drawer can be considered just a drawer with a special treatment, we implement it as a distinct object from `org-drawer'
+(defvar *org-prop-drawer-rule*
   `(:pattern
     (cltpt/combinator:pair
      (cltpt/combinator:followed-by
-      (:pattern ,(cltpt/combinator:handle-rule-string ":%w:")
+      (:pattern (cltpt/combinator:literal-casein ":properties:")
        :id drawer-open-tag)
       cltpt/combinator:at-line-end-p)
      (cltpt/combinator:when-match
@@ -97,39 +105,39 @@
          :id drawer-value))
        :id drawer-entry)))
     :on-char #\:))
-(defclass org-drawer (cltpt/base:text-object)
+(defclass org-prop-drawer (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
-    :initform *org-drawer-rule*))
-  (:documentation "org-mode drawer."))
+    :initform *org-prop-drawer-rule*))
+  (:documentation "org-mode properties drawer."))
 
 ;; ideally we should be using a hashmap, but it probably doesnt matter here.
-(defmethod org-drawer-get ((obj org-drawer) key)
+(defmethod org-prop-drawer-get ((obj org-prop-drawer) key)
   (cdr (assoc key (cltpt/base:text-object-property obj :alist)
               :test 'equal)))
 
-(defmethod (setf org-drawer-get) (value (obj org-drawer) key)
+(defmethod (setf org-prop-drawer-get) (value (obj org-prop-drawer) key)
   (push (cons key value) (cltpt/base:text-object-property obj :alist)))
 
-(defmethod org-drawer-set ((obj org-drawer) key value)
-  (setf (org-drawer-get obj key) value))
+(defmethod org-prop-drawer-set ((obj org-prop-drawer) key value)
+  (setf (org-prop-drawer-get obj key) value))
 
-(defmethod org-drawer-alist ((obj org-drawer))
+(defmethod org-prop-drawer-alist ((obj org-prop-drawer))
   (cltpt/base:text-object-property obj :alist))
 
-(defmethod org-drawer-keys ((obj org-drawer))
-  (mapcar 'car (org-drawer-alist obj)))
+(defmethod org-prop-drawer-keys ((obj org-prop-drawer))
+  (mapcar 'car (org-prop-drawer-alist obj)))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-drawer) str1 match)
-  (loop for submatch in (cltpt/base:find-submatch-all match 'drawer-entry)
-        do (let ((key (cltpt/base:find-submatch submatch 'drawer-key))
-                 (val (cltpt/base:find-submatch submatch 'drawer-value)))
-             (org-drawer-set obj
+(defmethod cltpt/base:text-object-init :after ((obj org-prop-drawer) str1 match)
+  (loop for submatch in (cltpt/combinator:find-submatch-all match 'drawer-entry)
+        do (let ((key (cltpt/combinator:find-submatch submatch 'drawer-key))
+                 (val (cltpt/combinator:find-submatch submatch 'drawer-value)))
+             (org-prop-drawer-set obj
                              (getf (car key) :match)
                              (getf (car val) :match)))))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
-(defmethod cltpt/base:text-object-convert ((obj org-drawer) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-prop-drawer) backend)
   "")
 
 (defvar *org-keyword-rule*
@@ -150,8 +158,8 @@
   (:documentation "org-mode file-level keyword."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
-  (let* ((value-match (car (cltpt/base:find-submatch match 'value)))
-         (keyword-match (car (cltpt/base:find-submatch match 'keyword))))
+  (let* ((value-match (car (cltpt/combinator:find-submatch match 'value)))
+         (keyword-match (car (cltpt/combinator:find-submatch match 'keyword))))
     (setf (cltpt/base:text-object-property obj :value)
           (getf value-match :match))
     (setf (cltpt/base:text-object-property obj :keyword)
@@ -222,23 +230,23 @@
 
 (defun org-timestamp-match-to-time (match)
   (let* ((day (parse-integer
-               (getf (car (cltpt/base:find-submatch match 'day)) :match)
+               (getf (car (cltpt/combinator:find-submatch match 'day)) :match)
                :junk-allowed t))
-         (second-str (getf (car (cltpt/base:find-submatch match 'second)) :match))
+         (second-str (getf (car (cltpt/combinator:find-submatch match 'second)) :match))
          (second (when second-str (parse-integer second-str :junk-allowed t)))
          (year (parse-integer
-                (getf (car (cltpt/base:find-submatch match 'year)) :match)
+                (getf (car (cltpt/combinator:find-submatch match 'year)) :match)
                 :junk-allowed t))
          (month (parse-integer
-                 (getf (car (cltpt/base:find-submatch match 'month)) :match)
+                 (getf (car (cltpt/combinator:find-submatch match 'month)) :match)
                  :junk-allowed t))
          (hour (parse-integer
-                (getf (car (cltpt/base:find-submatch match 'hour)) :match)
+                (getf (car (cltpt/combinator:find-submatch match 'hour)) :match)
                 :junk-allowed t))
          (minute (parse-integer
-                  (getf (car (cltpt/base:find-submatch match 'minute)) :match)
+                  (getf (car (cltpt/combinator:find-submatch match 'minute)) :match)
                   :junk-allowed t))
-         (weekday (car (cltpt/base:find-submatch match 'weekday))))
+         (weekday (car (cltpt/combinator:find-submatch match 'weekday))))
     ;; **encode-timestamp** nsec sec minute hour day month year &key timezone offset into
     (local-time:encode-timestamp 0
                                  (or second 0)
@@ -325,7 +333,7 @@
                                              nil
                                              t
                                              nil))
-           (parsed (org-list-matcher new-txt 0)))
+           (parsed (org-list-matcher nil new-txt 0)))
       (cond
         ((eq backend cltpt/latex:*latex*)
          (list :text (to-latex-list parsed)
@@ -385,7 +393,7 @@
            :id action-inactive)))
         ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
         ,(copy-rule-with-id *org-list-rule* 'org-list)
-        ,(copy-rule-with-id *org-drawer-rule* 'org-drawer)))))
+        ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
     :on-char #\*))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -394,8 +402,8 @@
   (:documentation "org-mode header."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-header) str1 match)
-  (let* ((stars (car (cltpt/base:find-submatch match 'stars)))
-         (title (car (cltpt/base:find-submatch match 'title))))
+  (let* ((stars (car (cltpt/combinator:find-submatch match 'stars)))
+         (title (car (cltpt/combinator:find-submatch match 'title))))
     (setf (cltpt/base:text-object-property obj :level)
           (length (getf stars :match)))
     (setf (cltpt/base:text-object-property obj :title)
@@ -404,21 +412,21 @@
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
   ;; initialize agenda data
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-         (title-match (car (cltpt/base:find-submatch match 'title)))
+         (title-match (car (cltpt/combinator:find-submatch match 'title)))
          (header-id)
          (scheduled)
          (deadline)
-         (todo-keyword-match (car (cltpt/base:find-submatch match 'todo-keyword)))
-         (timestamp-match (cltpt/base:find-submatch match 'todo-timestamp))
-         (action-active-matches (cltpt/base:find-submatch-all match 'action-active))
-         (action-inactive-matches (cltpt/base:find-submatch-all match 'action-inactive))
+         (todo-keyword-match (car (cltpt/combinator:find-submatch match 'todo-keyword)))
+         (timestamp-match (cltpt/combinator:find-submatch match 'todo-timestamp))
+         (action-active-matches (cltpt/combinator:find-submatch-all match 'action-active))
+         (action-inactive-matches (cltpt/combinator:find-submatch-all match 'action-inactive))
          (todo-timestamp (when timestamp-match
                            (org-timestamp-match-to-time timestamp-match))))
     (labels ((is-drawer (obj2)
-               (typep obj2 'org-drawer)))
+               (typep obj2 'org-prop-drawer)))
       (let ((drawers (find-children obj #'is-drawer)))
         (loop for drawer in drawers
-              do (loop for (key . value) in (org-drawer-alist drawer)
+              do (loop for (key . value) in (org-prop-drawer-alist drawer)
                        do (cond
                             ((string-equal key "id")
                              (setf header-id value))
@@ -427,8 +435,8 @@
                              )
                             )))))
     (loop for action-match in action-active-matches
-          do (let ((action-name (getf (car (cltpt/base:find-submatch action-match 'name)) :match))
-                   (action-timestamp (cltpt/base:find-submatch action-match 'timestamp)))
+          do (let ((action-name (getf (car (cltpt/combinator:find-submatch action-match 'name)) :match))
+                   (action-timestamp (cltpt/combinator:find-submatch action-match 'timestamp)))
                (cond
                  ((string-equal action-name "scheduled")
                   (setf scheduled (org-timestamp-match-to-time action-timestamp)))
@@ -557,9 +565,9 @@
               "</a>")))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
-  (let ((link-type-match (car (cltpt/base:find-submatch match 'link-type)))
-        (link-dest-match (car (cltpt/base:find-submatch match 'link-dest)))
-        (link-desc-match (car (cltpt/base:find-submatch match 'link-desc))))
+  (let ((link-type-match (car (cltpt/combinator:find-submatch match 'link-type)))
+        (link-dest-match (car (cltpt/combinator:find-submatch match 'link-dest)))
+        (link-desc-match (car (cltpt/combinator:find-submatch match 'link-desc))))
     (setf (cltpt/base:text-object-property obj :desc)
           (getf link-desc-match :match))
     (setf (cltpt/base:text-object-property obj :dest)
@@ -626,7 +634,9 @@
     (cltpt/base:text-object-init
      new-obj
      (cltpt/base:text-object-text obj)
-     (org-table-matcher (cltpt/base:text-object-text obj) 0))
+     ;; TODO: shouldnt we passing the combinator context from the original
+     ;; matching run? this could cause issues
+     (org-table-matcher nil (cltpt/base:text-object-text obj) 0))
     (setf (cltpt/base:text-object-children new-obj)
           (cltpt/base:text-object-children obj))
     (let* ((new-txt (cltpt/base:convert-tree
@@ -636,7 +646,7 @@
                      nil
                      t
                      nil))
-           (parsed (org-table-matcher new-txt 0)))
+           (parsed (org-table-matcher nil new-txt 0)))
       (cond
         ((eq backend cltpt/latex:*latex*)
          (list :text (to-latex-table parsed)
@@ -657,11 +667,11 @@
   (let* ((doc-title)
          (doc-id)
          (first-child (car (cltpt/base:text-object-children obj)))
-         (first-child-is-drawer (typep first-child 'org-drawer)))
+         (first-child-is-drawer (typep first-child 'org-prop-drawer)))
     ;; detect id and title of document, either through property drawer at the top
     ;; or using keywords
     (when first-child-is-drawer
-      (setf doc-id (org-drawer-get first-child "ID")))
+      (setf doc-id (org-prop-drawer-get first-child "ID")))
     (loop for child in (if first-child-is-drawer
                            (cdr (cltpt/base:text-object-children obj))
                            (cltpt/base:text-object-children obj))
@@ -855,7 +865,7 @@
          :id keyword)
         (cltpt/combinator:literal " ")
         (:pattern
-         (cltpt/combinator:all-upto-pattern
+         (cltpt/combinator:all-upto
           (cltpt/combinator:any
            (cltpt/combinator:literal ,(string #\newline))
            (cltpt/combinator:literal " :")))
@@ -952,9 +962,9 @@
   (:documentation "org-mode src block."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
-  (let* ((begin-match (car (cltpt/base:find-submatch match 'begin)))
-         (end-match (car (cltpt/base:find-submatch match 'end)))
-         (keywords-match (cltpt/base:find-submatch match 'keywords)))
+  (let* ((begin-match (car (cltpt/combinator:find-submatch match 'begin)))
+         (end-match (car (cltpt/combinator:find-submatch match 'end)))
+         (keywords-match (cltpt/combinator:find-submatch match 'keywords)))
     (setf (cltpt/base:text-object-property obj :contents-region)
           (cltpt/base:make-region :begin (- (getf begin-match :end)
                                             (getf begin-match :begin))
@@ -1028,11 +1038,12 @@
 (defmethod handle-block-keywords ((obj text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (entries
-           (cltpt/base:find-submatch-all (cltpt/base:find-submatch match 'keywords)
-                                         'keywords-entry)))
+           (cltpt/combinator:find-submatch-all
+            (cltpt/combinator:find-submatch match 'keywords)
+            'keywords-entry)))
     (loop for entry in entries
-          for kw-match = (car (cltpt/base:find-submatch entry 'keyword))
-          for val-match = (car (cltpt/base:find-submatch entry 'value))
+          for kw-match = (car (cltpt/combinator:find-submatch entry 'keyword))
+          for val-match = (car (cltpt/combinator:find-submatch entry 'value))
           for kw = (getf kw-match :match)
           for val = (getf val-match :match)
           do (push (cons kw val) (text-object-property obj :keywords-alist)))))
@@ -1043,7 +1054,7 @@
 ;; copied from older code needs to be rewritten.
 (defmethod convert-babel-results ((obj org-src-block) backend)
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-         (output-line-matches (cltpt/base:find-submatch-all match 'output-line))
+         (output-line-matches (cltpt/combinator:find-submatch-all match 'output-line))
          (output-text (str:join
                        (string #\newline)
                        (mapcar
@@ -1092,16 +1103,7 @@
       :id end))
     ;; an org-block can contain every other object except headers
     (eval
-     (mapcar
-      (lambda (subclass-name)
-        (copy-rule-with-id
-         (cltpt/base:text-object-rule-from-subclass subclass-name)
-         subclass-name))
-      ;; reverse because we want to maintain the order of items, which `set-difference' changes
-      (reverse
-       (set-difference (org-mode-text-object-types)
-                       '(org-header org-block)
-                       :test 'equal))))))
+     (org-mode-text-object-types-except '(org-header org-block)))))
 (defvar *org-block-rule*
   `(:pattern
     (cltpt/combinator:any
@@ -1118,13 +1120,13 @@
 
 (defmethod cltpt/base:text-object-init :after ((obj org-block) str1 match)
   ;; grab the "type" of the block, set content boundaries, need to grab keywords
-  (let* ((begin-type-match (car (cltpt/base:find-submatch match 'begin-type)))
+  (let* ((begin-type-match (car (cltpt/combinator:find-submatch match 'begin-type)))
          (begin-type (getf begin-type-match :match))
-         (begin-match (car (cltpt/base:find-submatch match 'begin)))
+         (begin-match (car (cltpt/combinator:find-submatch match 'begin)))
          ;; we look for the last instance of 'end because otherwise
          ;; we might capture the 'end of another block nested
          ;; within this one
-         (end-match (car (cltpt/base:find-submatch-last match 'end))))
+         (end-match (car (cltpt/combinator:find-submatch-last match 'end))))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
     (setf (cltpt/base:text-object-property obj :contents-region)
           (cltpt/base:make-region :begin (- (getf begin-match :end)
@@ -1136,3 +1138,21 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-block) backend)
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
+
+(defvar *org-drawer-rule*
+  `(:pattern
+    (cltpt/combinator:pair
+     (cltpt/combinator:followed-by
+      (:pattern ,(cltpt/combinator:handle-rule-string ":%w:")
+       :id drawer-open-tag)
+      cltpt/combinator:at-line-end-p)
+     (cltpt/combinator:when-match
+      (cltpt/combinator:literal-casein ":end:")
+      cltpt/combinator:at-line-start-p)
+     (eval (org-mode-text-object-types-except '(org-header org-drawer))))
+    :on-char #\:))
+(defclass org-drawer (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-drawer-rule*))
+  (:documentation "org-mode drawer."))

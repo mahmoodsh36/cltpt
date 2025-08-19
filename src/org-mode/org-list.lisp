@@ -65,7 +65,7 @@
                        (mapcar #'adjust-single-match children))))))
     (mapcar #'adjust-single-match matches)))
 
-(defun parse-single-list-item (str item-line-start-offset current-item-indent
+(defun parse-single-list-item (ctx str item-line-start-offset current-item-indent
                                inline-rules initial-bullet-marker
                                initial-text-on-bullet-line)
   (let* ((children-of-list-item)
@@ -127,6 +127,7 @@
         (when (and inline-rules (plusp (length full-item-text-for-match)))
           (let ((raw-inline-matches
                   (cltpt/combinator::scan-all-rules
+                   ctx
                    full-item-text-for-match
                    inline-rules
                    0
@@ -146,7 +147,7 @@
                       (parse-bullet-from-line-text line-at-children-start child-indent)
                     (when is-child-bullet
                       (multiple-value-bind (parsed-child-list-match new-pos-from-child-matcher)
-                          (org-list-matcher str current-scan-pos inline-rules)
+                          (org-list-matcher ctx str current-scan-pos inline-rules)
                         (when parsed-child-list-match
                           (setf children-of-content-node
                                 (nconc children-of-content-node
@@ -176,7 +177,7 @@
           (values (cons item-parent-info (nreverse children-of-list-item))
                   item-node-end))))))
 
-(defun parse-list-items-at-indent (str initial-pos expected-indent inline-rules)
+(defun parse-list-items-at-indent (ctx str initial-pos expected-indent inline-rules)
   (let ((item-nodes)
         (current-pos initial-pos)
         (last-successful-item-end-pos initial-pos))
@@ -195,7 +196,7 @@
                      (if is-bullet
                          (multiple-value-bind (item-cons-cell new-item-pos)
                              (parse-single-list-item
-                              str current-pos expected-indent inline-rules
+                              ctx str current-pos expected-indent inline-rules
                               bullet-marker text-on-bullet-line)
                            (if (and item-cons-cell
                                     (numberp new-item-pos)
@@ -208,7 +209,7 @@
                          (return))))))))
     (values (nreverse item-nodes) last-successful-item-end-pos)))
 
-(defun org-list-matcher (str pos &optional inline-rules)
+(defun org-list-matcher (ctx str pos &optional inline-rules)
   (multiple-value-bind (first-line-text first-line-start-offset)
       (org-list-get-line-info str pos)
     (unless (= pos first-line-start-offset)
@@ -221,7 +222,8 @@
           (parse-bullet-from-line-text first-line-text initial-indent)
         (unless is-bullet (return-from org-list-matcher (values nil pos)))
         (multiple-value-bind (top-level-item-nodes final-pos-after-list)
-            (parse-list-items-at-indent str
+            (parse-list-items-at-indent ctx
+                                        str
                                         first-line-start-offset
                                         initial-indent
                                         inline-rules)
