@@ -87,7 +87,12 @@ directory path.")
        result))))
 
 (defvar *html-escape-table*
-  '((#\newline . "<br>")))
+  '((#\newline . "<br>")
+    (#\< . "&lt;")
+    (#\< . "&gt;")
+    (#\" . "&quot;")
+    (#\' . "&apos;")
+    (#\& . "&amp;")))
 
 (defmethod cltpt/base:text-format-escape ((fmt (eql *html*))
                                           text
