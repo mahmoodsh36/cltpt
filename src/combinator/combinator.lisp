@@ -1,5 +1,8 @@
 (defpackage :cltpt/combinator
-  (:use :cl :str)
+  (:use :cl)
+  (:import-from :cltpt/combinator/utils
+   :find-submatch :find-submatch-all :find-submatch-last
+   :tree-mapcons)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one
@@ -8,10 +11,47 @@
    :unescaped :natural-number-matcher :when-match
    :at-line-start-p :at-line-end-p :followed-by :match-rule
    :separated-atleast-one :all-but-whitespace :handle-rule-string
-   :all-upto-pattern :succeeded-by))
+   :all-upto :succeeded-by
+
+   :find-submatch :find-submatch-all :find-submatch-last
+   ))
 
 (in-package :cltpt/combinator)
 
+;; this is used to keep track of the rules being processed, so that a matcher
+;; may be aware of other matches
+(defstruct context
+  rules
+  ;; we hash rules by id, so we can grab them quickly during matching
+  rule-hash)
+
+;; TODO: we are constructing this context on every call to the combinator
+;; rules dont change often (if at all), so we should cache this, maybe not
+;; in the combinator itself because that may introduce some unneeded overhead,
+;; in cases where the combinator isnt called many times with the same rules
+;; in other applications of this combinator library
+;; but maybe introduce this caching in other parts of cltpt's code that can benefit form it.
+(defun make-context-from-rules (rules)
+  (let ((ctx (make-context))
+        (rule-hash (make-hash-table :test 'equal)))
+    (setf (context-rules ctx) rules)
+    (setf (context-rule-hash ctx) rule-hash)
+    (loop for rule in rules
+          do (tree-mapcons
+              rule
+              (lambda (node)
+                ;; if its a plist it could be a rule with an id
+                (when (and (consp node) (keywordp (car node)))
+                  (let ((node-id (getf node :id)))
+                    (when node-id
+                      (setf (gethash node-id rule-hash) node)))))))
+    ctx))
+
+(defmethod context-rule-by-id ((ctx context) rule-id)
+  (gethash rule-id (context-rule-hash ctx)))
+
+;; TODO: this is redundant work, maybe ensure all functions return normalized
+;; parsing results instead.
 (defun normalize-match (match _rule str pos)
   "ensures a match result is in the standard plist cons structure."
   (declare (ignore _rule))
@@ -23,59 +63,59 @@
        nil)
       match))
 
-(defun match-rule-normalized (rule str pos)
+(defun match-rule-normalized (ctx rule str pos)
   "calls match-rule and ensures its result is normalized."
-  (let ((raw-match (match-rule rule str pos)))
+  (let ((raw-match (match-rule ctx rule str pos)))
     (when raw-match
       (normalize-match raw-match rule str pos))))
 
-(defun any (str pos &rest all)
+(defun any (ctx str pos &rest all)
   "match any of the given combinator rules."
   (loop for one in all
-        for match = (match-rule-normalized one str pos)
+        for match = (match-rule-normalized ctx one str pos)
         do (when match
              (return-from any match))))
 
-(defun literal (str pos substr)
+(defun literal (ctx str pos substr)
   "match a literal string."
   (let ((sublen (length substr)))
     (when (and (<= (+ pos sublen) (length str))
                (string= str substr :start1 pos :end1 (+ pos sublen) :end2 sublen))
       sublen)))
 
-(defun literal-casein (str pos substr)
+(defun literal-casein (ctx str pos substr)
   "match a literal string, case-insensitive."
   (let ((sublen (length substr)))
     (when (<= (+ pos sublen) (length str))
       (when (string-equal str substr :start1 pos :end1 (+ pos sublen) :end2 sublen)
         sublen))))
 
-(defun eng-char-p (str pos)
+(defun eng-char-p (ctx str pos)
   "match an english character."
   (when (< pos (length str))
     (when (alpha-char-p (char str pos))
       1)))
 
-(defun eng-alphanump (str pos)
+(defun eng-alphanump (ctx str pos)
   "match an english character or a digit."
   (when (or (alpha-char-p (char str pos))
             (digit-char-p (char str pos)))
     1))
 
-(defun symbol-char (str pos)
+(defun symbol-char (ctx str pos)
   "helper for `symbol-matcher'."
-  (when (or (eng-alphanump str pos)
+  (when (or (eng-alphanump ctx str pos)
             (char= (char str pos) #\-)
             (char= (char str pos) #\_)
             (char= (char str pos) #\*)
             (char= (char str pos) #\$))
     1))
 
-(defun symbol-matcher (str pos)
+(defun symbol-matcher (ctx str pos)
   "matches a 'symbol', which may include some special characters."
-  (match-rule '(atleast-one-discard (symbol-char)) str pos))
+  (match-rule ctx '(atleast-one-discard (symbol-char)) str pos))
 
-(defun all-but (str pos exceptions)
+(defun all-but (ctx str pos exceptions)
   "match everything but the characters in EXCEPTIONS."
   (let ((start pos))
     (loop while (< pos (length str))
@@ -85,7 +125,7 @@
     (when (> pos start)
       (- pos start))))
 
-(defun only (str pos allowed)
+(defun only (ctx str pos allowed)
   (let ((start pos))
     (when (or (>= pos (length str))
               (not (find (char str pos) allowed :test #'char=)))
@@ -96,21 +136,21 @@
           do (incf pos))
     (- pos start)))
 
-(defun all-but-newline (str pos)
+(defun all-but-newline (ctx str pos)
   "match all characters but a newline."
-  (all-but str pos (string #\newline)))
+  (all-but ctx str pos (string #\newline)))
 
 ;; we should add more chars that quality as whitespace
-(defun all-but-whitespace (str pos)
+(defun all-but-whitespace (ctx str pos)
   "match all characters but whitespaces."
-  (all-but str pos (concatenate 'string " " (string #\newline))))
+  (all-but ctx str pos (concatenate 'string " " (string #\newline))))
 
-(defun consec (str pos &rest all)
+(defun consec (ctx str pos &rest all)
   "match a consecutive set of rules, each one has to be present."
   (let ((start pos)
         (matches))
     (loop for one in all
-          for match = (match-rule-normalized one str pos)
+          for match = (match-rule-normalized ctx one str pos)
           for len = (when match
                       (- (getf (car match) :end)
                          (getf (car match) :begin)))
@@ -124,7 +164,7 @@
                 :match (subseq str start pos))
           (nreverse matches))))
 
-(defun consec-atleast-one (str pos &rest all)
+(defun consec-atleast-one (ctx str pos &rest all)
   "match a consecutive set of rules, atleast the first has to be present.
 
 the matcher stops once it encounters a rule that hasnt been matched, and returns
@@ -132,7 +172,7 @@ the consecutive matches up to that point."
   (let ((start pos)
         (matches))
     (loop for one in all
-          for match = (match-rule-normalized one str pos)
+          for match = (match-rule-normalized ctx one str pos)
           for len = (when match
                       (- (getf (car match) :end)
                          (getf (car match) :begin)))
@@ -149,7 +189,7 @@ the consecutive matches up to that point."
 
 ;; a consecutive set of matchers, separated by a specific matcher. atleast one
 ;; note that this also detects a separator at the end, should be an easy fix
-(defun separated-atleast-one (str pos sep-matcher matcher)
+(defun separated-atleast-one (ctx str pos sep-matcher matcher)
   "apply the sequence of matcher `ALL' separated by `SEP-MATCHER'."
   (let ((start pos)
         (matches)
@@ -158,12 +198,12 @@ the consecutive matches up to that point."
     (loop
       do (unless first
            ;; match separator
-           (let ((match (match-rule-normalized sep-matcher str pos)))
+           (let ((match (match-rule-normalized ctx sep-matcher str pos)))
              (unless match
                (return))
              (setf pos (getf (car match) :end))
              (setf sep-match match)))
-         (let ((match (match-rule-normalized matcher str pos)))
+         (let ((match (match-rule-normalized ctx matcher str pos)))
            (unless match
              (return))
            (setf pos (getf (car match) :end))
@@ -177,12 +217,12 @@ the consecutive matches up to that point."
                   :match (subseq str start pos))
             (nreverse matches)))))
 
-(defun atleast-one (str pos matcher)
+(defun atleast-one (ctx str pos matcher)
   "match the rule MATCHER atleast once."
   (let ((start pos)
         (matches))
     (loop while (< pos (length str))
-          for match = (match-rule-normalized matcher str pos)
+          for match = (match-rule-normalized ctx matcher str pos)
           while match
           for len = (when match
                       (- (getf (car match) :end)
@@ -198,11 +238,11 @@ the consecutive matches up to that point."
                   :match (subseq str start pos))
             (nreverse matches)))))
 
-(defun atleast-one-discard (str pos matcher)
+(defun atleast-one-discard (ctx str pos matcher)
   "like `atleast-one', but doesnt collect submatches. better performance."
   (let ((start pos))
     (loop while (< pos (length str))
-          for match = (match-rule-normalized matcher str pos)
+          for match = (match-rule-normalized ctx matcher str pos)
           while match
           for len = (when match
                       (- (getf (car match) :end)
@@ -217,27 +257,27 @@ the consecutive matches up to that point."
             nil))))
 
 ;; shouldnt we be matching words from any language?
-(defun word-matcher (str pos)
+(defun word-matcher (ctx str pos)
   "match an english word."
-  (match-rule `(atleast-one-discard (eng-char-p)) str pos))
+  (match-rule ctx `(atleast-one-discard (eng-char-p)) str pos))
 
-(defun digit-p (str pos)
+(defun digit-p (ctx str pos)
   "returns 1 if char at POS of STR is a digit, NIL otherwise."
   (and (< pos (length str))
        (digit-char-p (char str pos))
        1))
 
-(defun natural-number-matcher (str pos)
+(defun natural-number-matcher (ctx str pos)
   "matches a natural number."
-  (match-rule `(atleast-one-discard (digit-p)) str pos))
+  (match-rule ctx `(atleast-one-discard (digit-p)) str pos))
 
-(defun pair (str pos opening-rule closing-rule
+(defun pair (ctx str pos opening-rule closing-rule
              &optional rules-for-content pair-id (allow-multiline t))
   "matches an opening-rule, then content parsed by rules-for-content, then a closing-rule.
 handles nesting of the same pair structure.
 if ALLOW-MULTILINE is NIL, the match will fail if a newline is encountered
 before the final closing rule is found."
-  (let ((opening-match (match-rule-normalized opening-rule str pos)))
+  (let ((opening-match (match-rule-normalized ctx opening-rule str pos)))
     (when opening-match
       (let* ((open-parent-info (car opening-match))
              (open-end-pos (getf open-parent-info :end))
@@ -255,7 +295,8 @@ before the final closing rule is found."
                             (char= (char str current-search-pos) #\newline))
                    (return-from pair nil))
                  (let ((potential-close
-                         (match-rule-normalized closing-rule
+                         (match-rule-normalized ctx
+                                                closing-rule
                                                 str
                                                 current-search-pos)))
                    (if potential-close
@@ -266,7 +307,11 @@ before the final closing rule is found."
                            (setf final-closing-match potential-close)
                            (setf content-end-pos (getf (car potential-close) :begin))
                            (return)))
-                       (let ((potential-open (match-rule-normalized opening-rule str current-search-pos)))
+                       (let ((potential-open
+                               (match-rule-normalized ctx
+                                                      opening-rule
+                                                      str
+                                                      current-search-pos)))
                          (if potential-open
                              (progn
                                (incf nesting-level)
@@ -277,7 +322,7 @@ before the final closing rule is found."
                  (overall-end-pos (getf closing-parent-info :end))
                  (content-matches
                    (if (> content-end-pos content-start-pos)
-                       (scan-all-rules str rules-for-content content-start-pos content-end-pos)
+                       (scan-all-rules ctx str rules-for-content content-start-pos content-end-pos)
                        nil))
                  (parent-node-info (list :begin pos
                                          :end overall-end-pos
@@ -339,7 +384,7 @@ before the final closing rule is found."
 
 ;; i forgot why we're matching dollar signs here, should probably remove that
 ;; and use symbol-matcher instead where this was needed.
-(defun word-digits-hyphen (str pos)
+(defun word-digits-hyphen (ctx str pos)
   "matches a (non-empty) word with hyphens, underscores or dollar signs."
   (let ((start pos))
     (if (or (>= pos (length str))
@@ -359,7 +404,7 @@ before the final closing rule is found."
               do (incf pos)))
     (- pos start)))
 
-(defun word-digits (str pos)
+(defun word-digits (ctx str pos)
   "matches a (non-empty) word (possibly) with digits."
   (let ((start pos))
     (if (or (>= pos (length str))
@@ -373,7 +418,7 @@ before the final closing rule is found."
               do (incf pos)))
     (- pos start)))
 
-(defun lisp-sexp (str pos)
+(defun lisp-sexp (ctx str pos)
   "reads a single lisp S-expression from the current position."
   (let ((lisp-form)
         (read-error)
@@ -400,12 +445,16 @@ before the final closing rule is found."
                 nil))
         nil)))
 
-(defun match-rule (rule str pos)
+(defun match-rule (ctx rule str pos)
   "returns a 'raw' match: a number (length) for simple successful matches,
 or a pre-formed plist cons cell for combinators/structured matches, or NIL."
   (cond
+    ;; if its a single symbol it must be the id of a rule, we use context
+    ;; to retrieve the rule
+    ((and (symbolp rule) (context-rule-by-id ctx rule))
+     (match-rule ctx (context-rule-by-id ctx rule) str pos))
     ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
-     (apply (car rule) str pos (cdr rule)))
+     (apply (car rule) ctx str pos (cdr rule)))
     ((and (listp rule) (getf rule :pattern))
      ;; exploit :on-char here too, for some (small?) gains
      (unless (and (getf rule :on-char)
@@ -413,6 +462,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                   (not (char= (char str pos) (getf rule :on-char))))
        (let ((sub-pattern-match
                (match-rule-normalized
+                ctx
                 (getf rule :pattern)
                 str
                 pos)))
@@ -421,13 +471,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                   (new-parent-info (list* :id (getf rule :id) parent-info)))
              (cons new-parent-info (cdr sub-pattern-match)))))))
     ((stringp rule)
-     (match-rule (list 'literal rule) str pos)
-     ;; (let ((compiled (compile-rule-string rule)))
-     ;;   (if (> (length compiled) 1)
-     ;;       ;; if stringified pattern compiles to multiple rules we use `consec'.
-     ;;       (match-rule (cons 'consec compiled) str pos)
-     ;;       (match-rule (car compiled) str pos)))
-     )
+     (match-rule ctx (list 'literal rule) str pos))
     (t (error "invalid rule: ~A" rule))))
 
 ;; the hash table thing is a heuristic that makes things slightly faster
@@ -435,23 +479,27 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
   "construct a hash table by :on-char of the list of plists RULES."
   (let ((hash (make-hash-table :test 'equal)))
     (loop for rule in rules
-          do (when (and (keywordp (car rule)) (getf rule :on-char))
+          do (when (and (consp rule) (keywordp (car rule)) (getf rule :on-char))
                (push rule (gethash (getf rule :on-char) hash))))
     hash))
 
-(defun scan-all-rules (str rules &optional (start-idx 0) (end-idx (length str)))
+(defun scan-all-rules (ctx str rules &optional (start-idx 0) (end-idx (length str)))
   "iterate through STR, apply each matcher of RULES repeatedly at each position."
   (let* ((events)
          (i start-idx)
          (rule-hash (hash-rules rules))
+         ;; hash rules by :on-char to speed up iteration, we only call hashed
+         ;; rules when we see the :on-char they need. this way we avoid
+         ;; trying all rules at all locations
          (hashed-rules (loop for value being the hash-values of rule-hash
                              append value))
-         (unhashed-rules (set-difference rules hashed-rules :test #'equal)))
+         (unhashed-rules (set-difference rules hashed-rules :test #'equal))
+         (ctx (or ctx (make-context-from-rules rules))))
     (loop while (< i end-idx)
           do (let ((matched)
                    (current-char (char str i)))
                (labels ((handle-rule (rule)
-                          (let ((raw-match (match-rule rule str i)))
+                          (let ((raw-match (match-rule ctx rule str i)))
                             (when raw-match
                               (let* ((match-result (normalize-match raw-match rule str i)))
                                 ;; (when (<= (getf (car match-result) :end) end-idx)
@@ -467,9 +515,9 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
     (nreverse events)))
 
 (defun parse (str rules)
-  (scan-all-rules str rules 0 (length str)))
+  (scan-all-rules nil str rules 0 (length str)))
 
-(defun is-preceded-by-odd-escape-p (str pos escape-char)
+(defun is-preceded-by-odd-escape-p (ctx str pos escape-char)
   "checks if the character at pos is preceded by an odd number of
 contiguous escape-char characters."
   (if (zerop pos)
@@ -481,76 +529,82 @@ contiguous escape-char characters."
                  (decf i))
         (oddp escape-count))))
 
-(defun unescaped (str pos rule &optional (escape-char #\\))
+(defun unescaped (ctx str pos rule &optional (escape-char #\\))
   "a combinator that fails if the current position is escaped.
 if not escaped, it attempts to match the given 'rule'.
 an optional escape-char can be provided, defaulting to backslash."
   ;; check if the current position is escaped by an odd number of escape chars.
-  (if (is-preceded-by-odd-escape-p str pos escape-char)
+  (if (is-preceded-by-odd-escape-p ctx str pos escape-char)
       nil
-      (match-rule rule str pos)))
+      (match-rule ctx rule str pos)))
 
-(defun at-line-start-p (str pos)
+(defun at-line-start-p (ctx str pos)
   "predicate to check if the current position is at the start of a line."
   (or (zerop pos)
       (char= (char str (1- pos)) #\newline)))
 
-(defun at-line-end-p (str pos)
+(defun at-line-end-p (ctx str pos)
   "predicate to check if the current position is at the end of a line
 (i.e., at the end of the string or followed by a newline)."
   (or (>= pos (length str))
       (char= (char str pos) #\newline)))
 
-(defun when-match (str pos rule condition-fn)
+(defun when-match (ctx str pos rule condition-fn)
   "a combinator that attempts to match 'rule' only if 'condition-fn' returns true.
 'condition-fn' is a function that takes str and pos and returns a boolean."
-  (when (funcall condition-fn str pos)
-    (match-rule rule str pos)))
+  (when (funcall condition-fn ctx str pos)
+    (match-rule ctx rule str pos)))
 
-(defun followed-by (str pos rule condition-fn)
+(defun followed-by (ctx str pos rule condition-fn)
   "a combinator that succeeds only if 'rule' matches and the position
 immediately after the match satisfies 'condition-fn'."
-  (let ((match (match-rule-normalized rule str pos)))
+  (let ((match (match-rule-normalized ctx rule str pos)))
     (when match
       (let ((end-pos (getf (car match) :end)))
-        (when (funcall condition-fn str end-pos)
+        (when (funcall condition-fn ctx str end-pos)
           match)))))
 
-(defun succeeded-by (str pos pattern successor-pattern)
+(defun succeeded-by (ctx str pos pattern successor-pattern)
   "match PATTERN only if it is immediately followed by SUCCESSOR-PATTERN.
 the SUCCESSOR-PATTERN is not captured as part of the match."
-  (let ((pattern-match (match-rule-normalized pattern str pos)))
+  (let ((pattern-match (match-rule-normalized ctx pattern str pos)))
     (when pattern-match
       (let* ((match-end (getf (car pattern-match) :end))
-             (successor-match (match-rule-normalized successor-pattern str match-end)))
+             (successor-match
+               (match-rule-normalized ctx successor-pattern str match-end)))
         (when successor-match
           pattern-match)))))
 
-(defun unsucceeded-by (str pos pattern successor-pattern)
+(defun unsucceeded-by (ctx str pos pattern successor-pattern)
   "match PATTERN only if it is not followed by SUCCESSOR-PATTERN."
-  (let ((pattern-match (match-rule-normalized pattern str pos)))
+  (let ((pattern-match (match-rule-normalized ctx pattern str pos)))
     (when pattern-match
       (let* ((match-end (getf (car pattern-match) :end))
-             (successor-match (when match-end (match-rule-normalized successor-pattern str match-end))))
+             (successor-match
+               (when match-end
+                 (match-rule-normalized ctx
+                                        successor-pattern
+                                        str
+                                        match-end))))
         (unless successor-match
           pattern-match)))))
 
-(defun upcase-char-p (str pos)
+(defun upcase-char-p (ctx str pos)
   "returns 1 if the char at POS of STR is an uppercase character."
   (and (< pos (length str))
        (upper-case-p (char str pos))
        1))
 
-(defun upcase-word-matcher (str pos)
+(defun upcase-word-matcher (ctx str pos)
   "matches an uppercase (non-empty) word."
-  (match-rule `(atleast-one-discard (upcase-char-p)) str pos))
+  (match-rule ctx `(atleast-one-discard (upcase-char-p)) str pos))
 
-(defun all-upto-pattern (str pos delimiter-rule)
+(defun all-upto (ctx str pos delimiter-rule)
   "match all characters up to but not including the pattern defined by DELIMITER-RULE.
 returns the matched substring and its bounds."
   (let ((start pos))
     (loop while (< pos (length str))
-          for match = (match-rule-normalized delimiter-rule str pos)
+          for match = (match-rule-normalized ctx delimiter-rule str pos)
           while (not match)
           do (incf pos))
     (when (> pos start)

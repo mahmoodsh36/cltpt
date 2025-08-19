@@ -5,8 +5,9 @@
   :depends-on ("str" "uiop" "cl-ppcre" "cl-fad" "ironclad" "fiveam" "local-time" "clingon")
   :components ((:file "cltpt")
                (:module "combinator"
-                :pathname "src/"
-                :components ((:file "combinator")))
+                :pathname "src/combinator"
+                :components ((:file "utils")
+                             (:file "combinator")))
                (:module "base"
                 :pathname "src/base/"
                 :depends-on ("combinator")
