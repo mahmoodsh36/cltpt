@@ -83,6 +83,9 @@ directory path.")
                *html-postamble*
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
               *html*
+              nil
+              nil
+              t
               nil)))
        result))))
 
