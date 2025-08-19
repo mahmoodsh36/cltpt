@@ -16,11 +16,11 @@
   ;; use string on type to ensure its not a symbol
   (let ((type1 (string-downcase (string (text-object-property obj :type)))))
     (pcase backend
-      (latex
+      (*latex*
        (wrap-contents-for-convert obj
                                   (format nil "\\begin{~A}" type1)
                                   (format nil "\\end{~A}" type1)))
-      (html
+      (*html*
        (wrap-contents-for-convert obj
                                   (format nil "<~A>" type1)
                                   (format nil "</~A>" type1))))))
