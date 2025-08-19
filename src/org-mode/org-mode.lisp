@@ -712,7 +712,8 @@
      (let* ((my-preamble
               (if *org-mode-convert-with-boilerplate*
                   (concatenate 'string
-                               (cltpt/latex:generate-latex-preamble "authorhere" "datehere" "titlehere")
+                               (cltpt/latex:generate-latex-preamble
+                                "authorhere" "datehere" "titlehere")
                                (string #\newline)
                                "\\begin{document}"
                                (string #\newline))
@@ -752,8 +753,9 @@
                                   my-preamble
                                   (cltpt/base:text-object-text obj)
                                   my-postamble))
-            (inner-region (cltpt/base:make-region :begin (length my-preamble)
-                                                  :end (- (length my-text) (length my-postamble)))))
+            (inner-region (cltpt/base:make-region
+                           :begin (length my-preamble)
+                           :end (- (length my-text) (length my-postamble)))))
        (ensure-latex-previews-generated obj)
        (list :text my-text
              :reparse t
@@ -1029,13 +1031,16 @@
               (text (concatenate 'string
                                  open-tag
                                  (cltpt/base:text-object-contents obj)
-                                 close-tag)))
+                                 close-tag))
+              (inner-region (cltpt/base:make-region
+                             :begin (length open-tag)
+                             :end (- (length text) (length close-tag)))))
          (list :text text
                :recurse (not is-code)
                :reparse (not is-code)
-               :reparse-region (cltpt/base:make-region
-                                :begin (length open-tag)
-                                :end (- (length text) (length close-tag)))))))))
+               :escape (not is-code)
+               :reparse-region inner-region
+               :escape-region inner-region))))))
 
 (defmethod handle-block-keywords ((obj text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
