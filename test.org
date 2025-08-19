@@ -21,7 +21,7 @@ SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 - State "DONE"       from "TODO"       [2024-09-03 Tue 16:31:49]
 - State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
 
-#+begin_definition :defines standard thing :name def-ac-standard
+#+begin_definition :defines standard thing :name def-ac-standard :something
 an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
 1. the circuit is divided into layers, such that edges only connect vertices between subsequent layers.
 2. in each layer there are only \(\textbooland\) or \(\textboolor\) gates (except the input layer).
