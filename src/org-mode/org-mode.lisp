@@ -744,6 +744,7 @@
                             obj)
                            "<div class='content'>"))
             (my-postamble (concatenate 'string
+                                       "</div>"
                                        (cltpt/base:text-format-generate-postamble
                                         cltpt/html:*html*
                                         obj)))
