@@ -860,19 +860,24 @@
          ;; that should be handled by the following rule, not this one.
          (cltpt/combinator:literal " :")))
        :id keywords-entry)
-      ;; capture all until the next " :", or until the line ends.
+      ;; a keywords with a value
       (:pattern
-       (cltpt/combinator:consec
-        (cltpt/combinator:literal ":")
-        (:pattern (cltpt/combinator:symbol-matcher)
-         :id keyword)
-        (cltpt/combinator:literal " ")
-        (:pattern
-         (cltpt/combinator:all-upto
-          (cltpt/combinator:any
-           (cltpt/combinator:literal ,(string #\newline))
-           (cltpt/combinator:literal " :")))
-         :id value))
+       (cltpt/combinator:consec-atleast-one
+        ;; keyword
+        (cltpt/combinator:consec
+         (cltpt/combinator:literal ":")
+         (:pattern (cltpt/combinator:symbol-matcher)
+          :id keyword))
+        ;; value
+        (cltpt/combinator:consec
+         (cltpt/combinator:literal " ")
+         ;; capture all until the next " :", or until the line ends.
+         (:pattern
+          (cltpt/combinator:all-upto
+           (cltpt/combinator:any
+            (cltpt/combinator:literal ,(string #\newline))
+            (cltpt/combinator:literal " :")))
+          :id value)))
        :id keywords-entry)))
     :id keywords))
 
