@@ -9,7 +9,7 @@
    :display-math :inline-math :latex-env)
   (:export :org-list-matcher :org-header :org-list
    :*org-mode* :org-mode-text-object-types
-   :org-block :init))
+   :org-block :init :*org-enable-macros*))
 
 (in-package :cltpt/org-mode)
 
@@ -34,8 +34,10 @@
            org-comment
            web-link)
          (when *org-enable-macros*
-           cltpt/base:text-macro
-           cltpt/base:post-lexer-text-macro)))
+           ;; TODO: make it so that *org-enable-macros* is a non-org-specific var
+           ;; and use it for all formats. handle it in text-format.lisp
+           '(cltpt/base:text-macro
+             cltpt/base:post-lexer-text-macro))))
   (setf (cltpt/base:text-format-name *org-mode*)
         "org-mode")
   (setf (cltpt/base:text-format-document-type *org-mode*)
