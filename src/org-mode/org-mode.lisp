@@ -17,7 +17,8 @@
 
 (defun init ()
   (setf (cltpt/base:text-format-text-object-types *org-mode*)
-        (union
+        (concatenate
+         'list
          '(org-list
            org-table
            org-keyword
