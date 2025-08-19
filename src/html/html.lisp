@@ -95,7 +95,9 @@ directory path.")
     (#\< . "&gt;")
     (#\" . "&quot;")
     (#\' . "&apos;")
-    (#\& . "&amp;")))
+    (#\& . "&amp;")
+    ;; (#\space . "&nbsp;")
+    ))
 
 (defmethod cltpt/base:text-format-escape ((fmt (eql *html*))
                                           text
