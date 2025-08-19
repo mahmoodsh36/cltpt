@@ -909,7 +909,8 @@
       (cltpt/combinator:literal ,(string #\newline))
       (cltpt/combinator:any
        ,(copy-rule-with-id *org-list-rule* 'org-list)
-       ;; ,(copy-rule-with-id *org-block-rule* 'org-block)
+       org-block
+       org-drawer
        ,(copy-rule-with-id *org-link-rule* 'org-link))))))
 (defvar *org-src-block-no-kw-rule*
   `(cltpt/combinator:pair
