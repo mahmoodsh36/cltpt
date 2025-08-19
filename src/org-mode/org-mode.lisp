@@ -1118,7 +1118,7 @@
       :id end))
     ;; an org-block can contain every other object except headers
     (eval
-     (org-mode-text-object-types-except '(org-header org-block)))))
+     (org-mode-text-object-types-except '(org-header)))))
 (defvar *org-block-rule*
   `(:pattern
     (cltpt/combinator:any
