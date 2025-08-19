@@ -920,7 +920,7 @@
       (cltpt/combinator:literal ,(string #\newline))
       (cltpt/combinator:any
        ,(copy-rule-with-id *org-list-rule* 'org-list)
-       ,(copy-rule-with-id *org-table-rule* 'org-table)
+       org-table
        org-block
        org-drawer
        ,(copy-rule-with-id *org-link-rule* 'org-link))))))
