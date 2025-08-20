@@ -169,15 +169,22 @@
           (getf keyword-match :match))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-keyword) backend)
-  ;; was used for debugging
-  #+nil
-  (format nil
-          "keyword: ~A, val: ~A"
-          (cltpt/base:text-object-property obj :keyword)
-          (cltpt/base:text-object-property obj :value))
-  (format nil
-          ""
-          :recurse nil))
+  (let* ((kw (cltpt/base:text-object-property obj :value))
+         (value (cltpt/base:text-object-property obj :keyword)))
+    ;; handle transclusions
+    (if (string= kw "transclude")
+        (let* ((org-link-parse-result (cltpt/base:parse value '(org-link)))
+               (first-child (car (cltpt/base:text-object-children
+                                  org-link-parse-result))))
+          (when (ptype first-child 'org-link)
+            (let ((desc (cltpt/base:text-object-property obj :desc))
+                  (dest (cltpt/base:text-object-property obj :dest))
+                  (type (cltpt/base:text-object-property obj :type))
+                  (final-desc (or desc dest)))
+              )))
+        (format nil
+                ""
+                :recurse nil))))
 
 (defvar *org-comment-rule*
   '(:pattern
