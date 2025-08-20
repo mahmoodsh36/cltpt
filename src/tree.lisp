@@ -24,7 +24,7 @@ and returns the value associated with the node at its root."))
 (defmethod tree-children ((subtree cons))
   (cdr subtree))
 
-(defmethod tree-map (subtree func)
+(defun tree-map (subtree func)
   "we iterate through the tree one subtree at a time and run FUNC on each.
 
 children are handled first. if ON-VALUE is `t', we run the function on the values
@@ -37,8 +37,8 @@ rather than the subtrees (nodes) themselves."
         (funcall func subtree))
       subtree))
 
-(defmethod tree-find (subtree item
-                      &key (test #'equal) (key #'identity))
+(defun tree-find (subtree item
+                  &key (test #'equal) (key #'identity))
   "find `ITEM' from in `SUBTREE'.
 
 TEST checks for equality between ITEM and `(key SUBTREE)'."
