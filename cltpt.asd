@@ -4,8 +4,12 @@
   :author "Mahmood Sheikh <mahmod.m2015@gmail.com>"
   :depends-on ("str" "uiop" "cl-ppcre" "cl-fad" "ironclad" "fiveam" "local-time" "clingon")
   :components ((:file "cltpt")
+               (:module "tree"
+                :pathname "src/"
+                :components ((:file "tree")))
                (:module "combinator"
                 :pathname "src/combinator"
+                :depends-on ("tree")
                 :components ((:file "utils")
                              (:file "combinator")))
                (:module "base"
