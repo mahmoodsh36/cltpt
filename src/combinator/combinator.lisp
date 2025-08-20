@@ -1,8 +1,7 @@
 (defpackage :cltpt/combinator
   (:use :cl)
   (:import-from :cltpt/combinator/utils
-   :find-submatch :find-submatch-all :find-submatch-last
-   :tree-mapcons)
+   :find-submatch :find-submatch-all :find-submatch-last)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one
@@ -37,7 +36,7 @@
     (setf (context-rules ctx) rules)
     (setf (context-rule-hash ctx) rule-hash)
     (loop for rule in rules
-          do (tree-mapcons
+          do (cltpt/tree:tree-map
               rule
               (lambda (node)
                 ;; if its a plist it could be a rule with an id
