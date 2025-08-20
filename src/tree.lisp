@@ -27,8 +27,7 @@ and returns the value associated with the node at its root."))
 (defun tree-map (subtree func)
   "we iterate through the tree one subtree at a time and run FUNC on each.
 
-children are handled first. if ON-VALUE is `t', we run the function on the values
-rather than the subtrees (nodes) themselves."
+children are handled first."
   (if (consp subtree)
       (progn
         (loop for child in (tree-children subtree)
