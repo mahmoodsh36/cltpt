@@ -19,6 +19,14 @@
   format
   )
 
+(defvar *roam-convert-data*
+  nil
+  "dynamically bound metadata to pass down from roamer to conversion functions of objects.
+at the very least has to include a `roamer' instance for conversion functions to make use of. e.g. for retrieval of node by id using `get-node-by-id'.
+form:
+  `(:output-file-format nil
+    :roamer nil)'")
+
 (defclass roamer ()
   ((nodes
     :initform nil
@@ -34,13 +42,12 @@
     :accessor roamer-node-id-hashtable
     :documentation "map a node to its id.")))
 
-(defvar *roam-convert-data*
-  nil
-  "dynamically bound metadata to pass down from roamer to conversion functions of objects.
-at the very least has to include a `roamer' instance for conversion functions to make use of. e.g. for retrieval of node by id using `get-node-by-id'.
-form:
-  `(:output-file-format nil
-    :roamer nil)'")
+(defstruct link
+  src-node ;; source roam node
+  dest-node ;; destination roam node
+  src-text-obj ;; the text object which created the link (e.g. an instance of 'org-link')
+  type ;; link type, should be a symbol
+  )
 
 (defun from-files (files)
   "see documentation of `find-files' for FILES. takes a set of rules, returns a
@@ -211,3 +218,36 @@ which may include the destination, description and type."
         ;; not call this function again
         (let ((cltpt/roam:*roam-convert-data*))
           (cltpt/base:text-object-convert link-obj backend)))))
+
+(defgeneric resolve-link (rmr src-node src-text-obj link-type dest)
+  (:documentation "LINK-TYPE is a symbol indicating the type of the link. DEST is the destination, specified as a string. it should return a `link'."))
+
+(defmethod make-id-link ((rmr roamer) src-node src-text-obj link-type dest-id)
+  (let* ((dest-node (cltpt/roam:get-node-by-id rmr dest-id))
+         (new-link (make-instance 'link)))
+    (setf (link-src-text-obj new-link) src-text-obj)
+    (setf (link-dest-node new-link) dest-node)
+    (setf (link-src-node new-link) src-node)
+    (setf (link-type new-link) link-type)
+    new-link))
+
+(defmethod resolve-link ((rmr roamer)
+                         (src-node node)
+                         (src-text-obj cltpt/base:text-object)
+                         (link-type (eql 'denote))
+                         dest)
+  (make-id-link rmr src-node src-text-obj link-type dest))
+
+(defmethod resolve-link ((rmr roamer)
+                         (src-node node)
+                         (src-text-obj cltpt/base:text-object)
+                         (link-type (eql 'blk))
+                         dest)
+  (make-id-link rmr src-node src-text-obj link-type dest))
+
+(defmethod resolve-link ((rmr roamer)
+                         (src-node node)
+                         (src-text-obj cltpt/base:text-object)
+                         (link-type (eql 'id))
+                         dest)
+  (make-id-link rmr src-node src-text-obj link-type dest))
