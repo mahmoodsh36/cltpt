@@ -48,7 +48,7 @@
   (make-text-format "org-mode")
   "`text-format' instance of the org-mode format.")
 
-(defvar *org-mode-convert-with-boilerplate*
+(defvar *org-document-convert-with-boilerplate*
   t
   "whether to convert with preamble/postamble.")
 
@@ -193,7 +193,8 @@
               (when roam-link
                 (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
                        (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
-                  (cltpt/base:text-object-convert dest-text-obj backend))))))
+                  (let ((*org-document-convert-with-boilerplate*))
+                    (cltpt/base:text-object-convert dest-text-obj backend)))))))
         "")))
 
 (defvar *org-comment-rule*
@@ -734,7 +735,7 @@
   (cltpt/base:pcase backend
     (cltpt/latex:*latex*
      (let* ((my-preamble
-              (if *org-mode-convert-with-boilerplate*
+              (if *org-document-convert-with-boilerplate*
                   (concatenate 'string
                                (cltpt/latex:generate-latex-preamble
                                 "authorhere" "datehere" "titlehere")
@@ -743,7 +744,7 @@
                                (string #\newline))
                   ""))
             (my-postamble
-              (if *org-mode-convert-with-boilerplate*
+              (if *org-document-convert-with-boilerplate*
                   (concatenate 'string
                                (string #\newline)
                                "\\end{document}")
@@ -763,16 +764,23 @@
              :escape-region inner-region)))
     (cltpt/html:*html*
      (let* ((my-preamble
-              (concatenate 'string
-                           (cltpt/base:text-format-generate-preamble
-                            cltpt/html:*html*
-                            obj)
-                           "<div class='content'>"))
-            (my-postamble (concatenate 'string
-                                       "</div>"
-                                       (cltpt/base:text-format-generate-postamble
-                                        cltpt/html:*html*
-                                        obj)))
+              (concatenate
+               'string
+               (if *org-document-convert-with-boilerplate*
+                   (cltpt/base:text-format-generate-preamble
+                    cltpt/html:*html*
+                    obj)
+                   "")
+               "<div class='content'>"))
+            (my-postamble
+              (concatenate
+               'string
+               "</div>"
+               (if *org-document-convert-with-boilerplate*
+                   (cltpt/base:text-format-generate-postamble
+                    cltpt/html:*html*
+                    obj)
+                   "")))
             (my-text (concatenate 'string
                                   my-preamble
                                   (cltpt/base:text-object-text obj)
