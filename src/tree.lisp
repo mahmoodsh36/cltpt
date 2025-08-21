@@ -57,8 +57,6 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
     (tree-map
      subtree
      (lambda (other-subtree)
-       (let* ((value other-subtree)
-              (value2 (funcall key value)))
-         (when (funcall test item value2)
-           (push value2 result)))))
+       (when (funcall test item (funcall key other-subtree))
+         (push other-subtree result))))
     result))

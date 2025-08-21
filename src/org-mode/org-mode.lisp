@@ -169,22 +169,32 @@
           (getf keyword-match :match))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-keyword) backend)
-  (let* ((kw (cltpt/base:text-object-property obj :value))
-         (value (cltpt/base:text-object-property obj :keyword)))
+  (let* ((kw (cltpt/base:text-object-property obj :keyword))
+         (value (cltpt/base:text-object-property obj :value)))
     ;; handle transclusions
-    (if (string= kw "transclude")
+    (if (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
         (let* ((org-link-parse-result (cltpt/base:parse value '(org-link)))
                (first-child (car (cltpt/base:text-object-children
                                   org-link-parse-result))))
-          (when (ptype first-child 'org-link)
-            (let ((desc (cltpt/base:text-object-property obj :desc))
-                  (dest (cltpt/base:text-object-property obj :dest))
-                  (type (cltpt/base:text-object-property obj :type))
-                  (final-desc (or desc dest)))
-              )))
-        (format nil
-                ""
-                :recurse nil))))
+          (when (typep first-child 'org-link)
+            (let* ((dest (cltpt/base:text-object-property first-child :dest))
+                   (type (cltpt/base:text-object-property first-child :type))
+                   (rmr (getf cltpt/roam:*roam-convert-data* :roamer))
+                   (roam-link (cltpt/roam:resolve-link
+                               rmr
+                               (getf cltpt/roam:*roam-convert-data* :node)
+                               obj
+                               ;; if link doesnt have a type, treat it as an 'id' link
+                               (if type
+                                   (intern type :cltpt/roam)
+                                   'cltpt/roam::id)
+                               dest)))
+              ;; just convert the linked node's object and return that
+              (when roam-link
+                (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
+                       (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
+                  (cltpt/base:text-object-convert dest-text-obj backend))))))
+        "")))
 
 (defvar *org-comment-rule*
   '(:pattern
@@ -563,8 +573,9 @@
          (if cltpt/roam:*roam-convert-data*
              (cltpt/roam:convert-link
               (getf cltpt/roam:*roam-convert-data* :roamer)
+              (getf cltpt/roam:*roam-convert-data* :node)
               obj
-              (getf cltpt/roam:*roam-convert-data* :output-file-format)
+              (getf cltpt/roam:*roam-convert-data* :filepath-format)
               backend)
              (within-tags
               (if cltpt/html:*html-static-route*
@@ -703,7 +714,10 @@
            :id doc-id
            :title doc-title
            :desc nil
-           :text-obj obj))))
+           :text-obj obj))
+    ;; TODO: properly set the hierarchy of objects in headings
+    ;; currently headings dont *enclose* their children like they should
+    ))
 
 (defun ensure-latex-previews-generated (org-doc)
   (let ((mylist))
@@ -1069,7 +1083,8 @@
           for val-match = (car (cltpt/combinator:find-submatch entry 'value))
           for kw = (getf kw-match :match)
           for val = (getf val-match :match)
-          do (push (cons kw val) (text-object-property obj :keywords-alist)))))
+          do (push (cons kw val) (text-object-property obj :keywords-alist))
+          )))
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block) backend)
   (convert-block obj backend "lstlisting" t))
@@ -1141,6 +1156,12 @@
     :initform *org-block-rule*))
   (:documentation "org-mode block."))
 
+(defmethod org-block-keyword-value ((obj org-block) kw)
+  "return the value associated with a keyword of an `org-block'."
+  (cdr (assoc kw
+              (text-object-property obj :keywords-alist)
+              :test 'equal)))
+
 (defmethod cltpt/base:text-object-init :after ((obj org-block) str1 match)
   ;; grab the "type" of the block, set content boundaries, need to grab keywords
   (let* ((begin-type-match (car (cltpt/combinator:find-submatch match 'begin-type)))
@@ -1157,7 +1178,17 @@
                                   :end (- (getf end-match :begin)
                                           (getf begin-match :begin))))
     ;; handle keywords
-    (handle-block-keywords obj)))
+    (handle-block-keywords obj)
+    (let ((block-title (org-block-keyword-value obj "title"))
+          (block-name (org-block-keyword-value obj "name")))
+      ;; handle :name <id> as an anchor for blocks. construct a roam node for each.
+      (when block-name
+        (setf (cltpt/base:text-object-property obj :roam-node)
+              (cltpt/roam:make-node
+               :id block-name
+               :title block-title
+               :desc nil
+               :text-obj obj))))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-block) backend)
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))

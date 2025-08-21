@@ -38,8 +38,9 @@
                            ;; skip first char (`*text-macro-char*')
                            (subseq match-text 1)))
                   (error (c)
-                    (format t "error while evaluating macro ~A: ~A.~%"
-                            match-text c)
+                    (when cltpt:*debug*
+                      (format t "error while evaluating macro ~A: ~A.~%"
+                              match-text c))
                     (setf macro-eval-result 'broken))
                   (:no-error (result1)
                     ;; (format t "evaluated macro ~A: ~A~%" match-text result1)
