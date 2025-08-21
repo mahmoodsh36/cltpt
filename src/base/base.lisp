@@ -43,5 +43,3 @@
    :region-text))
 
 (in-package :cltpt/base)
-
-(defvar *debug* nil)
