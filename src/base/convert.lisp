@@ -116,7 +116,7 @@ the '\\' and processes the char normally (replace or emit)."
                          (or (unless result-is-string (getf result :recurse))
                              to-reparse)))
          (escapables (collect-escapables text-object-types)))
-    (when cltpt:*debug*
+    (when (eql cltpt:*debug* 2)
       (format t "converting object ~A~%" text-obj))
     (if to-recurse
         ;; we store the results as fragments (`final-result-fragments') to avoid concatenating all the time
@@ -144,7 +144,7 @@ the '\\' and processes the char normally (replace or emit)."
               ;; (text-object-adjust-to-parent child text-obj)
               ))
           (loop for child in children
-                do (when cltpt:*debug*
+                do (when (eql cltpt:*debug* 2)
                      (format t "converting child ~A~%" child))
                    (let* ((child-result (convert-tree child
                                                       backend
