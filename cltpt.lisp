@@ -1,4 +1,7 @@
 (defpackage :cltpt
-  (:use :cl))
+  (:use :cl)
+  (:export :*debug*))
 
 (in-package :cltpt)
+
+(defvar *debug* nil)

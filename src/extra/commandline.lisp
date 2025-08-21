@@ -76,12 +76,12 @@
                       (clingon:getopt cmd :dest-format)))
          (files (clingon:getopt cmd :files))
          (file-rules (clingon:getopt cmd :rules))
-         (output-file-format (clingon:getopt cmd :output-file-format))
+         (filepath-format (clingon:getopt cmd :filepath-format))
          (roamer (if file-rules
                      (roamer-from-file-rules file-rules)
                      (cltpt/roam:from-files files))))
-    (when (and roamer output-file-format dest-format)
-      (cltpt/roam:convert-all roamer dest-format output-file-format))))
+    (when (and roamer filepath-format dest-format)
+      (cltpt/roam:convert-all roamer dest-format filepath-format))))
 
 (defun convert-command ()
   (clingon:make-command
@@ -122,7 +122,7 @@
     :short-name #\o
     :description "the output file name format."
     :long-name "out"
-    :key :output-file-format)))
+    :key :output-filepath-format)))
 
 (defun roam-handler (cmd)
   "the handler for the `roam' command"
