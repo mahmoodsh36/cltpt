@@ -235,3 +235,7 @@ tables
 
 
 \( more math \)
+
+#+begin_export html
+<p style="color: red;">this should only be visible in the html export</p>
+#+end_export
