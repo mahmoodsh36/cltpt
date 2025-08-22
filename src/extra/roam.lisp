@@ -16,8 +16,8 @@
   desc
   text-obj
   file ;; we can do this better
-  file-rule ;; file rule from which the node was constructed we can do this better
-  format
+  file-rule ;; file rule from which the node was constructed we, can do this better
+  format ;; text-format, do we need this?
   )
 
 (defvar *roam-convert-data*
