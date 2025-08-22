@@ -115,6 +115,9 @@ the '\\' and processes the char normally (replace or emit)."
                          recurse
                          (or (unless result-is-string (getf result :recurse))
                              to-reparse)))
+         (to-remove-newlines-after
+           (and (consp result)
+                (getf result :reparse-region)))
          (escapables (collect-escapables text-object-types)))
     (when (eql cltpt:*debug* 2)
       (format t "converting object ~A~%" text-obj))
@@ -178,7 +181,12 @@ the '\\' and processes the char normally (replace or emit)."
                      ;; if we reparsed only a specific region, we need to offset the regions of children
                      (push text-in-between final-result-fragments)
                      (push child-result final-result-fragments)
-                     (setf idx (+ child-offset (text-object-end child)))))
+                     (setf idx (+ child-offset (text-object-end child)))
+                     ;; if requested, ignore all newlines after the object (if any)
+                     (when to-remove-newlines-after
+                       (loop while (and (< idx (length convert-text))
+                                        (equal (char convert-text idx) #\newline))
+                             do (incf idx)))))
           ;; we need to handle region-to-reparse properly on the remaining text after
           ;; the region of the last child
           (let ((final-text-in-between

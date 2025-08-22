@@ -195,7 +195,7 @@
                        (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
                   (let ((*org-document-convert-with-boilerplate*))
                     (cltpt/base:text-object-convert dest-text-obj backend)))))))
-        "")))
+        (list :remove-newlines-after t))))
 
 (defvar *org-comment-rule*
   '(:pattern
@@ -212,9 +212,7 @@
   (:documentation "comment line in org-mode."))
 
 (defmethod cltpt/base:text-object-convert ((obj org-comment) backend)
-  (format nil
-          ""
-          :recurse nil))
+  (list :remove-newlines-after t))
 
 (defvar *org-timestamp-rule*
   '(:pattern
@@ -527,7 +525,8 @@
              :escape-region inner-region
              :reparse t
              :reparse-region inner-region
-             :recurse t)))))
+             :recurse t
+             :remove-newlines-after t)))))
 
 (defvar *org-link-rule*
   '(:pattern
@@ -1078,7 +1077,8 @@
                :reparse (not is-code)
                :escape (not is-code)
                :reparse-region inner-region
-               :escape-region inner-region))))))
+               :escape-region inner-region
+               :remove-newlines-after t))))))
 
 (defmethod handle-block-keywords ((obj text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
@@ -1091,8 +1091,7 @@
           for val-match = (car (cltpt/combinator:find-submatch entry 'value))
           for kw = (getf kw-match :match)
           for val = (getf val-match :match)
-          do (push (cons kw val) (text-object-property obj :keywords-alist))
-          )))
+          do (push (cons kw val) (text-object-property obj :keywords-alist)))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block) backend)
   (convert-block obj backend "lstlisting" t))
@@ -1114,9 +1113,12 @@
              :reparse nil
              :escape nil))
       ((eq backend cltpt/html:*html*)
-       (within-tags "<code class='org-babel-results'><pre>"
-                    output-text
-                    "</code></pre>")))))
+       (concatenate
+        'list
+        (list :remove-newlines-after t)
+        (within-tags "<code class='org-babel-results'><pre>"
+                     output-text
+                     "</code></pre>"))))))
 
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair
