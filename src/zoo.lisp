@@ -51,14 +51,16 @@
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse nil
         :reparse nil
-        :escape nil))
+        :escape nil
+        :remove-newlines-after t))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse t
         :reparse nil
-        :escape nil))
+        :escape nil
+        :remove-newlines-after t))
 
 (defun init ()
   "function to run any necessary initialization code for cltpt.
