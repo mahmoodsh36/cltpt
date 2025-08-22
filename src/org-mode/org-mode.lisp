@@ -25,6 +25,7 @@
            org-header
            org-link
            org-src-block
+           org-export-block
            org-block
            org-prop-drawer
            org-drawer
@@ -66,7 +67,24 @@
       (let ((copy (copy-tree rule)))
         (setf (getf copy :id) id)
         copy)
-      (list :pattern rule :id id)))
+      (list :pattern (copy-tree rule) :id id)))
+
+(defun copy-modify-rule (rule modifications)
+  "copy a RULE, apply MODIFICATIONS to it.
+
+MODIFICATIONS is an alist of the form (id . new-rule) where id is the subrule
+to replace and new-rule is the rule to replace it with."
+  (let ((new-rule (copy-tree rule)))
+    (cltpt/tree:tree-map
+     new-rule
+     (lambda (subrule)
+       (when (cltpt/base:plistp subrule)
+         (loop for modification in modifications
+               for modification-id = (car modification)
+               for modification-rule = (cdr modification)
+               do (if (equal (getf subrule :id) modification-id)
+                      (setf (getf subrule :pattern) modification-rule))))))
+    new-rule))
 
 (defun org-mode-inline-text-object-rule ()
   (mapcar
@@ -687,6 +705,8 @@
 (defmethod cltpt/base:text-object-finalize ((obj org-document))
   (let* ((doc-title)
          (doc-id)
+         (doc-date)
+         (doc-tags)
          (first-child (car (cltpt/base:text-object-children obj)))
          (first-child-is-drawer (typep first-child 'org-prop-drawer)))
     ;; detect id and title of document, either through property drawer at the top
@@ -704,10 +724,16 @@
                ;; denote-style identifier
                (when (string= kw-name "identifier")
                  (setf doc-id kw-value))
-               ))
+               (when (string= kw-name "date")
+                 (setf doc-date kw-value))
+               (when (string= kw-name "filetags")
+                 ;; avoid first and last ':', split by ':' to get tags
+                 (setf doc-tags (str:substring 1 -1 kw-value)))))
     ;; set metadata in the object itself
     (setf (cltpt/base:text-object-property obj :title) doc-title)
+    (setf (cltpt/base:text-object-property obj :tags) doc-tags)
     (setf (cltpt/base:text-object-property obj :id) doc-id)
+    (setf (cltpt/base:text-object-property obj :date) doc-date)
     ;; initialize roam data
     (setf (cltpt/base:text-object-property obj :roam-node)
           (cltpt/roam:make-node
@@ -958,15 +984,23 @@
      (:pattern
       (cltpt/combinator:any
        (cltpt/combinator:consec
-        (cltpt/combinator:literal-casein "#+begin_src")
+        (:pattern
+         (cltpt/combinator:literal-casein "#+begin_src")
+         :id open-tag)
         (cltpt/combinator:literal " ")
-        (cltpt/combinator:symbol-matcher)
+        (:pattern
+         (cltpt/combinator:symbol-matcher)
+         :id lang)
         (cltpt/combinator:literal " ")
         ,*keywords-rule*)
        (cltpt/combinator:consec
-        (cltpt/combinator:literal-casein "#+begin_src")
+        (:pattern
+         (cltpt/combinator:literal-casein "#+begin_src")
+         :id open-tag)
         (cltpt/combinator:literal " ")
-        (cltpt/combinator:symbol-matcher)))
+        (:pattern
+         (cltpt/combinator:symbol-matcher)
+         :id lang)))
       :id begin))
     (cltpt/combinator:unescaped
      (:pattern (cltpt/combinator:literal-casein "#+end_src")
@@ -1002,7 +1036,7 @@
     :initform *org-src-block-rule*))
   (:documentation "org-mode src block."))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
+(defun init-org-src-block (obj match)
   (let* ((begin-match (car (cltpt/combinator:find-submatch match 'begin)))
          (end-match (car (cltpt/combinator:find-submatch match 'end)))
          (keywords-match (cltpt/combinator:find-submatch match 'keywords)))
@@ -1012,6 +1046,9 @@
                                   :end (- (getf end-match :begin)
                                           (getf begin-match :begin))))
     (handle-block-keywords obj)))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
+  (init-org-src-block obj match))
 
 ;; placeholder
 (defun to-raw-html-string (mystr)
@@ -1202,6 +1239,36 @@
 
 (defmethod cltpt/base:text-object-convert ((obj org-block) backend)
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
+
+;; an "export block" is very similar to an src-block, just some slight differences.
+(defvar *org-export-block-rule*
+  `(:pattern
+    ,(copy-modify-rule
+      *org-src-block-no-kw-rule*
+      '((open-tag . "#+begin_export")
+        (end . "#+end_export")))
+    :id org-export-block
+    :on-char #\#))
+(defclass org-export-block (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-export-block-rule*))
+  (:documentation "org-mode export block."))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-export-block) str1 match)
+  (init-org-src-block obj match))
+
+(defmethod cltpt/base:text-object-convert ((obj org-export-block) backend)
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (lang-match (car (cltpt/combinator:find-submatch match 'lang)))
+         (lang (getf lang-match :match)))
+    ;; we only export if the destination matches the lang set by the export block
+    (when (string= (cltpt/base:text-format-name backend)
+                   lang)
+      (list :text (cltpt/base:text-object-contents obj)
+            :recurse nil
+            :reparse nil
+            :escape nil))))
 
 (defvar *org-drawer-rule*
   `(:pattern
