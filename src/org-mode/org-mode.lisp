@@ -1059,7 +1059,13 @@ to replace and new-rule is the rule to replace it with."
   (let ((exports-keyword
           (cdr (assoc "exports"
                       (text-object-property obj :keywords-alist)
-                      :test 'equal))))
+                      :test 'equal)))
+        (contents (cltpt/base:text-object-contents obj)))
+    ;; when the contents start with the newline that is after the #+begin_block
+    ;; it causes a weird newline when cltpt/base:*convert-escape-newlines* is `t'
+    ;; so remove it.
+    (when (char= (char contents 0) #\newline)
+      (setf contents (subseq contents 1)))
     (cond
       ;; if we have `:exports none', we shouldnt export
       ((and exports-keyword (string= exports-keyword "none"))
@@ -1071,7 +1077,7 @@ to replace and new-rule is the rule to replace it with."
               (end-tag (format nil "\\end{~A}" block-type))
               (my-text (concatenate 'string
                                     begin-tag
-                                    (cltpt/base:text-object-contents obj)
+                                    contents
                                     end-tag))
               (inner-region
                 (cltpt/base:make-region
@@ -1104,7 +1110,7 @@ to replace and new-rule is the rule to replace it with."
                              "</div>"))
               (text (concatenate 'string
                                  open-tag
-                                 (cltpt/base:text-object-contents obj)
+                                 contents
                                  close-tag))
               (inner-region (cltpt/base:make-region
                              :begin (length open-tag)
