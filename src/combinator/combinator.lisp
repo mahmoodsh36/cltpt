@@ -10,7 +10,7 @@
    :unescaped :natural-number-matcher :when-match
    :at-line-start-p :at-line-end-p :followed-by :match-rule
    :separated-atleast-one :all-but-whitespace :handle-rule-string
-   :all-upto :succeeded-by
+   :all-upto :all-upto-included :succeeded-by
 
    :find-submatch :find-submatch-all :find-submatch-last
    ))
@@ -187,26 +187,26 @@ the consecutive matches up to that point."
             (nreverse matches)))))
 
 ;; a consecutive set of matchers, separated by a specific matcher. atleast one
-;; note that this also detects a separator at the end, should be an easy fix
 (defun separated-atleast-one (ctx str pos sep-matcher matcher)
-  "apply the sequence of matcher `ALL' separated by `SEP-MATCHER'."
+  "apply the sequence of matcher `MATCHER' separated by `SEP-MATCHER'."
   (let ((start pos)
         (matches)
         (first t)
-        (sep-match))
+        (sep-match)
+        (pos-after-sep pos))
     (loop
       do (unless first
            ;; match separator
            (let ((match (match-rule-normalized ctx sep-matcher str pos)))
              (unless match
                (return))
-             (setf pos (getf (car match) :end))
+             (setf pos-after-sep (getf (car match) :end))
              (setf sep-match match)))
-         (let ((match (match-rule-normalized ctx matcher str pos)))
+         (let ((match (match-rule-normalized ctx matcher str pos-after-sep)))
            (unless match
              (return))
            (setf pos (getf (car match) :end))
-           (when first
+           (unless first
              (push sep-match matches))
            (push match matches))
          (setf first nil))
