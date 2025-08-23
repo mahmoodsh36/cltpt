@@ -2,7 +2,7 @@
 :ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
 :END:
 #+title: my doc
-* TODO due task
+* TODO due task :here:there:noexport:
 SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 <2025-07-25 Fri 10:00:00>
 :PROPERTIES:

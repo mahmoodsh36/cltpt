@@ -730,7 +730,7 @@ this is not a match: #tag2
 (defun org-header-parse-test-1 ()
   (cltpt/combinator::parse
    "
-* TODO my main header
+* TODO my main header :test:here:noexport:
 SCHEDULED: <2024-10-29 Tue 16:41:04>
 CLOSED: [2024-10-29 Tue 16:41:03]
 <2025-07-25 Fri 10:00:00>
@@ -832,3 +832,17 @@ something more
 "
    (list
     cltpt/org-mode::*org-src-block-rule*)))
+
+(defun test-separated-atleast-one ()
+  (cltpt/combinator::parse
+   "hi :hello:here:"
+   (list
+    '(cltpt/combinator:consec
+      (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+      (cltpt/combinator:literal ":")
+      (cltpt/combinator:separated-atleast-one
+       ":"
+       (:pattern
+        (cltpt/combinator:symbol-matcher)
+        :id tag))
+      (cltpt/combinator:literal ":")))))

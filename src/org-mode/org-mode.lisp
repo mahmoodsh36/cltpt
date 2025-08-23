@@ -383,55 +383,90 @@ to replace and new-rule is the rule to replace it with."
                :reparse nil
                :escape nil))))))
 
-(defvar *org-header-rule*
-  `(:pattern
-    (cltpt/combinator:consec-atleast-one
-     (cltpt/combinator:when-match
-      (cltpt/combinator:any
-       (cltpt/combinator:consec
-        (:pattern
-         (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-         :id stars)
-        (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-        (:pattern (cltpt/combinator:upcase-word-matcher)
-         :id todo-keyword)
-        (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-        (:pattern (cltpt/combinator:all-but-newline)
-         :id title))
-       (cltpt/combinator:consec
-        (:pattern
-         (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-         :id stars)
-        (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-        (:pattern (cltpt/combinator:all-but-newline)
-         :id title)))
-      cltpt/combinator:at-line-start-p)
-     ;; the following is for detecting metadata following an org header
-     (cltpt/combinator:atleast-one
-      (cltpt/combinator:consec
-       (cltpt/combinator:literal ,(string #\newline))
-       (cltpt/combinator:any
-        (cltpt/combinator:separated-atleast-one
-         " "
+;; TODO: we may want to match tags-rule only if its before a newline
+(let ((tags-rule
+        '(cltpt/combinator:consec
+          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+          (cltpt/combinator:literal ":")
+          (cltpt/combinator:separated-atleast-one
+           ":"
+           (:pattern
+            (cltpt/combinator:symbol-matcher)
+            :id tag))
+          (cltpt/combinator:literal ":")))
+      (todo-rule
+        '(:pattern (cltpt/combinator:upcase-word-matcher)
+          :id todo-keyword)))
+  (defvar *org-header-rule*
+    `(:pattern
+      (cltpt/combinator:consec-atleast-one
+       (cltpt/combinator:when-match
+        (cltpt/combinator:any
+         ;; capture header with TODO keyword and tags
+         (cltpt/combinator:consec
+          (:pattern
+           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+           :id stars)
+          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+          ,todo-rule
+          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+          (:pattern (cltpt/combinator:all-upto ,tags-rule)
+           :id title)
+          ,tags-rule)
+         ;; capture header without todo keyword but with tags
+         (cltpt/combinator:consec
+          (:pattern
+           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+           :id stars)
+          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+          (:pattern (cltpt/combinator:all-upto ,tags-rule)
+           :id title)
+          ,tags-rule)
+         ;; capture header with todo keyword but without tags
+         (cltpt/combinator:consec
+          (:pattern
+           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+           :id stars)
+          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+          ,todo-rule
+          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+          (:pattern (cltpt/combinator:all-but-newline)
+           :id title))
+         ;; capture header without todo keyword or tags
+         (cltpt/combinator:consec
+          (:pattern
+           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+           :id stars)
+          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+          (:pattern (cltpt/combinator:all-but-newline)
+           :id title)))
+        cltpt/combinator:at-line-start-p)
+       ;; the following is for detecting metadata following an org header
+       (cltpt/combinator:atleast-one
+        (cltpt/combinator:consec
+         (cltpt/combinator:literal ,(string #\newline))
          (cltpt/combinator:any
-          (:pattern
-           (cltpt/combinator:consec
-            (:pattern (cltpt/combinator:upcase-word-matcher)
-             :id name)
-            ": "
-            ,(copy-rule-with-id *org-timestamp-rule* 'timestamp))
-           :id action-active)
-          (:pattern
-           (cltpt/combinator:consec
-            (:pattern (cltpt/combinator:upcase-word-matcher)
-             :id name)
-            ": "
-            ,(copy-rule-with-id *org-timestamp-bracket-rule* 'timestamp))
-           :id action-inactive)))
-        ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
-        ,(copy-rule-with-id *org-list-rule* 'org-list)
-        ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
-    :on-char #\*))
+          (cltpt/combinator:separated-atleast-one
+           " "
+           (cltpt/combinator:any
+            (:pattern
+             (cltpt/combinator:consec
+              (:pattern (cltpt/combinator:upcase-word-matcher)
+               :id name)
+              ": "
+              ,(copy-rule-with-id *org-timestamp-rule* 'timestamp))
+             :id action-active)
+            (:pattern
+             (cltpt/combinator:consec
+              (:pattern (cltpt/combinator:upcase-word-matcher)
+               :id name)
+              ": "
+              ,(copy-rule-with-id *org-timestamp-bracket-rule* 'timestamp))
+             :id action-inactive)))
+          ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
+          ,(copy-rule-with-id *org-list-rule* 'org-list)
+          ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
+      :on-char #\*)))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -444,7 +479,10 @@ to replace and new-rule is the rule to replace it with."
     (setf (cltpt/base:text-object-property obj :level)
           (length (getf stars :match)))
     (setf (cltpt/base:text-object-property obj :title)
-          (getf title :match))))
+          (getf title :match))
+    (setf (cltpt/base:text-object-property obj :tags)
+          (loop for match in (cltpt/combinator:find-submatch-all match 'tag)
+                collect (getf (car match) :match)))))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
   ;; initialize agenda data
@@ -503,48 +541,55 @@ to replace and new-rule is the rule to replace it with."
              :state-history nil)))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-header) backend)
-  (cltpt/base:pcase backend
-    (cltpt/latex:*latex*
-     (let* ((begin-text
-              (format
-               nil
-               "\\~Asection{"
-               (str:join ""
-                         (loop for i from 1 to (text-object-property obj :level)
-                               collect "sub"))))
-            (end-text "}")
-            (inner-text (cltpt/base:text-object-property obj :title))
-            (final-text (concatenate 'string begin-text inner-text end-text))
-            (inner-region
-              (make-region :begin (length begin-text)
-                           :end (- (length final-text) (length end-text)))))
-       (list :text final-text
-             :escape t
-             :escape-region inner-region
-             :reparse t
-             :reparse-region inner-region
-             :recurse t)))
-    (cltpt/html:*html*
-     (let* ((begin-text (format
-                         nil
-                         "<h~A>"
-                         (cltpt/base:text-object-property obj :level)))
-            (end-text (format
-                       nil
-                       "</h~A>"
-                       (cltpt/base:text-object-property obj :level)))
-            (inner-text (cltpt/base:text-object-property obj :title))
-            (final-text (concatenate 'string begin-text inner-text end-text))
-            (inner-region
-              (cltpt/base:make-region :begin (length begin-text)
-                                      :end (- (length final-text) (length end-text)))))
-       (list :text final-text
-             :escape t
-             :escape-region inner-region
-             :reparse t
-             :reparse-region inner-region
-             :recurse t
-             :remove-newlines-after t)))))
+  (let ((to-not-export
+          (member "noexport"
+                  (cltpt/base:text-object-property
+                   obj
+                   :tags)
+                  :test 'equal)))
+    (unless to-not-export
+      (cltpt/base:pcase backend
+        (cltpt/latex:*latex*
+         (let* ((begin-text
+                  (format
+                   nil
+                   "\\~Asection{"
+                   (str:join ""
+                             (loop for i from 1 to (text-object-property obj :level)
+                                   collect "sub"))))
+                (end-text "}")
+                (inner-text (cltpt/base:text-object-property obj :title))
+                (final-text (concatenate 'string begin-text inner-text end-text))
+                (inner-region
+                  (make-region :begin (length begin-text)
+                               :end (- (length final-text) (length end-text)))))
+           (list :text final-text
+                 :escape t
+                 :escape-region inner-region
+                 :reparse t
+                 :reparse-region inner-region
+                 :recurse t)))
+        (cltpt/html:*html*
+         (let* ((begin-text (format
+                             nil
+                             "<h~A>"
+                             (cltpt/base:text-object-property obj :level)))
+                (end-text (format
+                           nil
+                           "</h~A>"
+                           (cltpt/base:text-object-property obj :level)))
+                (inner-text (cltpt/base:text-object-property obj :title))
+                (final-text (concatenate 'string begin-text inner-text end-text))
+                (inner-region
+                  (cltpt/base:make-region :begin (length begin-text)
+                                          :end (- (length final-text) (length end-text)))))
+           (list :text final-text
+                 :escape t
+                 :escape-region inner-region
+                 :reparse t
+                 :reparse-region inner-region
+                 :recurse t
+                 :remove-newlines-after t)))))))
 
 (defvar *org-link-rule*
   '(:pattern
