@@ -104,8 +104,10 @@
 (defvar *latex-env-rule*
   `(:pattern
     (cltpt/combinator:pair
-     (cltpt/combinator:unescaped ,(cltpt/combinator:handle-rule-string "\\begin{%W}"))
-     (cltpt/combinator:unescaped ,(cltpt/combinator:handle-rule-string "\\end{%W}")))
+     (cltpt/combinator:unescaped
+      ,(cltpt/combinator:handle-rule-string "\\begin{%W}"))
+     (cltpt/combinator:unescaped
+      ,(cltpt/combinator:handle-rule-string "\\end{%W}")))
     :on-char #\\))
 (defclass latex-env (cltpt/base:text-object)
   ((cltpt/base::rule
