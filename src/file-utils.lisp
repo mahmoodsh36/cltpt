@@ -5,15 +5,17 @@
    :file-has-extension-p :directory-files-matching
    :change-extension :change-dir :path-without-extension
    :file-basename :base-name-no-ext :delete-files-by-regex
-   :write-file))
+   :write-file :join-paths :join-paths-list))
 
 (in-package :cltpt/file-utils)
 
 (defun ensure-directory (dir)
+  "ensure directory DIR exists."
   (unless (probe-file dir)
     (ensure-directories-exist dir)))
 
 (defun file-ext (filepath)
+  "return the file extension of FILEPATH."
   (string-downcase (pathname-type filepath)))
 
 (defun file-has-extension-p (path exts)
@@ -74,3 +76,38 @@
                      :if-exists :supersede
                      :if-does-not-exist :create)
     (write-sequence str1 f)))
+
+;; (defun join-paths (&rest paths)
+;;   (let ((result (car paths)))
+;;     (loop for filepath in (cdr paths)
+;;           do (format t "here ~A~%" result)(setf result (uiop:merge-pathnames* result filepath)))
+;;     result))
+
+(defun join-paths (&rest components)
+  "merge given args as filepaths, see `join-paths-list'."
+  (join-paths-list components))
+
+(defun join-paths-list (components &key (separator "/"))
+  "merge given filepaths in the COMPONENTS list from left to right.
+
+all paths are considered to be directory names except the last one
+which is the name of the file. the function returns a string.
+the function trims excessive use of the separator (usually forward slash)."
+  (let ((clean-parts (loop for part in components
+                           for trimmed = (string-trim separator part)
+                           unless (string= trimmed "")
+                           collect trimmed)))
+    (when clean-parts
+      (with-output-to-string (s)
+        ;; handle absolute paths: if the first original component started
+        ;; with a separator, the new path should too.
+        (when (and (first components)
+                   (> (length (first components)) 0)
+                   (char= (char (first components) 0) (char separator 0)))
+          (write-string separator s))
+        ;; write the first part, then loop through the rest,
+        ;; adding a separator each time.
+        (write-string (first clean-parts) s)
+        (dolist (part (rest clean-parts))
+          (write-string separator s)
+          (write-string part s))))))
