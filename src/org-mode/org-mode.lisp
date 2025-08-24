@@ -169,8 +169,19 @@ to replace and new-rule is the rule to replace it with."
       :id keyword)
      (cltpt/combinator:literal ":")
      (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-     (:pattern (cltpt/combinator:all-but-newline)
-      :id value))
+     (cltpt/combinator:any
+      ;; capture a lisp expression for evaluation as the value of the keyword.
+      ;; this could cause an issue when filetags is mistyped without an ending ":"
+      ;; but maybe this is a case we dont need to worry about.
+      (:pattern
+       (cltpt/combinator:followed-by
+        (cltpt/combinator:lisp-sexp)
+        cltpt/combinator:at-line-end-p)
+       :id value-sexp)
+      ;; capture an arbitrary sequence until an EOL
+      ;; TODO: what about EOF? this wont work, we need a new rule
+      (:pattern (cltpt/combinator:all-but-newline)
+       :id value)))
     :on-char #\#))
 (defclass org-keyword (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -180,9 +191,23 @@ to replace and new-rule is the rule to replace it with."
 
 (defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
   (let* ((value-match (car (cltpt/combinator:find-submatch match 'value)))
-         (keyword-match (car (cltpt/combinator:find-submatch match 'keyword))))
+         (keyword-match (car (cltpt/combinator:find-submatch match 'keyword)))
+         (initial-value (getf value-match :match))
+         (final-value))
+    (if value-match
+        (setf final-value initial-value)
+        (progn
+          (setf value-match (car (cltpt/combinator:find-submatch match 'value-sexp)))
+          (setf initial-value (getf value-match :match))
+          (when value-match
+            ;; TOOD: this will fail silently, atleast show an indication of an error
+            (handler-case
+                (setf final-value
+                      (eval (read-from-string initial-value)))
+              (error (e)
+                (setf final-value initial-value))))))
     (setf (cltpt/base:text-object-property obj :value)
-          (getf value-match :match))
+          final-value)
     (setf (cltpt/base:text-object-property obj :keyword)
           (getf keyword-match :match))))
 
@@ -758,22 +783,28 @@ to replace and new-rule is the rule to replace it with."
     ;; or using keywords
     (when first-child-is-drawer
       (setf doc-id (org-prop-drawer-get first-child "ID")))
+    (setf (cltpt/base:text-object-property obj :keywords-alist)
+          nil)
     (loop for child in (if first-child-is-drawer
                            (cdr (cltpt/base:text-object-children obj))
                            (cltpt/base:text-object-children obj))
           while (typep child 'org-keyword)
           do (let ((kw-name (cltpt/base:text-object-property child :keyword))
                    (kw-value (cltpt/base:text-object-property child :value)))
-               (when (string= kw-name "title")
-                 (setf doc-title kw-value))
-               ;; denote-style identifier
-               (when (string= kw-name "identifier")
-                 (setf doc-id kw-value))
-               (when (string= kw-name "date")
-                 (setf doc-date kw-value))
-               (when (string= kw-name "filetags")
-                 ;; avoid first and last ':', split by ':' to get tags
-                 (setf doc-tags (str:substring 1 -1 kw-value)))))
+               (push (cons kw-name kw-value)
+                     (cltpt/base:text-object-property obj :keywords-alist))
+               (cond
+                 ((string= kw-name "title")
+                  (setf doc-title kw-value))
+                 ;; denote-style identifier
+                 ((string= kw-name "identifier")
+                  (setf doc-id kw-value))
+                 ((string= kw-name "date")
+                  (setf doc-date kw-value))
+                 ((string= kw-name "filetags")
+                  ;; avoid first and last ':', split by ':' to get tags
+                  (setf doc-tags (str:split ":" (str:substring 1 -1 kw-value)))))
+               ))
     ;; set metadata in the object itself
     (setf (cltpt/base:text-object-property obj :title) doc-title)
     (setf (cltpt/base:text-object-property obj :tags) doc-tags)
