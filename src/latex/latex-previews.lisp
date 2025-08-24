@@ -17,7 +17,7 @@ if it doesnt exist, generate it by dumping the preamble.
 uses *latex-command* and *latex-preview-preamble*."
   (unless (probe-file format-path)
     (let ((preamble-file (merge-pathnames "preamble.tex" *latex-previews-tmp-directory*)))
-      (cltpt/file-utils:write-to-file
+      (cltpt/file-utils:write-file
        preamble-file
        (format nil
                "~A
@@ -133,7 +133,7 @@ this function does nothing for that snippet."
         (uiop:delete-file-if-exists fmt-path))
       (ensure-cached-format fmt-path)
       ;; write the multi-page tex file.
-      (cltpt/file-utils:write-to-file
+      (cltpt/file-utils:write-file
        tex-file
        (with-output-to-string (out)
          (format out "\\begin{document}~%\\setlength\\abovedisplayskip{0pt}~%")
