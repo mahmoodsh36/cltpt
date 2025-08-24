@@ -1417,7 +1417,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-drawer-rule*))
   (:documentation "org-mode drawer."))
 
-;; we need an org-specific flavor latex-env that may accept keywords like #+name
+;; we need an org-specific flavor of latex-env that may accept keywords like #+name
 (defvar *org-latex-env-rule*
   `(:pattern
     ,(rule-with-org-keywords
