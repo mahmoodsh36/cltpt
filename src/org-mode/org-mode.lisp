@@ -668,7 +668,7 @@ to replace and new-rule is the rule to replace it with."
              (within-tags
               (if cltpt/html:*html-static-route*
                   (format nil "<a href='~A'>"
-                          (cltpt/base:change-dir dest cltpt/html:*html-static-route*))
+                          (cltpt/file-utils:change-dir dest cltpt/html:*html-static-route*))
                   (format nil "<a href='~A'>" dest))
               final-desc
               "</a>")))))))

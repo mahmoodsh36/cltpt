@@ -48,7 +48,7 @@
 ;;     (setf src-format-name (alias-to-name src-format-name))
 ;;     (setf dest-format-name (alias-to-name dest-format-name))
 ;;     (let* ((src-file (cltpt/roam:node-file node))
-;;            (dest-file (cltpt/base:change-extension
+;;            (dest-file (cltpt/file-utils:change-extension
 ;;                        src-file
 ;;                        (name-to-alias dest-format-name))))
 ;;       (format t "converting ~A to ~A~%" src-file dest-file)

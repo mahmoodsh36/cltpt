@@ -81,7 +81,7 @@ each rule is a plist that can contain the following params.
     (labels ((handle-file (filepath file-rule)
                (let ((ext (getf file-rule :ext)))
                  (if ext
-                     (when (cltpt/base:file-has-extension-p
+                     (when (cltpt/file-utils:file-has-extension-p
                             filepath
                             (if (consp ext)
                                 ext
@@ -102,7 +102,7 @@ each rule is a plist that can contain the following params.
                                (handle-file path file-rule))
                              :match regex)
                             (loop
-                              for path in (cltpt/base::directory-files-matching
+                              for path in (cltpt/file-utils::directory-files-matching
                                            path
                                            regex)
                               do (handle-file path file-rule)))
@@ -121,7 +121,7 @@ each rule is a plist that can contain the following params.
                              (cltpt/base:text-format-by-name
                               (getf file-rule :format))
                              (cltpt/base:text-format-from-alias
-                              (cltpt/base:file-ext file-rule))))
+                              (cltpt/file-utils:file-ext file-rule))))
                    (parsed (cltpt/base:parse-file file fmt)))
                (cltpt/base:map-text-object
                 parsed
@@ -176,8 +176,8 @@ each rule is a plist that can contain the following params.
    `((title ,(cltpt/roam:node-title node))
      (file ,(cltpt/roam:node-file node))
      (id ,(cltpt/roam:node-id node))
-     (file-no-ext ,(cltpt/base:path-without-extension (cltpt/roam:node-file node)))
-     (basename ,(cltpt/base:base-name-no-ext (cltpt/roam:node-file node))))
+     (file-no-ext ,(cltpt/file-utils:path-without-extension (cltpt/roam:node-file node)))
+     (basename ,(cltpt/file-utils:base-name-no-ext (cltpt/roam:node-file node))))
    (lambda ()
      (let* (;; need to make it execute in-package to access the variables bound above
             (*package* (find-package :cltpt/roam))

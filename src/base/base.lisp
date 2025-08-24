@@ -13,10 +13,6 @@
    :bind-and-eval :bind-and-eval*
    :compress-consec
 
-   :change-extension :path-without-extension :base-name-no-ext :change-dir
-   :file-has-extension-p :file-ext :file-basename
-   :ensure-directory
-
    :convert-tree
 
    :document

@@ -236,11 +236,9 @@ the '\\' and processes the char normally (replace or emit)."
 (defun convert-file (fmt1 fmt2 src-file dest-file)
   (let* ((text (uiop:read-file-string src-file))
          (result (convert-text fmt1 fmt2 text)))
-    (with-open-file (f (uiop:parse-unix-namestring dest-file)
-                       :direction :output
-                       :if-exists :supersede
-                       :if-does-not-exist :create)
-      (write-sequence result f))))
+    (cltpt/file-utils:write-to-file
+     dest-file
+     result)))
 
 (defun convert-text (fmt1 fmt2 text)
   (let* ((text-tree (parse text
