@@ -57,10 +57,39 @@
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
-        :recurse t
+        :recurse nil
         :reparse nil
         :escape nil
         :remove-newlines-after t))
+
+(defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
+                                           (fmt (eql cltpt/latex:*latex*)))
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (keywords-alist (cltpt/org-mode::handle-parsed-org-keywords obj))
+         (name (cltpt/base:alist-get keywords-alist "name"))
+         (caption (cltpt/base:alist-get keywords-alist "caption"))
+         (latex-env-match (car (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1)))
+         (latex-env-contents (getf latex-env-match :match)))
+    ;; TODO: handle \caption and \label properly.
+    (list :text latex-env-contents
+          :reparse nil
+          :recurse nil
+          :escape nil)))
+
+(defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
+                                           (fmt (eql cltpt/html:*html*)))
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (keywords-alist (cltpt/org-mode::handle-parsed-org-keywords obj))
+         (name (cltpt/base:alist-get keywords-alist "name"))
+         (caption (cltpt/base:alist-get keywords-alist "caption"))
+         (latex-env-match (car (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1)))
+         (latex-env-contents (getf latex-env-match :match)))
+    ;; TODO: handle \caption and \label properly.
+    (list :text (latex-fragment-to-html latex-env-contents nil)
+          :recurse nil
+          :reparse nil
+          :escape nil
+          :remove-newlines-after t)))
 
 (defun init ()
   "function to run any necessary initialization code for cltpt.

@@ -29,7 +29,6 @@
                 :pathname "src/latex/"
                 :depends-on ("base" "combinator" "file-utils")
                 :components ((:file "latex")
-                             (:file "text-objects")
                              (:file "latex-previews")
                              (:file "utils")))
                (:module "html"
