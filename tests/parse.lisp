@@ -846,3 +846,23 @@ something more
         (cltpt/combinator:symbol-matcher)
         :id tag))
       (cltpt/combinator:literal ":")))))
+
+(defun test-org-latex-env ()
+  (cltpt/combinator:parse
+   "
+#+name: test-name
+\\begin{equation}
+my equation here
+\\end{equation}
+"
+   (list cltpt/org-mode::*org-latex-env-rule*)))
+
+(defun test-org-latex-env-1 ()
+  (cltpt/base:parse
+   "
+#+name: test-name
+\\begin{equation}
+my equation here
+\\end{equation}
+"
+   (cltpt/org-mode:org-mode-text-object-types)))

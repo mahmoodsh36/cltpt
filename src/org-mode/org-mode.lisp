@@ -19,9 +19,11 @@
   (setf (cltpt/base:text-format-text-object-types *org-mode*)
         (concatenate
          'list
+         ;; crucial to keep the order of types, especially types like
+         ;; org-src-block and org-block because we want org-src-block
+         ;; to be attempted first, otherwise org-block might match first
          '(org-list
            org-table
-           org-keyword
            org-header
            org-link
            org-src-block
@@ -29,6 +31,8 @@
            org-block
            org-prop-drawer
            org-drawer
+           org-latex-env
+           org-keyword ;; has to be after org-latex-env and before cltpt/latex:latex-env
            cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
            org-italic
            org-emph
@@ -158,7 +162,7 @@ to replace and new-rule is the rule to replace it with."
                              (getf (car val) :match)))))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
-(defmethod cltpt/base:text-object-convert ((obj org-prop-drawer) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-prop-drawer) (backend cltpt/base:text-format))
   "")
 
 (defvar *org-keyword-rule*
@@ -189,6 +193,27 @@ to replace and new-rule is the rule to replace it with."
     :initform *org-keyword-rule*))
   (:documentation "org-mode file-level keyword."))
 
+(defun rule-with-org-keywords (rule &optional must-have-keywords)
+  "take a parser rule, \"wrap\" it with other rules to match org-like keywords for the object.
+
+by org-like keywords we mean things like '#+name: name-here'.
+MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed."
+  (if must-have-keywords
+      `(cltpt/combinator:consec
+        (cltpt/combinator:separated-atleast-one
+         ,(string #\newline)
+         ,(copy-rule-with-id *org-keyword-rule* 'org-keyword))
+        ,(string #\newline)
+        ,rule)
+      `(cltpt/combinator:any
+        (cltpt/combinator:consec
+         (cltpt/combinator:separated-atleast-one
+          ,(string #\newline)
+          ,(copy-rule-with-id *org-keyword-rule* 'org-keyword))
+         ,(string #\newline)
+         ,rule)
+        ,rule)))
+
 (defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
   (let* ((value-match (car (cltpt/combinator:find-submatch match 'value)))
          (keyword-match (car (cltpt/combinator:find-submatch match 'keyword)))
@@ -211,7 +236,7 @@ to replace and new-rule is the rule to replace it with."
     (setf (cltpt/base:text-object-property obj :keyword)
           (getf keyword-match :match))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-keyword) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-keyword) (backend cltpt/base:text-format))
   (let* ((kw (cltpt/base:text-object-property obj :keyword))
          (value (cltpt/base:text-object-property obj :value)))
     ;; handle transclusions
@@ -254,7 +279,7 @@ to replace and new-rule is the rule to replace it with."
     :initform *org-comment-rule*))
   (:documentation "comment line in org-mode."))
 
-(defmethod cltpt/base:text-object-convert ((obj org-comment) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-comment) (backend cltpt/base:text-format))
   (list :remove-newlines-after t))
 
 (defvar *org-timestamp-rule*
@@ -368,7 +393,7 @@ to replace and new-rule is the rule to replace it with."
 
 ;; this is very hacky, perhaps we should find a better way to export lists
 ;; and their children
-(defmethod cltpt/base:text-object-convert ((obj org-list) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-list) (backend cltpt/base:text-format))
   ;; create a new non-org-list object, export it, use the output as a new list
   ;; reparse, that new list, then export the modified newly parsed list as if
   ;; it was the original
@@ -565,7 +590,7 @@ to replace and new-rule is the rule to replace it with."
              :tags nil
              :state-history nil)))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-header) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-header) (backend cltpt/base:text-format))
   (let ((to-not-export
           (member "noexport"
                   (cltpt/base:text-object-property
@@ -650,7 +675,7 @@ to replace and new-rule is the rule to replace it with."
     :initform *org-link-rule*))
   (:documentation "org-mode link."))
 
-(defmethod cltpt/base:text-object-convert ((obj org-link) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-link) (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/html:*html*)
      (let* ((desc (cltpt/base:text-object-property obj :desc))
@@ -697,7 +722,7 @@ to replace and new-rule is the rule to replace it with."
     :initform *web-link-rule*))
   (:documentation "a web link."))
 
-(defmethod cltpt/base:text-object-convert ((obj web-link) backend)
+(defmethod cltpt/base:text-object-convert ((obj web-link) (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/html:*html*)
      (format nil "<a href='~A'></a>" (cltpt/base:text-object-text obj)))))
@@ -719,7 +744,7 @@ to replace and new-rule is the rule to replace it with."
 (defmethod cltpt/base:text-object-finalize ((obj org-inline-code))
   (compress-contents-region-by-one obj))
 
-(defmethod cltpt/base:text-object-convert ((obj org-inline-code) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-inline-code) (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\verb{" "}")))
@@ -738,7 +763,7 @@ to replace and new-rule is the rule to replace it with."
   (:documentation "org-mode table."))
 
 ;; hacky, like the one for org-list, they need to be improved
-(defmethod cltpt/base:text-object-convert ((obj org-table) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-table) (backend cltpt/base:text-format))
   (let ((new-obj (make-instance 'cltpt/base:text-object)))
     (cltpt/base:text-object-init
      new-obj
@@ -771,6 +796,28 @@ to replace and new-rule is the rule to replace it with."
 (defclass org-document (cltpt/base:document)
   ()
   (:documentation "org-mode document."))
+
+(defmethod handle-parsed-org-keywords ((obj cltpt/base:text-object))
+  "takes a text object that was matched with instances of `org-keyword', collect the keywords and their values into an alist and return it."
+  (let ((result-alist))
+    (loop for child in (cltpt/base:text-object-children obj)
+          while (typep child 'org-keyword)
+          do (let ((kw-name (cltpt/base:text-object-property child :keyword))
+                   (kw-value (cltpt/base:text-object-property child :value)))
+               (push (cons kw-name kw-value) result-alist)
+               (cond
+                 ((string= kw-name "title")
+                  (setf doc-title kw-value))
+                 ;; denote-style identifier
+                 ((string= kw-name "identifier")
+                  (setf doc-id kw-value))
+                 ((string= kw-name "date")
+                  (setf doc-date kw-value))
+                 ((string= kw-name "filetags")
+                  ;; avoid first and last ':', split by ':' to get tags
+                  (setf doc-tags (str:split ":" (str:substring 1 -1 kw-value)))))
+               ))
+    result-alist))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-document))
   (let* ((doc-title)
@@ -832,7 +879,7 @@ to replace and new-rule is the rule to replace it with."
          (push (cltpt/base:text-object-text obj) mylist))))
     (cltpt/latex:generate-svgs-for-latex mylist)))
 
-(defmethod cltpt/base:text-object-convert ((obj org-document) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-document) (backend cltpt/base:text-format))
   (cltpt/base:pcase backend
     (cltpt/latex:*latex*
      (let* ((my-preamble
@@ -922,7 +969,7 @@ to replace and new-rule is the rule to replace it with."
 (defmethod cltpt/base:text-object-finalize ((obj org-emph))
   (compress-contents-region-by-one obj))
 
-(defmethod cltpt/base:text-object-convert ((obj org-emph) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-emph) (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textbf{" "}")))
@@ -949,7 +996,7 @@ to replace and new-rule is the rule to replace it with."
 (defmethod cltpt/base:text-object-finalize ((obj org-italic))
   (compress-contents-region-by-one obj))
 
-(defmethod cltpt/base:text-object-convert ((obj org-italic) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-italic) (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textit{" "}")))
@@ -1212,11 +1259,11 @@ to replace and new-rule is the rule to replace it with."
           for val = (getf val-match :match)
           do (push (cons kw val) (text-object-property obj :keywords-alist)))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-src-block) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-src-block) (backend cltpt/base:text-format))
   (convert-block obj backend "lstlisting" t))
 
 ;; copied from older code needs to be rewritten.
-(defmethod convert-babel-results ((obj org-src-block) backend)
+(defmethod convert-babel-results ((obj org-src-block) (backend cltpt/base:text-format))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (output-line-matches (cltpt/combinator:find-submatch-all match 'output-line))
          (output-text (str:join
@@ -1319,7 +1366,7 @@ to replace and new-rule is the rule to replace it with."
                :desc nil
                :text-obj obj))))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-block) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-block) (backend cltpt/base:text-format))
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
 
 ;; an "export block" is very similar to an src-block, just some slight differences.
@@ -1340,7 +1387,7 @@ to replace and new-rule is the rule to replace it with."
 (defmethod cltpt/base:text-object-init :after ((obj org-export-block) str1 match)
   (init-org-src-block obj match))
 
-(defmethod cltpt/base:text-object-convert ((obj org-export-block) backend)
+(defmethod cltpt/base:text-object-convert ((obj org-export-block) (backend cltpt/base:text-format))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (lang-match (car (cltpt/combinator:find-submatch match 'lang)))
          (lang (getf lang-match :match)))
@@ -1369,3 +1416,20 @@ to replace and new-rule is the rule to replace it with."
     :allocation :class
     :initform *org-drawer-rule*))
   (:documentation "org-mode drawer."))
+
+;; we need an org-specific flavor latex-env that may accept keywords like #+name
+(defvar *org-latex-env-rule*
+  `(:pattern
+    ,(rule-with-org-keywords
+      (copy-rule-with-id
+       cltpt/latex:*latex-env-rule*
+       ;; we cant use an id 'latex-env' because that will cause a child of type
+       ;; cltpt/latex:latex-env to be matched. we use 'latex-env-1'
+       'latex-env-1)
+      t)
+    :on-char #\#))
+(defclass org-latex-env (cltpt/latex:latex-env)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-latex-env-rule*))
+  (:documentation "type for org-mode-specific latex environments (latex-env that may be preceded with keywords like #+name)."))

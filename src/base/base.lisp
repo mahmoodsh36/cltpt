@@ -12,6 +12,7 @@
    :pcase :plistp
    :bind-and-eval :bind-and-eval*
    :compress-consec
+   :alist-get
 
    :convert-tree
 
