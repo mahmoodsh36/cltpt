@@ -17,13 +17,13 @@ if it doesnt exist, generate it by dumping the preamble.
 uses *latex-command* and *latex-preview-preamble*."
   (unless (probe-file format-path)
     (let ((preamble-file (merge-pathnames "preamble.tex" *latex-previews-tmp-directory*)))
-      (with-open-file (out preamble-file
-                           :direction :output
-                           :if-exists :supersede)
-        (format out "~A
+      (cltpt/file-utils:write-to-file
+       preamble-file
+       (format nil
+               "~A
 \\usepackage[active,tightpage,auctex,dvips]{preview}
 \\dump~%"
-                *latex-preview-preamble*))
+               *latex-preview-preamble*))
       (multiple-value-bind (out-str err-str exit-code)
           (uiop:run-program
            (list *latex-command*
@@ -46,8 +46,8 @@ uses *latex-command* and *latex-preview-preamble*."
 
 (defun clear-all ()
   (clear-cached-format)
-  (cltpt/base::delete-files-by-regex #p"/tmp/" *preview-filename-prefix*)
-  (cltpt/base::delete-files-by-regex *latex-previews-cache-directory*
+  (cltpt/file-utils:delete-files-by-regex #p"/tmp/" *preview-filename-prefix*)
+  (cltpt/file-utils:delete-files-by-regex *latex-previews-cache-directory*
                                      *preview-filename-prefix*))
 
 (defun cleanup-temp-files (base-name)
@@ -64,8 +64,8 @@ returns an association list of (hash . svg-file-path). if the SVG file for a sni
 this function does nothing for that snippet."
   (unless snippets
     (return-from generate-svgs-for-latex nil))
-  (cltpt/base::ensure-directory *latex-previews-tmp-directory*)
-  (cltpt/base::ensure-directory *latex-previews-cache-directory*)
+  (cltpt/file-utils:ensure-directory *latex-previews-tmp-directory*)
+  (cltpt/file-utils:ensure-directory *latex-previews-cache-directory*)
   (let* ((snippet-hashes (mapcar #'cltpt/base::md5-str snippets))
          (expected-svgs (mapcar
                          (lambda (hash)
@@ -133,13 +133,15 @@ this function does nothing for that snippet."
         (uiop:delete-file-if-exists fmt-path))
       (ensure-cached-format fmt-path)
       ;; write the multi-page tex file.
-      (with-open-file (out tex-file :direction :output :if-exists :supersede)
-                      (format out "\\begin{document}~%\\setlength\\abovedisplayskip{0pt}~%")
-                      (dolist (snippet snippets)
-                        (format out "\\begin{preview}~%")
-                        (format out "~A~%" snippet)
-                        (format out "\\end{preview}\\newpage~%"))
-                      (format out "\\end{document}~%"))
+      (cltpt/file-utils:write-to-file
+       tex-file
+       (with-output-to-string (out)
+         (format out "\\begin{document}~%\\setlength\\abovedisplayskip{0pt}~%")
+         (dolist (snippet snippets)
+           (format out "\\begin{preview}~%")
+           (format out "~A~%" snippet)
+           (format out "\\end{preview}\\newpage~%"))
+         (format out "\\end{document}~%")))
       ;; compile the tex file to produce a dvi.
       (multiple-value-bind (latex-out latex-err latex-exit)
           (uiop:run-program

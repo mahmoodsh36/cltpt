@@ -4,6 +4,9 @@
   :author "Mahmood Sheikh <mahmod.m2015@gmail.com>"
   :depends-on ("str" "uiop" "cl-ppcre" "cl-fad" "ironclad" "fiveam" "local-time" "clingon")
   :components ((:file "cltpt")
+               (:module "file-utils"
+                :pathname "src/"
+                :components ((:file "file-utils")))
                (:module "tree"
                 :pathname "src/"
                 :components ((:file "tree")))
@@ -14,7 +17,7 @@
                              (:file "combinator")))
                (:module "base"
                 :pathname "src/base/"
-                :depends-on ("combinator")
+                :depends-on ("combinator" "file-utils")
                 :components ((:file "base")
                              (:file "parser")
                              (:file "transformer")
@@ -24,7 +27,7 @@
                              (:file "convert")))
                (:module "latex"
                 :pathname "src/latex/"
-                :depends-on ("base" "combinator")
+                :depends-on ("base" "combinator" "file-utils")
                 :components ((:file "latex")
                              (:file "text-objects")
                              (:file "latex-previews")
@@ -35,7 +38,7 @@
                 :components ((:file "html")))
                (:module "roam"
                 :pathname "src/extra/"
-                :depends-on ("base")
+                :depends-on ("base" "file-utils")
                 :components ((:file "roam")))
                (:module "agenda"
                 :pathname "src/extra/"
@@ -43,7 +46,7 @@
                 :components ((:file "agenda")))
                (:module "org-mode"
                 :pathname "src/org-mode"
-                :depends-on ("combinator" "base" "latex" "html")
+                :depends-on ("combinator" "file-utils" "base" "latex" "html")
                 :components ((:file "org-mode")
                              (:file "org-list")
                              (:file "org-table")))
@@ -54,7 +57,7 @@
                (:module "commandline"
                 :pathname "src/extra"
                 :if-feature :commandline
-                :depends-on ("base" "latex" "org-mode" "html")
+                :depends-on ("base" "file-utils" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
                (:module "tests"
                 :pathname "tests/"
