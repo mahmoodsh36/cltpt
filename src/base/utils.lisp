@@ -90,3 +90,6 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
                           (and last-char (char= last-char char-to-compress)))
                (write-char current-char out))
              (setf last-char current-char))))
+
+(defun alist-get (alist key)
+  (cdr (assoc key alist :test 'equal)))
