@@ -866,3 +866,18 @@ my equation here
 \\end{equation}
 "
    (cltpt/org-mode:org-mode-text-object-types)))
+
+(defun test-bind-and-eval-1 ()
+  (cltpt/base:bind-and-eval
+   `((title "mytitle"))
+   (lambda ()
+     (format t "the title is: ~A~%" title))
+   :cltpt/tests))
+
+;; this doesnt and shouldnt work
+(defun test-bind-and-eval-2 ()
+  (cltpt/base:bind-and-eval
+   `((title "mytitle"))
+   (lambda ()
+     (format t "the title is: ~A~%" title))
+   :cl-user))

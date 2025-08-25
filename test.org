@@ -2,7 +2,7 @@
 :ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
 :END:
 #+title: my doc
-#+image: (identity "test")
+#+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
 * TODO due task :here:there:noexport:
 SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 <2025-07-25 Fri 10:00:00>
@@ -23,6 +23,7 @@ SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 - State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
 
 #+name: test-name
+#+more: here eee
 \begin{equation}
 my equation here
 \end{equation}

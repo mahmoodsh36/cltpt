@@ -247,15 +247,22 @@ object's region. you should just make it return a symbol like `end-type'."))
                    :id lisp-code)))
                 :on-char #\#))))
 
+(defvar *post-lexer-text-macro-rule*
+  '(:pattern
+    (cltpt/combinator:consec
+     (cltpt/combinator:literal "%")
+     (:pattern (cltpt/combinator:lisp-sexp)
+      :id lisp-code))
+    :on-char #\%))
 (defclass post-lexer-text-macro (text-object)
   ((rule
     :allocation :class
-    :initform '(:pattern
-                (cltpt/combinator:consec
-                 (cltpt/combinator:literal "%")
-                 (:pattern (cltpt/combinator:lisp-sexp)
-                  :id lisp-code))
-                :on-char #\%))))
+    :initform *post-lexer-text-macro-rule*)))
+
+;; we need to evaluate post-lexer text-macros during finalization. the result
+;; of the evaluation should be also be cached for later use.
+(defmethod cltpt/base:text-object-finalize ((obj post-lexer-text-macro))
+  (eval-post-lexer-macro obj))
 
 (defun eval-post-lexer-macro (obj)
   ;; we cache results to avoid re-eval which could be slow
@@ -270,8 +277,8 @@ object's region. you should just make it return a symbol like `end-type'."))
                obj
                (lambda ()
                  (eval
-                  (read-from-string
-                   txt-to-eval))))
+                  (let ((*package* (find-package :cl-user)))
+                    (read-from-string txt-to-eval)))))
             (error (c)
               (when cltpt:*debug*
                 (format t "error while evaluating post-lexer macro ~A: ~A.~%"
