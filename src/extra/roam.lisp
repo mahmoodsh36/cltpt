@@ -5,8 +5,8 @@
    :node-id :node-title :node-desc :node-file :node-text-obj :node-file-rule
    :roamer-node-id-hashtable :get-node-by-id :convert-all
    :node-format :node-info-format-str :make-node :text-object-roam-data
-   :roamer :*convert-roamer* :*roam-convert-data* :convert-link
-   :resolve-link :link-dest-node))
+   :roamer :*convert-roamer* :*roam-convert-data* :*roam-parse-data* :convert-link
+   :resolve-link :link-dest-node :current-roamer))
 
 (in-package :cltpt/roam)
 
@@ -28,6 +28,17 @@ form:
   `(:filepath-format nil
     :roamer nil
     :node nil)'")
+
+(defvar *roam-parse-data*
+  nil
+  "dynamically bound metadata to pass down from roamer to initialization functions of objects.
+at the very least has to include a `roamer' instance for conversion functions to make use of. e.g. for retrieval of node by id using `get-node-by-id'. although
+note that this metadata may not be available during parsing because the roamer
+doesnt handle dependencies between files, so some functionality must be \"postponed\"
+to the time when the roamer is done collecting/parsing.
+form:
+  `(:after-roam-hooks
+    :roamer nil)'")
 
 (defclass roamer ()
   ((nodes
@@ -66,7 +77,7 @@ form:
 (defmethod backlinks-to-node ((rm roamer) (nd node))
   )
 
-(defun find-files (file-rules)
+(defmethod find-files (file-rules)
   "takes a list of rules for files to find.
 each rule is a plist that can contain the following params.
 :path - path of file/directory,
@@ -115,14 +126,16 @@ each rule is a plist that can contain the following params.
   (setf (roamer-nodes rmr) nil)
   (setf (roamer-node-id-hashtable rmr)
         (make-hash-table :test 'equal))
-  (let ((file-rule-alist (find-files (roamer-files rmr))))
+  (let* ((file-rule-alist (find-files (roamer-files rmr)))
+         (*roam-parse-data* (list :after-roam-hooks nil
+                                  :roamer rmr)))
     (loop for (file . file-rule) in file-rule-alist
           do (let* ((fmt (if (plistp file-rule)
                              (cltpt/base:text-format-by-name
                               (getf file-rule :format))
                              (cltpt/base:text-format-from-alias
                               (cltpt/file-utils:file-ext file-rule))))
-                   (parsed (cltpt/base:parse-file file fmt)))
+                    (parsed (cltpt/base:parse-file file fmt)))
                (cltpt/base:map-text-object
                 parsed
                 (lambda (text-obj)
@@ -138,7 +151,10 @@ each rule is a plist that can contain the following params.
                          (gethash
                           (node-id node)
                           (roamer-node-id-hashtable rmr))
-                         node))))))))))
+                         node))))))))
+    ;; handle any hooks that may have been pushed
+    (loop for hook in (getf *roam-parse-data* :after-roam-hooks)
+          do (funcall hook))))
 
 (defmethod text-object-roam-data ((obj cltpt/base:text-object))
   (cltpt/base:text-object-property obj :roam-node))
@@ -179,9 +195,7 @@ each rule is a plist that can contain the following params.
      (file-no-ext ,(cltpt/file-utils:path-without-extension (cltpt/roam:node-file node)))
      (basename ,(cltpt/file-utils:base-name-no-ext (cltpt/roam:node-file node))))
    (lambda ()
-     (let* (;; need to make it execute in-package to access the variables bound above
-            (*package* (find-package :cltpt/roam))
-            (result
+     (let* ((result
               (cltpt/base:convert-tree
                (cltpt/base:parse
                 format-str
@@ -268,3 +282,8 @@ which may include the destination, description and type."
                          (link-type (eql 'id))
                          dest)
   (make-id-link rmr src-node src-text-obj link-type dest))
+
+;; TODO: hacky function to get current dynamically bound roamer.
+(defun current-roamer ()
+  (or (getf *roam-convert-data* :roamer)
+      (getf *roam-parse-data* :roamer)))

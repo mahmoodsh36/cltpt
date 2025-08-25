@@ -166,7 +166,7 @@ to replace and new-rule is the rule to replace it with."
   "")
 
 (defvar *org-keyword-rule*
-  '(:pattern
+  `(:pattern
     (cltpt/combinator:consec
      (cltpt/combinator:literal "#+")
      (:pattern (cltpt/combinator:symbol-matcher)
@@ -174,14 +174,10 @@ to replace and new-rule is the rule to replace it with."
      (cltpt/combinator:literal ":")
      (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
      (cltpt/combinator:any
-      ;; capture a lisp expression for evaluation as the value of the keyword.
-      ;; this could cause an issue when filetags is mistyped without an ending ":"
-      ;; but maybe this is a case we dont need to worry about.
-      (:pattern
-       (cltpt/combinator:followed-by
-        (cltpt/combinator:lisp-sexp)
-        cltpt/combinator:at-line-end-p)
-       :id value-sexp)
+      ;; TODO: we shouldnt be enabling text-macros by default, even for keywords.
+      ,(copy-rule-with-id
+        cltpt/base::*post-lexer-text-macro-rule*
+        'cltpt/base::post-lexer-text-macro)
       ;; capture an arbitrary sequence until an EOL
       ;; TODO: what about EOF? this wont work, we need a new rule
       (:pattern (cltpt/combinator:all-but-newline)
@@ -214,25 +210,32 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          ,rule)
         ,rule)))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
-  (let* ((value-match (car (cltpt/combinator:find-submatch match 'value)))
+(defmethod cltpt/base:text-object-finalize ((obj org-keyword))
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (value-match (car (cltpt/combinator:find-submatch match 'value)))
          (keyword-match (car (cltpt/combinator:find-submatch match 'keyword)))
-         (initial-value (getf value-match :match))
-         (final-value))
-    (if value-match
-        (setf final-value initial-value)
-        (progn
-          (setf value-match (car (cltpt/combinator:find-submatch match 'value-sexp)))
-          (setf initial-value (getf value-match :match))
-          (when value-match
-            ;; TOOD: this will fail silently, atleast show an indication of an error
-            (handler-case
-                (setf final-value
-                      (eval (read-from-string initial-value)))
-              (error (e)
-                (setf final-value initial-value))))))
+         (value (getf value-match :match))
+         (child (car (cltpt/base:text-object-children obj))))
+    (unless value
+      (when (typep child 'post-lexer-text-macro)
+        ;; if we get here, then the value is meant to be the evaluation result
+        ;; of the post-lexer text macro.
+        (let ((new-value (cltpt/base::eval-post-lexer-macro child)))
+          ;; check if its a lambda that should be executed once roamer is done.
+          (if (and (consp new-value)
+                   (string= 'after-roam (car new-value))
+                   cltpt/roam:*roam-parse-data*)
+              ;; the new lambda will run the "future" function and set our value
+              ;; properly.
+              (labels ((new-lambda ()
+                         (setf (cltpt/base:text-object-property obj :value)
+                               (funcall (cdr new-value)))))
+                (push #'new-lambda
+                      (getf cltpt/roam:*roam-parse-data* :after-roam-hooks))
+                (setf value 'after-roam))
+              (setf value (cltpt/base::eval-post-lexer-macro child))))))
     (setf (cltpt/base:text-object-property obj :value)
-          final-value)
+          value)
     (setf (cltpt/base:text-object-property obj :keyword)
           (getf keyword-match :match))))
 
@@ -535,7 +538,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                 collect (getf (car match) :match)))))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
-  ;; initialize agenda data
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (title-match (car (cltpt/combinator:find-submatch match 'title)))
          (header-id)
@@ -799,25 +801,29 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod handle-parsed-org-keywords ((obj cltpt/base:text-object))
   "takes a text object that was matched with instances of `org-keyword', collect the keywords and their values into an alist and return it."
-  (let ((result-alist))
+  (let ((result-alist)
+        ;; is-first is only for `org-document' which may contain a drawer
+        ;; as the first element. even though this would also affect other elements
+        ;; in which the org keywords are meant to be at the top, it is probably
+        ;; harmless, but maybe we should fix it anyway.
+        ;; TODO: only skip first for `org-document'.
+        (is-first t))
     (loop for child in (cltpt/base:text-object-children obj)
-          while (typep child 'org-keyword)
-          do (let ((kw-name (cltpt/base:text-object-property child :keyword))
-                   (kw-value (cltpt/base:text-object-property child :value)))
-               (push (cons kw-name kw-value) result-alist)
-               (cond
-                 ((string= kw-name "title")
-                  (setf doc-title kw-value))
-                 ;; denote-style identifier
-                 ((string= kw-name "identifier")
-                  (setf doc-id kw-value))
-                 ((string= kw-name "date")
-                  (setf doc-date kw-value))
-                 ((string= kw-name "filetags")
-                  ;; avoid first and last ':', split by ':' to get tags
-                  (setf doc-tags (str:split ":" (str:substring 1 -1 kw-value)))))
-               ))
+          while (or (typep child 'org-keyword) is-first)
+          when (typep child 'org-keyword)
+            do (let ((kw-name (cltpt/base:text-object-property child :keyword))
+                     (kw-value (cltpt/base:text-object-property child :value)))
+                 (push (cons kw-name kw-value) result-alist)
+                 (setf is-first nil)))
     result-alist))
+
+;; often we need to grab the value from the org-keyword object itself. because
+;; the value is dynamic, it might change after parsing. storing it might
+;; not be enough for now.
+;; TODO: optimize.
+(defmethod text-object-org-keyword-value ((obj cltpt/base:text-object) kw-name)
+  (let ((my-alist (handle-parsed-org-keywords obj)))
+    (cltpt/base:alist-get my-alist kw-name)))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-document))
   (let* ((doc-title)
@@ -831,27 +837,21 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (when first-child-is-drawer
       (setf doc-id (org-prop-drawer-get first-child "ID")))
     (setf (cltpt/base:text-object-property obj :keywords-alist)
-          nil)
-    (loop for child in (if first-child-is-drawer
-                           (cdr (cltpt/base:text-object-children obj))
-                           (cltpt/base:text-object-children obj))
-          while (typep child 'org-keyword)
-          do (let ((kw-name (cltpt/base:text-object-property child :keyword))
-                   (kw-value (cltpt/base:text-object-property child :value)))
-               (push (cons kw-name kw-value)
-                     (cltpt/base:text-object-property obj :keywords-alist))
-               (cond
-                 ((string= kw-name "title")
-                  (setf doc-title kw-value))
-                 ;; denote-style identifier
-                 ((string= kw-name "identifier")
-                  (setf doc-id kw-value))
-                 ((string= kw-name "date")
-                  (setf doc-date kw-value))
-                 ((string= kw-name "filetags")
-                  ;; avoid first and last ':', split by ':' to get tags
-                  (setf doc-tags (str:split ":" (str:substring 1 -1 kw-value)))))
-               ))
+          (handle-parsed-org-keywords obj))
+    (setf doc-title
+          (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+                     "title"))
+    ;; denote-style identifier
+    (setf doc-id
+          (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+                     "identifier"))
+    (setf doc-date
+          (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+                     "date"))
+    (let ((tags-str (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+                               "filetags")))
+      ;; avoid first and last ':', split by ':' to get tags
+      (setf doc-tags (str:split ":" (str:substring 1 -1 tags-str))))
     ;; set metadata in the object itself
     (setf (cltpt/base:text-object-property obj :title) doc-title)
     (setf (cltpt/base:text-object-property obj :tags) doc-tags)
@@ -1433,3 +1433,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :allocation :class
     :initform *org-latex-env-rule*))
   (:documentation "type for org-mode-specific latex environments (latex-env that may be preceded with keywords like #+name)."))
+
+(defmethod cltpt/base:text-object-finalize ((obj org-latex-env))
+  (let* ((keywords-alist (handle-parsed-org-keywords obj))
+         (name (cltpt/base:alist-get keywords-alist "name"))
+         (caption (cltpt/base:alist-get keywords-alist "caption")))
+    (setf (cltpt/base:text-object-property obj :roam-node)
+          (cltpt/roam:make-node
+           :id name
+           :title nil
+           :desc nil
+           :text-obj obj))))
