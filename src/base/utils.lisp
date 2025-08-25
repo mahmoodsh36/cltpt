@@ -18,17 +18,31 @@
       (setf (gethash class-sym *class-map*) result))
     result))
 
-(defun bind-and-eval (bindings func)
+(defun change-symbol-package (symbol pkg)
+  "change the package to which SYMBOL refers."
+  ;; we use `symbol-name' and then `intern' to change the package of a symbol.
+  (intern (symbol-name symbol) pkg))
+
+(defun eval-in-package (expr pkg)
+  "takes expression EXPR and package name PKG, evaluates EXPR in the scope of PKG."
+  (let ((*package* (find-package pkg)))
+    (eval expr)))
+
+(defun bind-and-eval (bindings func &optional (pkg-to-eval-in :cl-user))
   "dynamically binds symbols from BINDINGS (a list of symbol,value pairs) and executes FUNC."
-  (let ((keys (mapcar #'car bindings))
-        (values (mapcar #'eval (mapcar #'cadr bindings))))
+  (let ((keys (mapcar (lambda (x) (change-symbol-package x pkg-to-eval-in))
+                      (mapcar #'car bindings)))
+        (values (mapcar (lambda (x) (eval-in-package x pkg-to-eval-in))
+                        (mapcar 'cadr bindings))))
     (progv keys values
       (funcall func))))
-(defun bind-and-eval* (bindings func)
+(defun bind-and-eval* (bindings func &optional (pkg-to-eval-in :cl-user))
   (if (null bindings)
       (funcall func)
     (destructuring-bind (sym val-expr) (car bindings)
-      (progv (list sym) (list (eval val-expr))
+      (progv
+          (list (intern sym pkg-to-eval-in))
+          (list (eval-in-package val-expr pkg-to-eval-in))
         (bind-and-eval* (cdr bindings) func)))))
 ;; example
 ;; (bind-and-eval '((x 1) (y (+ 1 2))) (lambda () (+ x y)))
