@@ -517,7 +517,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               ,(copy-rule-with-id *org-timestamp-bracket-rule* 'timestamp))
              :id action-inactive)))
           ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
-          ,(copy-rule-with-id *org-list-rule* 'org-list)
+          ;; this causes issues with files such as /home/mahmooz/brain/notes/1678745440.org
+          ;; where the list following a header isnt strictly related to it.
+          ;; ,(copy-rule-with-id *org-list-rule* 'org-list)
           ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
       :on-char #\*)))
 (defclass org-header (cltpt/base:text-object)

@@ -1,6 +1,7 @@
 (defpackage :cltpt/tree
   (:use :cl)
-  (:export :tree-value :tree-children :tree-map :tree-find-all :tree-find))
+  (:export :tree-value :tree-children :tree-map :tree-find-all :tree-find
+           :is-subtree))
 
 (in-package :cltpt/tree)
 
@@ -24,17 +25,31 @@ and returns the value associated with the node at its root."))
 (defmethod tree-children ((subtree cons))
   (cdr subtree))
 
+(defmethod is-subtree (subtree child)
+  "we often only want to iterate through the subtrees if they are of
+the same type. e.g. with cons we only want to iterate on a child
+if its a cons. this function generalizes this concept. it takes a tree
+and another object, returns whether the object should be considered a subtree
+to recurse on. the default behavior will be checking whether they are
+of the same type, e.g. both are conses."
+  (equal (type-of child) (type-of subtree)))
+
 (defun tree-map (subtree func)
   "we iterate through the tree one subtree at a time and run FUNC on each.
 
-children are handled first."
-  (if (consp subtree)
-      (progn
-        (loop for child in (tree-children subtree)
-              do (when (consp child)
-                   (tree-map child func)))
-        (funcall func subtree))
-      subtree))
+children are handled first. the function will always be executed on the initial
+subtree even if its not an actual tree (unless its `nil'). from then on the
+function will run only on subtrees as determined by `is-subtree'."
+  (when subtree
+    (let ((children-result
+            (loop for child in (tree-children subtree)
+                  collect (if (is-subtree subtree child)
+                              (tree-map child func)
+                              child))))
+      ;; (when (typep subtree 'cltpt/base:text-object)
+      ;;   (format t "here66 ~A~%" subtree))
+      (cons (funcall func subtree)
+            children-result))))
 
 (defun tree-find (subtree item
                   &key (test #'equal) (key #'identity))
