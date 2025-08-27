@@ -191,21 +191,29 @@ each rule is a plist that can contain the following params.
 
 (defmethod node-info-format-str ((node node) format-str)
   "takes a roam node and a string, returns a new string with some 'placeholders'replaced."
-  (cltpt/base:bind-and-eval
-   `((title ,(cltpt/roam:node-title node))
-     (file ,(cltpt/roam:node-file node))
-     (id ,(cltpt/roam:node-id node))
-     (file-no-ext ,(cltpt/file-utils:path-without-extension (cltpt/roam:node-file node)))
-     (basename ,(cltpt/file-utils:base-name-no-ext (cltpt/roam:node-file node))))
-   (lambda ()
-     (let* ((result
-              (cltpt/base:convert-tree
-               (cltpt/base:parse
-                format-str
-                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-               (cltpt/base:text-format-by-name "org-mode") ;; just use org for now
-               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
-       result))))
+  (let* ((root (cltpt/tree:tree-root (node-text-obj node)))
+         ;; TODO: this directly grabs :title property which defeats the whole
+         ;; purpose of the 'node' type. we should be keeping track of the roam-node
+         ;; that points to the root text object of the current `node' instead and
+         ;; grab the title from there.
+         ;; TODO: also this is slow anyway, takes log(n) time, easy to optimize tho.
+         (root-title (cltpt/base:text-object-property root :title)))
+    (cltpt/base:bind-and-eval
+     `((title ,(cltpt/roam:node-title node))
+       (root-title ,root-title)
+       (file ,(cltpt/roam:node-file node))
+       (id ,(cltpt/roam:node-id node))
+       (file-no-ext ,(cltpt/file-utils:path-without-extension (cltpt/roam:node-file node)))
+       (basename ,(cltpt/file-utils:base-name-no-ext (cltpt/roam:node-file node))))
+     (lambda ()
+       (let* ((result
+                (cltpt/base:convert-tree
+                 (cltpt/base:parse
+                  format-str
+                  (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
+                 (cltpt/base:text-format-by-name "org-mode") ;; just use org for now
+                 (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
+         result)))))
 
 (defmethod convert-link ((rmr roamer)
                          (src-node node)
