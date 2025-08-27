@@ -1,7 +1,7 @@
 (defpackage :cltpt/tree
   (:use :cl)
   (:export :tree-value :tree-children :tree-map :tree-find-all :tree-find
-           :is-subtree))
+           :is-subtree :tree-root :tree-parent))
 
 (in-package :cltpt/tree)
 
@@ -18,6 +18,9 @@ and returns the value associated with the node at its root."))
 
 (defgeneric tree-children (subtree)
   (:documentation "given a (sub)tree (better thought of as a node), return its children. this shouldnt be recursive."))
+
+(defgeneric tree-parent (subtree)
+  (:documentation "given a (sub)tree (better thought of as a node), return its parnet."))
 
 (defmethod tree-value ((subtree cons))
   (car subtree))
@@ -75,3 +78,10 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
        (when (funcall test item (funcall key other-subtree))
          (push other-subtree result))))
     result))
+
+(defun tree-root (subtree)
+  "given a tree, return its root. this naturally takes logarithmic time."
+  (let ((this-parent (tree-parent subtree)))
+    (if this-parent
+        (tree-root this-parent)
+        subtree)))
