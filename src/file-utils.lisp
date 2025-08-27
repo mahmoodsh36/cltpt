@@ -27,7 +27,7 @@
 
 (defun directory-files-matching (dir regex)
   "list files in a directory DIR that match a specific REGEX."
-  (let ((files (uiop:directory-files dir)))
+  (let ((files (mapcar 'uiop:unix-namestring (uiop:directory-files dir))))
     (if regex
         (remove-if-not
          (lambda (path)
