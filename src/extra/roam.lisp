@@ -166,7 +166,8 @@ each rule is a plist that can contain the following params.
 
 (defmethod convert-all ((rmr roamer)
                         (dest-format cltpt/base:text-format)
-                        filepath-format)
+                        filepath-format
+                        &optional (convert-file-predicate (lambda (x) t)))
   (let ((files-done (make-hash-table :test 'equal)))
     (loop for node in (roamer-nodes rmr)
           do (let* ((in-file (node-file node))
@@ -176,7 +177,9 @@ each rule is a plist that can contain the following params.
                             :node node))
                     (is-done (gethash in-file files-done))
                     (out-file (node-info-format-str node filepath-format)))
-               (when (and (typep (node-text-obj node) 'document) (not is-done))
+               (when (and (typep (node-text-obj node) 'document)
+                          (not is-done)
+                          (funcall convert-file-predicate in-file))
                  (when (eql cltpt:*debug* 2)
                    (format t "converting ~A to ~A~%" in-file out-file))
                  (cltpt/base:convert-file
