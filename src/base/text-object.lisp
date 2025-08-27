@@ -473,3 +473,6 @@ and grabbing each position of each object through its ascendants in the tree."
     (cons (funcall func text-obj pos)
           (loop for child in (text-object-children text-obj)
                 collect (map-text-object-with-pos-in-root child func new-pos)))))
+
+(defmethod cltpt/tree:tree-parent ((text-obj text-object))
+  (text-object-parent text-obj))
