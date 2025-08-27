@@ -366,11 +366,15 @@ object's region. you should just make it return a symbol like `end-type'."))
       (slot-value (sb-mop:class-prototype cls)
                   'shared-name))))
 
-(defun map-text-object (text-obj func)
+(defmethod cltpt/tree:tree-children ((subtree text-object))
+  (text-object-children subtree))
+
+(defmethod cltpt/tree:is-subtree ((subtree text-object) child)
+  (typep child 'text-object))
+
+(defmethod map-text-object ((text-obj text-object) func)
   "traverse the text object tree starting at TEXT-OBJ."
-  (cons (funcall func text-obj)
-        (loop for child in (text-object-children text-obj)
-          collect (map-text-object child func))))
+  (cltpt/tree:tree-map text-obj func))
 
 (defun prev-obj ()
   (text-object-prev-sibling *post-lexer-text-macro-dynamic-object*))
@@ -418,7 +422,7 @@ object's region. you should just make it return a symbol like `end-type'."))
     (labels ((add-if (obj)
                (when (funcall cond obj)
                  (push obj results))))
-      (cltpt/base:map-text-object text-obj #'add-if))
+      (map-text-object text-obj #'add-if))
     results))
 
 (defmethod find-children ((text-obj text-object) cond)

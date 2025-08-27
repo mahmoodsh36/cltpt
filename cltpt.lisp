@@ -4,5 +4,5 @@
 
 (in-package :cltpt)
 
-;; 1-2
+;; takes values 1-2
 (defvar *debug* nil)
