@@ -629,3 +629,17 @@ returns the matched substring and its bounds."
                   :end pos
                   :match (subseq str start pos))
             nil))))
+
+;; ended up not using this, but will keep it.
+(defun upto-cond (ctx str pos cond-fn)
+  "match all characters until COND-FN returns t."
+  (let ((start pos))
+    (loop while (< pos (length str))
+          for result = (funcall condition-fn ctx str pos)
+          while (not result)
+          do (incf pos))
+    (when (> pos start)
+      (cons (list :begin start
+                  :end pos
+                  :match (subseq str start pos))
+            nil))))

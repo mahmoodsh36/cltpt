@@ -167,19 +167,19 @@ to replace and new-rule is the rule to replace it with."
 
 (defvar *org-keyword-rule*
   `(:pattern
-    (cltpt/combinator:consec
-     (cltpt/combinator:literal "#+")
-     (:pattern (cltpt/combinator:symbol-matcher)
-      :id keyword)
-     (cltpt/combinator:literal ":")
+    (cltpt/combinator:consec-atleast-one
+     (cltpt/combinator:consec
+      (cltpt/combinator:literal "#+")
+      (:pattern (cltpt/combinator:symbol-matcher)
+       :id keyword)
+      (cltpt/combinator:literal ":"))
      (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
      (cltpt/combinator:any
       ;; TODO: we shouldnt be enabling text-macros by default, even for keywords.
       ,(copy-rule-with-id
         cltpt/base::*post-lexer-text-macro-rule*
         'cltpt/base::post-lexer-text-macro)
-      ;; capture an arbitrary sequence until an EOL
-      ;; TODO: what about EOF? this wont work, we need a new rule
+      ;; capture an arbitrary sequence until an EOL (or EOF ofc)
       (:pattern (cltpt/combinator:all-but-newline)
        :id value)))
     :on-char #\#))
@@ -239,9 +239,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (setf (cltpt/base:text-object-property obj :keyword)
           (getf keyword-match :match))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-keyword) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-keyword)
+                                           (backend cltpt/base:text-format))
   (let* ((kw (cltpt/base:text-object-property obj :keyword))
          (value (cltpt/base:text-object-property obj :value)))
+    (format t "hereee ~A~%" kw)
     ;; handle transclusions
     (if (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
         (let* ((org-link-parse-result (cltpt/base:parse value '(org-link)))

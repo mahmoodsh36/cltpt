@@ -64,7 +64,7 @@
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "html")
-      "/home/mahmooz/brain/notes/1677361099.org"
+      "/home/mahmooz/brain/notes/1712235129.org"
       ;; "/tmp/test.org"
       "/tmp/test.out.html")
      nil)))
@@ -881,3 +881,13 @@ my equation here
    (lambda ()
      (format t "the title is: ~A~%" title))
    :cl-user))
+
+(defun test-org-keyword ()
+  (cltpt/combinator:parse
+   "
+#+title: add vid to github readme
+#+date: <2024-04-04 Thu 15:52:09>
+#+filetags: 
+#+identifier: 1712235129
+"
+   (list cltpt/org-mode::*org-keyword-rule*)))
