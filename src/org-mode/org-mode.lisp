@@ -463,7 +463,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
           ,todo-rule
           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          (:pattern (cltpt/combinator:all-upto ,tags-rule)
+          (:pattern
+           (cltpt/combinator:all-upto-without
+            ,tags-rule
+            ,(string #\newline))
            :id title)
           ,tags-rule)
          ;; capture header without todo keyword but with tags
@@ -472,7 +475,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
            (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
            :id stars)
           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          (:pattern (cltpt/combinator:all-upto ,tags-rule)
+          (:pattern
+           (cltpt/combinator:all-upto-without
+            ,tags-rule
+            ,(string #\newline))
            :id title)
           ,tags-rule)
          ;; capture header with todo keyword but without tags
@@ -594,7 +600,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              :tags nil
              :state-history nil)))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-header) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-header)
+                                           (backend cltpt/base:text-format))
   (let ((to-not-export
           (member "noexport"
                   (cltpt/base:text-object-property
@@ -1223,9 +1230,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :reparse-region inner-region
                :escape-region inner-region)))
       ((eq backend cltpt/html:*html*)
-       (let* ((props
-                (loop for (key . value)
-                        in (cltpt/base:text-object-property obj :keywords-alist)
+       (let* ((all-keywords
+                (concatenate
+                 'list
+                 `(,(cons "type" (cltpt/base:text-object-property obj :type)))
+                 (cltpt/base:text-object-property obj :keywords-alist)))
+              (props
+                (loop for (key . value) in all-keywords
                       for result = (unless (member key '("exports" "results"))
                                      (format nil
                                              "data-~A='~A'"
