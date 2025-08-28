@@ -1020,48 +1020,57 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                            :end (- (length text) (length close-tag)))
           :reparse t)))
 
-(defvar *keywords-rule*
-  `(:pattern
-    (cltpt/combinator:separated-atleast-one
-     (cltpt/combinator:literal " ")
-     (cltpt/combinator:any
-      ;; this should capture strings or lisp expressions provided
-      ;; as a value of a keyword
-      (:pattern
-       (cltpt/combinator:consec
-        (cltpt/combinator:literal ":")
-        (:pattern (cltpt/combinator:symbol-matcher)
-         :id keyword)
-        (cltpt/combinator:literal " ")
-        (cltpt/combinator:succeeded-by
-         (:pattern (cltpt/combinator:lisp-sexp)
-          :id value)
-         ;; we make sure to capture lisp expressions only if they are succeeded
-         ;; by " :" because otherwise we might capture a word that is part
-         ;; of a sequence of words, like ":title my title", which is a case
-         ;; that should be handled by the following rule, not this one.
-         (cltpt/combinator:literal " :")))
-       :id keywords-entry)
-      ;; a keywords with a value
-      (:pattern
-       (cltpt/combinator:consec-atleast-one
-        ;; keyword
-        (cltpt/combinator:consec
-         (cltpt/combinator:literal ":")
-         (:pattern (cltpt/combinator:symbol-matcher)
-          :id keyword))
-        ;; value
-        (cltpt/combinator:consec
-         (cltpt/combinator:literal " ")
-         ;; capture all until the next " :", or until the line ends.
-         (:pattern
-          (cltpt/combinator:all-upto
-           (cltpt/combinator:any
-            (cltpt/combinator:literal ,(string #\newline))
-            (cltpt/combinator:literal " :")))
-          :id value)))
-       :id keywords-entry)))
-    :id keywords))
+;; we dont want a keyword to be matched as a value, e.g. ":keyword1 :keyword2".
+;; so we discard any match starting with ":".
+(let ((not-starting-with-colon
+        (lambda (ctx str pos)
+          (not (char= (char str pos) #\:)))))
+  (defvar *keywords-rule*
+    `(:pattern
+      (cltpt/combinator:separated-atleast-one
+       (cltpt/combinator:literal " ")
+       (cltpt/combinator:any
+        ;; this should capture strings or lisp expressions provided
+        ;; as a value of a keyword
+        (:pattern
+         (cltpt/combinator:consec
+          (cltpt/combinator:literal ":")
+          (:pattern (cltpt/combinator:symbol-matcher)
+           :id keyword)
+          (cltpt/combinator:literal " ")
+          (cltpt/combinator:when-match
+           (cltpt/combinator:succeeded-by
+            (:pattern (cltpt/combinator:lisp-sexp)
+             :id value)
+            ;; we make sure to capture lisp expressions only if they are succeeded
+            ;; by " :" because otherwise we might capture a word that is part
+            ;; of a sequence of words, like ":title my title", which is a case
+            ;; that should be handled by the following rule, not this one.
+            (cltpt/combinator:literal " :"))
+           ,not-starting-with-colon))
+         :id keywords-entry)
+        ;; a keywords with a value
+        (:pattern
+         (cltpt/combinator:consec-atleast-one
+          ;; keyword
+          (cltpt/combinator:consec
+           (cltpt/combinator:literal ":")
+           (:pattern (cltpt/combinator:symbol-matcher)
+            :id keyword))
+          ;; value
+          (cltpt/combinator:consec
+           (cltpt/combinator:literal " ")
+           ;; capture all until the next " :", or until the line ends.
+           (:pattern
+            (cltpt/combinator:when-match
+             (cltpt/combinator:all-upto
+              (cltpt/combinator:any
+               (cltpt/combinator:literal ,(string #\newline))
+               (cltpt/combinator:literal " :")))
+             ,not-starting-with-colon)
+            :id value)))
+         :id keywords-entry)))
+      :id keywords)))
 
 ;; TODO: make org-src-block contain #+results too
 (defvar *org-babel-results-rule*
