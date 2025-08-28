@@ -736,7 +736,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-convert ((obj web-link) (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/html:*html*)
-     (format nil "<a href='~A'></a>" (cltpt/base:text-object-text obj)))))
+     (list :text
+           (format nil
+                   "<a href='~A'>~A</a>"
+                   (cltpt/base:text-object-text obj)
+                   (cltpt/base:text-object-text obj))
+           :escape nil))))
 
 (defvar *org-inline-code-rule*
   '(:pattern
