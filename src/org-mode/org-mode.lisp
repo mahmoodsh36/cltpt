@@ -1455,3 +1455,26 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
            :title nil
            :desc nil
            :text-obj obj))))
+
+(defun region-in-tags (match &optional include-tags)
+  "takes a combinator match, returns a `region' that should contain the contents between the begin/end tags, like the indicies for the region enclosing \\begin{tag}..\\end{tag} for latex environments.
+
+according to INCLUDE-TAGS we decide whether the region should enclose the tags themselves or not."
+  ;; we're using 'open-tag here which may not precisely equal 'cltpt/latex::open-tag
+  ;; but it is fine since find-submatch uses 'string=
+  (let* ((begin-match (car (cltpt/combinator:find-submatch match 'open-tag)))
+         (end-match (car (cltpt/combinator:find-submatch-last match 'close-tag)))
+         (absolute-begin (getf (car match) :begin)))
+    (if include-tags
+        (cltpt/base:make-region
+         :begin (- (getf begin-match :begin) absolute-begin)
+         :end (- (getf end-match :end) absolute-begin))
+        (cltpt/base:make-region
+         :begin (- (getf begin-match :end)
+                   (getf begin-match :begin))
+         :end (- (getf end-match :begin)
+                 (getf begin-match :begin))))))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-latex-env) str1 match)
+  (setf (cltpt/base:text-object-property obj :contents-region)
+        (region-in-tags match t)))
