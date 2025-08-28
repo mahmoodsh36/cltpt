@@ -10,7 +10,7 @@
    :unescaped :natural-number-matcher :when-match
    :at-line-start-p :at-line-end-p :followed-by :match-rule
    :separated-atleast-one :all-but-whitespace :handle-rule-string
-   :all-upto :all-upto-included :succeeded-by
+   :all-upto :all-upto-included :succeeded-by :all-upto-without
 
    :find-submatch :find-submatch-all :find-submatch-last
    ))
@@ -606,6 +606,24 @@ returns the matched substring and its bounds."
           for match = (match-rule-normalized ctx delimiter-rule str pos)
           while (not match)
           do (incf pos))
+    (when (> pos start)
+      (cons (list :begin start
+                  :end pos
+                  :match (subseq str start pos))
+            nil))))
+
+(defun all-upto-without (ctx str pos delimiter-rule without-rule)
+  "match all characters up to but not including the pattern defined by DELIMITER-RULE unless WITHOUT-RULE is matched.
+returns the matched substring and its bounds."
+  (let ((start pos))
+    (loop while (< pos (length str))
+          for delimiter-match = (match-rule-normalized ctx delimiter-rule str pos)
+          for without-match = (match-rule-normalized ctx without-rule str pos)
+          while (not delimiter-match)
+          if without-match
+            do (return-from all-upto-without nil)
+          else
+            do (incf pos))
     (when (> pos start)
       (cons (list :begin start
                   :end pos
