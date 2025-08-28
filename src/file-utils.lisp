@@ -77,12 +77,6 @@
                      :if-does-not-exist :create)
     (write-sequence str1 f)))
 
-;; (defun join-paths (&rest paths)
-;;   (let ((result (car paths)))
-;;     (loop for filepath in (cdr paths)
-;;           do (format t "here ~A~%" result)(setf result (uiop:merge-pathnames* result filepath)))
-;;     result))
-
 (defun join-paths (&rest components)
   "merge given args as filepaths, see `join-paths-list'."
   (join-paths-list components))
