@@ -243,7 +243,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                            (backend cltpt/base:text-format))
   (let* ((kw (cltpt/base:text-object-property obj :keyword))
          (value (cltpt/base:text-object-property obj :value)))
-    (format t "hereee ~A~%" kw)
     ;; handle transclusions
     (if (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
         (let* ((org-link-parse-result (cltpt/base:parse value '(org-link)))
@@ -260,7 +259,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                ;; if link doesnt have a type, treat it as an 'id' link
                                (if type
                                    (intern type :cltpt/roam)
-                                   'cltpt/roam::id)
+                                   'cltpt/roam::file)
                                dest)))
               ;; just convert the linked node's object and return that
               (when roam-link
@@ -693,7 +692,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     ((eq backend cltpt/html:*html*)
      (let* ((desc (cltpt/base:text-object-property obj :desc))
             (dest (cltpt/base:text-object-property obj :dest))
-            (type (cltpt/base:text-object-property obj :type))
+            (type (or (cltpt/base:text-object-property obj :type)
+                      "file"))
             (final-desc (or desc dest)))
        (when dest
          (if cltpt/roam:*roam-convert-data*
@@ -703,13 +703,42 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               obj
               (getf cltpt/roam:*roam-convert-data* :filepath-format)
               backend)
-             (within-tags
-              (if cltpt/html:*html-static-route*
-                  (format nil "<a href='~A'>"
-                          (cltpt/file-utils:change-dir dest cltpt/html:*html-static-route*))
-                  (format nil "<a href='~A'>" dest))
-              final-desc
-              "</a>")))))))
+             (if (and (string= type "file")
+                      (cltpt/file-utils:file-has-extension-p
+                       dest
+                       (list "png" "jpg" "svg" "webp" "mp4" "jpeg" "gif")))
+                 ;; if its an image we need to "display" it in html.
+                 (when (cltpt/file-utils:file-has-extension-p
+                        dest
+                        (list "png" "jpg" "svg" "webp" "jpeg" "gif"))
+                   (let ((new-path (if cltpt/html:*html-static-dir*
+                                       (cltpt/file-utils:change-dir
+                                        dest
+                                        cltpt/html:*html-static-dir*)
+                                       dest)))
+                     (unless (string= dest new-path)
+                       (when (uiop:probe-file* dest)
+                         (uiop:copy-file
+                          dest
+                          new-path)))
+                     (list :text (format nil
+                                         "<img src='~A' />"
+                                         (if cltpt/html:*html-static-route*
+                                             (cltpt/file-utils:change-dir
+                                              new-path
+                                              cltpt/html:*html-static-route*)
+                                             (cltpt/file-utils:file-basename dest)))
+                           :escape nil)))
+                 (within-tags
+                  (if cltpt/html:*html-static-route*
+                      (format nil
+                              "<a href='~A'>"
+                              (cltpt/file-utils:change-dir
+                               dest
+                               cltpt/html:*html-static-route*))
+                      (format nil "<a href='~A'>" dest))
+                  final-desc
+                  "</a>"))))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
   (let ((link-type-match (car (cltpt/combinator:find-submatch match 'link-type)))

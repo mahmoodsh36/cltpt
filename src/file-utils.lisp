@@ -49,7 +49,7 @@
                                   :version (pathname-version path)))
         (dir-part (make-pathname :name nil :type nil :version nil
                                  :defaults new-dir)))
-    (merge-pathnames file-part dir-part)))
+    (uiop:unix-namestring (uiop:merge-pathnames* file-part dir-part))))
 
 (defun path-without-extension (path)
   (let* ((pathname (pathname path))

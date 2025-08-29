@@ -1,6 +1,6 @@
 (defpackage :cltpt/html
   (:use :cl :cltpt/base :cltpt/latex)
-  (:export :*html* :*html-static-route*
+  (:export :*html* :*html-static-route* :*html-static-dir*
            :*html-postamble* :*html-preamble* :init))
 
 (in-package :cltpt/html)
@@ -32,6 +32,10 @@
 
 if nil, the paths will be absolute, otherwise, they will be join with the given
 directory path.")
+
+(defvar *html-static-dir*
+  nil
+  "the static path to which the static files for html will be copied.")
 
 (defvar *html-postamble*
   "</body>
