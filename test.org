@@ -28,6 +28,8 @@ SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 my equation here
 \end{equation}
 
+[[/home/mahmooz/data/images/scrots/Sat_Jul_13_11:45:05_AM_IDT_2024.png]]
+
 #+begin_definition :defines standard thing :name def-ac-standard :something :something2
 an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
 1. the circuit is divided into layers, such that edges only connect vertices between subsequent layers.
