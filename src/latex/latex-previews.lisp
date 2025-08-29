@@ -55,7 +55,7 @@
      :image-converter "convert -density %D -trim -antialias %f -quality 100 %B-%09d.png"))
   "an alist of available LaTeX preview generation pipelines.")
 
-(defvar *default-latex-preview-pipeline*
+(defvar *latex-preview-pipeline-key*
   :dvisvgm
   "the latex->image pipeline to use from the ones in `*latex-preview-pipelines*'.")
 (defvar *preview-filename-prefix*
@@ -147,7 +147,7 @@ the preamble automatically invalidate the old compiled format."
   "compiles a batch of snippets and renames the output to match their final hashes.
 this function now uses a random batch name internally and expects a list of
 (hash . snippet-text) cons cells."
-  (let* ((use-precomp-p (eq *latex-compiler-key* :latex))
+  (let* ((use-precomp-p (equal *latex-compiler-key* :latex))
          ;; use a random base name for the temporary batch file to avoid collisions
          (batch-base-name (format nil "batch-~A" (random (expt 2 32))))
          (tmp-dir *latex-previews-tmp-directory*)
@@ -162,7 +162,9 @@ this function now uses a random batch name internally and expects a list of
          ;; preamble precompilation is only supported for the :latex compiler.
          (fmt-path (when use-precomp-p (get-precompiled-preamble-path)))
          (compiler-command
-           (cdr (assoc *latex-compiler-key* *latex-compiler-command-map*))))
+          (cdr (assoc *latex-compiler-key*
+                      *latex-compiler-command-map*
+                      :test 'equal))))
     (unless compiler-command
       (error "unknown compiler key: ~S." *latex-compiler-key*))
     (when use-precomp-p
@@ -240,7 +242,7 @@ this function now uses a random batch name internally and expects a list of
 (defun generate-previews-for-latex (snippets
                                     &key
                                       (recompile)
-                                      (pipeline *default-latex-preview-pipeline*)
+                                      (pipeline *latex-preview-pipeline-key*)
                                       (density 200)
                                       (transparent t))
   "generates image files for a list of LaTeX snippets, compiling only what is needed.
@@ -252,7 +254,7 @@ returns an association list of (hash . string-file-path)."
   (let* ((pipeline-config (cdr (assoc pipeline *latex-preview-pipelines*)))
          (output-ext (getf pipeline-config :image-output-type))
          (cnt 0)
-         (use-precomp-p (eq *latex-compiler-key* :latex))
+         (use-precomp-p (equal *latex-compiler-key* :latex))
          ;; generate a hash containing all settings so that if any setting changes
          ;; the hash changes and so a recompilation happens.
          (settings-string
