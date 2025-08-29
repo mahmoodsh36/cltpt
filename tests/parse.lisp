@@ -342,11 +342,6 @@ more nested text<ol type=\"1\">
      0
      (cltpt/org-mode::org-mode-inline-text-object-rule))))
 
-;; latex snippet compilation test
-(defun test-latex-svg ()
-  (generate-svg-for-latex
-   "\\(x=\\sqrt{y}\\)"))
-
 (defun test-convert-1 ()
   (convert-tree
    (cltpt/base::parse
@@ -891,3 +886,18 @@ my equation here
 #+identifier: 1712235129
 "
    (list cltpt/org-mode::*org-keyword-rule*)))
+
+;; currently :dvipng seems to be broken
+(defun test-latex-preview-1 ()
+  (loop for my-comp in (list :latex :lualatex)
+        append (loop for my-img-conv in (list :dvisvgm :dvipng :imagemagick)
+                     append (let ((cltpt/latex::*latex-compiler-key* my-comp)
+                                  (cltpt/latex::*default-latex-preview-pipeline* my-img-conv))
+                              (cltpt/latex::generate-previews-for-latex
+                               (list "\\(x=\\somebrokencommand\\)"
+                                     "\\(x=yyy\\)"))))))
+
+(defun test-latex-preview-2 ()
+  (let ((cltpt/latex::*latex-compiler-key* :latex))
+    (cltpt/latex::generate-previews-for-latex
+     (list "\\(x=\\somebrokencommand123\\)"))))
