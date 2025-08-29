@@ -7,7 +7,7 @@
    :latex-env :*latex-env-rule*
    :generate-latex-preamble :*latex-preamble* :*latex-preview-preamble*
    :*latex-compiler-key* :*latex-previews-cache-directory*
-   :generate-previews-for-latex :init))
+   :generate-previews-for-latex :init :*latex-preview-pipeline-key*))
 
 (in-package :cltpt/latex)
 
