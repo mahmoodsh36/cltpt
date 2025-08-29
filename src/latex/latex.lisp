@@ -6,7 +6,8 @@
    :inline-math :*inline-math-rule* :display-math :*display-math-rule*
    :latex-env :*latex-env-rule*
    :generate-latex-preamble :*latex-preamble* :*latex-preview-preamble*
-   :*latex-previews-cache-directory* :generate-svgs-for-latex :init))
+   :*latex-compiler-key* :*latex-previews-cache-directory*
+   :generate-previews-for-latex :init))
 
 (in-package :cltpt/latex)
 

@@ -29,7 +29,7 @@
   (case cltpt/html::*html-export-latex-method*
     (cltpt/html::svg
      (let ((img-filepath))
-       (let ((img-filepath (cdar (cltpt/latex:generate-svgs-for-latex
+       (let ((img-filepath (cdar (cltpt/latex:generate-previews-for-latex
                                   (list latex-code)))))
          (if is-inline
              (format nil
