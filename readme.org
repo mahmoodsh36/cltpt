@@ -2,9 +2,7 @@
 the project depends on the following packages which could be installed using quicklisp.
 
 - cl-ppcre
-- str
 - uiop
-- cl-fad
 - clingon
 - ironclad
 - fiveam

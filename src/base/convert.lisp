@@ -202,7 +202,7 @@ the '\\' and processes the char normally (replace or emit)."
                           (escape-text (subseq convert-text idx) backend escapables))
                       (subseq convert-text idx))))
             (push final-text-in-between final-result-fragments)
-            (apply 'str:concat (nreverse final-result-fragments))))
+            (apply 'concatenate 'string (nreverse final-result-fragments))))
         (if to-escape
             (if region-to-escape
                 (extract-modified-substring
@@ -219,7 +219,8 @@ the '\\' and processes the char normally (replace or emit)."
 (defun convert-rule-with-shared-patterns (tree)
   (let ((mycar (car tree)))
     (if (equal mycar 'consec)
-        (str:concat
+        (concatenate
+         'string
          (loop for item in (cdr tree)
                collect (if (stringp item)
                            item

@@ -1,5 +1,5 @@
 (defpackage :cltpt/base
-  (:use :cl :str)
+  (:use :cl)
   (:export
    :parse :make-text-format
    :text-format-text-object-types :text-format-by-name
@@ -11,8 +11,8 @@
    :tree-find
    :pcase :plistp
    :bind-and-eval :bind-and-eval*
-   :compress-consec
-   :alist-get
+   :compress-consec :str-join :concat :str-prune :str-split
+   :alist-get :subseq*
 
    :convert-tree
 
