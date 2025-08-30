@@ -110,17 +110,14 @@ each rule is a plist that can contain the following params.
             do (loop
                  for path in (if (consp paths) paths (cons paths nil))
                  do (if (uiop:directory-pathname-p (uiop:ensure-pathname path))
-                        (if recurse
-                            (cl-fad:walk-directory
-                             path
-                             (lambda (path)
-                               (handle-file path file-rule))
-                             :match regex)
-                            (loop
-                              for path in (cltpt/file-utils::directory-files-matching
-                                           path
-                                           regex)
-                              do (handle-file path file-rule)))
+                        ;; if its a dir, walk it and apply the handler to each file
+                        (cltpt/file-utils:walk-dir
+                         path
+                         (lambda (path)
+                           (handle-file path file-rule))
+                         regex
+                         recurse)
+                        ;; if its a file, just execute the handler on it.
                         (handle-file path file-rule))))
       (loop for filepath in file-rules-string
             do (push (cons filepath filepath) file-rule-alist)))

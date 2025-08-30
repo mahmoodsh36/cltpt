@@ -1,5 +1,5 @@
 (defpackage :cltpt/org-mode
-  (:use :cl :str :cltpt/base :cltpt/latex)
+  (:use :cl :cltpt/base :cltpt/latex)
   (:import-from
    :cltpt/base :text-object
    :text-macro :post-lexer-text-macro
@@ -616,9 +616,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (format
                    nil
                    "\\~Asection{"
-                   (str:join ""
-                             (loop for i from 1 to (text-object-property obj :level)
-                                   collect "sub"))))
+                   (cltpt/base:concat
+                    (loop for i from 1 to (text-object-property obj :level)
+                          collect "sub"))))
                 (end-text "}")
                 (inner-text (cltpt/base:text-object-property obj :title))
                 (final-text (concatenate 'string begin-text inner-text end-text))
@@ -896,7 +896,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (let ((tags-str (alist-get (cltpt/base:text-object-property obj :keywords-alist)
                                "filetags")))
       ;; avoid first and last ':', split by ':' to get tags
-      (setf doc-tags (str:split ":" (str:substring 1 -1 tags-str))))
+      (setf doc-tags (cltpt/base:str-split (cltpt/base:subseq* tags-str 1 -1) ":")))
     ;; set metadata in the object itself
     (setf (cltpt/base:text-object-property obj :title) doc-title)
     (setf (cltpt/base:text-object-property obj :tags) doc-tags)
@@ -1285,7 +1285,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (format nil
                             "<div class='~A org-block' ~A>"
                             block-type
-                            (str:join " " props))))
+                            (cltpt/base:str-join props " "))))
               (close-tag (if is-code
                              "</code></pre>"
                              "</div>"))
@@ -1324,12 +1324,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod convert-babel-results ((obj org-src-block) (backend cltpt/base:text-format))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (output-line-matches (cltpt/combinator:find-submatch-all match 'output-line))
-         (output-text (str:join
-                       (string #\newline)
+         (output-text (cltpt/base:str-join
                        (mapcar
                         (lambda (output-line-match)
                           (subseq (getf (car output-line-match) :match) 2))
-                        output-line-matches))))
+                        output-line-matches)
+                       (string #\newline))))
     (cond
       ((eq backend cltpt/latex:*latex*)
        (list :text output-text

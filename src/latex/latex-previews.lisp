@@ -249,8 +249,8 @@ this function now uses a random batch name internally and expects a list of
 returns an association list of (hash . string-file-path)."
   (unless snippets
     (return-from generate-previews-for-latex nil))
-  (cltpt/file-utils:ensure-directory *latex-previews-tmp-directory*)
-  (cltpt/file-utils:ensure-directory *latex-previews-cache-directory*)
+  (cltpt/file-utils:ensure-dir-exists *latex-previews-tmp-directory*)
+  (cltpt/file-utils:ensure-dir-exists *latex-previews-cache-directory*)
   (let* ((pipeline-config (cdr (assoc pipeline *latex-preview-pipelines*)))
          (output-ext (getf pipeline-config :image-output-type))
          (cnt 0)

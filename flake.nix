@@ -11,8 +11,6 @@
 
         deps = with pkgs.sbcl.pkgs; [
           cl-ppcre
-          str
-          cl-fad
           clingon
           ironclad
           fiveam
