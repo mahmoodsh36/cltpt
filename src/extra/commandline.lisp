@@ -1,5 +1,5 @@
 (defpackage :cltpt/commandline
-  (:use :cl :clingon :cltpt/base :cltpt/org-mode)
+  (:use :cl :clingon)
   (:export :commandline-main))
 
 (in-package :cltpt/commandline)

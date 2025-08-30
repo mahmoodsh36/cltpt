@@ -55,7 +55,6 @@
                 :components ((:file "zoo")))
                (:module "commandline"
                 :pathname "src/extra"
-                :if-feature :commandline
                 :depends-on ("base" "file-utils" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
                (:module "tests"

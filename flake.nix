@@ -37,11 +37,12 @@
           (require :asdf)
           (asdf:load-system :${name})
           (sb-ext:save-lisp-and-die "${name}"
-           :toplevel (lambda () (cltpt/commandline:commandline-main (uiop:command-line-arguments)))
            :executable t
            :purify t
            #+sb-core-compression :compression
-           #+sb-core-compression t)
+           #+sb-core-compression t
+          :toplevel (lambda () (cltpt/commandline:commandline-main (uiop:command-line-arguments)))
+          )
         '';
 
         pkg = pkgs.stdenv.mkDerivation {
