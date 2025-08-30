@@ -1,15 +1,15 @@
 (defpackage :cltpt/file-utils
   (:use :cl)
   (:export
-   :ensure-directory :file-ext
-   :file-has-extension-p :directory-files-matching
+   :ensure-dir-exists :file-ext
+   :file-has-extension-p
    :change-extension :change-dir :path-without-extension
    :file-basename :base-name-no-ext :delete-files-by-regex
-   :write-file :join-paths :join-paths-list))
+   :write-file :join-paths :join-paths-list :walk-dir))
 
 (in-package :cltpt/file-utils)
 
-(defun ensure-directory (dir)
+(defun ensure-dir-exists (dir)
   "ensure directory DIR exists."
   (unless (probe-file dir)
     (ensure-directories-exist dir)))
@@ -24,16 +24,6 @@
     (some (lambda (ext)
             (string-equal type (string-downcase ext)))
           exts)))
-
-(defun directory-files-matching (dir regex)
-  "list files in a directory DIR that match a specific REGEX."
-  (let ((files (mapcar 'uiop:unix-namestring (uiop:directory-files dir))))
-    (if regex
-        (remove-if-not
-         (lambda (path)
-           (cl-ppcre:scan regex (namestring path)))
-         files)
-        files)))
 
 (defun change-extension (path new-ext)
   "change the extension of PATH to NEW-EXT."
@@ -105,3 +95,27 @@ the function trims excessive use of the separator (usually forward slash)."
         (dolist (part (rest clean-parts))
           (write-string separator s)
           (write-string part s))))))
+
+(defun walk-dir (path handle-file-fn regex &optional (recursive t))
+  "walks a directory and applies a function to files matching a regex.
+
+args:
+  path: the starting directory (a pathname or a string).
+  handle-file-fn: a function to call with the pathname of each matching file.
+  regex: a CL-PPCRE regular expression string to match against file names.
+  recursive: when T (the default), walks the directory tree recursively.
+             when NIL, only processes files directly within PATH."
+  (labels ((process-files-in-directory (dir)
+             (dolist (file (uiop:directory-files dir))
+               ;; check if the file's name matches the regex.
+               (when (cl-ppcre:scan regex (namestring file))
+                 (funcall handle-file-fn file)))))
+    (if recursive
+        (labels ((walk (current-dir)
+                   ;; process files in the current directory first.
+                   (process-files-in-directory current-dir)
+                   ;; get all subdirectories and recurse into each.
+                   (dolist (subdir (uiop:subdirectories current-dir))
+                     (walk subdir))))
+          (walk path))
+        (process-files-in-directory path))))
