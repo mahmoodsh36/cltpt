@@ -17,6 +17,14 @@
 
 (in-package :cltpt/combinator)
 
+;; ways to improve this code:
+;; 1. we always invoke :match on the boundaries we find, this is too slow. often we might be able to get away with just storing the boundaries we found, and storing a reference of the main string, then computing :match on demand. this can be ddone perhaps using a custom structure with a special access function `get-match' built exactly for this.
+;; 2. the `pair' function should be able to receive a predicate that may discard "false positives". e.g. we dont want \begin{env1} \end{env2} to be matched, which currently happens.
+;; 3. the `pair' function isnt optimal, it does redundant work.
+;; 4. we need a function that may discard any custom "left padding" such as a sequence of characters used for comments, e.g. ";;" in this case. in this exact comment section we have ";;" at the start of each line, we need a function that takes a "list matcher", and allows it to work regardless of those "padding sequences".
+;; 5. `getf' is executed ridiculously often. perhaps we should use structs instead of plists, or something that makes access actually O(1). (constant-size plists are O(1), but not really.)
+;; 6. some rules may only want to attempt matching in very specific cases, such as the beginning of a line, ending of a line. currently we support the heuristic of :on-char, and it speeds things up because it reduces the number of matchers executed at each point in the string, but we can add other heuristics too (perhaps an :after-char which for example could be used for ':after-char #\newline').
+
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
 (defstruct context
