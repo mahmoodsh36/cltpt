@@ -9,7 +9,7 @@
    :name "cltpt"
    :description "common lisp text processing tools."
    :version "0.1.0"
-   :license "MIT"
+   :license "GPL"
    :authors '("Mahmood Sheikh <mahmod.m2015@gmail.com>")
    :handler #'top-level-handler
    :sub-commands (list (convert-command) (roam-command))
