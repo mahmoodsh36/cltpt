@@ -95,7 +95,7 @@ SCHEDULED: <2025-07-27 Sun 10:55:00>
 ** TODO do something else
 SCHEDULED: <2025-07-27 Sun 17:55:00>
 
-** TODO send the professor a mail
+** TODO send the professor a mail :noexport:
 DEADLINE: <2025-07-30 Wed 10:00>
 
 hey latex: \(x\)
