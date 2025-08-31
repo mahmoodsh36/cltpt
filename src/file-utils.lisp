@@ -101,15 +101,15 @@ the function trims excessive use of the separator (usually forward slash)."
 
 args:
   path: the starting directory (a pathname or a string).
-  handle-file-fn: a function to call with the pathname of each matching file.
+  handle-file-fn: a function to call with the path of each matching file.
   regex: a CL-PPCRE regular expression string to match against file names.
   recursive: when T (the default), walks the directory tree recursively.
              when NIL, only processes files directly within PATH."
   (labels ((process-files-in-directory (dir)
              (dolist (file (uiop:directory-files dir))
                ;; check if the file's name matches the regex.
-               (when (cl-ppcre:scan regex (namestring file))
-                 (funcall handle-file-fn file)))))
+               (when (cl-ppcre:scan regex (uiop:unix-namestring file))
+                 (funcall handle-file-fn (uiop:unix-namestring file))))))
     (if recursive
         (labels ((walk (current-dir)
                    ;; process files in the current directory first.
