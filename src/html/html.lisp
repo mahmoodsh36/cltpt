@@ -65,11 +65,11 @@ directory path.")
               (cltpt/base:parse
                *html-preamble*
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
+              nil
               *html*
-              nil
-              nil
-              t
-              nil)))
+              :reparse nil
+              :recurse t
+              :escape nil)))
        result))))
 
 (defmethod cltpt/base:text-format-generate-postamble ((fmt text-format) (doc document))
@@ -84,11 +84,11 @@ directory path.")
               (cltpt/base:parse
                *html-postamble*
                (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
+              nil
               *html*
-              nil
-              nil
-              t
-              nil)))
+              :reparse nil
+              :recurse t
+              :escape nil)))
        result))))
 
 (defvar *html-escape-table*

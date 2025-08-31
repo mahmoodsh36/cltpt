@@ -87,13 +87,15 @@ the '\\' and processes the char normally (replace or emit)."
                 :escape nil))
         (text-object-convert text-obj backend))))
 
-(defun convert-tree (text-obj backend text-object-types
-                     &optional
+(defun convert-tree (text-obj
+                     text-object-types
+                     fmt-dest
+                     &key
                        (reparse nil reparse-supplied)
                        (recurse nil recurse-supplied)
-                       (escape nil escape-supplied))
-  (let* ((result (text-object-convert-helper text-obj backend))
-         ;; (result (text-object-convert text-obj backend))
+                       (escape nil escape-supplied)
+                       (doc-type 'document))
+  (let* ((result (text-object-convert-helper text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (to-escape (if escape-supplied
                         escape
@@ -119,21 +121,24 @@ the '\\' and processes the char normally (replace or emit)."
            (and (consp result)
                 (getf result :reparse-region)))
          (escapables (collect-escapables text-object-types)))
-    (when (eql cltpt:*debug* 2)
+    (when (getf cltpt:*debug* :convert)
       (format t "converting object ~A~%" text-obj))
     (if to-recurse
         ;; we store the results as fragments (`final-result-fragments') to avoid concatenating all the time
         (let* ((final-result-fragments)
                (idx 0)
                (original-children (text-object-children text-obj))
-               (children (sort-text-objects
-                          (if to-reparse
-                              (text-object-children
-                               (parse (if region-to-reparse
-                                          (region-text region-to-reparse convert-text)
-                                          convert-text)
-                                      text-object-types))
-                              original-children)))
+               (children
+                 (sort-text-objects
+                  (if to-reparse
+                      (text-object-children
+                       (parse
+                        (if region-to-reparse
+                            (region-text region-to-reparse convert-text)
+                            convert-text)
+                        text-object-types
+                        :doc-type doc-type))
+                      original-children)))
                (child-offset (if region-to-reparse
                                  (region-begin region-to-reparse)
                                  0)))
@@ -147,11 +152,12 @@ the '\\' and processes the char normally (replace or emit)."
               ;; (text-object-adjust-to-parent child text-obj)
               ))
           (loop for child in children
-                do (when (eql cltpt:*debug* 2)
+                do (when (getf cltpt:*debug* :convert)
                      (format t "converting child ~A~%" child))
                    (let* ((child-result (convert-tree child
-                                                      backend
-                                                      text-object-types))
+                                                      text-object-types
+                                                      fmt-dest
+                                                      :doc-type doc-type))
                           (text-in-between-begin idx)
                           (text-in-between-end (+ child-offset (text-object-begin child)))
                           ;; text up to next child.
@@ -164,7 +170,7 @@ the '\\' and processes the char normally (replace or emit)."
                                      convert-text
                                      (lambda (my-substr)
                                        (escape-text my-substr
-                                                    backend
+                                                    fmt-dest
                                                     escapables))
                                      (make-region :begin text-in-between-begin
                                                   :end text-in-between-end)
@@ -173,7 +179,7 @@ the '\\' and processes the char normally (replace or emit)."
                                      (subseq convert-text
                                              text-in-between-begin
                                              text-in-between-end)
-                                     backend
+                                     fmt-dest
                                      escapables))
                                 (subseq convert-text
                                         text-in-between-begin
@@ -195,11 +201,11 @@ the '\\' and processes the char normally (replace or emit)."
                           (extract-modified-substring
                            convert-text
                            (lambda (my-substr)
-                             (escape-text my-substr backend escapables))
+                             (escape-text my-substr fmt-dest escapables))
                            (make-region :begin idx
                                         :end (length convert-text))
                            region-to-escape)
-                          (escape-text (subseq convert-text idx) backend escapables))
+                          (escape-text (subseq convert-text idx) fmt-dest escapables))
                       (subseq convert-text idx))))
             (push final-text-in-between final-result-fragments)
             (apply 'concatenate 'string (nreverse final-result-fragments))))
@@ -208,11 +214,11 @@ the '\\' and processes the char normally (replace or emit)."
                 (extract-modified-substring
                  convert-text
                  (lambda (my-substr)
-                   (escape-text my-substr backend escapables))
+                   (escape-text my-substr fmt-dest escapables))
                  (make-region :begin 0
                               :end (length convert-text))
                  region-to-escape)
-                (escape-text convert-text backend escapables))
+                (escape-text convert-text fmt-dest escapables))
             convert-text))))
 
 ;; this barely handles simple patterns, it cannot be relied on, but it may make some things easier.
@@ -246,6 +252,7 @@ the '\\' and processes the char normally (replace or emit)."
                            (text-format-text-object-types fmt1)
                            :doc-type (text-format-document-type fmt1)))
          (result (convert-tree text-tree
+                               (text-format-text-object-types fmt1)
                                fmt2
-                               (text-format-text-object-types fmt1))))
+                               :doc-type (text-format-document-type fmt1))))
     result))

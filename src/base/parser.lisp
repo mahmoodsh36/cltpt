@@ -34,16 +34,21 @@
               (let ((match-text (subseq str1 match-begin match-end))
                     (macro-eval-result))
                 (handler-case
-                    (eval (read-from-string
-                           ;; skip first char (`*text-macro-char*')
-                           (subseq match-text 1)))
+                    (eval
+                     (read-from-string
+                      ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
+                      ;; skip first char (`*text-macro-char*')
+                      (subseq match-text 1)))
                   (error (c)
-                    (when cltpt:*debug*
-                      (format t "error while evaluating macro ~A: ~A.~%"
-                              match-text c))
+                    (when (getf cltpt:*debug* :parse)
+                      (format t
+                              "error while evaluating macro ~A: ~A.~%"
+                              match-text
+                              c))
                     (setf macro-eval-result 'broken))
                   (:no-error (result1)
-                    ;; (format t "evaluated macro ~A: ~A~%" match-text result1)
+                    (when (getf cltpt:*debug* :parse)
+                      (format t "evaluated macro ~A: ~A~%" match-text result1))
                     (setf macro-eval-result result1)
                     (if (typep result1 'text-object)
                         (setf new-text-object result1)
@@ -55,8 +60,9 @@
                   (loop for entry in (getf text-objects :objects)
                         do (if (and (text-object-property entry :open-macro)
                                     (text-object-ends-by entry macro-eval-result))
-                               (progn (setf opening-macro entry)
-                                      (return))
+                               (progn
+                                 (setf opening-macro entry)
+                                 (return))
                                (push entry intermediate-objects)))
                   (if opening-macro
                       (progn
