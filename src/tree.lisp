@@ -97,7 +97,8 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
                         (format t "~a~a ~a~%" prefix connector (tree-value node))
                         ;; recurse into the children with the new prefix
                         (when (tree-children node)
-                          (display-nodes (tree-children node)
-                                         (concatenate 'string prefix child-prefix)))))))
+                          (display-nodes
+                           (tree-children node)
+                           (concatenate 'string prefix child-prefix)))))))
     (format t "~a~%" (tree-value root-node))
     (display-nodes (tree-children root-node) "")))
