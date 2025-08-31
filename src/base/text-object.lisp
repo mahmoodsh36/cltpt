@@ -145,7 +145,7 @@ object's region. you should just make it return a symbol like `end-type'."))
     (format stream "~A -> ~A ~A"
             (type-of obj)
             (if (slot-boundp obj 'text-region) (text-object-text-region obj) nil)
-            (if (slot-boundp obj 'text) (cltpt/base:str-prune 10 (text-object-text obj)) nil))))
+            (if (slot-boundp obj 'text) (cltpt/base:str-prune (text-object-text obj) 10) nil))))
 
 ;; this is actually the slowest way to traverse siblings
 ;; TODO: easy to optimize
