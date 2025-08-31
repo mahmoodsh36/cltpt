@@ -60,7 +60,11 @@
         };
 
       in {
-        packages.default = pkg;
+        packages = {
+          default = pkg;
+          cltpt = pkg;
+          cltpt-lib = cltpt-lisp;
+        };
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
