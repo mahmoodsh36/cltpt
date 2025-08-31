@@ -647,7 +647,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (format
                      nil
                      "<h~A>~A</h~A>"
-                     (cltpt/base:text-object-property obj :level)
+                     ;; we seem to want to start from h2, not h1 in html.
+                     (1+ (cltpt/base:text-object-property obj :level))
                      (cltpt/base:text-object-property obj :title)
                      (cltpt/base:text-object-property obj :level)))
                   (begin-text (format nil "~A~%~A" title-text "<p>"))
