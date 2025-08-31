@@ -397,7 +397,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 ;; this is very hacky, perhaps we should find a better way to export lists
 ;; and their children
-(defmethod cltpt/base:text-object-convert ((obj org-list) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-list)
+                                           (backend cltpt/base:text-format))
   ;; create a new non-org-list object, export it, use the output as a new list
   ;; reparse, that new list, then export the modified newly parsed list as if
   ;; it was the original
@@ -418,12 +419,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     ;; we create a new intermediate object, treat it as raw text,
     ;; parse other types of text objects and convert them, then parse the result
     ;; as a list
-    (let* ((new-txt (cltpt/base:convert-tree new-obj
-                                             backend
-                                             (org-mode-inline-text-object-types)
-                                             nil
-                                             t
-                                             nil))
+    (let* ((new-txt (cltpt/base:convert-tree
+                     new-obj
+                     (org-mode-inline-text-object-types)
+                     backend
+                     :reparse nil
+                     :recurse t
+                     :escape nil))
            (parsed (org-list-matcher nil new-txt 0)))
       (cond
         ((eq backend cltpt/latex:*latex*)
@@ -544,7 +546,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           (getf title :match))
     (setf (cltpt/base:text-object-property obj :tags)
           (loop for match in (cltpt/combinator:find-submatch-all match 'tag)
-                collect (getf (car match) :match)))))
+                collect (getf (car match) :match)))
+    ;; :initial-match-length will contain the length of the string that was matched
+    ;; for the header's metadata (including title, tags, org-agenda metadata etc).
+    ;; it is later used to detect where the contents of the headers actually start.
+    (setf (cltpt/base:text-object-property obj :initial-match-length)
+          (- (getf (car match) :end) (getf (car match) :begin)))))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
@@ -552,10 +559,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (header-id)
          (scheduled)
          (deadline)
-         (todo-keyword-match (car (cltpt/combinator:find-submatch match 'todo-keyword)))
+         (todo-keyword-match
+           (car (cltpt/combinator:find-submatch match 'todo-keyword)))
          (timestamp-match (cltpt/combinator:find-submatch match 'todo-timestamp))
-         (action-active-matches (cltpt/combinator:find-submatch-all match 'action-active))
-         (action-inactive-matches (cltpt/combinator:find-submatch-all match 'action-inactive))
+         (action-active-matches
+           (cltpt/combinator:find-submatch-all match 'action-active))
+         (action-inactive-matches
+           (cltpt/combinator:find-submatch-all match 'action-inactive))
          (todo-timestamp (when timestamp-match
                            (org-timestamp-match-to-time timestamp-match))))
     (labels ((is-drawer (obj2)
@@ -609,49 +619,52 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    obj
                    :tags)
                   :test 'equal)))
-    (unless to-not-export
-      (cltpt/base:pcase backend
-        (cltpt/latex:*latex*
-         (let* ((begin-text
-                  (format
-                   nil
-                   "\\~Asection{"
-                   (cltpt/base:concat
-                    (loop for i from 1 to (text-object-property obj :level)
-                          collect "sub"))))
-                (end-text "}")
-                (inner-text (cltpt/base:text-object-property obj :title))
-                (final-text (concatenate 'string begin-text inner-text end-text))
-                (inner-region
-                  (make-region :begin (length begin-text)
-                               :end (- (length final-text) (length end-text)))))
-           (list :text final-text
-                 :escape t
-                 :escape-region inner-region
-                 :reparse t
-                 :reparse-region inner-region
-                 :recurse t)))
-        (cltpt/html:*html*
-         (let* ((begin-text (format
-                             nil
-                             "<h~A>"
-                             (cltpt/base:text-object-property obj :level)))
-                (end-text (format
-                           nil
-                           "</h~A>"
-                           (cltpt/base:text-object-property obj :level)))
-                (inner-text (cltpt/base:text-object-property obj :title))
-                (final-text (concatenate 'string begin-text inner-text end-text))
-                (inner-region
-                  (cltpt/base:make-region :begin (length begin-text)
-                                          :end (- (length final-text) (length end-text)))))
-           (list :text final-text
-                 :escape t
-                 :escape-region inner-region
-                 :reparse t
-                 :reparse-region inner-region
-                 :recurse t
-                 :remove-newlines-after t)))))))
+    (if to-not-export
+        (list :text "" :reparse t)
+        (cltpt/base:pcase backend
+          (cltpt/latex:*latex*
+           (let* ((begin-text
+                    (format
+                     nil
+                     "\\~Asection{"
+                     (cltpt/base:concat
+                      (loop for i from 1 to (text-object-property obj :level)
+                            collect "sub"))))
+                  (end-text "}")
+                  (inner-text (cltpt/base:text-object-property obj :title))
+                  (final-text (concatenate 'string begin-text inner-text end-text))
+                  (inner-region
+                    (make-region :begin (length begin-text)
+                                 :end (- (length final-text) (length end-text)))))
+             (list :text final-text
+                   :escape t
+                   :escape-region inner-region
+                   :reparse t
+                   :reparse-region inner-region
+                   :recurse t)))
+          (cltpt/html:*html*
+           (let* ((title-text
+                    (format
+                     nil
+                     "<h~A>~A</h~A>"
+                     (cltpt/base:text-object-property obj :level)
+                     (cltpt/base:text-object-property obj :title)
+                     (cltpt/base:text-object-property obj :level)))
+                  (begin-text (format nil "~A~%~A" title-text "<p>"))
+                  (inner-text (cltpt/base:text-object-contents obj))
+                  (end-text "</p>")
+                  (final-text (concatenate 'string begin-text inner-text end-text))
+                  (inner-region
+                    (cltpt/base:make-region
+                     :begin (length begin-text)
+                     :end (- (length final-text) (length end-text)))))
+             (list :text final-text
+                   :escape t
+                   :escape-region inner-region
+                   :reparse t
+                   :reparse-region inner-region
+                   :recurse t
+                   :remove-newlines-after t)))))))
 
 (defvar *org-link-rule*
   '(:pattern
@@ -810,7 +823,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (:documentation "org-mode table."))
 
 ;; hacky, like the one for org-list, they need to be improved
-(defmethod cltpt/base:text-object-convert ((obj org-table) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-table)
+                                           (backend cltpt/base:text-format))
   (let ((new-obj (make-instance 'cltpt/base:text-object)))
     (cltpt/base:text-object-init
      new-obj
@@ -822,11 +836,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           (cltpt/base:text-object-children obj))
     (let* ((new-txt (cltpt/base:convert-tree
                      new-obj
-                     backend
                      (org-mode-inline-text-object-types)
-                     nil
-                     t
-                     nil))
+                     backend
+                     :reparse nil
+                     :recurse t
+                     :escape nil))
            (parsed (org-table-matcher nil new-txt 0)))
       (cond
         ((eq backend cltpt/latex:*latex*)
@@ -909,9 +923,64 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
            :title doc-title
            :desc nil
            :text-obj obj))
-    ;; TODO: properly set the hierarchy of objects in headings
-    ;; currently headings dont *enclose* their children like they should
-    ))
+    (let ((header-stack))
+      (loop for child in (cltpt/base:text-object-children obj)
+            for last-header = (car header-stack)
+            do (if (typep child 'org-header)
+                   (let ((popped-header child)
+                         (this-header-level (cltpt/base:text-object-property
+                                             child
+                                             :level))
+                         (last-header-level
+                           (when last-header
+                             (cltpt/base:text-object-property last-header :level))))
+                     ;; if any headers have a "higher" or equal level, we should
+                     ;; discard them and reveal a parent fit to inherit this new
+                     ;; header (if any). also, the new header should be at the front
+                     ;; of the stack.
+                     (loop while (and last-header-level
+                                      (<= this-header-level last-header-level))
+                           do ;; TODO: optimize this, we are running subseq repeatedly here.
+                              (cltpt/base:text-object-extend-in-parent
+                               last-header
+                               (cltpt/base:text-object-begin child))
+                              (setf popped-header (pop header-stack))
+                              (setf last-header (car header-stack))
+                              (setf last-header-level
+                                    (when last-header
+                                      (cltpt/base:text-object-property
+                                       last-header
+                                       :level))))
+                     ;; the contents of the header needs to start where the metadata
+                     ;; and the title text end.
+                     (setf (cltpt/base:text-object-property child :contents-region)
+                           (cltpt/base:make-region
+                            :begin (cltpt/base:text-object-property
+                                    child
+                                    :initial-match-length)
+                            :end nil))
+                     (push child header-stack))
+                   ;; if this object not a header, and we have a last header, just
+                   ;; set this as a child of this last header.
+                   (when last-header
+                     ;; TODO: optimize this, this is very slow.
+                     (cltpt/base:text-object-move child last-header))))
+      ;; at the end, the text after the last header (if any) needs to be moved
+      ;; into the region of the last header (again, if any. as in, if any headers
+      ;; exist at all).
+      ;; TODO: note that this behavior is similar to org-mode's in that there is no
+      ;; way to prevent some text to be detached from a specific header if the header
+      ;; precedes it in the original text. while this should be default behavior,
+      ;; maybe we can make it so that its not the only behavior, maybe we should
+      ;; support different and independent header hierarchies in the same file,
+      ;; because i have personally seen many complaints about this not being possible
+      ;; in org-mode itself. this is feasible but will require more work, but for
+      ;; now this will be sufficient.
+      (when header-stack
+        (let ((last-last-header (cltpt/base:last-atom header-stack)))
+          (cltpt/base:text-object-extend-in-parent
+           last-last-header
+           (cltpt/base:text-object-end obj)))))))
 
 (defun ensure-latex-previews-generated (org-doc)
   (let ((mylist))

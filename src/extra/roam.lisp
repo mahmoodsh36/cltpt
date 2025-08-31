@@ -181,7 +181,7 @@ each rule is a plist that can contain the following params.
                (when (and (typep (node-text-obj node) 'document)
                           (not is-done)
                           (funcall convert-file-predicate in-file))
-                 (when (eql cltpt:*debug* 2)
+                 (when (getf cltpt:*debug* :roam)
                    (format t "converting ~A to ~A~%" in-file out-file))
                  (cltpt/base:convert-file
                   (node-format node)
@@ -212,8 +212,9 @@ each rule is a plist that can contain the following params.
                  (cltpt/base:parse
                   format-str
                   (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-                 (cltpt/base:text-format-by-name "org-mode") ;; just use org for now
-                 (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
+                 (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro)
+                 ;; just use org for now
+                 (cltpt/base:text-format-by-name "org-mode"))))
          result)))))
 
 (defmethod convert-link ((rmr roamer)

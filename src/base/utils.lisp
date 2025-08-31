@@ -181,3 +181,25 @@ if 'end' is nil, it defaults to the end of the sequence."
     (let ((clamped-start (max 0 (min len resolved-start)))
           (clamped-end (max 0 (min len resolved-end))))
       (subseq sequence clamped-start clamped-end))))
+
+(defun find-cdr-where-greater (list x &key (key #'identity))
+  "return the cons cell whose CDR starts with the first element whose
+key value is greater than X. returns NIL if insertion should be at head."
+  (loop for prev = nil then curr
+        for curr = list then (cdr curr)
+        while curr
+        when (> (funcall key (car curr)) x)
+          do (return prev)
+        finally (return prev)))
+
+(defun sorted-insert (list item &key (key #'identity))
+  "insert ITEM into LIST, preserving ascending order based on KEY.
+returns the (possibly new) list."
+  (let* ((x (funcall key item))
+         (cdr-cell (find-cdr-where-greater list x :key key)))
+    (if cdr-cell
+        ;; Insert after cdr-cell
+        (setf (cdr cdr-cell) (cons item (cdr cdr-cell)))
+        ;; Insert at head if no previous cons
+        (setf list (cons item list)))
+    list))
