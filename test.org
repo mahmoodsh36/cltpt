@@ -3,7 +3,7 @@
 :END:
 #+title: my doc
 #+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
-* TODO due task :here:there:noexport:
+* DONE due task :here:there:noexport:
 SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 <2025-07-25 Fri 10:00:00>
 :PROPERTIES:
@@ -21,6 +21,8 @@ SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
   done like an hour or so ago
 - State "DONE"       from "TODO"       [2024-09-03 Tue 16:31:49]
 - State "DONE"       from "TODO"       [2024-08-27 Tue 16:33:22]
+
+some text1 that shouldnt be included
 
 #+name: test-name
 #+more: here eee
@@ -86,16 +88,20 @@ a_1 b_2 - a_2 b_1
 * TODO another due task
 SCHEDULED: <2024-10-15 Tue 16:41:04> DEADLINE: <2024-10-15 Tue 16:51:04>
 
-* TODO my secondary header
+* TODO my secondary heade
 SCHEDULED: <2025-07-26 Sat 10:55>
 
-** TODO do something
+test text1
+
+** YOU do something :noexport:
 SCHEDULED: <2025-07-27 Sun 10:55:00>
 
-** TODO do something else
+more text that shouldnt be exported
+
+** HERE do something else
 SCHEDULED: <2025-07-27 Sun 17:55:00>
 
-** TODO send the professor a mail :noexport:
+** HER send the professor a mail
 DEADLINE: <2025-07-30 Wed 10:00>
 
 hey latex: \(x\)

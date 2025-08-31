@@ -1,7 +1,7 @@
 (defpackage :cltpt/tree
   (:use :cl)
   (:export :tree-value :tree-children :tree-map :tree-find-all :tree-find
-           :is-subtree :tree-root :tree-parent))
+           :is-subtree :tree-root :tree-parent :tree-show))
 
 (in-package :cltpt/tree)
 
@@ -49,8 +49,6 @@ function will run only on subtrees as determined by `is-subtree'."
                   collect (if (is-subtree subtree child)
                               (tree-map child func)
                               child))))
-      ;; (when (typep subtree 'cltpt/base:text-object)
-      ;;   (format t "here66 ~A~%" subtree))
       (cons (funcall func subtree)
             children-result))))
 
@@ -85,3 +83,21 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
     (if this-parent
         (tree-root this-parent)
         subtree)))
+
+(defun tree-show (root-node)
+  "displays a tree using abstract accessors and a lsblk-like format."
+  (labels ((display-nodes (nodes-list prefix)
+             (loop for node in nodes-list
+                   ;; check if the current node is the last in the list of siblings
+                   for lastp = (null (rest (member node nodes-list)))
+                   do
+                      (let* ((connector (if lastp "└─" "├─"))
+                             (child-prefix (if lastp "  " "│ ")))
+                        ;; print the current node's line
+                        (format t "~a~a ~a~%" prefix connector (tree-value node))
+                        ;; recurse into the children with the new prefix
+                        (when (tree-children node)
+                          (display-nodes (tree-children node)
+                                         (concatenate 'string prefix child-prefix)))))))
+    (format t "~a~%" (tree-value root-node))
+    (display-nodes (tree-children root-node) "")))

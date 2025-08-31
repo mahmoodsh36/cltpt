@@ -34,7 +34,8 @@
     result))
 
 (defun test-org-parse ()
-  (parse-org-file "test.org"))
+  (cltpt/tree:tree-show
+   (parse-org-file "test.org")))
 
 (defun test-org-convert ()
   (time

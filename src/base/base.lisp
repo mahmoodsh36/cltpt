@@ -12,7 +12,7 @@
    :pcase :plistp
    :bind-and-eval :bind-and-eval*
    :compress-consec :str-join :concat :str-prune :str-split
-   :alist-get :subseq*
+   :alist-get :subseq* :sorted-insert :last-atom
 
    :convert-tree
 
@@ -35,7 +35,8 @@
    :text-object-rule-from-subclass
    :text-format-name :text-format-from-alias :text-format-document-type
    :text-format-generate-preamble :text-format-generate-postamble
-   :text-object-clone
+   :text-object-clone :sort-text-objects :text-object-set-parent
+   :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
 
    :region-text))
 

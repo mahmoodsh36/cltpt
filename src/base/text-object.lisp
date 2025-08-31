@@ -133,19 +133,22 @@ object's region. you should just make it return a symbol like `end-type'."))
   (region-end (text-object-text-region text-obj)))
 
 ;; TODO: this doesnt take into account ordering of children in parent, it just
-;; *pushes* into the parent
+;; *pushes* into the parent.
 (defmethod text-object-set-parent ((child text-object) (parent text-object))
-  (if (text-object-parent child)
-      (delete child (text-object-children (text-object-parent child))))
+  (when (text-object-parent child)
+    (delete child (text-object-children (text-object-parent child))))
   (setf (text-object-parent child) parent)
   (push child (text-object-children parent)))
 
 (defmethod print-object ((obj text-object) stream)
   (print-unreadable-object (obj stream :type t)
-    (format stream "~A -> ~A ~A"
-            (type-of obj)
-            (if (slot-boundp obj 'text-region) (text-object-text-region obj) nil)
-            (if (slot-boundp obj 'text) (cltpt/base:str-prune (text-object-text obj) 10) nil))))
+    (format stream "-> ~A ~A"
+            (if (slot-boundp obj 'text-region)
+                (text-object-text-region obj)
+                nil)
+            (if (slot-boundp obj 'text)
+                (cltpt/base:str-prune (text-object-text obj) 15)
+                nil))))
 
 ;; this is actually the slowest way to traverse siblings
 ;; TODO: easy to optimize
@@ -228,7 +231,8 @@ object's region. you should just make it return a symbol like `end-type'."))
 
 (defmethod text-object-contents-end ((text-obj text-object))
   (if (text-object-property text-obj :contents-region)
-      (region-end (text-object-property text-obj :contents-region))
+      (or (region-end (text-object-property text-obj :contents-region))
+          (length (text-object-text text-obj)))
       (length (text-object-text text-obj))))
 
 (defmethod text-object-contents ((obj text-object))
@@ -280,7 +284,7 @@ object's region. you should just make it return a symbol like `end-type'."))
                   (let ((*package* (find-package :cl-user)))
                     (read-from-string txt-to-eval)))))
             (error (c)
-              (when cltpt:*debug*
+              (when (getf cltpt:*debug* :parse)
                 (format t "error while evaluating post-lexer macro ~A: ~A.~%"
                         txt-to-eval c))
               (setf macro-eval-result 'broken))
@@ -368,6 +372,9 @@ object's region. you should just make it return a symbol like `end-type'."))
 
 (defmethod cltpt/tree:tree-children ((subtree text-object))
   (text-object-children subtree))
+
+(defmethod cltpt/tree:tree-value ((subtree text-object))
+  subtree)
 
 (defmethod cltpt/tree:is-subtree ((subtree text-object) child)
   (typep child 'text-object))
@@ -476,3 +483,55 @@ and grabbing each position of each object through its ascendants in the tree."
 
 (defmethod cltpt/tree:tree-parent ((text-obj text-object))
   (text-object-parent text-obj))
+
+;; completely handles the movement of a text object from one tree to another
+;; TODO: optimize this, it is very slow.
+(defmethod text-object-move ((child text-object) (parent text-object))
+  (let ((old-parent (text-object-parent child)))
+    ;; insert it at the right location, keeping the list of children sorted.
+    (setf (text-object-children parent)
+           (cltpt/base:sorted-insert
+            (text-object-children parent)
+            child
+            :key 'text-object-begin-in-root))
+    ;; correctly re-set the region for the child
+    (setf (text-object-text-region child)
+          (make-region
+           :begin (- (text-object-begin-in-root child)
+                     (text-object-begin-in-root parent))
+           :end (- (text-object-end-in-root child)
+                   (text-object-begin-in-root parent))))
+    ;; remove it from its previous parent
+    (when old-parent
+      (setf (text-object-children old-parent)
+            (delete child (text-object-children old-parent))))
+    ;; set its parent property
+    (setf (text-object-parent child) parent)))
+
+;; new-end-in-root is the desired new end position, relative to the document root.
+;; new-pos is the new end position, relative to the parent of obj.
+(defmethod text-object-extend-in-parent ((obj text-object) new-pos)
+  (let* ((parent (text-object-parent obj))
+         (old-end (text-object-end obj)))
+    ;; proceed only if there is a parent and the new position actually extends the object.
+    (when (and parent (> new-pos old-end))
+      ;; update the object's region to the new end position.
+      (setf (region-end (text-object-text-region obj)) new-pos)
+      ;; update the cached text by re-slicing it from the parent's text
+      ;; using the newly updated region.
+      (setf (text-object-text obj)
+            (subseq (text-object-text parent)
+                    (text-object-begin obj)
+                    (text-object-end obj)))
+      ;; find any sibling objects that are now encompassed by the new, larger region.
+      (let ((siblings-to-move
+              (loop for sibling in (text-object-children parent)
+                    ;; a sibling should be moved if it's not the object itself,
+                    ;; and it starts at or after the old end boundary,
+                    ;; and it ends before the new end boundary.
+                    when (and (not (eq sibling obj))
+                              (>= (text-object-begin sibling) old-end)
+                              (<= (text-object-end sibling) new-pos))
+                      collect sibling)))
+        (dolist (sibling-to-move siblings-to-move)
+          (text-object-move sibling-to-move obj))))))

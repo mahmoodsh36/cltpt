@@ -4,5 +4,8 @@
 
 (in-package :cltpt)
 
-;; takes values 1-2
-(defvar *debug* nil)
+(defvar *debug*
+  (list :convert nil
+        :parse nil
+        :roam nil)
+  "different debugging settings, if some property is set to `t', some corresponding debugging functionality throughout the source code will be activated.")
