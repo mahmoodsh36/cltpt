@@ -1,5 +1,7 @@
 (in-package :cltpt/org-mode)
 
+;; TODO: refactor and optimize this implementation, i frankly didnt put much thought into it.
+
 (defun org-list-get-line-info (str pos)
   (when (>= pos (length str))
     (return-from org-list-get-line-info
