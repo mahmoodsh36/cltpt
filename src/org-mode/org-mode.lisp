@@ -162,7 +162,9 @@ to replace and new-rule is the rule to replace it with."
                              (getf (car val) :match)))))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
-(defmethod cltpt/base:text-object-convert ((obj org-prop-drawer) (backend cltpt/base:text-format))
+;; TODO: properly convert drawers. drawers can include any elements but headers.
+(defmethod cltpt/base:text-object-convert ((obj org-prop-drawer)
+                                           (backend cltpt/base:text-format))
   "")
 
 (defvar *org-keyword-rule*
@@ -283,7 +285,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-comment-rule*))
   (:documentation "comment line in org-mode."))
 
-(defmethod cltpt/base:text-object-convert ((obj org-comment) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-comment)
+                                           (backend cltpt/base:text-format))
   (list :remove-newlines-after t))
 
 (defvar *org-timestamp-rule*
@@ -321,9 +324,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defun org-timestamp-match-to-time (match)
   (let* ((day (parse-integer
-               (getf (car (cltpt/combinator:find-submatch match 'day)) :match)
+               (getf (car (cltpt/combinator:find-submatch match 'day))
+                     :match)
                :junk-allowed t))
-         (second-str (getf (car (cltpt/combinator:find-submatch match 'second)) :match))
+         (second-str (getf (car (cltpt/combinator:find-submatch match 'second))
+                           :match))
          (second (when second-str (parse-integer second-str :junk-allowed t)))
          (year (parse-integer
                 (getf (car (cltpt/combinator:find-submatch match 'year)) :match)
@@ -338,7 +343,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (getf (car (cltpt/combinator:find-submatch match 'minute)) :match)
                   :junk-allowed t))
          (weekday (car (cltpt/combinator:find-submatch match 'weekday))))
-    ;; **encode-timestamp** nsec sec minute hour day month year &key timezone offset into
     (local-time:encode-timestamp 0
                                  (or second 0)
                                  minute
@@ -611,6 +615,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              :tags nil
              :state-history nil)))))
 
+;; TODO: fix conversion to latex.
 (defmethod cltpt/base:text-object-convert ((obj org-header)
                                            (backend cltpt/base:text-format))
   (let ((to-not-export
@@ -1387,11 +1392,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           for val = (getf val-match :match)
           do (push (cons kw val) (text-object-property obj :keywords-alist)))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-src-block) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-src-block)
+                                           (backend cltpt/base:text-format))
   (convert-block obj backend "lstlisting" t))
 
 ;; copied from older code needs to be rewritten.
-(defmethod convert-babel-results ((obj org-src-block) (backend cltpt/base:text-format))
+(defmethod convert-babel-results ((obj org-src-block)
+                                  (backend cltpt/base:text-format))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (output-line-matches (cltpt/combinator:find-submatch-all match 'output-line))
          (output-text (cltpt/base:str-join
@@ -1494,7 +1501,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :desc nil
                :text-obj obj))))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-block) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-block)
+                                           (backend cltpt/base:text-format))
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
 
 ;; an "export block" is very similar to an src-block, just some slight differences.
@@ -1515,7 +1523,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-init :after ((obj org-export-block) str1 match)
   (init-org-src-block obj match))
 
-(defmethod cltpt/base:text-object-convert ((obj org-export-block) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-export-block)
+                                           (backend cltpt/base:text-format))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (lang-match (car (cltpt/combinator:find-submatch match 'lang)))
          (lang (getf lang-match :match)))

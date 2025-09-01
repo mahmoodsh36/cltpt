@@ -1,5 +1,7 @@
 (in-package :cltpt/org-mode)
 
+;; TODO: refactor and optimize this implementation, i frankly didnt put much thought into it.
+
 (defun whitespacep (char)
   "checks if a character is a standard whitespace character."
   (member char '(#\space #\tab #\newline #\return #\linefeed)))
@@ -136,8 +138,6 @@ returns a list of (start . end) cons pairs for each segment."
   (if (and (> pos 0) (char= (char str (1- pos)) #\newline))
     (1- pos)
     pos))
-
-***REMOVED***
 
 (defun to-html-table (parse-tree)
   "converts a table parse tree to an equivalent HTML table."
