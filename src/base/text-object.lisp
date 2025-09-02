@@ -175,6 +175,14 @@ object's region. you should just make it return a symbol like `end-type'."))
   ()
   (:documentation "top-level text element."))
 
+(defmethod document-title ((obj document))
+  "a generic function for grabbing the title of a document. defaults to properties."
+  (text-object-property obj :title))
+
+(defmethod document-date ((obj document))
+  "a generic function for grabbing the date of a document. defaults to properties."
+  (text-object-property obj :date))
+
 (defclass text-block (text-object)
   ()
   (:documentation "a text block."))
@@ -309,8 +317,10 @@ object's region. you should just make it return a symbol like `end-type'."))
     (if (typep eval-result 'text-object)
         (text-object-convert eval-result backend)
         (list :text (princ-to-string eval-result)
-              :escape t
-              :recurse nil))))
+              ;; :reparse makes post-lexer macros able to contain markup contents
+              ;; that gets handled during conversion.
+              ;; currently, the code for converting org-document exploits this.
+              :reparse t))))
 
 (defmethod text-object-convert ((obj post-lexer-text-macro) backend)
   (convert-post-lexer-macro-obj obj backend))
