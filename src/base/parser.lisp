@@ -35,10 +35,12 @@
                     (macro-eval-result))
                 (handler-case
                     (eval
-                     (read-from-string
-                      ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
-                      ;; skip first char (`*text-macro-char*')
-                      (subseq match-text 1)))
+                     ;; we always read macro strings in :cl-user package
+                     (let ((*package* (find-package :cl-user)))
+                       (read-from-string
+                        ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
+                        ;; skip first char (`*text-macro-char*')
+                        (subseq match-text 1))))
                   (error (c)
                     (when (getf cltpt:*debug* :parse)
                       (format t

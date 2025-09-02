@@ -40,11 +40,11 @@
 (defun test-org-convert ()
   (time
    (progn
-     (cltpt/base:convert-file
-      (cltpt/base:text-format-by-name "org-mode")
-      (cltpt/base:text-format-by-name "latex")
-      "test.org"
-      "test.out.tex")
+     ;; (cltpt/base:convert-file
+     ;;  (cltpt/base:text-format-by-name "org-mode")
+     ;;  (cltpt/base:text-format-by-name "latex")
+     ;;  "test3.org"
+     ;;  "test.out.tex")
      (cltpt/base:convert-file
       (cltpt/base:text-format-by-name "org-mode")
       (cltpt/base:text-format-by-name "html")

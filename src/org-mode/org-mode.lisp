@@ -1035,24 +1035,18 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
      (let* ((parsed-template
               ))
        (ensure-latex-previews-generated obj)
-       ;; (list :text (cltpt/base:text-object-text obj)
-       ;;       :reparse t
-       ;;       :recurse t
-       ;;       :escape t
-       ;;       ;; dont escape the commands in the preamble
-       ;;       )
        (list :text (cltpt/base:bind-and-eval
-                    `((cl-user::title "mytitle")
+                    `((cl-user::title ,(cltpt/base:document-title obj))
                       (cl-user::author "myauthor")
-                      (cl-user::date "mydate")
+                      (cl-user::date ,(cltpt/base:document-date obj))
                       (cl-user::contents ,(cltpt/base:text-object-text obj)))
                     (lambda ()
                       ;; need to use in-package to access the variables bound above
                       (cltpt/base:convert-tree
                        (cltpt/base:parse
-                        cltpt/html::*html-template*
-                        (list 'cltpt/base:post-lexer-text-macro
-                              'cltpt/base:text-macro))
+                        cltpt/html:*html-template*
+                        (list 'cltpt/base:text-macro
+                              'cltpt/base:post-lexer-text-macro))
                        (org-mode-text-object-types)
                        cltpt/html:*html*
                        :escape nil

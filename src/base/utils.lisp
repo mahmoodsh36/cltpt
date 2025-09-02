@@ -28,6 +28,7 @@
   (let ((*package* (find-package pkg)))
     (eval expr)))
 
+;; TODO: the non-star one doesnt work correctly, but im not using it anywhere anyway
 (defun bind-and-eval (bindings func &optional (pkg-to-eval-in :cl-user))
   "dynamically binds symbols from BINDINGS (a list of symbol,value pairs) and executes FUNC."
   (let ((keys (mapcar (lambda (x) (change-symbol-package x pkg-to-eval-in))
@@ -38,12 +39,13 @@
       (funcall func))))
 (defun bind-and-eval* (bindings func &optional (pkg-to-eval-in :cl-user))
   (if (null bindings)
-      (funcall func)
+      (let ((*package* (find-package pkg-to-eval-in)))
+        (funcall func))
     (destructuring-bind (sym val-expr) (car bindings)
       (progv
-          (list (intern sym pkg-to-eval-in))
-          (list (eval-in-package val-expr pkg-to-eval-in))
-        (bind-and-eval* (cdr bindings) func)))))
+          (list (change-symbol-package sym pkg-to-eval-in))
+          (list (eval val-expr))
+        (bind-and-eval* (cdr bindings) func pkg-to-eval-in)))))
 ;; example
 ;; (bind-and-eval '((x 1) (y (+ 1 2))) (lambda () (+ x y)))
 ;; (bind-and-eval* '((x 1) (y (+ x 2))) (lambda () (+ x y)))
