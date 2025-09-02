@@ -1,7 +1,7 @@
 (defpackage :cltpt/html
   (:use :cl :cltpt/base :cltpt/latex)
   (:export :*html* :*html-static-route* :*html-static-dir*
-           :*html-postamble* :*html-preamble* :init))
+           :*html-template* :init))
 
 (in-package :cltpt/html)
 
@@ -37,59 +37,21 @@ directory path.")
   nil
   "the static path to which the static files for html will be copied.")
 
-(defvar *html-postamble*
-  "</body>
-</html>"
-  "a template for html conversion.")
-
-(defvar *html-preamble*
+(defvar *html-template*
   "<!DOCTYPE html>
 <html>
 <head>
   <meta charset=\"UTF-8\">
   <title> %title </title>
 </head>
-  <body>"
+<body>
+  <div class='content'>
+    <h1> %title - %date </h1>
+    %contents
+  </div>
+</body>
+</html>"
   "a template for html conversion.")
-
-(defmethod cltpt/base:text-format-generate-preamble ((fmt text-format)
-                                                     (doc document))
-  (cltpt/base:bind-and-eval
-   `((title "mytitle")
-     (author "myauthor")
-     (date "mydate"))
-   (lambda ()
-     ;; need to use in-package to access the variables bound above
-     (let ((result
-             (cltpt/base:convert-tree
-              (cltpt/base:parse
-               *html-preamble*
-               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-              nil
-              *html*
-              :reparse nil
-              :recurse t
-              :escape nil)))
-       result))))
-
-(defmethod cltpt/base:text-format-generate-postamble ((fmt text-format) (doc document))
-  (cltpt/base:bind-and-eval
-   `((title "mytitle")
-     (author "myauthor")
-     (date "mydate"))
-   (lambda ()
-     ;; need to use in-package to access the variables bound above
-     (let ((result
-             (cltpt/base:convert-tree
-              (cltpt/base:parse
-               *html-postamble*
-               (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-              nil
-              *html*
-              :reparse nil
-              :recurse t
-              :escape nil)))
-       result))))
 
 (defvar *html-escape-table*
   '((#\newline . "<br>")

@@ -94,7 +94,8 @@ the '\\' and processes the char normally (replace or emit)."
                        (reparse nil reparse-supplied)
                        (recurse nil recurse-supplied)
                        (escape nil escape-supplied)
-                       (doc-type 'document))
+                       (doc-type 'document)
+                       post-conversion-func)
   (let* ((result (text-object-convert-helper text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (to-escape (if escape-supplied

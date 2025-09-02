@@ -16,7 +16,8 @@
 
    :convert-tree
 
-   :document
+   :*author*
+   :document :document-title :document-date
    :text-object
    :region-end :region-begin :region-length
    :text-object-convert :text-object-children
@@ -34,10 +35,13 @@
    :child-at-pos :region-contains
    :text-object-rule-from-subclass
    :text-format-name :text-format-from-alias :text-format-document-type
-   :text-format-generate-preamble :text-format-generate-postamble
    :text-object-clone :sort-text-objects :text-object-set-parent
    :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
 
    :region-text))
 
 (in-package :cltpt/base)
+
+(defvar *author*
+  nil
+  "author name used when generating a document.")

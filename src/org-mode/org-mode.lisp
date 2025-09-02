@@ -999,7 +999,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (push (cltpt/base:text-object-contents obj) mylist))))
     (cltpt/latex:generate-previews-for-latex mylist)))
 
-(defmethod cltpt/base:text-object-convert ((obj org-document) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-document)
+                                           (backend cltpt/base:text-format))
   (cltpt/base:pcase backend
     (cltpt/latex:*latex*
      (let* ((my-preamble
@@ -1031,38 +1032,37 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              ;; dont escape the commands in the preamble
              :escape-region inner-region)))
     (cltpt/html:*html*
-     (let* ((my-preamble
-              (concatenate
-               'string
-               (if *org-document-convert-with-boilerplate*
-                   (cltpt/base:text-format-generate-preamble
-                    cltpt/html:*html*
-                    obj)
-                   "")
-               "<div class='content'>"))
-            (my-postamble
-              (concatenate
-               'string
-               "</div>"
-               (if *org-document-convert-with-boilerplate*
-                   (cltpt/base:text-format-generate-postamble
-                    cltpt/html:*html*
-                    obj)
-                   "")))
-            (my-text (concatenate 'string
-                                  my-preamble
-                                  (cltpt/base:text-object-text obj)
-                                  my-postamble))
-            (inner-region (cltpt/base:make-region
-                           :begin (length my-preamble)
-                           :end (- (length my-text) (length my-postamble)))))
+     (let* ((parsed-template
+              ))
        (ensure-latex-previews-generated obj)
-       (list :text my-text
-             :reparse t
-             :recurse t
-             :reparse-region inner-region
-             :escape t
-             :escape-region inner-region)))))
+       ;; (list :text (cltpt/base:text-object-text obj)
+       ;;       :reparse t
+       ;;       :recurse t
+       ;;       :escape t
+       ;;       ;; dont escape the commands in the preamble
+       ;;       )
+       (list :text (cltpt/base:bind-and-eval
+                    `((cl-user::title "mytitle")
+                      (cl-user::author "myauthor")
+                      (cl-user::date "mydate")
+                      (cl-user::contents ,(cltpt/base:text-object-text obj)))
+                    (lambda ()
+                      ;; need to use in-package to access the variables bound above
+                      (cltpt/base:convert-tree
+                       (cltpt/base:parse
+                        cltpt/html::*html-template*
+                        (list 'cltpt/base:post-lexer-text-macro
+                              'cltpt/base:text-macro))
+                       (org-mode-text-object-types)
+                       cltpt/html:*html*
+                       :escape nil
+                       :recurse t
+                       :reparse nil
+                       :doc-type 'org-document)))
+             :escape nil
+             :reparse nil
+             :recurse nil
+             :doc-type 'org-document)))))
 
 (defclass org-emph (cltpt/base:text-object)
   ((cltpt/base::rule
