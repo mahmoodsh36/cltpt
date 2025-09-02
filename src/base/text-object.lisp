@@ -216,6 +216,8 @@ object's region. you should just make it return a symbol like `end-type'."))
          (inner-region (make-region :begin (length preamble)
                                     :end (- (length text) (length postamble)))))
     (list :text text
+          :reparse t
+          :escape t
           :reparse-region inner-region
           :escape-region inner-region)))
 
@@ -276,30 +278,33 @@ object's region. you should just make it return a symbol like `end-type'."))
 (defmethod cltpt/base:text-object-finalize ((obj post-lexer-text-macro))
   (eval-post-lexer-macro obj))
 
+(defvar *cache-post-lexer-macro-evals* nil)
 (defun eval-post-lexer-macro (obj)
-  ;; we cache results to avoid re-eval which could be slow
-  (let ((eval-result (text-object-property obj :eval-result)))
-    (if eval-result
-        eval-result
-        (let ((txt-to-eval (subseq (text-object-text obj) 1))
-              (macro-eval-result)
-              (*post-lexer-text-macro-dynamic-object* obj))
-          (handler-case
-              (eval-in-text-object-lexical-scope
-               obj
-               (lambda ()
-                 (eval
-                  (let ((*package* (find-package :cl-user)))
-                    (read-from-string txt-to-eval)))))
-            (error (c)
-              (when (getf cltpt:*debug* :parse)
-                (format t "error while evaluating post-lexer macro ~A: ~A.~%"
-                        txt-to-eval c))
-              (setf macro-eval-result 'broken))
-            (:no-error (result1)
-              (setf macro-eval-result result1)))
-          (setf (text-object-property obj :eval-result) macro-eval-result)
-          macro-eval-result))))
+  ;; TODO: we can cache results to avoid re-eval which is log(n). i tried this
+  ;; but it causes issues as the value sometimes seems to evaluate to 'broken during
+  ;; conversion even though it shouldnt be. i really need to investigate this.
+  ;; it probably has to do with objects being reparsed/recreated during conversion.
+  (when (and *cache-post-lexer-macro-evals* (text-object-property obj :eval-result))
+      (return-from eval-post-lexer-macro (text-object-property obj :eval-result)))
+  (let ((txt-to-eval (subseq (text-object-text obj) 1))
+        (macro-eval-result)
+        (*post-lexer-text-macro-dynamic-object* obj))
+    (handler-case
+        (eval-in-text-object-lexical-scope
+         obj
+         (lambda ()
+           (let ((*package* (find-package :cl-user)))
+             (eval
+              (read-from-string txt-to-eval)))))
+      (error (c)
+        (when (getf cltpt:*debug* :parse)
+          (format t "error while evaluating post-lexer macro ~A: ~A.~%"
+                  txt-to-eval c))
+        (setf macro-eval-result 'broken))
+      (:no-error (result1)
+        (setf macro-eval-result result1)))
+    (setf (text-object-property obj :eval-result) macro-eval-result)
+    macro-eval-result))
 
 (defun eval-in-text-object-lexical-scope (obj func)
   (let ((parent (text-object-parent obj))
