@@ -657,7 +657,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      (cltpt/base:text-object-property obj :title)
                      (cltpt/base:text-object-property obj :level)))
                   (begin-text (format nil "~A~%~A" title-text "<p>"))
-                  (inner-text (cltpt/base:text-object-contents obj))
+                  ;; TODO: we shouldnt be trimming here.
+                  (inner-text
+                    (string-trim (string #\newline)
+                                 (cltpt/base:text-object-contents obj)))
                   (end-text "</p>")
                   (final-text (concatenate 'string begin-text inner-text end-text))
                   (inner-region
@@ -810,7 +813,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-finalize ((obj org-inline-code))
   (compress-contents-region-by-one obj))
 
-(defmethod cltpt/base:text-object-convert ((obj org-inline-code) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj org-inline-code)
+                                           (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
      (let ((result (cltpt/base:wrap-contents-for-convert obj "\\verb{" "}")))
