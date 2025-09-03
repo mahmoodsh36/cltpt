@@ -7,11 +7,10 @@
 ;; on other modules, i will keep them here for now until i find a better way
 ;; to handle them.
 
-(defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-block)
-                                           backend)
-  ;; use string on type to ensure its not a symbol
-  (let ((type1 (string-downcase
-                (string (cltpt/base:text-object-property obj :type)))))
+(defun text-block-convert-helper (obj backend)
+  (let ((type1 (cltpt/base:text-object-property obj :type)))
+    (when type1
+      (setf type1 (string-downcase (string type1))))
     (cltpt/base:pcase backend
       (cltpt/latex:*latex*
        (cltpt/base:wrap-contents-for-convert
@@ -19,10 +18,54 @@
         (format nil "\\begin{~A}" type1)
         (format nil "\\end{~A}" type1)))
       (cltpt/html:*html*
-       (cltpt/base:wrap-contents-for-convert
-        obj
-        (format nil "<~A>" type1)
-        (format nil "</~A>" type1))))))
+       (if type1
+           (cltpt/base:wrap-contents-for-convert
+            obj
+            (format nil "<~A>" type1)
+            (format nil "</~A>" type1))
+           (list :text (cltpt/base:text-object-contents obj)
+                 :escape t
+                 :reparse t))))))
+
+(defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-block)
+                                           backend)
+  ;; use string on type to ensure its not a symbol
+  (let ((loop-expr (cltpt/base:text-object-property obj :loop))
+        ;; we set :not-to-loop in a recursive call, so that we dont loop
+        ;; indefinitely by checking if we have set it already or not.
+        (not-to-loop (cltpt/base:text-object-property obj :not-to-loop)))
+    (if (and loop-expr (not not-to-loop))
+        (let* ((var-name (car loop-expr))
+               (var-values (cadr loop-expr))
+               (result
+                 (loop for var-value in var-values
+                       for clone = (cltpt/base:text-object-clone obj)
+                       collect (progn
+                                 (setf (cltpt/base:text-object-property
+                                        clone
+                                        :not-to-loop)
+                                       t)
+                                 (setf (cltpt/base:text-object-property clone :let*)
+                                       (list*
+                                        (list var-name var-value)
+                                        (cltpt/base:text-object-property
+                                         clone
+                                         :let*)))
+                                 ;; for now this only supports macros,
+                                 ;; TODO: inherit all text objects from the source
+                                 ;; format.
+                                 ;; TODO: currently inheriting :loop variables
+                                 ;; doesnt work for some reason.
+                                 (cltpt/base:convert-tree
+                                  clone
+                                  (list 'cltpt/base:text-macro
+                                        'cltpt/base:post-lexer-text-macro)
+                                  backend)))))
+          (list :text (cltpt/base:concat result)
+                :recurse nil
+                :reparse nil
+                :escape nil))
+        (text-block-convert-helper obj backend))))
 
 (defun latex-fragment-to-html (latex-code is-inline)
   (case cltpt/html::*html-export-latex-method*

@@ -38,20 +38,22 @@
    (parse-org-file "test.org")))
 
 (defun test-org-convert ()
-  (time
-   (progn
-     ;; (cltpt/base:convert-file
-     ;;  (cltpt/base:text-format-by-name "org-mode")
-     ;;  (cltpt/base:text-format-by-name "latex")
-     ;;  "test3.org"
-     ;;  "test.out.tex")
-     (cltpt/base:convert-file
-      (cltpt/base:text-format-by-name "org-mode")
-      (cltpt/base:text-format-by-name "html")
-      ;; "/home/mahmooz/brain/notes/1684594232.org"
-      "test.org"
-      "test.out.html")
-     nil)))
+  (let ((cltpt/org-mode:*org-enable-macros* t))
+    (cltpt/zoo:init)
+    (time
+     (progn
+       ;; (cltpt/base:convert-file
+       ;;  (cltpt/base:text-format-by-name "org-mode")
+       ;;  (cltpt/base:text-format-by-name "latex")
+       ;;  "test3.org"
+       ;;  "test.out.tex")
+       (cltpt/base:convert-file
+        (cltpt/base:text-format-by-name "org-mode")
+        (cltpt/base:text-format-by-name "html")
+        ;; "/home/mahmooz/brain/notes/1684594232.org"
+        "test.org"
+        "test.out.html")
+       nil))))
 
 (defun test-org-convert-1 ()
   (time
