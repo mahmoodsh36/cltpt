@@ -24,7 +24,7 @@
             (format nil "<~A>" type1)
             (format nil "</~A>" type1))
            (list :text (cltpt/base:text-object-contents obj)
-                 :escape t
+                 :escape nil
                  :reparse t))))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-block)
