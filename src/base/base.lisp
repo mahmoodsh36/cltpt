@@ -15,6 +15,7 @@
    :alist-get :subseq* :sorted-insert :last-atom
 
    :convert-tree
+   :*convert-escape-newlines*
 
    :*author*
    :document :document-title :document-date
