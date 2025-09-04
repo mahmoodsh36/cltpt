@@ -165,7 +165,8 @@ to replace and new-rule is the rule to replace it with."
 ;; TODO: properly convert drawers. drawers can include any elements but headers.
 (defmethod cltpt/base:text-object-convert ((obj org-prop-drawer)
                                            (backend cltpt/base:text-format))
-  "")
+  (list :text ""
+        :remove-newlines-after t))
 
 (defvar *org-keyword-rule*
   `(:pattern
@@ -268,8 +269,20 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                 (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
                        (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
                   (let ((*org-document-convert-with-boilerplate*))
-                    (cltpt/base:text-object-convert dest-text-obj backend)))))))
-        (list :remove-newlines-after t))))
+                    (let ((result (cltpt/base:convert-tree
+                                   dest-text-obj
+                                   (org-mode-text-object-types)
+                                   backend
+                                   :reparse nil
+                                   :recurse t
+                                   :escape nil
+                                   :doc-type 'org-document)))
+                      (list :text result
+                            :reparse nil
+                            :recurse nil
+                            :escape nil))))))))
+        (list :text ""
+              :remove-newlines-after t))))
 
 (defvar *org-comment-rule*
   '(:pattern
@@ -1036,31 +1049,35 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              ;; dont escape the commands in the preamble
              :escape-region inner-region)))
     (cltpt/html:*html*
-     (let* ((parsed-template
-              ))
-       (ensure-latex-previews-generated obj)
-       (list :text (cltpt/base:bind-and-eval
-                    `((cl-user::title ,(cltpt/base:document-title obj))
-                      (cl-user::author "myauthor")
-                      (cl-user::date ,(cltpt/base:document-date obj))
-                      (cl-user::contents ,(cltpt/base:text-object-text obj)))
-                    (lambda ()
-                      ;; need to use in-package to access the variables bound above
-                      (cltpt/base:convert-tree
-                       (cltpt/base:parse
-                        cltpt/html:*html-template*
-                        (list 'cltpt/base:text-macro
-                              'cltpt/base:post-lexer-text-macro))
-                       (org-mode-text-object-types)
-                       cltpt/html:*html*
-                       :escape nil
-                       :recurse t
-                       :reparse nil
-                       :doc-type 'org-document)))
-             :escape nil
-             :reparse nil
-             :recurse nil
-             :doc-type 'org-document)))))
+     (ensure-latex-previews-generated obj)
+     (if *org-document-convert-with-boilerplate*
+         (list :text
+               (cltpt/base:bind-and-eval
+                `((cl-user::title ,(cltpt/base:document-title obj))
+                  (cl-user::author "myauthor")
+                  (cl-user::date ,(cltpt/base:document-date obj))
+                  (cl-user::contents ,(cltpt/base:text-object-text obj)))
+                (lambda ()
+                  ;; need to use in-package to access the variables bound above
+                  (cltpt/base:convert-tree
+                   (cltpt/base:parse
+                    cltpt/html:*html-template*
+                    (list 'cltpt/base:text-macro
+                          'cltpt/base:post-lexer-text-macro))
+                   (org-mode-text-object-types)
+                   cltpt/html:*html*
+                   :escape nil
+                   :recurse t
+                   :reparse nil
+                   :doc-type 'org-document)))
+               :escape nil
+               :reparse nil
+               :recurse nil
+               :doc-type 'org-document)
+         (list :text (cltpt/base:text-object-text obj)
+               :escape t
+               :reparse t
+               :recurse t)))))
 
 (defclass org-emph (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -1266,14 +1283,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (cltpt/combinator:any
      ;; block with keywords and execution results
      (cltpt/combinator:consec
-      ,*org-keyword-rule*
+      ,(copy-rule-with-id *org-keyword-rule* 'org-keyword)
       ,*org-src-block-no-kw-rule*
       (cltpt/combinator:literal ,(string #\newline))
       (cltpt/combinator:literal ,(string #\newline))
       ,*org-babel-results-rule*)
      ;; block with keywords but no execution results
      (cltpt/combinator:consec
-      ,*org-keyword-rule*
+      ,(copy-rule-with-id *org-keyword-rule* 'org-keyword)
       ,*org-src-block-no-kw-rule*)
      ;; block with results but no keywords
      (cltpt/combinator:consec
@@ -1529,7 +1546,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   `(:pattern
     (cltpt/combinator:any
      (cltpt/combinator:consec
-      ,*org-keyword-rule*
+      ,(copy-rule-with-id *org-keyword-rule* 'org-keyword)
       ,*org-block-no-kw-rule*)
      ,*org-block-no-kw-rule*)
     :on-char #\#))
