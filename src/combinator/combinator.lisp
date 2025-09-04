@@ -113,6 +113,7 @@
   "helper for `symbol-matcher'."
   (when (or (eng-alphanump ctx str pos)
             (char= (char str pos) #\-)
+            (char= (char str pos) #\+)
             (char= (char str pos) #\_)
             (char= (char str pos) #\*)
             (char= (char str pos) #\$))
