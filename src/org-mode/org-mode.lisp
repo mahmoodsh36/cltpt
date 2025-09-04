@@ -1413,6 +1413,19 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    ;; set text to be code+results
                    (let ((results-open-tag "<div class='org-babel-results'>")
                          (results-close-tag "</div>"))
+                     ;; since we are restricting the inner region to contents we wont
+                     ;; be able to escape the region where the code is. this is
+                     ;; because currently convert-tree doesnt handle multiple
+                     ;; regions returned by a single convert function.
+                     ;; so we just escape it ourselves here before proceeding.
+                     ;; TODO: this doesnt work correctly in some cases because
+                     ;; it doesnt take into account "escapables".
+                     (setf contents
+                           (cltpt/base:text-format-escape
+                            backend
+                            contents
+                            nil
+                            cltpt/base:*convert-escape-newlines*))
                      (setf text
                            (concatenate 'string
                                         open-tag
@@ -1438,6 +1451,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                       open-tag
                                       contents
                                       close-tag))
+                   (setf inner-region
+                         (cltpt/base:make-region
+                          :begin (length open-tag)
+                          :end (- (length text) (length close-tag))))
                    (setf is-raw t)))
              ;; if its not code, we surround the block's contents with tags
              ;; and convert them.
@@ -1454,7 +1471,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (list :text text
                :recurse (not is-raw)
                :reparse (not is-raw)
-               :escape (not is-raw)
+               :escape t
                :reparse-region inner-region
                :escape-region inner-region
                :remove-newlines-after t))))))
