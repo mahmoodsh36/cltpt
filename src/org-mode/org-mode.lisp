@@ -749,7 +749,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                              (cltpt/file-utils:change-dir
                                               new-path
                                               cltpt/html:*html-static-route*)
-                                             (cltpt/file-utils:file-basename dest)))
+                                             dest))
                            :escape nil)))
                  (within-tags
                   (if cltpt/html:*html-static-route*
@@ -1190,44 +1190,48 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 ;; TODO: make org-src-block contain #+results too
 (defvar *org-babel-results-rule*
-  `(cltpt/combinator:consec
-    (cltpt/combinator:any
-     (cltpt/combinator:literal-casein "#+results:")
-     (cltpt/combinator:consec
-      (cltpt/combinator:literal-casein "#+results[")
-      (cltpt/combinator:symbol-matcher)
-      (cltpt/combinator:literal "]:")))
-    (cltpt/combinator:any
-     #| detect syntax like
-     #+RESULTS[c419e84a898b0cdd18b49e14c750b71743921b86]:
-     : (5 1 7 4)
-     : more text
-     : more text
-     |#
-     (cltpt/combinator:atleast-one
+  `(:pattern
+    (cltpt/combinator:consec
+     (cltpt/combinator:any
+      (cltpt/combinator:literal-casein "#+results:")
       (cltpt/combinator:consec
-       (cltpt/combinator:literal ,(string #\newline))
-       (:pattern
-        (cltpt/combinator:any
-         (cltpt/combinator:consec
-          (cltpt/combinator:literal ": ")
-          (cltpt/combinator:all-but-newline))
-         (cltpt/combinator:literal ": "))
-        :id output-line)))
-     #| detect syntax like
-     #+RESULTS[ca08ab2a6a58662675694033105ab0b331611fa2]:
-     [[file:/tmp/jyBtMrE.svg]]
-
-     the possible elements could be org-link, org-table, org-block
-     |#
-     (cltpt/combinator:consec
-      (cltpt/combinator:literal ,(string #\newline))
+       (cltpt/combinator:literal-casein "#+results[")
+       (cltpt/combinator:symbol-matcher)
+       (cltpt/combinator:literal "]:")))
+     (:pattern
       (cltpt/combinator:any
-       ,(copy-rule-with-id *org-list-rule* 'org-list)
-       org-table
-       org-block
-       org-drawer
-       ,(copy-rule-with-id *org-link-rule* 'org-link))))))
+       #| detect syntax like
+       #+RESULTS[c419e84a898b0cdd18b49e14c750b71743921b86]:
+       : (5 1 7 4)
+       : more text
+       : more text
+       |#
+       (cltpt/combinator:atleast-one
+        (cltpt/combinator:consec
+         (cltpt/combinator:literal ,(string #\newline))
+         (:pattern
+          (cltpt/combinator:any
+           (cltpt/combinator:consec
+            (cltpt/combinator:literal ": ")
+            (cltpt/combinator:all-but-newline))
+           (cltpt/combinator:literal ": "))
+          :id output-line)))
+       #| detect syntax like
+       #+RESULTS[ca08ab2a6a58662675694033105ab0b331611fa2]:
+       [[file:/tmp/jyBtMrE.svg]]
+
+       the possible elements could be org-link, org-table, org-block
+       |#
+       (cltpt/combinator:consec
+        (cltpt/combinator:literal ,(string #\newline))
+        (cltpt/combinator:any
+         ,(copy-rule-with-id *org-list-rule* 'org-list)
+         org-table
+         org-block
+         org-drawer
+         ,(copy-rule-with-id *org-link-rule* 'org-link))))
+      :id results-content))
+    :id results))
 (defvar *org-src-block-no-kw-rule*
   `(cltpt/combinator:pair
     (cltpt/combinator:unescaped
@@ -1306,11 +1310,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 ;; should take an instance of `org-src-block' or `org-block', but that isnt ensured
 (defmethod convert-block ((obj text-object) backend block-type is-code)
-  (let ((exports-keyword
-          (cdr (assoc "exports"
-                      (text-object-property obj :keywords-alist)
-                      :test 'equal)))
-        (contents (cltpt/base:text-object-contents obj)))
+  (let* ((exports-keyword (org-block-keyword-value obj "exports"))
+         (contents (cltpt/base:text-object-contents obj))
+         (export-code (or (string= exports-keyword "code")
+                          (string= exports-keyword "both")))
+         (export-results (or (string= exports-keyword "results")
+                             (string= exports-keyword "both"))))
     ;; when the contents start with the newline that is after the #+begin_block
     ;; it causes a weird newline when cltpt/base:*convert-escape-newlines* is `t'
     ;; so remove it.
@@ -1362,17 +1367,94 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               (close-tag (if is-code
                              "</code></pre>"
                              "</div>"))
-              (text (concatenate 'string
-                                 open-tag
-                                 contents
-                                 close-tag))
-              (inner-region (cltpt/base:make-region
-                             :begin (length open-tag)
-                             :end (- (length text) (length close-tag)))))
+              (text)
+              (inner-region)
+              ;; if its code, we might wanna just output it "raw". but that is
+              ;; not true if we need to convert results (which may contain org elements).
+              (is-raw is-code))
+         (if is-code
+             ;; if we wanna export results, we will have to set reparse-region
+             ;; accordingly so that the children in the results are handled correctly.
+             (if export-results
+                 (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+                        (results-match
+                          (cltpt/combinator:find-submatch
+                           match
+                           'results))
+                        ;; lines starting with ": "
+                        (match-raw-lines
+                          (cltpt/combinator:find-submatch-all
+                           results-match
+                           'output-line))
+                        (results-content-match
+                          (cltpt/combinator:find-submatch
+                           results-match
+                           'results-content))
+                        (results-text))
+                   (cond
+                     ;; if its the raw lines (": ") we need to convert, just subseq
+                     ;; them accordingly to get rid of the colon and space.
+                     (match-raw-lines
+                      (setf results-text
+                            (cltpt/base:str-join
+                             (mapcar
+                              (lambda (raw-line-match)
+                                (subseq (getf (car raw-line-match) :match) 2))
+                              match-raw-lines)
+                             (string #\newline)))
+                      (setf is-raw t))
+                     ;; in the other case, its just a collection of org elements
+                     ;; so we just need to convert them all in the given text region
+                     ;; of the "results".
+                     (t
+                      (setf results-text
+                            (getf (car results-content-match) :match))
+                      (setf is-raw nil)))
+                   ;; set text to be code+results
+                   (let ((results-open-tag "<div class='org-babel-results'>")
+                         (results-close-tag "</div>"))
+                     (setf text
+                           (concatenate 'string
+                                        open-tag
+                                        contents
+                                        results-open-tag
+                                        results-text
+                                        results-close-tag
+                                        close-tag))
+                     ;; we need to adjust inner-region to point to the contents
+                     ;; of the results region.
+                     (setf inner-region
+                           (cltpt/base:make-region
+                            :begin (+ (length open-tag)
+                                      (length contents)
+                                      (length results-open-tag))
+                            :end (- (length text) (+ (length close-tag)
+                                                     (length results-close-tag)))))))
+                 (progn
+                   ;; if we dont export results and export code, theres not much to do.
+                   ;; just convert it as raw code.
+                   (setf text
+                         (concatenate 'string
+                                      open-tag
+                                      contents
+                                      close-tag))
+                   (setf is-raw t)))
+             ;; if its not code, we surround the block's contents with tags
+             ;; and convert them.
+             (progn
+               (setf text
+                     (concatenate 'string
+                                  open-tag
+                                  contents
+                                  close-tag))
+               (setf inner-region
+                     (cltpt/base:make-region
+                      :begin (length open-tag)
+                      :end (- (length text) (length close-tag))))))
          (list :text text
-               :recurse (not is-code)
-               :reparse (not is-code)
-               :escape (not is-code)
+               :recurse (not is-raw)
+               :reparse (not is-raw)
+               :escape (not is-raw)
                :reparse-region inner-region
                :escape-region inner-region
                :remove-newlines-after t))))))
@@ -1393,31 +1475,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-convert ((obj org-src-block)
                                            (backend cltpt/base:text-format))
   (convert-block obj backend "lstlisting" t))
-
-;; copied from older code needs to be rewritten.
-(defmethod convert-babel-results ((obj org-src-block)
-                                  (backend cltpt/base:text-format))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-         (output-line-matches (cltpt/combinator:find-submatch-all match 'output-line))
-         (output-text (cltpt/base:str-join
-                       (mapcar
-                        (lambda (output-line-match)
-                          (subseq (getf (car output-line-match) :match) 2))
-                        output-line-matches)
-                       (string #\newline))))
-    (cond
-      ((eq backend cltpt/latex:*latex*)
-       (list :text output-text
-             :recurse nil
-             :reparse nil
-             :escape nil))
-      ((eq backend cltpt/html:*html*)
-       (concatenate
-        'list
-        (list :remove-newlines-after t)
-        (within-tags "<code class='org-babel-results'><pre>"
-                     output-text
-                     "</code></pre>"))))))
 
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair
@@ -1465,7 +1522,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-block-rule*))
   (:documentation "org-mode block."))
 
-(defmethod org-block-keyword-value ((obj org-block) kw)
+(defmethod org-block-keyword-value ((obj text-object) kw)
   "return the value associated with a keyword of an `org-block'."
   (cdr (assoc kw
               (text-object-property obj :keywords-alist)
