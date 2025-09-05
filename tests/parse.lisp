@@ -110,6 +110,7 @@
    b. nested item two
 - item three"))
     (cltpt/org-mode::org-list-matcher
+     nil
      text
      0
      '((:pattern (cltpt/combinator::pair
@@ -775,6 +776,14 @@ some math here
      ;; '((:path ("/home/mahmooz/brain/notes/")
      ;;    :regex "16564.*\\.org"
      ;;    :format "org-mode")))))
+     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
+
+(defun roam-convert-test-2 ()
+  (time
+   (let* ((rmr (cltpt/roam:from-files
+                '((:path ("/home/mahmooz/brain/notes/1710536040.org")
+                   :regex ".*\\.org"
+                   :format "org-mode")))))
      (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
 
 (defun org-block-test-1 ()
