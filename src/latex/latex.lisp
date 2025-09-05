@@ -79,6 +79,10 @@
     :allocation :class
     :initform *inline-math-rule*)))
 
+(defmethod cltpt/base:text-object-init :after ((obj inline-math) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline)
+        t))
+
 (defmethod cltpt/base:text-object-convert ((obj inline-math) (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
         :recurse t
