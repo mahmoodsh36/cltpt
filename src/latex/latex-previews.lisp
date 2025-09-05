@@ -37,7 +37,8 @@
      :page-number-starts-at 1
      :latex-compiler "%l -interaction=nonstopmode -output-directory %o %f"
      ;; here we use "-%9p.svg" so dvisvgm substitutes a 9-digit, zero-padded page number.
-     :image-converter "dvisvgm --page=1- --no-fonts --bbox=preview --optimize -o %B-%9p.svg %f")
+     ;; i personally dont like --bbox=preview because it "hard codes" the width
+     :image-converter "dvisvgm --page=1- --no-fonts --relative --clipjoin --optimize -o %B-%9p.svg %f")
     (:dvipng
      :description "dvi > png"
      :image-input-type "dvi"
