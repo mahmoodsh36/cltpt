@@ -1359,6 +1359,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                           (string= exports-keyword "both")))
          (export-results (or (string= exports-keyword "results")
                              (string= exports-keyword "both"))))
+    ;; export "both" by default, if :exports wasnt provided.
+    ;; TODO: this shouldnt be the default behavior. we should have it customizable.
+    (when (and is-code (not exports-keyword))
+      (setf export-code t)
+      (setf export-results t))
     ;; when the contents start with the newline that is after the #+begin_block
     ;; it causes a weird newline when cltpt/base:*convert-escape-newlines* is `t'
     ;; so remove it.
