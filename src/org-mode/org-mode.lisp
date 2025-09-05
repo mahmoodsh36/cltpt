@@ -764,6 +764,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                               cltpt/html:*html-static-route*)
                                              dest))
                            :escape nil)))
+                 ;; TODO: we should be handling contents in the link description,
+                 ;; as it may contain org elements itself. but this is currently
+                 ;; somewhat problematic because link descriptions such as "1.mylink"
+                 ;; are detected as a list and reparsed/converted as such.
                  (within-tags
                   (if cltpt/html:*html-static-route*
                       (format nil
@@ -773,7 +777,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                cltpt/html:*html-static-route*))
                       (format nil "<a href='~A'>" dest))
                   final-desc
-                  "</a>"))))))))
+                  "</a>"
+                  :reparse nil))))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
   (let ((link-type-match (car (cltpt/combinator:find-submatch match 'link-type)))
@@ -1167,17 +1172,22 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
      (cltpt/base:wrap-contents-for-convert obj "<i>" "</i>"))))
 
 ;; wrap text for exporting within specific "tags".
-(defun within-tags (open-tag inner-text close-tag)
+;; TODO: this is similar to `cltpt/base:wrap-contents-for-content'. perhaps DRY.
+(defun within-tags (open-tag inner-text close-tag
+                    &key (reparse t) (escape t))
   (let* ((text (concatenate 'string
                             open-tag
                             inner-text
-                            close-tag)))
+                            close-tag))
+         (inner-region (cltpt/base:make-region
+                        :begin (length open-tag)
+                        :end (- (length text) (length close-tag)))))
     (list :text text
           :recurse t
-          :reparse-region (cltpt/base:make-region
-                           :begin (length open-tag)
-                           :end (- (length text) (length close-tag)))
-          :reparse t)))
+          :reparse-region inner-region
+          :escape-region inner-region
+          :reparse reparse
+          :escape escape)))
 
 ;; we dont want a keyword to be matched as a value, e.g. ":keyword1 :keyword2".
 ;; so we discard any match starting with ":".
