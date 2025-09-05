@@ -165,8 +165,7 @@ to replace and new-rule is the rule to replace it with."
 ;; TODO: properly convert drawers. drawers can include any elements but headers.
 (defmethod cltpt/base:text-object-convert ((obj org-prop-drawer)
                                            (backend cltpt/base:text-format))
-  (list :text ""
-        :remove-newlines-after t))
+  "")
 
 (defvar *org-keyword-rule*
   `(:pattern
@@ -245,44 +244,46 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-convert ((obj org-keyword)
                                            (backend cltpt/base:text-format))
   (let* ((kw (cltpt/base:text-object-property obj :keyword))
-         (value (cltpt/base:text-object-property obj :value)))
+         (value (cltpt/base:text-object-property obj :value))
+         (final-result))
     ;; handle transclusions
-    (if (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
-        (let* ((org-link-parse-result (cltpt/base:parse value '(org-link)))
-               (first-child (car (cltpt/base:text-object-children
-                                  org-link-parse-result))))
-          (when (typep first-child 'org-link)
-            (let* ((dest (cltpt/base:text-object-property first-child :dest))
-                   (type (cltpt/base:text-object-property first-child :type))
-                   (rmr (getf cltpt/roam:*roam-convert-data* :roamer))
-                   (roam-link (cltpt/roam:resolve-link
-                               rmr
-                               (getf cltpt/roam:*roam-convert-data* :node)
-                               obj
-                               ;; if link doesnt have a type, treat it as an 'id' link
-                               (if type
-                                   (intern type :cltpt/roam)
-                                   'cltpt/roam::file)
-                               dest)))
-              ;; just convert the linked node's object and return that
-              (when roam-link
-                (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
-                       (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
-                  (let ((*org-document-convert-with-boilerplate*))
-                    (let ((result (cltpt/base:convert-tree
-                                   dest-text-obj
-                                   (org-mode-text-object-types)
-                                   backend
-                                   :reparse nil
-                                   :recurse t
-                                   :escape nil
-                                   :doc-type 'org-document)))
-                      (list :text result
-                            :reparse nil
-                            :recurse nil
-                            :escape nil))))))))
+    (when (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
+      (let* ((org-link-parse-result (cltpt/base:parse value '(org-link)))
+             (first-child (car (cltpt/base:text-object-children
+                                org-link-parse-result))))
+        (when (typep first-child 'org-link)
+          (let* ((dest (cltpt/base:text-object-property first-child :dest))
+                 (type (cltpt/base:text-object-property first-child :type))
+                 (rmr (getf cltpt/roam:*roam-convert-data* :roamer))
+                 (roam-link (cltpt/roam:resolve-link
+                             rmr
+                             (getf cltpt/roam:*roam-convert-data* :node)
+                             obj
+                             ;; if link doesnt have a type, treat it as an 'id' link
+                             (if type
+                                 (intern type :cltpt/roam)
+                                 'cltpt/roam::file)
+                             dest)))
+            ;; just convert the linked node's object and return that
+            (when roam-link
+              (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
+                     (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
+                (let ((*org-document-convert-with-boilerplate*))
+                  (let ((result (cltpt/base:convert-tree
+                                 dest-text-obj
+                                 (org-mode-text-object-types)
+                                 backend
+                                 :doc-type 'org-document)))
+                    ;; TODO: for some reason redundant newlines in transcluded
+                    ;; documents dont get trimmed.
+                    (setf final-result
+                          (list :text result
+                                :reparse nil
+                                :recurse nil
+                                :escape nil))))))))))
+    (or final-result
         (list :text ""
-              :remove-newlines-after t))))
+              :reparse t))))
 
 (defvar *org-comment-rule*
   '(:pattern
@@ -300,7 +301,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-convert ((obj org-comment)
                                            (backend cltpt/base:text-format))
-  (list :remove-newlines-after t))
+  "")
 
 (defvar *org-timestamp-rule*
   '(:pattern
@@ -685,8 +686,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    :escape-region inner-region
                    :reparse t
                    :reparse-region inner-region
-                   :recurse t
-                   :remove-newlines-after t)))))))
+                   :recurse t)))))))
 
 (defvar *org-link-rule*
   '(:pattern
@@ -784,7 +784,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (setf (cltpt/base:text-object-property obj :dest)
           (getf link-dest-match :match))
     (setf (cltpt/base:text-object-property obj :type)
-          (getf link-type-match :match))))
+          (getf link-type-match :match))
+    (setf (cltpt/base:text-object-property obj :is-inline)
+          t)))
 
 ;; we're not being clever about it
 (defvar *web-link-rule*
@@ -798,6 +800,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :allocation :class
     :initform *web-link-rule*))
   (:documentation "a web link."))
+
+(defmethod cltpt/base:text-object-init :after ((obj web-link) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline)
+        t))
 
 (defmethod cltpt/base:text-object-convert ((obj web-link) (backend cltpt/base:text-format))
   (cond
@@ -822,6 +828,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :allocation :class
     :initform *org-inline-code-rule*))
   (:documentation "org-mode inline code (surrounded by tildes)."))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-inline-code) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline)
+        t))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-inline-code))
   (compress-contents-region-by-one obj))
@@ -1093,6 +1103,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                 :on-char #\*)))
   (:documentation "org-mode emphasized text (surrounded by asterisks)."))
 
+(defmethod cltpt/base:text-object-init :after ((obj org-emph) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline)
+        t))
+
 (defun compress-contents-region-by-one (obj)
   (setf (cltpt/base:text-object-property obj :contents-region)
         (cltpt/base:make-region
@@ -1127,6 +1141,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :allocation :class
     :initform *org-italic-rule*))
   (:documentation "org-mode italicized text (surrounded by forward slahes)."))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-italic) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline)
+        t))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-italic))
   (compress-contents-region-by-one obj))
@@ -1490,8 +1508,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :reparse (not is-raw)
                :escape t
                :reparse-region inner-region
-               :escape-region inner-region
-               :remove-newlines-after t))))))
+               :escape-region inner-region))))))
 
 (defmethod handle-block-keywords ((obj text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))

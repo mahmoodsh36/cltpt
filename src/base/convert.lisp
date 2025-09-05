@@ -94,8 +94,7 @@ the '\\' and processes the char normally (replace or emit)."
                        (reparse nil reparse-supplied)
                        (recurse nil recurse-supplied)
                        (escape nil escape-supplied)
-                       (doc-type 'document)
-                       post-conversion-func)
+                       (doc-type 'document))
   (let* ((result (text-object-convert-helper text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (to-escape (if escape-supplied
@@ -118,9 +117,6 @@ the '\\' and processes the char normally (replace or emit)."
                          recurse
                          (or (unless result-is-string (getf result :recurse))
                              to-reparse)))
-         (to-remove-newlines-after
-           (and (consp result)
-                (getf result :reparse-region)))
          (escapables (collect-escapables text-object-types)))
     (when (getf cltpt:*debug* :convert)
       (format t "converting object ~A~%" text-obj))
@@ -159,6 +155,11 @@ the '\\' and processes the char normally (replace or emit)."
                                                       text-object-types
                                                       fmt-dest
                                                       :doc-type doc-type))
+                          (child-options (text-object-convert-options
+                                          child
+                                          fmt-dest))
+                          (to-remove-newline-after
+                            (getf child-options :remove-newline-after))
                           (text-in-between-begin idx)
                           (text-in-between-end (+ child-offset (text-object-begin child)))
                           ;; text up to next child.
@@ -190,10 +191,10 @@ the '\\' and processes the char normally (replace or emit)."
                      (push child-result final-result-fragments)
                      (setf idx (+ child-offset (text-object-end child)))
                      ;; if requested, ignore all newlines after the object (if any)
-                     (when to-remove-newlines-after
-                       (loop while (and (< idx (length convert-text))
-                                        (equal (char convert-text idx) #\newline))
-                             do (incf idx)))))
+                     (when to-remove-newline-after
+                       (when (and (< idx (length convert-text))
+                                  (equal (char convert-text idx) #\newline))
+                             (incf idx)))))
           ;; we need to handle region-to-reparse properly on the remaining text after
           ;; the region of the last child
           (let ((final-text-in-between

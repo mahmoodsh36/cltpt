@@ -90,15 +90,18 @@ object's region. you should just make it return a symbol like `end-type'."))
 (defmethod (setf text-object-property) (value (obj text-object) property &optional default)
   (setf (getf (text-object-properties obj) property) value))
 
-;; returns a plist or a string, if string, converted with recursion and no "reparsing".
-;; if plist, plist can contain
-;; the keyword
-;; :text the text to convert,
-;; :reparse - whether to reparse the given :text, or if :text isnt provided the result of text-object-text, the default behavior is to recurse,
-;; :reparse-region - the region of the text that is given that is reparsed, if at all,
-;; :recurse - whether to convert children as well.
 (defgeneric text-object-convert (text-obj backend)
-  (:documentation ""))
+  (:documentation "returns a plist or a string, if string, converted with recursion and no \"reparsing\".
+if plist, plist can contain the keywords:
+  :text    - the text to convert,
+  :reparse - whether to reparse the given :text, or if :text isnt provided the result of text-object-text, the default behavior is to recurse,
+  :reparse-region - the region of the text that is given that is reparsed, if at all,
+  :recurse - whether to convert children as well."))
+
+(defgeneric text-object-convert-options (text-obj backend)
+  (:documentation "a set of options are available by the conversion function.
+the options are:
+- :remove-newline-after: whether to trim a new line that comes after the object during conversion."))
 
 (defmethod text-object-convert ((obj text-object) backend)
   "default convert function."
@@ -107,6 +110,10 @@ object's region. you should just make it return a symbol like `end-type'."))
       (list :text (text-object-text obj)
             :recurse t
             :escape t)))
+
+(defmethod text-object-convert-options ((obj text-object) backend)
+  "default convert options function."
+  (list :remove-newline-after (not (text-object-property obj :is-inline))))
 
 ;; default init function will just set the text slot of the object
 ;; we are currently using `subseq' to extract the region from the text and store
