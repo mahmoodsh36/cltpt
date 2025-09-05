@@ -840,11 +840,19 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                            (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
-     (let ((result (cltpt/base:wrap-contents-for-convert obj "\\verb{" "}")))
-       (setf (getf result :reparse-region) nil)
-       result))
+     (cltpt/base:wrap-contents-for-convert
+      obj
+      "\\verb{"
+      "}"
+      :escape t
+      :reparse nil))
     ((eq backend cltpt/html:*html*)
-     (cltpt/base:wrap-contents-for-convert obj "<code>" "</code>"))))
+     (cltpt/base:wrap-contents-for-convert
+      obj
+      "<code>"
+      "</code>"
+      :escape t
+      :reparse nil))))
 
 (defclass org-table (cltpt/base:text-object)
   ((cltpt/base::rule
