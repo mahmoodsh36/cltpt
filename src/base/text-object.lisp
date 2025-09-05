@@ -215,7 +215,8 @@ the options are:
   (and (symbolp value) (string= value 'block-end)))
 
 ;; a utility function to reduce boilerplate for `text-object-convert' implementations
-(defun wrap-contents-for-convert (text-obj preamble postamble)
+(defun wrap-contents-for-convert (text-obj preamble postamble
+                                 &key (reparse t) (escape t))
   (let* ((text (concatenate 'string
                             preamble
                             (text-object-contents text-obj)
@@ -223,8 +224,8 @@ the options are:
          (inner-region (make-region :begin (length preamble)
                                     :end (- (length text) (length postamble)))))
     (list :text text
-          :reparse t
-          :escape t
+          :reparse reparse
+          :escape escape
           :reparse-region inner-region
           :escape-region inner-region)))
 
