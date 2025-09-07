@@ -1074,25 +1074,22 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (cltpt/html:*html*
      (ensure-latex-previews-generated obj)
      (if *org-document-convert-with-boilerplate*
-         (list :text
-               (cltpt/base:bind-and-eval
-                `((cl-user::title ,(cltpt/base:document-title obj))
-                  (cl-user::author "myauthor")
-                  (cl-user::date ,(cltpt/base:document-date obj))
-                  (cl-user::contents ,(cltpt/base:text-object-text obj)))
-                (lambda ()
-                  ;; need to use in-package to access the variables bound above
-                  (cltpt/base:convert-tree
-                   (cltpt/base:parse
-                    cltpt/html:*html-template*
-                    (list 'cltpt/base:text-macro
-                          'cltpt/base:post-lexer-text-macro))
-                   (org-mode-text-object-types)
-                   cltpt/html:*html*
-                   :escape nil
-                   :recurse t
-                   :reparse nil
-                   :doc-type 'org-document)))
+         (list :text (let ((cltpt/base:*convert-info*
+                             (merge-plist cltpt/base:*convert-info*
+                                          (list :text-obj obj))))
+                       ;; here we've bound :text-obj in *convert-info* so that
+                       ;; we can access it from within the html template.
+                       (cltpt/base:convert-tree
+                        (cltpt/base:parse
+                         cltpt/html:*html-template*
+                         (list 'cltpt/base:text-macro
+                               'cltpt/base:post-lexer-text-macro))
+                        (org-mode-text-object-types)
+                        cltpt/html:*html*
+                        :escape nil
+                        :recurse t
+                        :reparse nil
+                        :doc-type 'org-document))
                :escape nil
                :reparse nil
                :recurse nil

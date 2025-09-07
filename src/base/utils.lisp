@@ -44,7 +44,7 @@
     (destructuring-bind (sym val-expr) (car bindings)
       (progv
           (list (change-symbol-package sym pkg-to-eval-in))
-          (list (eval val-expr))
+          (list val-expr)
         (bind-and-eval* (cdr bindings) func pkg-to-eval-in)))))
 ;; example
 ;; (bind-and-eval '((x 1) (y (+ 1 2))) (lambda () (+ x y)))
@@ -205,3 +205,13 @@ returns the (possibly new) list."
         ;; Insert at head if no previous cons
         (setf list (cons item list)))
     list))
+
+(defun merge-plist (p1 p2)
+  "merge two given plists into one."
+  (loop with notfound = '#:notfound
+        for (indicator value) on p1 by #'cddr
+        when (eq (getf p2 indicator notfound) notfound)
+          do (progn
+               (push value p2)
+               (push indicator p2)))
+  p2)

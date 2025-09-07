@@ -20,7 +20,7 @@
      ))
   (setf
    (cltpt/base:text-format-name *html*)
-    "html"))
+   "html"))
 
 ;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
 (defvar *html-export-latex-method*
@@ -42,13 +42,17 @@ directory path.")
 <html>
 <head>
   <meta charset=\"UTF-8\">
-  <title> %title </title>
+  <title> %(cltpt/base:document-title (getf cltpt/base:*convert-info* :text-obj)) </title>
 </head>
 <body>
-  <div class='content'>
+  #(cltpt/base::make-block :type 'div
+                           :let* `((obj ,(getf cltpt/base:*convert-info* :text-obj))
+                                   (contents ,(cltpt/base:text-object-contents obj))
+                                   (date ,(cltpt/base:document-date obj))
+                                   (title ,(cltpt/base:document-title obj))))
     <h1> %title - %date </h1>
     %contents
-  </div>
+  #(cltpt/base::block-end)
 </body>
 </html>"
   "a template for html conversion.")
