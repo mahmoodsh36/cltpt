@@ -13,9 +13,11 @@
    :bind-and-eval :bind-and-eval*
    :compress-consec :str-join :concat :str-prune :str-split
    :alist-get :subseq* :sorted-insert :last-atom
+   :merge-plist
 
    :convert-tree
    :*convert-escape-newlines*
+   :*convert-info*
 
    :*author*
    :document :document-title :document-date

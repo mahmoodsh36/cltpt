@@ -1,6 +1,6 @@
 (defpackage :cltpt
   (:use :cl)
-  (:export :*debug*))
+  (:export :*debug* :*author*))
 
 (in-package :cltpt)
 
