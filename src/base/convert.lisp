@@ -4,6 +4,14 @@
   t
   "whether to escape newlines on conversion. see `text-format-escape'.")
 
+;; during conversion, we may need some data bound dynamically for use in templates
+;; (e.g. cltpt/html:*html-template*) and in other functions/location during the
+;; conversion process.
+
+(defvar *convert-info*
+  nil
+  "conversion info that may be useful to pass to downstream functions during conversion.")
+
 (defun extract-modified-substring (str1 func main-region modification-region)
   "extract and modify the substring in MODIFICATION-REGION contained in MAIN-REGION of
 string STR1. notice that MODIFICATION-REGION can be wider and even disjoint from MAIN-REGION."

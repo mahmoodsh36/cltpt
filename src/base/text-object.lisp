@@ -195,11 +195,13 @@ the options are:
   (:documentation "a text block."))
 
 (defun make-block (&rest kws &key &allow-other-keys)
-  (let* ((type1 (getf kws :type))
+  (let* ((loop-expr (getf kws :loop))
          (obj (make-instance 'text-block)))
-    (setf (text-object-property obj :type) type1)
     (loop for (key value) on kws by #'cddr
           do (setf (text-object-property obj key) value))
+    ;; we shouldnt be evalling this.
+    ;; (setf (text-object-property obj :loop)
+    ;;       (cons (car loop-expr) (eval (cadr loop-expr))))
     obj))
 
 (defun block-end ()
