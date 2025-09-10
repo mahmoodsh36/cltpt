@@ -38,7 +38,7 @@
      :latex-compiler "%l -interaction=nonstopmode -output-directory %o %f"
      ;; here we use "-%9p.svg" so dvisvgm substitutes a 9-digit, zero-padded page number.
      ;; i personally dont like --bbox=preview because it "hard codes" the width
-     :image-converter "dvisvgm --page=1- --no-fonts --relative --clipjoin --optimize -o %B-%9p.svg %f")
+     :image-converter "dvisvgm --page=1- --bbox=preview --no-fonts --relative --clipjoin --optimize -o %B-%9p.svg %f")
     (:dvipng
      :description "dvi > png"
      :image-input-type "dvi"
@@ -263,7 +263,7 @@ returns an association list of (hash . string-file-path)."
                    "compiler-key=~A;precomp=~A;pipeline=~A;density=~A;transparent=~A;preamble-hash=~A"
                    *latex-compiler-key*
                    use-precomp-p
-                   pipeline
+                   pipeline-config
                    density
                    transparent
                    (cltpt/base::md5-str (get-preamble-source-string)))))
