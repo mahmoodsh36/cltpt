@@ -157,3 +157,82 @@
   (loop for child in (text-object-children doc)
         do (finalize-doc child))
   (text-object-finalize doc))
+
+(defmethod find-child-enclosing-region ((obj text-object) (r region))
+  (loop for child in (text-object-children obj)
+        do (when (region-encloses (text-object-text-region child) r)
+             (return-from find-child-enclosing-region
+               (if (text-object-children child)
+                   (or
+                    (find-child-enclosing-region
+                     child
+                     (let ((new-region
+                             (region-clone (text-object-text-region child))))
+                       (region-decf new-region
+                                    (region-begin (text-object-text-region child)))
+                       new-region))
+                    child)
+                   child))))
+  obj)
+
+;; this is used for incremental parsing, it is a destructive operation.
+(defmethod handle-changed-regions ((obj text-object) changes)
+  "given a text-object tree OBJ, handle a list of changes that happened in the given regions.
+
+CHANGES is an alist of the form (region . new-str) where each pair describes the
+region that changed and the new string that it now holds (or should hold)."
+  (loop for (new-str . region) in changes
+        ;; we find the (possibly nested) child that strictly encloses the region of change.
+        do (let* ((child (find-child-enclosing-region obj region))
+                  (child-text (text-object-text child))
+                  (child-region (relative-child-region obj child)))
+             ;; adjust the text of the object accordingly
+             (setf (text-object-text child)
+                   (concatenate 'string
+                                (subseq child-text
+                                        0
+                                        (- (region-begin region)
+                                           (region-begin child-region)))
+                                new-str
+                                (subseq child-text
+                                        (- (region-end region)
+                                           (region-begin child-region)))))
+             ;; modify the regions of children according to the change in parent
+             (loop for other-child in (text-object-children child)
+                   do (region-incf
+                       (text-object-text-region other-child)
+                       (- (length new-str) (region-length region)))))))
+
+;; this is used for incremental parsing. it takes a position at which the
+;; modification happened, and modifies the object tree accordingly.
+;; currently, it runs in nlogn time in the length of the string, because we will
+;; have to modify the strings stored in a specific path in the object tree. linear
+;; time is unavoiadble if we are detecting changes by position in the string.
+;; the logn might be easier to get rid of by not storing repeated portions of the
+;; buffer in the object tree (why are we doing this anyway? i should have that resolved)
+;; but atleast we arent reparsing which in all cases will be worse than linear
+;; time.
+;; in the future, perhaps we can use a more sophisticated data structure that can
+;; keep track of changes in a way that doesnt require us to "split" the string and
+;; "reconcatenate" which is the operation that requires linear time here.
+(defmethod handle-change ((obj text-object) change-pos new-str)
+  (let* ((change-in-length (- (length new-str)
+                              (length (text-object-text obj))))
+         ;; this is a naive setting, we act as if a deletion or insertion
+         ;; happened precisely at `change-pos'.
+         ;; t means deletion, nil means insertion
+         (is-deletion (> (length (text-object-text obj))
+                         (length new-str)))
+         (changed-region (if is-deletion
+                             (make-region :begin change-pos
+                                          :end (+ change-pos change-in-length))
+                             (make-region :begin change-pos :end change-pos))))
+    (if is-deletion
+        ;; if its a deletion the change is replacing the region with an empty string.
+        (handle-changed-regions obj (list (cons "" changed-region)))
+        ;; if its an insertion we need to provide the inserted string, the region
+        ;; of change is of size 0 so no text is replaced, only new text inserted.
+        (handle-changed-regions
+         obj
+         (list (cons (subseq new-str change-pos (+ change-pos change-in-length))
+                     changed-region))))))

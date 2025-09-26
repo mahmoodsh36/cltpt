@@ -913,3 +913,45 @@ my equation here
   (let ((cltpt/latex::*latex-compiler-key* :latex))
     (cltpt/latex::generate-previews-for-latex
      (list "\\(x=\\somebrokencommand123\\)"))))
+
+(defun test-incremental-parsing-1 ()
+  (let* ((text "- we have [[mylink]]
+   a. nested item one \\(x=y\\)
+      more nested text
+      1. test1
+      2. test2
+   b. nested item two
+- item three")
+         (obj (cltpt/base:parse
+               text
+               (list 'cltpt/org-mode::org-list 'cltpt/org-mode::org-link)))
+         (list-obj (car (cltpt/base:text-object-children obj)))
+         (old-list-obj-text (cltpt/base:text-object-text list-obj)))
+    (format t "positions before: ~A~%"
+            (loop for child in (cltpt/base:text-object-children list-obj)
+                  collect (cltpt/base:text-object-begin-in-root child)))
+    ;; this simply inserts a word at position 2
+    (cltpt/base:handle-changed-regions
+     list-obj
+     (list (cons "hello "
+                 (make-region :begin 2 :end 2))))
+    (format t "positions after: ~A~%"
+            (loop for child in (cltpt/base:text-object-children list-obj)
+                  collect (cltpt/base:text-object-begin-in-root child)))
+    (format t
+            "   === old ===~%~A~%   === new ===~%~A~%"
+            old-list-obj-text
+            (cltpt/base:text-object-text list-obj))))
+
+(defun test-incremental-parsing-2 ()
+  (let* ((text "some text \\(math here\\) here")
+         (doc (cltpt/base:parse
+               text
+               (list 'cltpt/latex::inline-math)))
+         (obj (car (cltpt/base:text-object-children doc)))
+         (obj-text (cltpt/base:text-object-text obj)))
+    (cltpt/base::handle-change obj 2 "\\(new math here\\)")
+    (format t
+            "   === old ===~%~A~%   === new ===~%~A~%"
+            obj-text
+            (cltpt/base:text-object-text obj))))
