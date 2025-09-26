@@ -23,9 +23,18 @@
   (and (< pos (region-end r))
        (>= pos (region-begin r))))
 
+(defmethod region-encloses ((r region) (r2 region))
+  "returns whether region R encloses region R2."
+  (and (<= (region-begin r2) (region-end r))
+       (>= (region-begin r2) (region-begin r))))
+
 (defmethod region-length ((r region))
   (with-slots (begin end) r
     (- end begin)))
+
+(defmethod region-clone ((r region))
+  (make-region :begin (region-begin r)
+               :end (region-end r)))
 
 (defclass text-object ()
   ((properties
@@ -560,3 +569,15 @@ and grabbing each position of each object through its ascendants in the tree."
                       collect sibling)))
         (dolist (sibling-to-move siblings-to-move)
           (text-object-move sibling-to-move obj))))))
+
+;; TODO: optimize this, we dont need the position relative to the root to find
+;; the position relative to an internal node, its mostly a shortcut. and the
+;; functionality for finding position in root currently takes O(n), which should
+;; also be optimized to O(1) anyway.
+(defmethod relative-child-region ((parent text-object) (child text-object))
+  (let ((parent-begin-in-root (text-object-begin-in-root parent))
+        (parent-end-in-root (text-object-end-in-root parent))
+        (child-begin-in-root (text-object-begin-in-root child))
+        (child-end-in-root (text-object-end-in-root child)))
+    (make-region :begin (- child-begin-in-root parent-begin-in-root)
+                 :end (- child-end-in-root parent-begin-in-root))))

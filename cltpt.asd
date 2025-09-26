@@ -19,11 +19,11 @@
                 :pathname "src/base/"
                 :depends-on ("combinator" "file-utils")
                 :components ((:file "base")
-                             (:file "parser")
-                             (:file "transformer")
                              (:file "utils")
                              (:file "text-object")
                              (:file "text-format")
+                             (:file "parser")
+                             (:file "transformer")
                              (:file "convert")))
                (:module "latex"
                 :pathname "src/latex/"

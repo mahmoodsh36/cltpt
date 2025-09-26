@@ -1137,6 +1137,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     ((eq backend cltpt/html:*html*)
      (cltpt/base:wrap-contents-for-convert obj "<b>" "</b>"))))
 
+;; TODO: in org-mode, slashes are interpreted as italic text only if they are
+;; preceded/succeeded by spaces.
 (defvar *org-italic-rule*
   '(:pattern
     (cltpt/combinator:pair
