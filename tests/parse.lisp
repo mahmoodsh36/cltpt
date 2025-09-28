@@ -29,8 +29,7 @@
 (defun parse-org-file (filepath)
   ;; we need to "finalize" the classes to be able to use MOP
   (let* ((result (cltpt/base::parse (uiop:read-file-string filepath)
-                                    (cltpt/org-mode::org-mode-text-object-types)
-                                    :doc-type 'cltpt/org-mode::org-document)))
+                                    cltpt/org-mode:*org-mode*)))
     result))
 
 (defun test-org-parse ()
@@ -966,14 +965,15 @@ my equation here
 (defun test-incremental-parsing-3 ()
   (let* ((text "start \\(math here\\) here")
          (doc (cltpt/base:parse
+               (make-text-format "dummy")
                text
-               (list 'cltpt/latex::inline-math)))
+               :text-object-types (list 'cltpt/latex::inline-math)))
          (obj (car (cltpt/base:text-object-children doc)))
          (obj-text (cltpt/base:text-object-text obj)))
     (format t "num of children before: ~A~%" (length (cltpt/base:text-object-children doc)))
     (cltpt/base:handle-changed-regions
      doc
-     (list 'cltpt/latex::inline-math)
+     cltpt/org-mode:*org-mode*
      (list
       (cons
        "some"

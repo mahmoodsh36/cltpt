@@ -50,9 +50,7 @@
 (defun parse-file (filepath fmt)
   "takes a FILEPATH and a `text-format' FMT, returns the parsed object tree."
   (let* ((text (uiop:read-file-string filepath))
-         (text-tree (parse text
-                           (text-format-text-object-types fmt)
-                           :doc-type (text-format-document-type fmt))))
+         (text-tree (parse fmt text)))
     text-tree))
 
 (defun text-format-by-name (name)
