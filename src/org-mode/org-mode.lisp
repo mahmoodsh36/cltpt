@@ -248,7 +248,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (final-result))
     ;; handle transclusions
     (when (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
-      (let* ((org-link-parse-result (cltpt/base:parse value '(org-link)))
+      (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
              (first-child (car (cltpt/base:text-object-children
                                 org-link-parse-result))))
         (when (typep first-child 'org-link)
@@ -271,9 +271,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                 (let ((*org-document-convert-with-boilerplate*))
                   (let ((result (cltpt/base:convert-tree
                                  dest-text-obj
-                                 (org-mode-text-object-types)
-                                 backend
-                                 :doc-type 'org-document)))
+                                 *org-mode*
+                                 backend)))
                     ;; TODO: for some reason redundant newlines in transcluded
                     ;; documents dont get trimmed.
                     (setf final-result
@@ -420,8 +419,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   ;; it was the original
   (let* ((list-text (cltpt/base:text-object-text obj))
          (new-children (cltpt/base:text-object-children
-                        (cltpt/base:parse list-text
-                                          (org-mode-inline-text-object-types))))
+                        (cltpt/base:parse
+                         *org-mode*
+                         list-text
+                         :text-object-types (org-mode-inline-text-object-types))))
          (new-obj (make-instance 'cltpt/base:text-object)))
     (cltpt/base:text-object-init
      new-obj
@@ -1079,19 +1080,18 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                        ;; we can access it from within the html template.
                        (cltpt/base:convert-tree
                         (cltpt/base:parse
+                         cltpt/html:*html*
                          cltpt/html:*html-template*
-                         (list 'cltpt/base:text-macro
-                               'cltpt/base:post-lexer-text-macro))
-                        (org-mode-text-object-types)
+                         :text-object-types (list 'cltpt/base:text-macro
+                                                  'cltpt/base:post-lexer-text-macro))
+                        *org-mode*
                         cltpt/html:*html*
                         :escape nil
                         :recurse t
-                        :reparse nil
-                        :doc-type 'org-document))
+                        :reparse nil))
                :escape nil
                :reparse nil
-               :recurse nil
-               :doc-type 'org-document)
+               :recurse nil)
          (list :text (cltpt/base:text-object-text obj)
                :escape t
                :reparse t

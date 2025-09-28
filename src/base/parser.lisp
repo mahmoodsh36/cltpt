@@ -117,14 +117,18 @@
             new-text-object))
         (reverse child-results))))
 
-(defun parse (str1
-              text-object-types
-              &key
-                (doc-type 'document))
+(defmethod parse ((format text-format)
+                  str1
+                  &key
+                    (text-object-types (text-format-text-object-types format))
+                    doc)
   "parse a string, returns an object tree."
   ;; we use a plist for text-objects because we need to modify it in a function
   ;; and it starts as nil
   (let* ((text-objects (list :objects nil))
+         (text-object-types
+           (or text-object-types
+               (text-format-text-object-types format)))
          (data
            (remove-if-not
             'identity
@@ -132,7 +136,10 @@
                   collect (text-object-rule-from-subclass type1))))
          (matches (cltpt/combinator:parse str1 data)))
     (loop for m in matches
-          do (handle-match str1 m text-objects text-object-types))
+          do (handle-match str1
+                           m
+                           text-objects
+                           text-object-types))
     ;; here we build the text object forest (collection of trees) properly
     (let ((top-level
             (reverse
@@ -140,7 +147,8 @@
               (lambda (item)
                 (text-object-parent item))
               (second text-objects))))
-          (doc (make-instance doc-type :text str1)))
+          (doc (or doc
+                   (make-instance (text-format-document-type format) :text str1))))
       (setf (text-object-text-region doc)
             (make-region :begin 0 :end (length str1)))
       (setf (slot-value doc 'text)
@@ -181,7 +189,7 @@
 ;; currently the method is to reparse the parent that contains the region where
 ;; the change happened. it can probably be made more efficient with heuristics.
 (defmethod handle-changed-regions ((obj text-object)
-                                   text-object-types
+                                   (format text-format)
                                    changes
                                    reparse)
   "given a text-object tree OBJ, handle a list of changes that happened in the given regions.
@@ -233,17 +241,12 @@ region that changed and the new string that it now holds (or should hold)."
                         (prev-result (cltpt/base:text-object-property
                                       child
                                       :combinator-match))
+                        (reparse-all (typep child 'document))
                         (new-result
-                          (if (typep child 'document)
+                          (if reparse-all
                               ;; TODO: this is bad because in this case we're just
                               ;; reparsing eveything..
-                              (cltpt/combinator:parse
-                               new-root-text
-                               (remove-if-not
-                                'identity
-                                (loop for type1 in text-object-types
-                                      collect (text-object-rule-from-subclass
-                                               type1))))
+                              (parse format new-root-text :doc child)
                               (cltpt/combinator:scan-all-rules
                                (getf (car prev-result) :ctx)
                                new-root-text
@@ -256,24 +259,25 @@ region that changed and the new string that it now holds (or should hold)."
                         ;; use another way of passing the list to the function
                         ;; and getting back the result that isnt hacky.
                         (new-objects (list :objects nil)))
-                   (loop for m in new-result
-                         do (handle-match new-root-text
-                                          m
-                                          new-objects
-                                          text-object-types))
-                   (setf new-objects (getf new-objects :objects))
-                   ;; we need to replace the old child with the new parse results.
-                   (cond
-                     ((and parent prev-sibling-cons)
-                      (progn
-                         (setf (cdr prev-sibling-cons-cons) new-objects)
-                         (setf (cdr (last new-objects)) next-siblings)))
-                     (parent
-                      (setf (text-object-children (text-object-parent child))
-                            (concatenate 'list new-objects next-siblings)))
-                     (t
-                      (setf (text-object-children child)
-                            new-objects)))
+                   (unless reparse-all
+                     (loop for m in new-result
+                           do (handle-match new-root-text
+                                            m
+                                            new-objects
+                                            (text-format-text-object-types format)))
+                     (setf new-objects (getf new-objects :objects))
+                     ;; we need to replace the old child with the new parse results.
+                     (cond
+                       ((and parent prev-sibling-cons)
+                        (progn
+                          (setf (cdr prev-sibling-cons-cons) new-objects)
+                          (setf (cdr (last new-objects)) next-siblings)))
+                       (parent
+                        (setf (text-object-children (text-object-parent child))
+                              (concatenate 'list new-objects next-siblings)))
+                       (t
+                        (setf (text-object-children child)
+                              new-objects))))
                    (when parent
                      (loop for new-child in new-objects
                            do (setf (text-object-parent new-child)
@@ -297,7 +301,7 @@ region that changed and the new string that it now holds (or should hold)."
 ;; in the future, perhaps we can use a more sophisticated data structure that can
 ;; keep track of changes in a way that doesnt require us to "split" the string and
 ;; "reconcatenate" which is the operation that requires linear time here.
-(defmethod handle-change ((obj text-object) text-object-types change-pos new-str)
+(defmethod handle-change ((obj text-object) (format text-format) change-pos new-str)
   (let* ((change-in-length (- (length new-str)
                               (length (text-object-text obj))))
          ;; this is a naive setting, we act as if a deletion or insertion
@@ -316,7 +320,7 @@ region that changed and the new string that it now holds (or should hold)."
         ;; of change is of size 0 so no text is replaced, only new text inserted.
         (handle-changed-regions
          obj
-         text-object-types
+         format
          (list (cons (subseq new-str change-pos (+ change-pos change-in-length))
                      changed-region))
          t))))
