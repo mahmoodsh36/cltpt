@@ -127,7 +127,7 @@
            ;; and id is the ID to find in parsed-data-source.
            (let ((found-node (find-node-by-id parsed-data-source id)))
              (if found-node
-                 (getf (car found-node) :match "")
+                 (cltpt/combinator:match-text (car found-node))
                  (progn
                    (warn "id '~S' not found in parse data for reconstruction."
                          id)

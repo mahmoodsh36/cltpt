@@ -1,6 +1,7 @@
 (defpackage :cltpt/combinator/utils
   (:use :cl)
-  (:export :find-submatch :find-submatch-all :find-submatch-last))
+  (:export :find-submatch :find-submatch-all :find-submatch-last
+           :match-text))
 
 (in-package :cltpt/combinator/utils)
 
@@ -31,3 +32,9 @@
    submatch-id
    :key (lambda (node)
           (getf (car node) :id))))
+
+(defun match-text (match)
+  (when match
+    (subseq (getf match :str)
+            (getf match :begin)
+            (getf match :end))))

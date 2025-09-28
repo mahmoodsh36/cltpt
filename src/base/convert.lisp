@@ -83,7 +83,7 @@ the '\\' and processes the char normally (replace or emit)."
          (dest-rule (when dest-text-obj-type
                       (text-object-rule-from-subclass dest-text-obj-type)))
          (src-match (text-object-property text-obj :combinator-match))
-         (src-str (getf (car src-match) :match)))
+         (src-str (cltpt/combinator:match-text (car src-match))))
     (if (and shared-name dest-rule)
         (let ((transformed-string
                 (cltpt/transformer:reconstruct-string-from-rule
