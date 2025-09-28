@@ -1,7 +1,7 @@
 (defpackage :cltpt/combinator
   (:use :cl)
   (:import-from :cltpt/combinator/utils
-   :find-submatch :find-submatch-all :find-submatch-last)
+   :find-submatch :find-submatch-all :find-submatch-last :match-text)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one
@@ -11,8 +11,9 @@
    :at-line-start-p :at-line-end-p :followed-by :match-rule
    :separated-atleast-one :all-but-whitespace :handle-rule-string
    :all-upto :all-upto-included :succeeded-by :all-upto-without
+   :context-rules
 
-   :find-submatch :find-submatch-all :find-submatch-last
+   :find-submatch :find-submatch-all :find-submatch-last :match-text
    ))
 
 (in-package :cltpt/combinator)
@@ -57,24 +58,28 @@
 (defmethod context-rule-by-id ((ctx context) rule-id)
   (gethash rule-id (context-rule-hash ctx)))
 
-;; TODO: this is redundant work, maybe ensure all functions return normalized
-;; parsing results instead.
-(defun normalize-match (match _rule str pos)
+(defun normalize-match (match ctx rule str pos)
   "ensures a match result is in the standard plist cons structure."
-  (declare (ignore _rule))
   (if (numberp match)
       (cons
        (list :begin pos
              :end (+ pos match)
-             :match (subseq str pos (+ pos match)))
+             :str str
+             :rule rule
+             :ctx ctx)
        nil)
-      match))
+      ;; set :rule property
+      (if (getf (car match) :rule)
+          match
+          (progn
+            (setf (getf (car match) :rule) rule)
+            match))))
 
 (defun match-rule-normalized (ctx rule str pos)
   "calls match-rule and ensures its result is normalized."
   (let ((raw-match (match-rule ctx rule str pos)))
     (when raw-match
-      (normalize-match raw-match rule str pos))))
+      (normalize-match raw-match ctx rule str pos))))
 
 (defun any (ctx str pos &rest all)
   "match any of the given combinator rules."
@@ -169,7 +174,8 @@
                  (return-from consec nil)))
     (cons (list :begin start
                 :end pos
-                :match (subseq str start pos))
+                :str str
+                :ctx ctx)
           (nreverse matches))))
 
 (defun consec-atleast-one (ctx str pos &rest all)
@@ -192,7 +198,8 @@ the consecutive matches up to that point."
     (when matches
       (cons (list :begin start
                   :end pos
-                  :match (subseq str start pos))
+                  :str str
+                  :ctx ctx)
             (nreverse matches)))))
 
 ;; a consecutive set of matchers, separated by a specific matcher. atleast one
@@ -222,7 +229,8 @@ the consecutive matches up to that point."
     (when matches
       (cons (list :begin start
                   :end pos
-                  :match (subseq str start pos))
+                  :str str
+                  :ctx ctx)
             (nreverse matches)))))
 
 (defun atleast-one (ctx str pos matcher)
@@ -243,7 +251,8 @@ the consecutive matches up to that point."
     (when matches
       (cons (list :begin start
                   :end pos
-                  :match (subseq str start pos))
+                  :str str
+                  :ctx ctx)
             (nreverse matches)))))
 
 (defun atleast-one-discard (ctx str pos matcher)
@@ -261,7 +270,8 @@ the consecutive matches up to that point."
     (when (> pos start)
       (cons (list :begin start
                   :end pos
-                  :match (subseq str start pos))
+                  :str str
+                  :ctx ctx)
             nil))))
 
 ;; shouldnt we be matching words from any language?
@@ -334,7 +344,8 @@ before the final closing rule is found."
                        nil))
                  (parent-node-info (list :begin pos
                                          :end overall-end-pos
-                                         :match (subseq str pos overall-end-pos)))
+                                         :str str
+                                         :ctx ctx))
                  (children-nodes (append (list opening-match)
                                          content-matches
                                          (list final-closing-match))))
@@ -445,42 +456,47 @@ before the final closing rule is found."
           (when (> chars-consumed 0)
              (setf form-str (subseq str pos (+ pos chars-consumed)))))))
     (if (and form-str (> chars-consumed 0))
-        (let ((trimmed-form-str (string-right-trim '(#\Space #\Newline #\Tab #\Return) form-str)))
-          (cons (list :begin pos
-                      :end (+ pos (length trimmed-form-str))
-                      :match trimmed-form-str
-                      :id 'lisp-form-content)
-                nil))
+        (cons (list :begin pos
+                    :end (+ pos (length form-str))
+                    :str str
+                    :ctx ctx
+                    :id 'lisp-form-content)
+              nil)
         nil)))
 
 (defun match-rule (ctx rule str pos)
   "returns a 'raw' match: a number (length) for simple successful matches,
 or a pre-formed plist cons cell for combinators/structured matches, or NIL."
-  (cond
-    ;; if its a single symbol it must be the id of a rule, we use context
-    ;; to retrieve the rule
-    ((and (symbolp rule) (context-rule-by-id ctx rule))
-     (match-rule ctx (context-rule-by-id ctx rule) str pos))
-    ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
-     (apply (car rule) ctx str pos (cdr rule)))
-    ((and (listp rule) (getf rule :pattern))
-     ;; exploit :on-char here too, for some (small?) gains
-     (unless (and (getf rule :on-char)
-                  (< pos (length str))
-                  (not (char= (char str pos) (getf rule :on-char))))
-       (let ((sub-pattern-match
-               (match-rule-normalized
-                ctx
-                (getf rule :pattern)
-                str
-                pos)))
-         (when sub-pattern-match
-           (let* ((parent-info (car sub-pattern-match))
-                  (new-parent-info (list* :id (getf rule :id) parent-info)))
-             (cons new-parent-info (cdr sub-pattern-match)))))))
-    ((stringp rule)
-     (match-rule ctx (list 'literal rule) str pos))
-    (t (error "invalid rule: ~A" rule))))
+  (let ((result))
+    (setf
+     result
+     (cond
+       ;; if its a single symbol it must be the id of a rule, we use context
+       ;; to retrieve the rule
+       ((and (symbolp rule) (context-rule-by-id ctx rule))
+        (match-rule ctx (context-rule-by-id ctx rule) str pos))
+       ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
+        (apply (car rule) ctx str pos (cdr rule)))
+       ((and (listp rule) (getf rule :pattern))
+        ;; exploit :on-char here too, for some (small?) gains
+        (unless (and (getf rule :on-char)
+                     (< pos (length str))
+                     (not (char= (char str pos) (getf rule :on-char))))
+          (let ((sub-pattern-match
+                  (match-rule-normalized
+                   ctx
+                   (getf rule :pattern)
+                   str
+                   pos)))
+            (when sub-pattern-match
+              (let* ((parent-info (car sub-pattern-match))
+                     (new-parent-info (list* :id (getf rule :id) parent-info)))
+                (cons new-parent-info (cdr sub-pattern-match)))))))
+       ((stringp rule)
+        (match-rule ctx (list 'literal rule) str pos))
+       (t (error "invalid rule: ~A" rule))))
+    (when result
+      (normalize-match result ctx rule str pos))))
 
 ;; the hash table thing is a heuristic that makes things slightly faster
 (defun hash-rules (rules)
@@ -507,13 +523,12 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
           do (let ((matched)
                    (current-char (char str i)))
                (labels ((handle-rule (rule)
-                          (let ((raw-match (match-rule ctx rule str i)))
-                            (when raw-match
-                              (let* ((match-result (normalize-match raw-match rule str i)))
-                                ;; (when (<= (getf (car match-result) :end) end-idx)
-                                (setf i (getf (car match-result) :end))
-                                (push match-result events)
-                                (setf matched t))))))
+                          (let ((match-result (match-rule ctx rule str i)))
+                            (when match-result
+                              ;; (when (<= (getf (car match-result) :end) end-idx)
+                              (setf i (getf (car match-result) :end))
+                              (push match-result events)
+                              (setf matched t)))))
                  (loop for rule in (union unhashed-rules
                                           (gethash current-char rule-hash))
                        until matched
@@ -618,7 +633,8 @@ returns the matched substring and its bounds."
     (when (> pos start)
       (cons (list :begin start
                   :end pos
-                  :match (subseq str start pos))
+                  :str str
+                  :ctx ctx)
             nil))))
 
 (defun all-upto-without (ctx str pos delimiter-rule without-rule)
@@ -636,7 +652,8 @@ returns the matched substring and its bounds."
     (when (> pos start)
       (cons (list :begin start
                   :end pos
-                  :match (subseq str start pos))
+                  :str str
+                  :ctx ctx)
             nil))))
 
 ;; ended up not using this, but will keep it.
@@ -650,5 +667,6 @@ returns the matched substring and its bounds."
     (when (> pos start)
       (cons (list :begin start
                   :end pos
-                  :match (subseq str start pos))
+                  :str str
+                  :ctx ctx)
             nil))))

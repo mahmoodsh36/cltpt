@@ -200,9 +200,9 @@ returns the (possibly new) list."
   (let* ((x (funcall key item))
          (cdr-cell (find-cdr-where-greater list x :key key)))
     (if cdr-cell
-        ;; Insert after cdr-cell
+        ;; insert after cdr-cell
         (setf (cdr cdr-cell) (cons item (cdr cdr-cell)))
-        ;; Insert at head if no previous cons
+        ;; insert at head if no previous cons
         (setf list (cons item list)))
     list))
 

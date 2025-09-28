@@ -84,7 +84,7 @@
                           :end match-end))
                         ;; extend the text to contain the whole block
                         (setf
-                         (text-object-text opening-macro)
+                         (slot-value opening-macro 'text)
                          (region-text (text-object-text-region opening-macro)
                                       str1))
                         (setf (text-object-property opening-macro :open-macro)
@@ -143,6 +143,8 @@
           (doc (make-instance doc-type :text str1)))
       (setf (text-object-text-region doc)
             (make-region :begin 0 :end (length str1)))
+      (setf (slot-value doc 'text)
+            str1)
       (mapc
        (lambda (entry)
          (text-object-set-parent entry doc)
@@ -176,32 +178,112 @@
   obj)
 
 ;; this is used for incremental parsing, it is a destructive operation.
-(defmethod handle-changed-regions ((obj text-object) changes)
+;; currently the method is to reparse the parent that contains the region where
+;; the change happened. it can probably be made more efficient with heuristics.
+(defmethod handle-changed-regions ((obj text-object)
+                                   text-object-types
+                                   changes
+                                   reparse)
   "given a text-object tree OBJ, handle a list of changes that happened in the given regions.
 
 CHANGES is an alist of the form (region . new-str) where each pair describes the
 region that changed and the new string that it now holds (or should hold)."
-  (loop for (new-str . region) in changes
-        ;; we find the (possibly nested) child that strictly encloses the region of change.
-        do (let* ((child (find-child-enclosing-region obj region))
-                  (child-text (text-object-text child))
-                  (child-region (relative-child-region obj child)))
-             ;; adjust the text of the object accordingly
-             (setf (text-object-text child)
-                   (concatenate 'string
-                                (subseq child-text
-                                        0
-                                        (- (region-begin region)
-                                           (region-begin child-region)))
-                                new-str
-                                (subseq child-text
-                                        (- (region-end region)
-                                           (region-begin child-region)))))
-             ;; modify the regions of children according to the change in parent
-             (loop for other-child in (text-object-children child)
-                   do (region-incf
-                       (text-object-text-region other-child)
-                       (- (length new-str) (region-length region)))))))
+  ;; TODO: we are assuming the changes are sorted by region/location
+  ;; the 'offset' variable is kept updated according to the changes in the string.
+  (let ((offset 0))
+    (loop for (new-str . region) in changes
+          ;; we find the (possibly nested) child that strictly encloses the region of change.
+          do (setf region (region-clone region))
+             (region-incf region offset)
+             (let* ((child (find-child-enclosing-region obj region))
+                    (parent (text-object-parent child))
+                    (child-text (text-object-text child))
+                    (rel-child-region (relative-child-region obj child))
+                    (child-region (region-clone (text-object-text-region child)))
+                    (new-child-text
+                      (concatenate 'string
+                                   (subseq child-text
+                                           0
+                                           (- (region-begin region)
+                                              (region-begin rel-child-region)))
+                                   new-str
+                                   (subseq child-text
+                                           (- (region-end region)
+                                              (region-begin rel-child-region)))))
+                    (child-idx
+                      (when parent
+                        (position
+                         child
+                         (text-object-children parent))))
+                    (prev-sibling-cons
+                      (when (and parent (> child-idx 0))
+                        (nthcdr
+                         (1- child-idx)
+                         (text-object-children (text-object-parent child)))))
+                    (next-siblings (cddr prev-sibling-cons))
+                    (change-in-child-end))
+               ;; adjust the text of the object accordingly
+               (setf (text-object-text child) new-child-text)
+               (setf change-in-child-end
+                     (- (text-object-end child)
+                        (region-end child-region)))
+               (incf offset change-in-child-end)
+               (when reparse
+                 (let* ((new-root-text (text-object-text (text-object-root child)))
+                        (prev-result (cltpt/base:text-object-property
+                                      child
+                                      :combinator-match))
+                        (new-result
+                          (if (typep child 'document)
+                              ;; TODO: this is bad because in this case we're just
+                              ;; reparsing eveything..
+                              (cltpt/combinator:parse
+                               new-root-text
+                               (remove-if-not
+                                'identity
+                                (loop for type1 in text-object-types
+                                      collect (text-object-rule-from-subclass
+                                               type1))))
+                              (cltpt/combinator:scan-all-rules
+                               (getf (car prev-result) :ctx)
+                               new-root-text
+                               (cltpt/combinator:context-rules
+                                (getf (car prev-result) :ctx))
+                               (text-object-begin-in-root child)
+                               (text-object-end-in-root child))))
+                        ;; the way we are using `new-objects' here as a plist
+                        ;; and then turn it into a list isnt pretty. we should
+                        ;; use another way of passing the list to the function
+                        ;; and getting back the result that isnt hacky.
+                        (new-objects (list :objects nil)))
+                   (loop for m in new-result
+                         do (handle-match new-root-text
+                                          m
+                                          new-objects
+                                          text-object-types))
+                   (setf new-objects (getf new-objects :objects))
+                   ;; we need to replace the old child with the new parse results.
+                   (cond
+                     ((and parent prev-sibling-cons)
+                      (progn
+                         (setf (cdr prev-sibling-cons-cons) new-objects)
+                         (setf (cdr (last new-objects)) next-siblings)))
+                     (parent
+                      (setf (text-object-children (text-object-parent child))
+                            (concatenate 'list new-objects next-siblings)))
+                     (t
+                      (setf (text-object-children child)
+                            new-objects)))
+                   (when parent
+                     (loop for new-child in new-objects
+                           do (setf (text-object-parent new-child)
+                                    parent)))))
+               ;; we need to change the positions of the next siblings in the tree
+               ;; according to the change in their sibling
+               (when next-siblings
+                 (loop for sibling in next-siblings
+                       do (region-incf (text-object-text-region sibling)
+                                       change-in-child-end)))))))
 
 ;; this is used for incremental parsing. it takes a position at which the
 ;; modification happened, and modifies the object tree accordingly.
@@ -215,7 +297,7 @@ region that changed and the new string that it now holds (or should hold)."
 ;; in the future, perhaps we can use a more sophisticated data structure that can
 ;; keep track of changes in a way that doesnt require us to "split" the string and
 ;; "reconcatenate" which is the operation that requires linear time here.
-(defmethod handle-change ((obj text-object) change-pos new-str)
+(defmethod handle-change ((obj text-object) text-object-types change-pos new-str)
   (let* ((change-in-length (- (length new-str)
                               (length (text-object-text obj))))
          ;; this is a naive setting, we act as if a deletion or insertion
@@ -229,10 +311,12 @@ region that changed and the new string that it now holds (or should hold)."
                              (make-region :begin change-pos :end change-pos))))
     (if is-deletion
         ;; if its a deletion the change is replacing the region with an empty string.
-        (handle-changed-regions obj (list (cons "" changed-region)))
+        (handle-changed-regions obj (list (cons "" changed-region)) t)
         ;; if its an insertion we need to provide the inserted string, the region
         ;; of change is of size 0 so no text is replaced, only new text inserted.
         (handle-changed-regions
          obj
+         text-object-types
          (list (cons (subseq new-str change-pos (+ change-pos change-in-length))
-                     changed-region))))))
+                     changed-region))
+         t))))

@@ -7,6 +7,8 @@
    :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist
 
+   :region-incf
+
    :make-text-format
    :text-format-text-object-types :text-format-by-name
    :convert-file :text-macro :post-lexer-text-macro
