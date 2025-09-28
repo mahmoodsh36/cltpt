@@ -111,7 +111,7 @@
          (name (cltpt/base:alist-get keywords-alist "name"))
          (caption (cltpt/base:alist-get keywords-alist "caption"))
          (latex-env-match (car (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1)))
-         (latex-env-contents (getf latex-env-match :match)))
+         (latex-env-contents (cltpt/combinator:match-text latex-env-match)))
     ;; TODO: handle \caption and \label properly.
     (list :text latex-env-contents
           :reparse nil
@@ -125,7 +125,7 @@
          (name (cltpt/base:alist-get keywords-alist "name"))
          (caption (cltpt/base:alist-get keywords-alist "caption"))
          (latex-env-match (car (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1)))
-         (latex-env-contents (getf latex-env-match :match)))
+         (latex-env-contents (cltpt/combinator:match-text latex-env-match)))
     ;; TODO: handle \caption and \label properly.
     (list :text (latex-fragment-to-html latex-env-contents nil)
           :recurse nil

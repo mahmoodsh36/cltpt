@@ -10,11 +10,13 @@
 
 (defmethod region-decf ((r region) num)
   (decf (region-begin r) num)
-  (decf (region-end r) num))
+  (decf (region-end r) num)
+  r)
 
 (defmethod region-incf ((r region) num)
   (incf (region-begin r) num)
-  (incf (region-end r) num))
+  (incf (region-end r) num)
+  r)
 
 (defmethod region-text ((r region) str1)
   (subseq str1 (region-begin r) (region-end r)))
@@ -44,8 +46,8 @@
     :documentation "other properties that the cltpt text-object may hold.")
    (text
     :initarg :text
-    :accessor text-object-text
-    :documentation "the text that the element corresponds to.")
+    :initform nil
+    :documentation "the text that the text-object holds. this may not be set.")
    (children
     :initarg :children
     :accessor text-object-children
@@ -112,6 +114,43 @@ if plist, plist can contain the keywords:
 the options are:
 - :remove-newline-after: whether to trim a new line that comes after the object during conversion."))
 
+;; TODO: easy to optimize by not having to find the root (logarithmic complexity),
+;; and not having to run subseq (linear complexity).
+(defmethod text-object-text ((obj text-object))
+  "function to grab the text of a text object, dictated by `text-object-text-region'.
+
+this function assumes the root has the `text-object-text' slot set correctly."
+  (let* ((root (text-object-root obj))
+         (full-str (slot-value root 'text))
+         (obj-str (region-text (text-object-text-region-in-root obj) full-str)))
+    obj-str))
+
+(defmethod text-object-change-text ((obj text-object) new-text)
+  "function to change the text the text-object OBJ corresponds to.
+
+this function doesnt propagate the changes to the children, so using it without
+taking care of children indicies would cause issues."
+  (let* ((root (text-object-root obj))
+         (orig-str (slot-value root 'text))
+         (begin-in-root (text-object-begin-in-root obj))
+         (end-in-root (text-object-end-in-root obj))
+         (new-root-text
+           (concatenate 'string
+                        (subseq orig-str 0 begin-in-root)
+                        new-text
+                        (subseq orig-str end-in-root))))
+    ;; set the text in the root accordingly, then update the boundaries
+    ;; of both the root and this child.
+    (setf (slot-value root 'text) new-root-text)
+    (setf (region-end (text-object-text-region root))
+          (length new-root-text))
+    (setf (region-end (text-object-text-region obj))
+          (+ (length new-text)
+             (region-begin (text-object-text-region obj))))))
+
+(defmethod (setf text-object-text) (new-text (obj text-object))
+  (text-object-change-text obj new-text))
+
 (defmethod text-object-convert ((obj text-object) backend)
   "default convert function."
   (if (text-object-property obj :eval-result)
@@ -128,9 +167,6 @@ the options are:
 ;; we are currently using `subseq' to extract the region from the text and store
 ;; a new sequence for every object, this is both slow and memory-consuming
 (defmethod text-object-init ((text-obj text-object) str1 match)
-  ;; text of text-object should only be the text that it encloses in its parent
-  (setf (text-object-text text-obj)
-        (getf (car match) :match))
   (setf (text-object-text-region text-obj)
         (make-region :begin (getf (car match) :begin)
                      :end (getf (car match) :end)))
@@ -581,3 +617,14 @@ and grabbing each position of each object through its ascendants in the tree."
         (child-end-in-root (text-object-end-in-root child)))
     (make-region :begin (- child-begin-in-root parent-begin-in-root)
                  :end (- child-end-in-root parent-begin-in-root))))
+
+(defmethod text-object-root ((tree text-object))
+  "given a text-object TREE, return the text-object at the root."
+  (if (text-object-parent tree)
+      (text-object-root (text-object-parent tree))
+      tree))
+
+;; TODO: easy to optimize
+(defmethod text-object-text-region-in-root ((obj text-object))
+  (make-region :begin (text-object-begin-in-root obj)
+               :end (text-object-end-in-root obj)))

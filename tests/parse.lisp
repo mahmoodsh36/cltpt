@@ -470,6 +470,7 @@ more nested text<ol type=\"1\">
 | end | row          | test |
 some more text"))
     (cltpt/org-mode::org-table-matcher
+     nil
      text
      0
      '((:pattern (cltpt/combinator::pair
@@ -933,8 +934,10 @@ my equation here
     ;; this simply inserts a word at position 2
     (cltpt/base:handle-changed-regions
      list-obj
+     (list 'cltpt/org-mode::org-list 'cltpt/org-mode::org-link)
      (list (cons "hello "
-                 (make-region :begin 2 :end 2))))
+                 (make-region :begin 2 :end 2)))
+     t)
     (format t "positions after: ~A~%"
             (loop for child in (cltpt/base:text-object-children list-obj)
                   collect (cltpt/base:text-object-begin-in-root child)))
@@ -950,8 +953,47 @@ my equation here
                (list 'cltpt/latex::inline-math)))
          (obj (car (cltpt/base:text-object-children doc)))
          (obj-text (cltpt/base:text-object-text obj)))
-    (cltpt/base::handle-change obj 2 "\\(new math here\\)")
+    (format t "num of children before: ~A~%" (length (cltpt/base:text-object-children doc)))
+    ;; (cltpt/base::handle-change obj (list 'cltpt/latex::inline-math) 2 "\\(new math here\\)")
+    (cltpt/base::handle-change obj (list 'cltpt/latex::inline-math) 0 "\\(some\\) \\(math here\\)")
     (format t
             "   === old ===~%~A~%   === new ===~%~A~%"
             obj-text
-            (cltpt/base:text-object-text obj))))
+            (cltpt/base:text-object-text obj))
+    (format t "num of children after: ~A~%" (length (cltpt/base:text-object-children doc)))
+    (format t "updated doc: ~A~%" (cltpt/base:text-object-text doc))))
+
+(defun test-incremental-parsing-3 ()
+  (let* ((text "start \\(math here\\) here")
+         (doc (cltpt/base:parse
+               text
+               (list 'cltpt/latex::inline-math)))
+         (obj (car (cltpt/base:text-object-children doc)))
+         (obj-text (cltpt/base:text-object-text obj)))
+    (format t "num of children before: ~A~%" (length (cltpt/base:text-object-children doc)))
+    (cltpt/base:handle-changed-regions
+     doc
+     (list 'cltpt/latex::inline-math)
+     (list
+      (cons
+       "some"
+       (cltpt/base:region-incf
+        (cltpt/base:make-region :begin 2 :end 6)
+        (length "start ")))
+      (cons
+       "math"
+       (cltpt/base:region-incf
+        (cltpt/base:make-region :begin 7 :end 11)
+        (length "start ")))
+      (cons
+       "\\(even more math\\) "
+       (cltpt/base:region-incf
+        (cltpt/base:make-region :begin 14 :end 14)
+        (length "start "))))
+     t)
+    (format t "num of children after: ~A~%" (length (cltpt/base:text-object-children doc)))
+    (format t
+            "   === old ===~%~A~%   === new ===~%~A~%"
+            obj-text
+            (cltpt/base:text-object-text obj))
+    (format t "updated doc: ~A~%" (cltpt/base:text-object-text doc))))
