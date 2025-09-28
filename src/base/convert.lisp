@@ -96,13 +96,12 @@ the '\\' and processes the char normally (replace or emit)."
         (text-object-convert text-obj backend))))
 
 (defun convert-tree (text-obj
-                     text-object-types
+                     fmt-src
                      fmt-dest
                      &key
                        (reparse nil reparse-supplied)
                        (recurse nil recurse-supplied)
-                       (escape nil escape-supplied)
-                       (doc-type 'document))
+                       (escape nil escape-supplied))
   (let* ((result (text-object-convert-helper text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (to-escape (if escape-supplied
@@ -125,7 +124,7 @@ the '\\' and processes the char normally (replace or emit)."
                          recurse
                          (or (unless result-is-string (getf result :recurse))
                              to-reparse)))
-         (escapables (collect-escapables text-object-types)))
+         (escapables (collect-escapables (text-format-text-object-types fmt-src))))
     (when (getf cltpt:*debug* :convert)
       (format t "converting object ~A~%" text-obj))
     (if to-recurse
@@ -138,11 +137,10 @@ the '\\' and processes the char normally (replace or emit)."
                   (if to-reparse
                       (text-object-children
                        (parse
+                        fmt-src
                         (if region-to-reparse
                             (region-text region-to-reparse convert-text)
-                            convert-text)
-                        text-object-types
-                        :doc-type doc-type))
+                            convert-text)))
                       original-children)))
                (child-offset (if region-to-reparse
                                  (region-begin region-to-reparse)
@@ -159,10 +157,7 @@ the '\\' and processes the char normally (replace or emit)."
           (loop for child in children
                 do (when (getf cltpt:*debug* :convert)
                      (format t "converting child ~A~%" child))
-                   (let* ((child-result (convert-tree child
-                                                      text-object-types
-                                                      fmt-dest
-                                                      :doc-type doc-type))
+                   (let* ((child-result (convert-tree child fmt-src fmt-dest))
                           (child-options (text-object-convert-options
                                           child
                                           fmt-dest))
@@ -258,11 +253,6 @@ the '\\' and processes the char normally (replace or emit)."
      result)))
 
 (defun convert-text (fmt1 fmt2 text)
-  (let* ((text-tree (parse text
-                           (text-format-text-object-types fmt1)
-                           :doc-type (text-format-document-type fmt1)))
-         (result (convert-tree text-tree
-                               (text-format-text-object-types fmt1)
-                               fmt2
-                               :doc-type (text-format-document-type fmt1))))
+  (let* ((text-tree (parse fmt1 text))
+         (result (convert-tree text-tree fmt1 fmt2)))
     result))
