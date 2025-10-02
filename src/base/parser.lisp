@@ -126,9 +126,6 @@
   ;; we use a plist for text-objects because we need to modify it in a function
   ;; and it starts as nil
   (let* ((text-objects (list :objects nil))
-         (text-object-types
-           (or text-object-types
-               (text-format-text-object-types format)))
          (data
            (remove-if-not
             'identity
@@ -191,19 +188,29 @@
 (defmethod handle-changed-regions ((obj text-object)
                                    (format text-format)
                                    changes
-                                   reparse)
+                                   reparse
+                                   &key
+                                     (propagate t)
+                                     (only-simple-changes))
   "given a text-object tree OBJ, handle a list of changes that happened in the given regions.
 
 CHANGES is an alist of the form (region . new-str) where each pair describes the
-region that changed and the new string that it now holds (or should hold)."
+region that changed and the new string that it now holds (or should hold).
+
+returns the elements newly inserted into the tree."
   ;; TODO: we are assuming the changes are sorted by region/location
   ;; the 'offset' variable is kept updated according to the changes in the string.
-  (let ((offset 0))
+  ;; TODO: if multiple regions are over the same object we should handle them
+  ;; at once. i.e. we should group regions by containing element before handling.
+  (let ((offset 0)
+        (new-elements))
     (loop for (new-str . region) in changes
           ;; we find the (possibly nested) child that strictly encloses the region of change.
-          do (setf region (region-clone region))
-             (region-incf region offset)
-             (let* ((child (find-child-enclosing-region obj region))
+          do (setf region (region-incf (region-clone region) offset))
+             (let* ((change-in-region-length
+                      (- (length new-str)
+                         (region-length region)))
+                    (child (find-child-enclosing-region obj region))
                     (parent (text-object-parent child))
                     (child-text (text-object-text child))
                     (rel-child-region (relative-child-region obj child))
@@ -224,70 +231,116 @@ region that changed and the new string that it now holds (or should hold)."
                          child
                          (text-object-children parent))))
                     (prev-sibling-cons
-                      (when (and parent (> child-idx 0))
+                      (when (and parent child-idx (> child-idx 0))
                         (nthcdr
                          (1- child-idx)
                          (text-object-children (text-object-parent child)))))
-                    (next-siblings (cddr prev-sibling-cons))
-                    (change-in-child-end))
-               ;; adjust the text of the object accordingly
-               (setf (text-object-text child) new-child-text)
-               (setf change-in-child-end
-                     (- (text-object-end child)
-                        (region-end child-region)))
-               (incf offset change-in-child-end)
-               (when reparse
-                 (let* ((new-root-text (text-object-text (text-object-root child)))
-                        (prev-result (cltpt/base:text-object-property
-                                      child
-                                      :combinator-match))
-                        (reparse-all (typep child 'document))
-                        (new-result
-                          (if reparse-all
-                              ;; TODO: this is bad because in this case we're just
-                              ;; reparsing eveything..
-                              (parse format new-root-text :doc child)
-                              (cltpt/combinator:scan-all-rules
-                               (getf (car prev-result) :ctx)
-                               new-root-text
-                               (cltpt/combinator:context-rules
-                                (getf (car prev-result) :ctx))
-                               (text-object-begin-in-root child)
-                               (text-object-end-in-root child))))
-                        ;; the way we are using `new-objects' here as a plist
-                        ;; and then turn it into a list isnt pretty. we should
-                        ;; use another way of passing the list to the function
-                        ;; and getting back the result that isnt hacky.
-                        (new-objects (list :objects nil)))
-                   (unless reparse-all
-                     (loop for m in new-result
-                           do (handle-match new-root-text
-                                            m
-                                            new-objects
-                                            (text-format-text-object-types format)))
-                     (setf new-objects (getf new-objects :objects))
-                     ;; we need to replace the old child with the new parse results.
-                     (cond
-                       ((and parent prev-sibling-cons)
-                        (progn
-                          (setf (cdr prev-sibling-cons-cons) new-objects)
-                          (setf (cdr (last new-objects)) next-siblings)))
-                       (parent
-                        (setf (text-object-children (text-object-parent child))
-                              (concatenate 'list new-objects next-siblings)))
-                       (t
-                        (setf (text-object-children child)
-                              new-objects))))
-                   (when parent
-                     (loop for new-child in new-objects
-                           do (setf (text-object-parent new-child)
-                                    parent)))))
+                    (next-siblings (cddr prev-sibling-cons)))
+               ;; adjust the text of the object accordingly using `text-object-change-text' which handles it correctly
+               (text-object-change-text child new-child-text :propagate propagate)
+               ;; adjust offset accordingly for next children/regions
+               (incf offset change-in-region-length)
+               (if reparse
+                   (let* ((reparse-all (typep child 'document))
+                          (ancestor
+                            (if only-simple-changes
+                                child
+                                (or (nearest-parent-with-text child)
+                                    child)))
+                          (region-relative-to-ancestor
+                            (if only-simple-changes
+                                (make-region :begin 0
+                                             :end (length new-child-text))
+                                (relative-child-region ancestor child)))
+                          (new-ancestor-text
+                            (region-replace
+                             region-relative-to-ancestor
+                             (text-object-text ancestor)
+                             new-child-text))
+                          (prev-result (cltpt/base:text-object-property
+                                        child
+                                        :combinator-match))
+                          (rules
+                            (remove-if-not
+                             'identity
+                             (loop
+                               for type1
+                                 in (text-format-text-object-types format)
+                               collect (text-object-rule-from-subclass type1))))
+                          (new-result
+                            (if reparse-all
+                                ;; TODO: this is bad because in this case we're just
+                                ;; reparsing eveything..
+                                (parse format new-ancestor-text :doc child)
+                                (cltpt/combinator:scan-all-rules
+                                 ;; this isnt good, the "context" we used before
+                                 ;; may not be good for reparsing.
+                                 (getf (car prev-result) :ctx)
+                                 new-ancestor-text
+                                 ;; we want to use the rules for the text format
+                                 ;; this is intended for, not the ones previously
+                                 ;; used (so not the ones from the prev "context").
+                                 rules
+                                 ;; (cltpt/combinator:context-rules
+                                 ;;  (getf (car prev-result) :ctx))
+                                 (region-begin region-relative-to-ancestor)
+                                 (region-end region-relative-to-ancestor))))
+                          ;; the way we are using `new-objects' here as a plist
+                          ;; and then turn it into a list isnt pretty. we should
+                          ;; use another way of passing the list to the function
+                          ;; and getting back the result that isnt hacky.
+                          (new-objects (list :objects nil)))
+                     (unless reparse-all
+                       (loop for m in new-result
+                             do (handle-match
+                                 new-ancestor-text
+                                 m
+                                 new-objects
+                                 (text-format-text-object-types format)))
+                       (setf new-objects
+                             (reverse
+                              (remove-if
+                               (lambda (item)
+                                 (text-object-parent item))
+                               (getf new-objects :objects))))
+                       (setf new-elements
+                             (concatenate 'list new-elements new-objects))
+                       ;; we need to replace the old child with the new parse results.
+                       (cond
+                         (only-simple-changes
+                          (setf (text-object-children child) new-objects))
+                         ((and parent prev-sibling-cons)
+                          (progn
+                            (setf (cdr prev-sibling-cons-cons) new-objects)
+                            (setf (cdr (last new-objects)) next-siblings)))
+                         (parent
+                          (setf (text-object-children (text-object-parent child))
+                                (concatenate 'list new-objects next-siblings)))
+                         (t
+                          (setf (text-object-children child)
+                                new-objects))))
+                     (when parent
+                       (loop for new-child in new-objects
+                             do (setf (text-object-parent new-child)
+                                      (if only-simple-changes
+                                          child
+                                          parent)))))
+                   ;; if we arent reparsing we need to adjust the regions of the
+                   ;; children of the object accordingly.
+                   (loop for node in (text-object-children child)
+                         for node-begin = (region-begin
+                                           (relative-child-region obj node))
+                         do (when (>= node-begin (region-begin region))
+                              (region-incf (text-object-text-region node)
+                                           change-in-region-length))))
                ;; we need to change the positions of the next siblings in the tree
                ;; according to the change in their sibling
-               (when next-siblings
-                 (loop for sibling in next-siblings
-                       do (region-incf (text-object-text-region sibling)
-                                       change-in-child-end)))))))
+               (when propagate
+                 (when next-siblings
+                   (loop for sibling in next-siblings
+                         do (region-incf (text-object-text-region sibling)
+                                         change-in-region-length))))))
+    new-elements))
 
 ;; this is used for incremental parsing. it takes a position at which the
 ;; modification happened, and modifies the object tree accordingly.
@@ -315,7 +368,7 @@ region that changed and the new string that it now holds (or should hold)."
                              (make-region :begin change-pos :end change-pos))))
     (if is-deletion
         ;; if its a deletion the change is replacing the region with an empty string.
-        (handle-changed-regions obj (list (cons "" changed-region)) t)
+        (handle-changed-regions obj format (list (cons "" changed-region)) t)
         ;; if its an insertion we need to provide the inserted string, the region
         ;; of change is of size 0 so no text is replaced, only new text inserted.
         (handle-changed-regions

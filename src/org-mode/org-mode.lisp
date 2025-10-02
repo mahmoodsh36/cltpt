@@ -851,12 +851,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       :escape t
       :reparse nil))
     ((eq backend cltpt/html:*html*)
-     (cltpt/base:wrap-contents-for-convert
+     (cltpt/base:rewrap-within-tags
       obj
       "<code>"
-      "</code>"
-      :escape t
-      :reparse nil))))
+      "</code>"))))
 
 (defclass org-table (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -1166,7 +1164,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        (setf (getf result :reparse-region) nil)
        result))
     ((eq backend cltpt/html:*html*)
-     (cltpt/base:wrap-contents-for-convert obj "<i>" "</i>"))))
+     (cltpt/base:rewrap-within-tags obj "<i>" "</i>"))))
 
 ;; wrap text for exporting within specific "tags".
 ;; TODO: this is similar to `cltpt/base:wrap-contents-for-content'. perhaps DRY.
