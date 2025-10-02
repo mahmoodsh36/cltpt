@@ -5,7 +5,7 @@
    :bind-and-eval :bind-and-eval*
    :compress-consec :str-join :concat :str-prune :str-split
    :alist-get :subseq* :sorted-insert :last-atom
-   :merge-plist
+   :merge-plist :replace-substr
 
    :region-incf
 
@@ -21,6 +21,7 @@
    :convert-tree
    :*convert-escape-newlines*
    :*convert-info*
+   :rewrap-within-tags
 
    :*author*
    :document :document-title :document-date

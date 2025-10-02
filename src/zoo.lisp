@@ -19,7 +19,7 @@
         (format nil "\\end{~A}" type1)))
       (cltpt/html:*html*
        (if type1
-           (cltpt/base:wrap-contents-for-convert
+           (cltpt/base:rewrap-within-tags
             obj
             (format nil "<~A>" type1)
             (format nil "</~A>" type1))

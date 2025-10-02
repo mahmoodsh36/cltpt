@@ -104,6 +104,10 @@ the '\\' and processes the char normally (replace or emit)."
                        (escape nil escape-supplied))
   (let* ((result (text-object-convert-helper text-obj fmt-dest))
          (result-is-string (typep result 'string))
+         (result-text
+           (if result-is-string
+               result
+               (getf result :text)))
          (to-escape (if escape-supplied
                         escape
                         (or result-is-string
@@ -114,47 +118,58 @@ the '\\' and processes the char normally (replace or emit)."
                            (getf result :reparse))))
          (region-to-reparse (when (and to-reparse (not result-is-string))
                               (getf result :reparse-region)))
-         (convert-text
-           (if result-is-string
-               result
-               (getf result :text)))
          (region-to-escape (when (and to-escape (not result-is-string))
                              (getf result :escape-region)))
          (to-recurse (if recurse-supplied
                          recurse
                          (or (unless result-is-string (getf result :recurse))
                              to-reparse)))
-         (escapables (collect-escapables (text-format-text-object-types fmt-src))))
+         (escapables (collect-escapables (text-format-text-object-types fmt-src)))
+         (changes (or (unless result-is-string
+                        (getf result :changes))
+                      ;; if a reparse is requested but not changes were provided
+                      ;; then we need to consider the whole text changed.
+                      (and to-reparse
+                           (list
+                            (cons result-text
+                                  (make-region
+                                   :begin 0
+                                   :end (region-length
+                                         (text-object-text-region text-obj)))))))))
     (when (getf cltpt:*debug* :convert)
-      (format t "converting object ~A~%" text-obj))
+      (format t "converting object ~A~%" text-obj)
+      (cltpt/tree:tree-show text-obj))
+    ;; this is tricky, we are modifying the text of these objects as we are
+    ;; advancing, but we arent modifying the text at the root document.
+    (if (or changes to-reparse)
+        ;; we expect any changes to happen only to positions of children or changes
+        ;; in their text and nothing else. because otherwise changes would be hard
+        ;; or simply impossible to keep track of.
+        (handle-changed-regions text-obj
+                                fmt-src
+                                changes
+                                to-reparse
+                                :propagate nil
+                                :only-simple-changes t)
+        (text-object-change-text text-obj
+                                 result-text
+                                 :propagate nil))
+    ;; grab the new text after the changes were applied above.
+    (setf result-text (text-object-text text-obj))
     (if to-recurse
         ;; we store the results as fragments (`final-result-fragments') to avoid concatenating all the time
         (let* ((final-result-fragments)
-               (idx 0)
-               (original-children (text-object-children text-obj))
-               (children
-                 (sort-text-objects
-                  (if to-reparse
-                      (text-object-children
-                       (parse
-                        fmt-src
-                        (if region-to-reparse
-                            (region-text region-to-reparse convert-text)
-                            convert-text)))
-                      original-children)))
-               (child-offset (if region-to-reparse
-                                 (region-begin region-to-reparse)
-                                 0)))
+               (idx 0))
           ;; if we reparsed, we need to reset the parent of the new copies of "children"
-          (when to-reparse
-            (setf (text-object-children text-obj) children)
-            (dolist (child children)
-              (setf (text-object-parent child) text-obj)
-              ;; (setf (text-object-parent child) nil)
-              ;; (text-object-set-parent child text-obj)
-              ;; (text-object-adjust-to-parent child text-obj)
-              ))
-          (loop for child in children
+          ;; (when to-reparse
+          ;;   (setf (text-object-children text-obj) children)
+          ;;   (dolist (child children)
+          ;;     (setf (text-object-parent child) text-obj)
+          ;;     ;; (setf (text-object-parent child) nil)
+          ;;     ;; (text-object-set-parent child text-obj)
+          ;;     ;; (text-object-adjust-to-parent child text-obj)
+          ;;     ))
+          (loop for child in (text-object-children text-obj)
                 do (when (getf cltpt:*debug* :convert)
                      (format t "converting child ~A~%" child))
                    (let* ((child-result (convert-tree child fmt-src fmt-dest))
@@ -164,7 +179,7 @@ the '\\' and processes the char normally (replace or emit)."
                           (to-remove-newline-after
                             (getf child-options :remove-newline-after))
                           (text-in-between-begin idx)
-                          (text-in-between-end (+ child-offset (text-object-begin child)))
+                          (text-in-between-end (text-object-begin child))
                           ;; text up to next child.
                           ;; escape only the region that is requested for escaping in
                           ;; text-in-between.
@@ -172,7 +187,7 @@ the '\\' and processes the char normally (replace or emit)."
                             (if to-escape
                                 (if region-to-escape
                                     (extract-modified-substring
-                                     convert-text
+                                     result-text
                                      (lambda (my-substr)
                                        (escape-text my-substr
                                                     fmt-dest
@@ -181,50 +196,50 @@ the '\\' and processes the char normally (replace or emit)."
                                                   :end text-in-between-end)
                                      region-to-escape)
                                     (escape-text
-                                     (subseq convert-text
+                                     (subseq result-text
                                              text-in-between-begin
                                              text-in-between-end)
                                      fmt-dest
                                      escapables))
-                                (subseq convert-text
+                                (subseq result-text
                                         text-in-between-begin
                                         text-in-between-end))))
                      ;; if we reparsed only a specific region, we need to offset the regions of children
                      (push text-in-between final-result-fragments)
                      (push child-result final-result-fragments)
-                     (setf idx (+ child-offset (text-object-end child)))
+                     (setf idx (text-object-end child))
                      ;; if requested, ignore all newlines after the object (if any)
                      (when to-remove-newline-after
-                       (when (and (< idx (length convert-text))
-                                  (equal (char convert-text idx) #\newline))
-                             (incf idx)))))
+                       (when (and (< idx (length result-text))
+                                  (equal (char result-text idx) #\newline))
+                         (incf idx)))))
           ;; we need to handle region-to-reparse properly on the remaining text after
           ;; the region of the last child
           (let ((final-text-in-between
                   (if to-escape
                       (if region-to-escape
                           (extract-modified-substring
-                           convert-text
+                           result-text
                            (lambda (my-substr)
                              (escape-text my-substr fmt-dest escapables))
                            (make-region :begin idx
-                                        :end (length convert-text))
+                                        :end (length result-text))
                            region-to-escape)
-                          (escape-text (subseq convert-text idx) fmt-dest escapables))
-                      (subseq convert-text idx))))
+                          (escape-text (subseq result-text idx) fmt-dest escapables))
+                      (subseq result-text idx))))
             (push final-text-in-between final-result-fragments)
             (apply 'concatenate 'string (nreverse final-result-fragments))))
         (if to-escape
             (if region-to-escape
                 (extract-modified-substring
-                 convert-text
+                 result-text
                  (lambda (my-substr)
                    (escape-text my-substr fmt-dest escapables))
                  (make-region :begin 0
-                              :end (length convert-text))
+                              :end (length result-text))
                  region-to-escape)
-                (escape-text convert-text fmt-dest escapables))
-            convert-text))))
+                (escape-text result-text fmt-dest escapables))
+            result-text))))
 
 ;; this barely handles simple patterns, it cannot be relied on, but it may make some things easier.
 (defun convert-rule-with-shared-patterns (tree)

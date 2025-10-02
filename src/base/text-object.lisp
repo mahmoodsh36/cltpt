@@ -27,7 +27,7 @@
 
 (defmethod region-encloses ((r region) (r2 region))
   "returns whether region R encloses region R2."
-  (and (<= (region-begin r2) (region-end r))
+  (and (< (region-begin r2) (region-end r))
        (>= (region-begin r2) (region-begin r))))
 
 (defmethod region-length ((r region))
@@ -37,6 +37,21 @@
 (defmethod region-clone ((r region))
   (make-region :begin (region-begin r)
                :end (region-end r)))
+
+(defmethod region-compress ((r region) begin end)
+  "place offsets BEGIN and END at the beginning/ending of the string respectively."
+  (incf (region-begin r) begin)
+  (decf (region-end r) end)
+  r)
+
+(defmethod region-compress-by ((r region) (offsets region))
+  "invoke `region-compress' using begin/end from the region OFFSETS."
+  (region-compress (region-begin offsets)
+                   (region-end offsets)))
+
+(defmethod region-replace ((r region) main-str new-str)
+  "replace the substring bounded by the region R in MAIN-STR with NEW-STR."
+  (cltpt/base:replace-substr main-str new-str (region-begin r) (region-end r)))
 
 (defclass text-object ()
   ((properties
@@ -114,42 +129,72 @@ if plist, plist can contain the keywords:
 the options are:
 - :remove-newline-after: whether to trim a new line that comes after the object during conversion."))
 
+;; TODO: this is easy to optimize by storing said parent beforehand.
+(defmethod nearest-parent-with-text-helper ((node text-object))
+  (if (and (slot-boundp node 'text) (slot-value node 'text))
+      node
+      (when (text-object-parent node)
+        (nearest-parent-with-text-helper (text-object-parent node)))))
+(defmethod nearest-parent-with-text ((node text-object))
+  "given a text-object NODE, return closest parent with the `text' slot assigned."
+  (when (text-object-parent node)
+    (nearest-parent-with-text-helper (text-object-parent node))))
+
+;; TODO: this is easy to optimize by storing said ancestor beforehand.
+(defmethod nearest-ancestor-with-text ((node text-object))
+  "given a text-object NODE, return closest ancestor (non-strict) with the `text' slot assigned."
+  (nearest-parent-with-text-helper node))
+
+(defmethod text-object-holds-text ((text-obj text-object))
+  (and (slot-boundp text-obj 'text) (slot-value text-obj 'text)))
+
 ;; TODO: easy to optimize by not having to find the root (logarithmic complexity),
 ;; and not having to run subseq (linear complexity).
 (defmethod text-object-text ((obj text-object))
   "function to grab the text of a text object, dictated by `text-object-text-region'.
 
-this function assumes the root has the `text-object-text' slot set correctly."
-  (let* ((root (text-object-root obj))
-         (full-str (slot-value root 'text))
-         (obj-str (region-text (text-object-text-region-in-root obj) full-str)))
-    obj-str))
+this function assumes one ancestor (perhaps the root) has the `text-object-text' slot
+set correctly."
+  (let ((self-text (text-object-holds-text obj)))
+    (or self-text
+        (let* ((ancestor (nearest-parent-with-text obj))
+               (str (slot-value ancestor 'text))
+               (rel-region (relative-child-region ancestor obj))
+               (obj-str (region-text rel-region str)))
+          obj-str))))
 
-(defmethod text-object-change-text ((obj text-object) new-text)
+(defmethod text-object-change-text ((obj text-object)
+                                    new-text
+                                    &key (propagate t))
   "function to change the text the text-object OBJ corresponds to.
 
 this function doesnt propagate the changes to the children, so using it without
 taking care of children indicies would cause issues."
-  (let* ((root (text-object-root obj))
-         (orig-str (slot-value root 'text))
-         (begin-in-root (text-object-begin-in-root obj))
-         (end-in-root (text-object-end-in-root obj))
-         (new-root-text
-           (concatenate 'string
-                        (subseq orig-str 0 begin-in-root)
-                        new-text
-                        (subseq orig-str end-in-root))))
-    ;; set the text in the root accordingly, then update the boundaries
-    ;; of both the root and this child.
-    (setf (slot-value root 'text) new-root-text)
-    (setf (region-end (text-object-text-region root))
-          (length new-root-text))
-    (setf (region-end (text-object-text-region obj))
-          (+ (length new-text)
-             (region-begin (text-object-text-region obj))))))
+  (if propagate
+      (let* ((ancestor (nearest-ancestor-with-text obj))
+             (orig-str (slot-value ancestor 'text))
+             (rel-region (relative-child-region ancestor obj))
+             (new-ancestor-text
+               (concatenate 'string
+                            (subseq orig-str 0 (region-begin rel-region))
+                            new-text
+                            (subseq orig-str (region-end rel-region)))))
+        ;; set the text in the ancestor accordingly, then update the boundaries
+        ;; of both the root and this child.
+        (setf (slot-value ancestor 'text) new-ancestor-text)
+        (setf (region-end (text-object-text-region ancestor))
+              (length new-ancestor-text))
+        (setf (region-end (text-object-text-region obj))
+              (+ (length new-text)
+                 (region-begin (text-object-text-region obj)))))
+      (text-object-force-set-text obj new-text)))
 
 (defmethod (setf text-object-text) (new-text (obj text-object))
   (text-object-change-text obj new-text))
+
+(defmethod text-object-force-set-text ((text-obj text-object) new-text)
+  "set text slot without propagating changes upwards in the tree."
+  (setf (slot-value text-obj 'text) new-text))
 
 (defmethod text-object-convert ((obj text-object) backend)
   "default convert function."
@@ -300,10 +345,21 @@ taking care of children indicies would cause issues."
           (length (text-object-text text-obj)))
       (length (text-object-text text-obj))))
 
+(defmethod text-object-contents-region ((text-obj text-object))
+  (make-region :begin (text-object-contents-begin text-obj)
+               :end (text-object-contents-end text-obj)))
+
+;; (defmethod text-object-contents ((obj text-object))
+;;   (let ((ancestor (nearest-ancestor-with-text obj))
+;;         (orig-str (slot-value ancestor 'text))
+;;         (contents-region (region-compress-by
+;;                           (region-clone (relative-child-region ancestor obj))
+;;                           (text-object-contents-region obj))))
+;;     (region-text orig-str contents-region)))
+
 (defmethod text-object-contents ((obj text-object))
-  (subseq (text-object-text obj)
-          (text-object-contents-begin obj)
-          (text-object-contents-end obj)))
+  (region-text (text-object-contents-region obj)
+               (text-object-text obj)))
 
 (defclass text-macro (text-object)
   ((rule
@@ -377,6 +433,7 @@ taking care of children indicies would cause issues."
     (if (typep eval-result 'text-object)
         (text-object-convert eval-result backend)
         (list :text (princ-to-string eval-result)
+              :recurse t
               ;; :reparse makes post-lexer macros able to contain markup contents
               ;; that gets handled during conversion.
               ;; currently, the code for converting org-document exploits this.
@@ -628,3 +685,26 @@ and grabbing each position of each object through its ascendants in the tree."
 (defmethod text-object-text-region-in-root ((obj text-object))
   (make-region :begin (text-object-begin-in-root obj)
                :end (text-object-end-in-root obj)))
+
+(defun rewrap-within-tags (text-obj open-tag close-tag
+                           &key (reparse nil) (escape t))
+  "change the tags wrapping the contents of a text object. this is used for conversion."
+  (let* ((contents-region (text-object-contents-region text-obj))
+         (old-open-tag-region
+           (make-region :begin 0
+                        :end (region-begin contents-region)))
+         (old-close-tag-region
+           (make-region :begin (region-end contents-region)
+                        :end (region-length (text-object-text-region text-obj))))
+         ;; this is the inner region after region shifts caused by `handle-changed-regions'.
+         (inner-region
+           (make-region
+            :begin (length open-tag)
+            :end (+ (length open-tag) (region-length contents-region)))))
+    (list :text (text-object-text text-obj)
+          :changes (list (cons open-tag old-open-tag-region)
+                         (cons close-tag old-close-tag-region))
+          :recurse t
+          :reparse nil
+          :escape t
+          :escape-region inner-region)))

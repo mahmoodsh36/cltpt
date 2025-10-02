@@ -215,3 +215,11 @@ returns the (possibly new) list."
                (push value p2)
                (push indicator p2)))
   p2)
+
+(defun replace-substr (original replacement begin end)
+  "return a new string where ORIGINAL[BEGIN..END) is replaced with REPLACEMENT.
+BEGIN is inclusive, END is exclusive."
+  (concatenate 'string
+               (subseq original 0 begin)
+               replacement
+               (subseq original end)))

@@ -50,7 +50,8 @@
         (cltpt/base:text-format-by-name "org-mode")
         (cltpt/base:text-format-by-name "html")
         ;; "/home/mahmooz/brain/notes/1684594232.org"
-        "test.org"
+        ;; "test.org"
+        "test2.org"
         "test.out.html")
        nil))))
 
@@ -346,30 +347,30 @@ more nested text<ol type=\"1\">
      (cltpt/org-mode::org-mode-inline-text-object-rule))))
 
 (defun test-convert-1 ()
-  (convert-tree
-   (cltpt/base::parse
-    "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
+  (let ((parsed
+          (cltpt/base:parse
+           cltpt/org-mode:*org-mode*
+           "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
   my first block
   %a
   #(cltpt/base::make-block :type 'subtheorem :let '((b \" that will be included on export\")))
     hello
     %(concatenate 'string a b)
   #(cltpt/base::block-end)
-#(cltpt/base::block-end)"
-    (cltpt/org-mode::org-mode-text-object-types))
-   (cltpt/base:text-format-by-name "latex")
-   (cltpt/org-mode::org-mode-text-object-types)))
+#(cltpt/base::block-end)")))
+    (cltpt/tree:tree-show parsed)
+    (convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
 
 (defun test-convert-2 ()
-  (convert-tree
-   (cltpt/base::parse
-    "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
-  my first block
+  (let ((parsed
+          (cltpt/base:parse
+           cltpt/org-mode:*org-mode*
+           "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
+  my block
   %a
-#(cltpt/base::block-end)"
-    (cltpt/org-mode::org-mode-text-object-types))
-   (cltpt/base:text-format-by-name "latex")
-   (cltpt/org-mode::org-mode-text-object-types)))
+#(cltpt/base::block-end)")))
+    (cltpt/tree:tree-show parsed)
+    (convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
 
 (test test-parse-table
   (let ((table
