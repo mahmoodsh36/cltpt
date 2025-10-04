@@ -302,21 +302,21 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                            (backend cltpt/base:text-format))
   "")
 
-(defvar *org-timestamp-rule*
-  '(:pattern
-    (cltpt/combinator:consec
-     "<"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id year)
-     "-"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id month)
-     "-"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id day)
-     " "
-     (:pattern (cltpt/combinator:word-matcher)
-      :id weekday)
+(defvar *org-single-timestamp-rule*
+  '(cltpt/combinator:consec-with-optional
+    "<"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id year)
+    "-"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id month)
+    "-"
+    (:pattern (cltpt/combinator:natural-number-matcher)
+     :id day)
+    " "
+    (:pattern (cltpt/combinator:word-matcher)
+     :id weekday)
+    (:pattern
      (cltpt/combinator:consec-atleast-one
       " "
       (:pattern (cltpt/combinator:natural-number-matcher)
@@ -327,7 +327,25 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       ":"
       (:pattern (cltpt/combinator:natural-number-matcher)
        :id second))
-     ">")
+     :optional t)
+    (:pattern
+     (cltpt/combinator:consec-atleast-one
+      " +"
+      (:pattern (cltpt/combinator:natural-number-matcher)
+       :id repeat-num)
+      (:pattern (cltpt/combinator:word-matcher)
+       :id repeat-word))
+     :optional t
+     :id repeat)
+    ">"))
+(defvar *org-timestamp-rule*
+  `(:pattern
+    (cltpt/combinator:consec-atleast-one
+     (:pattern ,*org-single-timestamp-rule*
+      :id begin)
+     "--"
+     (:pattern ,*org-single-timestamp-rule*
+      :id end))
     :on-char #\<))
 (defclass org-timestamp (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -337,27 +355,33 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defun org-timestamp-match-to-time (match)
   (let* ((day (parse-integer
-               (cltpt/combinator:match-text (car (cltpt/combinator:find-submatch match 'day)))
+               (cltpt/combinator:match-text
+                (car (cltpt/combinator:find-submatch match 'day)))
                :junk-allowed t))
-         (second-str (cltpt/combinator:match-text (car (cltpt/combinator:find-submatch match 'second))))
+         (second-str (cltpt/combinator:match-text
+                      (car (cltpt/combinator:find-submatch match 'second))))
          (second (when second-str (parse-integer second-str :junk-allowed t)))
          (year (parse-integer
-                (cltpt/combinator:match-text (car (cltpt/combinator:find-submatch match 'year)))
+                (cltpt/combinator:match-text
+                 (car (cltpt/combinator:find-submatch match 'year)))
                 :junk-allowed t))
          (month (parse-integer
-                 (cltpt/combinator:match-text (car (cltpt/combinator:find-submatch match 'month)))
+                 (cltpt/combinator:match-text
+                  (car (cltpt/combinator:find-submatch match 'month)))
                  :junk-allowed t))
-         (hour (parse-integer
-                (cltpt/combinator:match-text (car (cltpt/combinator:find-submatch match 'hour)))
-                :junk-allowed t))
-         (minute (parse-integer
-                  (cltpt/combinator:match-text (car (cltpt/combinator:find-submatch match 'minute)))
-                  :junk-allowed t))
+         (hour-str (cltpt/combinator:match-text
+                    (car (cltpt/combinator:find-submatch match 'hour))))
+         (hour (when hour-str
+                 (parse-integer hour-str :junk-allowed t)))
+         (minute-str (cltpt/combinator:match-text
+                      (car (cltpt/combinator:find-submatch match 'minute))))
+         (minute (when minute-str
+                   (parse-integer minute-str :junk-allowed t)))
          (weekday (car (cltpt/combinator:find-submatch match 'weekday))))
     (local-time:encode-timestamp 0
                                  (or second 0)
-                                 minute
-                                 hour
+                                 (or minute 0)
+                                 (or hour 0)
                                  day
                                  month
                                  year)))
@@ -457,6 +481,62 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :escape nil))))))
 
 ;; TODO: we may want to match tags-rule only if its before a newline
+;; (let ((tags-rule
+;;         '(cltpt/combinator:consec
+;;           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+;;           (cltpt/combinator:literal ":")
+;;           (cltpt/combinator:separated-atleast-one
+;;            ":"
+;;            (:pattern
+;;             (cltpt/combinator:symbol-matcher)
+;;             :id tag))
+;;           (cltpt/combinator:literal ":")))
+;;       (todo-rule
+;;         '(:pattern (cltpt/combinator:upcase-word-matcher)
+;;           :id todo-keyword)))
+;;   (defvar *org-header-rule*
+;;     `(:pattern
+;;       (cltpt/combinator:consec-atleast-one
+;;        (cltpt/combinator:when-match
+;;         (cltpt/combinator:consec-with-optional
+;;          (:pattern
+;;           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+;;           :id stars)
+;;          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+;;          (:optional ,todo-rule)
+;;          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+;;          (:pattern
+;;           (cltpt/combinator:all-upto-without
+;;            ,tags-rule
+;;            ,(string #\newline))
+;;           :id title)
+;;          (:optional ,tags-rule))
+;;         cltpt/combinator:at-line-start-p)
+;;        ;; the following is for detecting metadata following an org header
+;;        (cltpt/combinator:atleast-one
+;;         (cltpt/combinator:consec
+;;          (cltpt/combinator:literal ,(string #\newline))
+;;          (cltpt/combinator:any
+;;           (cltpt/combinator:separated-atleast-one
+;;            " "
+;;            (cltpt/combinator:any
+;;             (:pattern
+;;              (cltpt/combinator:consec
+;;               (:pattern (cltpt/combinator:upcase-word-matcher)
+;;                :id name)
+;;               ": "
+;;               ,(copy-rule-with-id *org-timestamp-rule* 'timestamp))
+;;              :id action-active)
+;;             (:pattern
+;;              (cltpt/combinator:consec
+;;               (:pattern (cltpt/combinator:upcase-word-matcher)
+;;                :id name)
+;;               ": "
+;;               ,(copy-rule-with-id *org-timestamp-bracket-rule* 'timestamp))
+;;              :id action-inactive)))
+;;           ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
+;;           ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
+;;       :on-char #\*)))
 (let ((tags-rule
         '(cltpt/combinator:consec
           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
@@ -545,7 +625,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
           ;; this causes issues with files such as /home/mahmooz/brain/notes/1678745440.org
           ;; where the list following a header isnt strictly related to it.
-          ;; ,(copy-rule-with-id *org-list-rule* 'org-list)
+          ;; TODO: check if a list has all children start with "State",
+          ;; only in this case do they belong to the header as metadata.
+          ,(copy-rule-with-id *org-list-rule* 'org-list)
           ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
       :on-char #\*)))
 (defclass org-header (cltpt/base:text-object)
@@ -570,21 +652,65 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (setf (cltpt/base:text-object-property obj :initial-match-length)
           (- (getf (car match) :end) (getf (car match) :begin)))))
 
+(defun get-repeated-duration (repeat-num repeat-word)
+  (let ((repeat-num (parse-integer repeat-num :junk-allowed t)))
+    (cond
+      ((equal repeat-word "w")
+       (list :week repeat-num))
+      ((equal repeat-word "d")
+       (list :day repeat-num))
+      ((equal repeat-word "h")
+       (list :hour repeat-num)))))
+
+(defun handle-repeated-timestamp (ts-match)
+  (let ((repeat-num (cltpt/combinator:match-text
+                     (car (cltpt/combinator:find-submatch ts-match 'repeat-num))))
+        (repeat-word (cltpt/combinator:match-text
+                      (car (cltpt/combinator:find-submatch ts-match 'repeat-word)))))
+    (cltpt/agenda:make-repeated-timestamp
+     :time (org-timestamp-match-to-time ts-match)
+     :repeat (get-repeated-duration repeat-num repeat-word))))
+
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (title-match (car (cltpt/combinator:find-submatch match 'title)))
          (header-id)
+         (task-records)
          (scheduled)
          (deadline)
          (todo-keyword-match
            (car (cltpt/combinator:find-submatch match 'todo-keyword)))
-         (timestamp-match (cltpt/combinator:find-submatch match 'todo-timestamp))
+         (timestamp-matches
+           (cltpt/combinator:find-submatch-all match 'todo-timestamp))
          (action-active-matches
            (cltpt/combinator:find-submatch-all match 'action-active))
          (action-inactive-matches
-           (cltpt/combinator:find-submatch-all match 'action-inactive))
-         (todo-timestamp (when timestamp-match
-                           (org-timestamp-match-to-time timestamp-match))))
+           (cltpt/combinator:find-submatch-all match 'action-inactive)))
+    (loop for ts-match in timestamp-matches
+          do (let* ((begin-ts-match
+                      (cltpt/combinator:find-submatch ts-match 'begin))
+                    (end-ts-match
+                      (cltpt/combinator:find-submatch ts-match 'end))
+                    (begin-time
+                      (if (cltpt/combinator:find-submatch begin-ts-match 'repeat-num)
+                          (handle-repeated-timestamp begin-ts-match)
+                          (org-timestamp-match-to-time begin-ts-match)))
+                    (end-time
+                      (when end-ts-match
+                        (if (cltpt/combinator:find-submatch end-ts-match 'repeat-num)
+                          (handle-repeated-timestamp end-ts-match)
+                          (org-timestamp-match-to-time end-ts-match))))
+                    (new-record
+                      (if end-time
+                          (cltpt/agenda:make-task-record
+                           :type 'timed
+                           :time (cltpt/agenda:make-time-range
+                                  :begin begin-time
+                                  :end end-time))
+                          (cltpt/agenda:make-task-record
+                           :type 'timed
+                           :time begin-time))))
+               (push new-record task-records)))
     (labels ((is-drawer (obj2)
                (typep obj2 'org-prop-drawer)))
       (let ((drawers (find-children obj #'is-drawer)))
@@ -598,16 +724,23 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                              )
                             )))))
     (loop for action-match in action-active-matches
-          do (let ((action-name (cltpt/combinator:match-text (car (cltpt/combinator:find-submatch action-match 'name))))
-                   (action-timestamp (cltpt/combinator:find-submatch action-match 'timestamp)))
-               (cond
-                 ((string-equal action-name "scheduled")
-                  (setf scheduled (org-timestamp-match-to-time action-timestamp)))
-                 ((string-equal action-name "deadline")
-                  (setf deadline (org-timestamp-match-to-time action-timestamp)))
-                 ((string-equal action-name "closed")
-                  ;; TODO
-                  ))))
+          do (let ((action-name
+                     (cltpt/combinator:match-text
+                      (car (cltpt/combinator:find-submatch action-match 'name))))
+                   (action-timestamp
+                     (cltpt/combinator:find-submatch action-match 'timestamp)))
+               (push (cltpt/agenda:make-task-record
+                      :time (org-timestamp-match-to-time action-timestamp)
+                      :type (intern action-name))
+                     task-records)
+               ;; (cond
+               ;;   ((string-equal action-name "scheduled")
+               ;;    (setf scheduled (org-timestamp-match-to-time action-timestamp)))
+               ;;   ((string-equal action-name "deadline")
+               ;;    (setf deadline (org-timestamp-match-to-time action-timestamp)))
+               ;;   ((string-equal action-name "closed")
+               ;;    ))
+               ))
     (setf (text-object-property obj :id) header-id)
     ;; initialize roam data
     (setf (cltpt/base:text-object-property obj :roam-node)
@@ -617,16 +750,15 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
            :desc nil
            :text-obj obj))
     (when todo-keyword-match
-      (setf (cltpt/base:text-object-property obj :todo)
-            (cltpt/agenda:make-todo
-             :title (cltpt/combinator:match-text title-match)
-             :description nil
-             :state (cltpt/combinator:match-text todo-keyword-match)
-             :scheduled scheduled
-             :deadline deadline
-             :timed todo-timestamp
-             :tags nil
-             :state-history nil)))))
+      (let ((task (cltpt/agenda:make-task
+                   :title (cltpt/combinator:match-text title-match)
+                   :description nil
+                   :state (intern (cltpt/combinator:match-text todo-keyword-match))
+                   :tags nil
+                   :records task-records)))
+        (loop for record in task-records
+              do (setf (cltpt/agenda:task-record-task record) task))
+        (setf (cltpt/base:text-object-property obj :task) task)))))
 
 ;; TODO: fix conversion to latex.
 (defmethod cltpt/base:text-object-convert ((obj org-header)

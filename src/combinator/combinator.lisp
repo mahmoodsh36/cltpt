@@ -11,7 +11,7 @@
    :at-line-start-p :at-line-end-p :followed-by :match-rule
    :separated-atleast-one :all-but-whitespace :handle-rule-string
    :all-upto :all-upto-included :succeeded-by :all-upto-without
-   :context-rules
+   :context-rules :consec-with-optional
 
    :find-submatch :find-submatch-all :find-submatch-last :match-text
    ))
@@ -454,6 +454,7 @@ before the final closing rule is found."
         (unless read-error
           (setf chars-consumed (file-position s))
           (when (> chars-consumed 0)
+            ;; TODO: no need to run subseq here or even assign "form-str"
              (setf form-str (subseq str pos (+ pos chars-consumed)))))))
     (if (and form-str (> chars-consumed 0))
         (cons (list :begin pos
@@ -670,3 +671,35 @@ returns the matched substring and its bounds."
                   :str str
                   :ctx ctx)
             nil))))
+
+(defun consec-with-optional (ctx str pos &rest parsers)
+  "match a consecutive set of rules, where some are optional and some are non-optional.
+
+parsers can be marked as optional by wrapping them in an :optional keyword.
+all non-optional parsers must match in order. optional parsers are attempted,
+but if they don't match, parsing continues without them."
+  (let ((start pos)
+        (matches))
+    (loop for parser in parsers
+          do (cond
+               ;; if the parser is marked as optional
+               ((and (consp parser)
+                     (keywordp (car parser))
+                     (getf parser :optional))
+                (let ((match (match-rule-normalized ctx (cadr parser) str pos)))
+                  (when match
+                    (setf pos (getf (car match) :end))
+                    (push match matches))))
+               ;; otherwise, it's a non-optional parser
+               (t
+                (let ((match (match-rule-normalized ctx parser str pos)))
+                  (if match
+                      (progn
+                        (setf pos (getf (car match) :end))
+                        (push match matches))
+                      (return-from consec-with-optional nil))))))
+    (cons (list :begin start
+                :end pos
+                :str str
+                :ctx ctx)
+          (nreverse matches))))

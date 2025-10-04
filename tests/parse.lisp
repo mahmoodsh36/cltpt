@@ -717,8 +717,30 @@ this is not a match: #tag2
 
 (defun test-org-timestamp-1 ()
   (cltpt/combinator:match-rule
+   nil
+   cltpt/org-mode::*org-timestamp-rule*
+   "<2023-12-28 Thu>"
+   0))
+
+(defun test-org-timestamp-2 ()
+  (cltpt/combinator:match-rule
+   nil
    cltpt/org-mode::*org-timestamp-rule*
    "<2023-12-28 Thu 18:30:00>"
+   0))
+
+(defun test-org-timestamp-3 ()
+  (cltpt/combinator:match-rule
+   nil
+   cltpt/org-mode::*org-timestamp-rule*
+   "<2023-12-28 Thu 18:30:00 +1w>"
+   0))
+
+(defun test-org-timestamp-4 ()
+  (cltpt/combinator:match-rule
+   nil
+   cltpt/org-mode::*org-timestamp-rule*
+   "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>"
    0))
 
 (defun test-combinator-number-1 ()
@@ -998,3 +1020,52 @@ my equation here
             obj-text
             (cltpt/base:text-object-text obj))
     (format t "updated doc: ~A~%" (cltpt/base:text-object-text doc))))
+
+(defparameter *test-forest*
+  (list (cons '(:text "projects" :expanded t)
+              (list (cons '(:text "lisp" :expanded t)
+                          (list '(:text "cltpt")))
+                    '(:text "python")))
+        (cons '(:text "documents" :expanded t)
+              (list '(:text "resume.docx")))
+        '(:text "downloads")))
+
+(defun test-outline-1 ()
+  (format t "~%--- 1. lsblk style ---~%~a"
+          (cltpt/outline:render-outline *test-forest*))
+  (format t "~%--- 2. ascii style ---~%~a"
+          (cltpt/outline:render-outline *test-forest* cltpt/outline:*ascii-style*))
+  (format t "~%--- 3. simple style ---~%~a"
+          (cltpt/outline:render-outline *test-forest* cltpt/outline:*simple-style*)))
+
+(defun test-outline-2 ()
+  (format t "~%--- 1. s-expression output ---~%~a~%"
+          (cltpt/outline:render-as-s-expression *test-forest*))
+  (format t "~%--- 2. json output ---~%~a~%"
+          (cltpt/outline:render-as-json *test-forest*))
+  (format t "~%--- 3. graphviz output ---~%")
+  (format t "save this as 'tree.dot' and run: dot -Tpng tree.dot -o tree.png~%~a"
+          (cltpt/outline:render-as-dot *test-forest*))
+  (format t "~%--- 4. path list output ---~%~a"
+          (cltpt/outline:render-as-path-list *test-forest*)))
+
+(defun agenda-test-2 ()
+  (let* ((rmr (cltpt/roam:from-files
+               '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
+                  :regex ".*\\.org"
+                  :format "org-mode"))))
+         (agenda (cltpt/agenda:from-roamer rmr))
+         (tasks (cltpt/agenda:tasks-between
+                 agenda
+                 (local-time:adjust-timestamp (local-time:now)
+                   (offset :year -1)
+                   (offset :day 2))
+                 (local-time:now))))
+    (format t "total tasks ~A~%" (length (cltpt/agenda:agenda-tasks agenda)))
+    (format t "filtered tasks ~A~%" (length tasks))
+    (cltpt/outline:render-forest (cltpt/tree::list-to-forest tasks))))
+
+(defun test-duration-1 ()
+  (let ((duration '(:hour 1 :minute 30)))
+    (format t "1. ~A~%" (cltpt/base:add-duration (local-time:now) duration))
+    (format t "2. ~A~%" (cltpt/base:add-duration (local-time:now) duration :sign -1))))
