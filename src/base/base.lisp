@@ -6,6 +6,7 @@
    :compress-consec :str-join :concat :str-prune :str-split
    :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :replace-substr
+   :add-duration
 
    :region-incf
 

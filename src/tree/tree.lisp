@@ -1,7 +1,7 @@
 (defpackage :cltpt/tree
   (:use :cl)
   (:export :tree-value :tree-children :tree-map :tree-find-all :tree-find
-           :is-subtree :tree-root :tree-parent :tree-show))
+           :is-subtree :tree-root :tree-parent :tree-show :node-depth))
 
 (in-package :cltpt/tree)
 
@@ -22,11 +22,20 @@ and returns the value associated with the node at its root."))
 (defgeneric tree-parent (subtree)
   (:documentation "given a (sub)tree (better thought of as a node), return its parnet."))
 
+(defgeneric forest-children (node)
+  (:documentation "given a forest (better thought of as a node), return its children (trees)."))
+
 (defmethod tree-value ((subtree cons))
   (car subtree))
 
+(defmethod tree-value ((subtree t))
+  (princ-to-string subtree))
+
 (defmethod tree-children ((subtree cons))
   (cdr subtree))
+
+(defmethod forest-children ((forest cons))
+  forest)
 
 (defmethod is-subtree (subtree child)
   "we often only want to iterate through the subtrees if they are of
@@ -90,8 +99,7 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
              (loop for node in nodes-list
                    ;; check if the current node is the last in the list of siblings
                    for lastp = (null (rest (member node nodes-list)))
-                   do
-                      (let* ((connector (if lastp "└─" "├─"))
+                   do (let* ((connector (if lastp "└─" "├─"))
                              (child-prefix (if lastp "  " "│ ")))
                         ;; print the current node's line
                         (format t "~a~a ~a~%" prefix connector (tree-value node))
@@ -102,3 +110,17 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
                            (concatenate 'string prefix child-prefix)))))))
     (format t "~a~%" (tree-value root-node))
     (display-nodes (tree-children root-node) "")))
+
+(defun node-depth (node)
+  "calculate the actual depth of a node based on its position in the tree structure."
+  (let ((depth 0)
+        (current-node node))
+    (loop while (tree-parent current-node)
+          do (progn
+               (incf depth)
+               (setf current-node (tree-parent current-node))))
+    depth))
+
+(defun list-to-forest (list)
+  "given a list of nodes with their parents and children set, turn the list into a forest."
+  (loop for item in list if (not (tree-parent item)) collect item))
