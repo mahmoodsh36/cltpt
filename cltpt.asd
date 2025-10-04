@@ -8,8 +8,12 @@
                 :pathname "src/"
                 :components ((:file "file-utils")))
                (:module "tree"
-                :pathname "src/"
+                :pathname "src/tree"
                 :components ((:file "tree")))
+               (:module "outline"
+                :pathname "src/tree"
+                :depends-on ("tree")
+                :components ((:file "outline")))
                (:module "combinator"
                 :pathname "src/combinator"
                 :depends-on ("tree")

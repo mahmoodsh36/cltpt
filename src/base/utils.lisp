@@ -223,3 +223,17 @@ BEGIN is inclusive, END is exclusive."
                (subseq original 0 begin)
                replacement
                (subseq original end)))
+
+(defun add-duration (timestamp duration &key (sign 1))
+  "apply a duration stored as a plist like (:hour 1 :minute 30).
+if SIGN is -1 this subtracts instead of adds."
+  (let ((ts timestamp))
+    (loop for (k v) on duration by #'cddr do
+      (ecase k
+        (:hour   (setf ts (local-time:timestamp+ ts (* sign v) :hour)))
+        (:minute (setf ts (local-time:timestamp+ ts (* sign v) :minute)))
+        (:sec    (setf ts (local-time:timestamp+ ts (* sign v) :sec)))
+        (:day    (setf ts (local-time:timestamp+ ts (* sign v) :day)))
+        (:year   (setf ts (local-time:timestamp+ ts (* sign v) :year)))
+        (otherwise (error "unsupported duration key: ~S" k))))
+    ts))
