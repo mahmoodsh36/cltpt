@@ -237,3 +237,28 @@ if SIGN is -1 this subtracts instead of adds."
         (:year   (setf ts (local-time:timestamp+ ts (* sign v) :year)))
         (otherwise (error "unsupported duration key: ~S" k))))
     ts))
+
+(defun list-dates (start-date end-date interval)
+  "generates and returns a list of timestamps from START-DATE to END-DATE.
+
+- START-DATE and END-DATE should be local-time timestamp objects.
+- INTERVAL is a plist like (:day 1 :hour 12)."
+  (loop for current-date = start-date then (add-duration current-date interval)
+        while (local-time:timestamp<= current-date end-date)
+        collect current-date))
+
+(defun list-date-pairs (start-date end-date interval)
+  "generates a list of (current-date . next-date) cons pairs.
+the loop stops when NEXT-DATE would be after END-DATE."
+  (loop for current-date = start-date then next-date
+        for next-date = (add-duration current-date interval)
+        while (local-time:timestamp<= next-date end-date)
+        collect (cons current-date next-date)))
+
+(defun truncate-to-day (timestamp)
+  (multiple-value-bind (nsec sec min hr day month year day-of-week dst-p offset tz-obj)
+      (local-time:decode-timestamp timestamp)
+    (local-time:encode-timestamp 0 0 0 0 day month year)))
+
+(defun today-timestamp ()
+  (truncate-to-day (local-time:today)))
