@@ -1054,18 +1054,24 @@ my equation here
                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
                   :regex ".*\\.org"
                   :format "org-mode"))))
-         (agenda (cltpt/agenda:from-roamer rmr))
-         (tasks (cltpt/agenda:tasks-between
-                 agenda
-                 (local-time:adjust-timestamp (local-time:now)
-                   (offset :year -1)
-                   (offset :day 2))
-                 (local-time:now))))
-    (format t "total tasks ~A~%" (length (cltpt/agenda:agenda-tasks agenda)))
-    (format t "filtered tasks ~A~%" (length tasks))
-    (cltpt/outline:render-forest (cltpt/tree::list-to-forest tasks))))
+         (agenda (cltpt/agenda:from-roamer rmr)))
+    (cltpt/agenda::render-agenda agenda)))
 
 (defun test-duration-1 ()
   (let ((duration '(:hour 1 :minute 30)))
     (format t "1. ~A~%" (cltpt/base:add-duration (local-time:now) duration))
     (format t "2. ~A~%" (cltpt/base:add-duration (local-time:now) duration :sign -1))))
+
+(defun test-duration-2 ()
+  (cltpt/base:list-date-pairs
+   (local-time:today)
+   (cltpt/base:add-duration (local-time:today) '(:day 14))
+   '(:minute 70)))
+
+(defun agenda-test-3 ()
+  (let* ((rmr (cltpt/roam:from-files
+               '((:path ("../test.org")
+                  :regex ".*\\.org"
+                  :format "org-mode"))))
+         (agenda (cltpt/agenda:from-roamer rmr)))
+    (cltpt/agenda:render-agenda agenda)))
