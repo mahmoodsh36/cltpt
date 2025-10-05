@@ -6,7 +6,8 @@
    :compress-consec :str-join :concat :str-prune :str-split
    :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :replace-substr
-   :add-duration
+   :add-duration :list-dates :list-date-pairs
+   :today-timestamp :truncate-to-day
 
    :region-incf
 

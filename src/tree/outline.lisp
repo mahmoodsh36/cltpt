@@ -38,7 +38,7 @@
       (getf node :text)))
 
 (defmethod should-expand ((node t))
-  nil)
+  (cltpt/tree:tree-children node))
 
 (defmethod outline-text ((node string))
   node)

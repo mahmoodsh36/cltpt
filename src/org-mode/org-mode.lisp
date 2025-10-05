@@ -676,8 +676,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (title-match (car (cltpt/combinator:find-submatch match 'title)))
          (header-id)
          (task-records)
-         (scheduled)
-         (deadline)
          (todo-keyword-match
            (car (cltpt/combinator:find-submatch match 'todo-keyword)))
          (timestamp-matches
@@ -703,12 +701,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (new-record
                       (if end-time
                           (cltpt/agenda:make-task-record
-                           :type 'timed
                            :time (cltpt/agenda:make-time-range
                                   :begin begin-time
                                   :end end-time))
                           (cltpt/agenda:make-task-record
-                           :type 'timed
                            :time begin-time))))
                (push new-record task-records)))
     (labels ((is-drawer (obj2)
@@ -729,18 +725,19 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                       (car (cltpt/combinator:find-submatch action-match 'name))))
                    (action-timestamp
                      (cltpt/combinator:find-submatch action-match 'timestamp)))
-               (push (cltpt/agenda:make-task-record
-                      :time (org-timestamp-match-to-time action-timestamp)
-                      :type (intern action-name))
-                     task-records)
-               ;; (cond
-               ;;   ((string-equal action-name "scheduled")
-               ;;    (setf scheduled (org-timestamp-match-to-time action-timestamp)))
-               ;;   ((string-equal action-name "deadline")
-               ;;    (setf deadline (org-timestamp-match-to-time action-timestamp)))
-               ;;   ((string-equal action-name "closed")
-               ;;    ))
-               ))
+               (cond
+                 ((string-equal action-name "scheduled")
+                  (push
+                   (cltpt/agenda:make-record-scheduled
+                    :time (org-timestamp-match-to-time action-timestamp))
+                   task-records))
+                 ((string-equal action-name "deadline")
+                  (push
+                   (cltpt/agenda:make-record-deadline
+                    :time (org-timestamp-match-to-time action-timestamp))
+                   task-records))
+                 ((string-equal action-name "closed")
+                  ))))
     (setf (text-object-property obj :id) header-id)
     ;; initialize roam data
     (setf (cltpt/base:text-object-property obj :roam-node)
