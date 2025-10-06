@@ -456,8 +456,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     ;; set children of new-obj to those of obj without any nested org-lists
     ;; otherwise things wont work properly (because nested org-lists get converted)
     ;; to latex and later we try to parse them as a list
-    (setf (cltpt/base:text-object-children new-obj)
-          new-children)
+    (setf (cltpt/base:text-object-children new-obj) new-children)
     ;; we create a new intermediate object, treat it as raw text,
     ;; parse other types of text objects and convert them, then parse the result
     ;; as a list
