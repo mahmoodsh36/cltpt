@@ -452,6 +452,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
      new-obj
      list-text
      (cltpt/base:text-object-property obj :combinator-match))
+    (cltpt/base::text-object-force-set-text new-obj list-text)
     ;; set children of new-obj to those of obj without any nested org-lists
     ;; otherwise things wont work properly (because nested org-lists get converted)
     ;; to latex and later we try to parse them as a list
@@ -462,7 +463,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     ;; as a list
     (let* ((new-txt (cltpt/base:convert-tree
                      new-obj
-                     (org-mode-inline-text-object-types)
+                     *org-mode*
                      backend
                      :reparse nil
                      :recurse t
