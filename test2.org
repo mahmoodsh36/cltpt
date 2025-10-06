@@ -30,3 +30,19 @@ an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
 3. in subsequent layers there are only different types of gates (e.g. an AND layer is followed by an OR layer, and vice versa).
 we say the circuit is /very standard/ if the indegree of each gate in the first (non-input) layer is at most \(2\log(S)\), where \(S\) is the size of the circuit.
 #+end_definition
+
+some code:
+
+#+begin_src python :results output
+  import requests
+  print('whatever')
+  print('whatever2')
+#+end_src
+
+#+RESULTS:
+: whatever
+: whatever2
+: \(11\)
+: wow
+
+ened of code

@@ -93,6 +93,10 @@
                               do (unless (text-object-parent item)
                                    (text-object-set-parent item opening-macro)
                                    (text-object-adjust-to-parent item opening-macro)))
+                        ;; after pushing the children to `opening-macro' we need
+                        ;; to reverse them (we used `push').
+                        (setf (text-object-children opening-macro)
+                              (nreverse (text-object-children opening-macro)))
                         (setf is-new-object nil))
                       (progn
                         (setf
@@ -298,13 +302,13 @@ returns the elements newly inserted into the tree."
                                  new-objects
                                  (text-format-text-object-types format)))
                        (setf new-objects
-                             (reverse
+                             (nreverse
                               (remove-if
                                (lambda (item)
                                  (text-object-parent item))
                                (getf new-objects :objects))))
                        (setf new-elements
-                             (concatenate 'list new-elements new-objects))
+                             (concatenate 'list new-elements (nreverse new-objects)))
                        ;; we need to replace the old child with the new parse results.
                        (cond
                          (only-simple-changes
@@ -315,10 +319,11 @@ returns the elements newly inserted into the tree."
                             (setf (cdr (last new-objects)) next-siblings)))
                          (parent
                           (setf (text-object-children (text-object-parent child))
-                                (concatenate 'list new-objects next-siblings)))
+                                (concatenate 'list
+                                             new-objects
+                                             next-siblings)))
                          (t
-                          (setf (text-object-children child)
-                                new-objects))))
+                          (setf (text-object-children child) new-objects))))
                      (when parent
                        (loop for new-child in new-objects
                              do (setf (text-object-parent new-child)
@@ -343,7 +348,7 @@ returns the elements newly inserted into the tree."
                ;; we need to finalize after changes. but perhaps not necessarily
                ;; the root.
                (finalize-doc (text-object-root child))))
-    new-elements))
+    (nreverse new-elements)))
 
 ;; this is used for incremental parsing. it takes a position at which the
 ;; modification happened, and modifies the object tree accordingly.
