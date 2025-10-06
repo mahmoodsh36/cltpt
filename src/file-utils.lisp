@@ -5,7 +5,7 @@
    :file-has-extension-p
    :change-extension :change-dir :path-without-extension
    :file-basename :base-name-no-ext :delete-files-by-regex
-   :write-file :join-paths :join-paths-list :walk-dir))
+   :write-file :read-file :join-paths :join-paths-list :walk-dir))
 
 (in-package :cltpt/file-utils)
 
@@ -66,6 +66,9 @@
                      :if-exists :supersede
                      :if-does-not-exist :create)
     (write-sequence str1 f)))
+
+(defun read-file (filepath)
+  (uiop:read-file-string filepath))
 
 (defun join-paths (&rest components)
   "merge given args as filepaths, see `join-paths-list'."

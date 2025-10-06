@@ -68,7 +68,7 @@ directory path.")
 <body>
   <div class=\"post-content\">
     <h1> %(cltpt/base:document-title (getf cltpt/base:*convert-info* :text-obj)) - %(cltpt/base:document-date (getf cltpt/base:*convert-info* :text-obj)) </h1>
-    %(cltpt/base:text-object-contents (getf cltpt/base:*convert-info* :text-obj))
+    %(getf cltpt/base:*convert-info* :text-obj)
   </div>
 </body>
 </html>"
@@ -99,3 +99,6 @@ directory path.")
        text
        (remove #\newline *html-escape-table* :key #'car)
        escapable-chars)))
+
+(defmethod cltpt/base:text-format-conversion-template ((fmt (eql *html*)))
+  *html-template*)

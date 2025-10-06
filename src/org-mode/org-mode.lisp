@@ -1199,30 +1199,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              :escape-region inner-region)))
     (cltpt/html:*html*
      (ensure-latex-previews-generated obj)
-     (if *org-document-convert-with-boilerplate*
-         (list :text (let ((cltpt/base:*convert-info*
-                             (merge-plist cltpt/base:*convert-info*
-                                          (list :text-obj obj))))
-                       ;; here we've bound :text-obj in *convert-info* so that
-                       ;; we can access it from within the html template.
-                       (cltpt/base:convert-tree
-                        (cltpt/base:parse
-                         cltpt/html:*html*
-                         cltpt/html:*html-template*
-                         :text-object-types (list 'cltpt/base:text-macro
-                                                  'cltpt/base:post-lexer-text-macro))
-                        *org-mode*
-                        cltpt/html:*html*
-                        :escape nil
-                        :recurse t
-                        :reparse nil))
-               :escape nil
-               :reparse nil
-               :recurse nil)
-         (list :text (cltpt/base:text-object-text obj)
-               :escape t
-               :reparse t
-               :recurse t)))))
+     (list :text (cltpt/base:text-object-text obj)
+           :escape t
+           :reparse nil
+           :recurse t))))
 
 (defclass org-emph (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -1260,7 +1240,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        (setf (getf result :reparse-region) nil)
        result))
     ((eq backend cltpt/html:*html*)
-     (cltpt/base:wrap-contents-for-convert obj "<b>" "</b>"))))
+     (cltpt/base:rewrap-within-tags obj "<b>" "</b>"))))
 
 ;; TODO: in org-mode, slashes are interpreted as italic text only if they are
 ;; preceded/succeeded by spaces.
