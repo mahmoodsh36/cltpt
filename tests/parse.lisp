@@ -366,7 +366,7 @@ more nested text<ol type=\"1\">
           (cltpt/base:parse
            cltpt/org-mode:*org-mode*
            "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
-  my block
+  my block ~here~
   %a
 #(cltpt/base::block-end)")))
     (cltpt/tree:tree-show parsed)

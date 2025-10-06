@@ -1,9 +1,32 @@
+:PROPERTIES:
+:ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
+:END:
 #+title: my doc
 #+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
+
 \#+begin_comment
 \#+end_comment
 
 some \~text~
 text ~
 
+some /tetx here/
+
+soem ~code here~ and
+
 some \(math\) here
+
+#+name: test-name
+#+more: here eee
+\begin{equation}
+my equation here
+\end{equation}
+
+
+#+begin_definition :defines standard thing :name def-ac-standard :something :something2
+an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
+1. the circuit is divided into layers, such that edges only connect vertices between subsequent layers.
+2. in each layer there are only \(\textbooland\) or \(\textboolor\) gates (except the input layer).
+3. in subsequent layers there are only different types of gates (e.g. an AND layer is followed by an OR layer, and vice versa).
+we say the circuit is /very standard/ if the indegree of each gate in the first (non-input) layer is at most \(2\log(S)\), where \(S\) is the size of the circuit.
+#+end_definition

@@ -25,6 +25,7 @@
 ;; 4. we need a function that may discard any custom "left padding" such as a sequence of characters used for comments, e.g. ";;" in this case. in this exact comment section we have ";;" at the start of each line, we need a function that takes a "list matcher", and allows it to work regardless of those "padding sequences".
 ;; 5. `getf' is executed ridiculously often. perhaps we should use structs instead of plists, or something that makes access actually O(1). (constant-size plists are O(1), but not really.)
 ;; 6. some rules may only want to attempt matching in very specific cases, such as the beginning of a line, ending of a line. currently we support the heuristic of :on-char, and it speeds things up because it reduces the number of matchers executed at each point in the string, but we can add other heuristics too (perhaps an :after-char which for example could be used for ':after-char #\newline').
+;; 7. no need to store :str for every match.
 
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
