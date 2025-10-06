@@ -53,7 +53,8 @@ the '\\' and processes the char normally (replace or emit)."
                         (find (aref s (1+ i)) escapable-chars :test #'char=))
                    ;; handle escape
                    (let* ((next-char (aref s (1+ i)))
-                          (replacement (cdr (assoc next-char replace-table :test #'char=))))
+                          (replacement
+                            (cdr (assoc next-char replace-table :test #'char=))))
                      (princ (or replacement next-char) out)
                      (incf i))
                    ;; handle normal character
@@ -95,13 +96,13 @@ the '\\' and processes the char normally (replace or emit)."
                 :escape nil))
         (text-object-convert text-obj backend))))
 
-(defun convert-tree (text-obj
-                     fmt-src
-                     fmt-dest
-                     &key
-                       (reparse nil reparse-supplied)
-                       (recurse nil recurse-supplied)
-                       (escape nil escape-supplied))
+(defmethod convert-tree ((text-obj text-object)
+                         (fmt-src text-format)
+                         (fmt-dest text-format)
+                         &key
+                           (reparse nil reparse-supplied)
+                           (recurse nil recurse-supplied)
+                           (escape nil escape-supplied))
   (let* ((result (text-object-convert-helper text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (result-text
@@ -137,7 +138,6 @@ the '\\' and processes the char normally (replace or emit)."
                                    :end (region-length
                                          (text-object-text-region text-obj)))))))))
     (when (getf cltpt:*debug* :convert)
-      (format t "converting object ~A~%" changes)
       (format t "converting object ~A~%" text-obj)
       (cltpt/tree:tree-show text-obj))
     ;; this is tricky, we are modifying the text of these objects as we are
@@ -174,9 +174,9 @@ the '\\' and processes the char normally (replace or emit)."
                 do (when (getf cltpt:*debug* :convert)
                      (format t "converting child ~A~%" child))
                    (let* ((child-result (convert-tree child fmt-src fmt-dest))
-                          (child-options (text-object-convert-options
-                                          child
-                                          fmt-dest))
+                          (child-options
+                            (text-object-convert-options child
+                                                         fmt-dest))
                           (to-remove-newline-after
                             (getf child-options :remove-newline-after))
                           (text-in-between-begin idx)
@@ -261,14 +261,27 @@ the '\\' and processes the char normally (replace or emit)."
               when result
                 return result))))
 
-(defun convert-file (fmt1 fmt2 src-file dest-file)
-  (let* ((text (uiop:read-file-string src-file))
-         (result (convert-text fmt1 fmt2 text)))
-    (cltpt/file-utils:write-file
-     dest-file
-     result)))
-
-(defun convert-text (fmt1 fmt2 text)
-  (let* ((text-tree (parse fmt1 text))
-         (result (convert-tree text-tree fmt1 fmt2)))
-    result))
+(defmethod convert-document ((src-fmt text-format)
+                             (dest-fmt text-format)
+                             (doc document))
+  (let ((*convert-info*
+          (merge-plist *convert-info*
+                       (list :text-obj doc
+                             :dest-fmt dest-fmt
+                             :src-fmt src-fmt)))
+        (template (text-format-conversion-template dest-fmt)))
+    ;; here we've bound :text-obj in *convert-info* so that
+    ;; we can access it from within the template.
+    (if template
+        (convert-tree
+         (parse
+          dest-fmt
+          template
+          :text-object-types (list 'cltpt/base:text-macro
+                                   'cltpt/base:post-lexer-text-macro))
+         src-fmt
+         dest-fmt
+         :escape nil
+         :recurse t
+         :reparse nil)
+        (convert-tree doc src-fmt dest-fmt))))

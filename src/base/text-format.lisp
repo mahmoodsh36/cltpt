@@ -43,13 +43,24 @@
     (setf (text-format-document-type fmt) doc-type)
     fmt))
 
-(defmethod text-format-convert ((fmt1 text-format) (fmt2 text-format) text)
+(defmethod convert-text ((fmt1 text-format) (fmt2 text-format) text)
   "convert TEXT from FMT1 to FMT2."
-  (convert-text fmt1 fmt2 text))
+  (let* ((text-tree (parse fmt1 text))
+         (result (convert-tree text-tree fmt1 fmt2)))
+    result))
 
-(defun parse-file (filepath fmt)
+(defmethod convert-file ((fmt1 text-format)
+                         (fmt2 text-format)
+                         src-file
+                         dest-file)
+  (let* ((text (cltpt/file-utils:read-file src-file))
+         (doc (parse fmt1 text))
+         (result (convert-document fmt1 fmt2 doc)))
+    (cltpt/file-utils:write-file dest-file result)))
+
+(defmethod parse-file ((fmt text-format) filepath)
   "takes a FILEPATH and a `text-format' FMT, returns the parsed object tree."
-  (let* ((text (uiop:read-file-string filepath))
+  (let* ((text (cltpt/file-utils:read-file filepath))
          (text-tree (parse fmt text)))
     text-tree))
 
@@ -76,3 +87,9 @@
   "utility function to grab a text format using its alias. the aliases are hard-coded."
   (text-format-by-name
    (cdr (assoc alias *format-alias-alist* :test 'equal))))
+
+(defgeneric text-format-conversion-template (fmt)
+  (:documentation "a template for use when converting a document from some format into FMT."))
+
+(defmethod text-format-conversion-template ((fmt t))
+  nil)

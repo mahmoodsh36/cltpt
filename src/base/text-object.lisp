@@ -431,7 +431,13 @@ taking care of children indicies would cause issues."
 (defun convert-post-lexer-macro-obj (obj backend)
   (let ((eval-result (eval-post-lexer-macro obj)))
     (if (typep eval-result 'text-object)
-        (text-object-convert eval-result backend)
+        (let ((dest-fmt (getf *convert-info* :dest-fmt)))
+          (list :text (convert-tree eval-result
+                                    (getf *convert-info* :src-fmt)
+                                    (getf *convert-info* :dest-fmt))
+                :recurse nil
+                :reparse nil
+                :escape nil))
         (list :text (princ-to-string eval-result)
               :recurse t
               ;; :reparse makes post-lexer macros able to contain markup contents

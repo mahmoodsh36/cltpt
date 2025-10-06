@@ -1,7 +1,7 @@
 :PROPERTIES:
 :ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
 :END:
-#+title: my doc
+#+title: my doc2
 #+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
 
 \#+begin_comment
