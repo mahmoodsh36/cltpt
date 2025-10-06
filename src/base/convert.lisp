@@ -137,6 +137,7 @@ the '\\' and processes the char normally (replace or emit)."
                                    :end (region-length
                                          (text-object-text-region text-obj)))))))))
     (when (getf cltpt:*debug* :convert)
+      (format t "converting object ~A~%" changes)
       (format t "converting object ~A~%" text-obj)
       (cltpt/tree:tree-show text-obj))
     ;; this is tricky, we are modifying the text of these objects as we are

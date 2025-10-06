@@ -124,4 +124,6 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
 
 (defun list-to-forest (list)
   "given a list of nodes with their parents and children set, turn the list into a forest."
-  (loop for item in list if (not (tree-parent item)) collect item))
+  (loop for item in list
+        if (not (tree-parent item))
+          collect item))

@@ -275,7 +275,7 @@ returns the elements newly inserted into the tree."
                                 (cltpt/combinator:scan-all-rules
                                  ;; this isnt good, the "context" we used before
                                  ;; may not be good for reparsing.
-                                 (getf (car prev-result) :ctx)
+                                 nil
                                  new-ancestor-text
                                  ;; we want to use the rules for the text format
                                  ;; this is intended for, not the ones previously
@@ -339,7 +339,10 @@ returns the elements newly inserted into the tree."
                  (when next-siblings
                    (loop for sibling in next-siblings
                          do (region-incf (text-object-text-region sibling)
-                                         change-in-region-length))))))
+                                         change-in-region-length))))
+               ;; we need to finalize after changes. but perhaps not necessarily
+               ;; the root.
+               (finalize-doc (text-object-root child))))
     new-elements))
 
 ;; this is used for incremental parsing. it takes a position at which the
