@@ -353,6 +353,7 @@ more nested text<ol type=\"1\">
            "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
   my first block
   %a
+  %(identity a)
   #(cltpt/base::make-block :type 'subtheorem :let '((b \" that will be included on export\")))
     hello
     %(concatenate 'string a b)
