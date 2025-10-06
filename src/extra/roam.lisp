@@ -128,15 +128,16 @@ each rule is a plist that can contain the following params.
   (setf (roamer-node-id-hashtable rmr)
         (make-hash-table :test 'equal))
   (let* ((file-rule-alist (find-files (roamer-files rmr)))
-         (*roam-parse-data* (list :after-roam-hooks nil
-                                  :roamer rmr)))
+         (*roam-parse-data*
+           (list :after-roam-hooks nil
+                 :roamer rmr)))
     (loop for (file . file-rule) in file-rule-alist
           do (let* ((fmt (if (plistp file-rule)
                              (cltpt/base:text-format-by-name
                               (getf file-rule :format))
                              (cltpt/base:text-format-from-alias
                               (cltpt/file-utils:file-ext file-rule))))
-                    (parsed (cltpt/base:parse-file file fmt)))
+                    (parsed (cltpt/base:parse-file fmt file)))
                (cltpt/base:map-text-object
                 parsed
                 (lambda (text-obj)

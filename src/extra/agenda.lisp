@@ -254,7 +254,7 @@ the new agenda object will contain all the tasks found in the nodes of the roame
                             (loop
                               for my-record
                                 in (agenda-records-between agn hour next-hour)
-                              do (format t "here1 ~A~%" my-record)(push my-record
+                              do (push my-record
                                        (agenda-outline-node-children hour-node))))
                        (loop for my-record
                                in (agenda-records-between agn day next-day)

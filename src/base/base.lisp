@@ -15,7 +15,7 @@
    :text-format-text-object-types :text-format-by-name
    :convert-file :text-macro :post-lexer-text-macro
    :text-format-escape :replace-chars-and-escapes
-   :text-format
+   :text-format :text-format-conversion-template
 
    :parse-file
    :parse :handle-changed-regions
