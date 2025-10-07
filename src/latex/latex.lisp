@@ -1,6 +1,5 @@
 (defpackage :cltpt/latex
-  (:use :cl :cltpt/base :cltpt/combinator)
-  (:shadowing-import-from :cltpt/combinator parse)
+  (:use :cl)
   (:export
    :*latex* :display-math
    :inline-math :*inline-math-rule* :display-math :*display-math-rule*
@@ -41,7 +40,7 @@
   )
 
 (defvar *latex*
-  (make-text-format "latex")
+  (cltpt/base:make-text-format "latex")
   "`text-format' instance of the latex format.")
 
 (defvar *latex-escape-table*

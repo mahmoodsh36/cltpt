@@ -68,7 +68,7 @@
         (text-block-convert-helper obj backend))))
 
 (defun latex-fragment-to-html (latex-code is-inline)
-  (case cltpt/html::*html-export-latex-method*
+  (case cltpt/html:*html-export-latex-method*
     (cltpt/html::svg
      (let ((img-filepath))
        (let ((img-filepath (cdar (cltpt/latex:generate-previews-for-latex
