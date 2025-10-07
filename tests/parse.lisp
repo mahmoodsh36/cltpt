@@ -1033,22 +1033,22 @@ my equation here
 
 (defun test-outline-1 ()
   (format t "~%--- 1. lsblk style ---~%~a"
-          (cltpt/outline:render-outline *test-forest*))
+          (cltpt/tree/outline:render-outline *test-forest*))
   (format t "~%--- 2. ascii style ---~%~a"
-          (cltpt/outline:render-outline *test-forest* cltpt/outline:*ascii-style*))
+          (cltpt/tree/outline:render-outline *test-forest* cltpt/tree/outline:*ascii-style*))
   (format t "~%--- 3. simple style ---~%~a"
-          (cltpt/outline:render-outline *test-forest* cltpt/outline:*simple-style*)))
+          (cltpt/tree/outline:render-outline *test-forest* cltpt/tree/outline:*simple-style*)))
 
 (defun test-outline-2 ()
   (format t "~%--- 1. s-expression output ---~%~a~%"
-          (cltpt/outline:render-as-s-expression *test-forest*))
+          (cltpt/tree/outline:render-as-s-expression *test-forest*))
   (format t "~%--- 2. json output ---~%~a~%"
-          (cltpt/outline:render-as-json *test-forest*))
+          (cltpt/tree/outline:render-as-json *test-forest*))
   (format t "~%--- 3. graphviz output ---~%")
   (format t "save this as 'tree.dot' and run: dot -Tpng tree.dot -o tree.png~%~a"
-          (cltpt/outline:render-as-dot *test-forest*))
+          (cltpt/tree/outline:render-as-dot *test-forest*))
   (format t "~%--- 4. path list output ---~%~a"
-          (cltpt/outline:render-as-path-list *test-forest*)))
+          (cltpt/tree/outline:render-as-path-list *test-forest*)))
 
 (defun agenda-test-2 ()
   (let* ((rmr (cltpt/roam:from-files
