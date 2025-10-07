@@ -1,7 +1,7 @@
 (defpackage :cltpt/html
   (:use :cl :cltpt/base :cltpt/latex)
   (:export :*html* :*html-static-route* :*html-static-dir*
-           :*html-template* :init))
+           :*html-template* :init :*html-export-latex-method*))
 
 (in-package :cltpt/html)
 
@@ -18,9 +18,7 @@
      ;; text-macro
      ;; post-lexer-text-macro
      ))
-  (setf
-   (cltpt/base:text-format-name *html*)
-   "html"))
+  (setf (cltpt/base:text-format-name *html*) "html"))
 
 ;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
 (defvar *html-export-latex-method*

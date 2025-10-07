@@ -229,6 +229,20 @@ returns the elements newly inserted into the tree."
                                    (subseq child-text
                                            (- (region-end region)
                                               (region-begin rel-child-region)))))
+                    ;; (test8
+                    ;;   (format t
+                    ;;           "replaced '~A' with '~A'~%"
+                    ;;           (subseq child-text
+                    ;;                   (- (region-begin region)
+                    ;;                      (region-begin rel-child-region))
+                    ;;                   (- (region-end region)
+                    ;;                      (region-begin rel-child-region)))
+                    ;;           new-str))
+                    ;; (test9
+                    ;;   (format t
+                    ;;           "text changed from '~A' to '~A'~%"
+                    ;;           child-text
+                    ;;           new-child-text))
                     (child-idx
                       (when parent
                         (position
