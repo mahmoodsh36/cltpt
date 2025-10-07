@@ -1,4 +1,4 @@
-(defpackage :cltpt/outline
+(defpackage :cltpt/tree/outline
   (:use :cl)
   (:export
    :should-expand
@@ -12,7 +12,7 @@
    :render-as-dot
    :render-as-path-list))
 
-(in-package :cltpt/outline)
+(in-package :cltpt/tree/outline)
 
 (defgeneric should-expand (node)
   (:documentation "whether to expand a node when displaying the outline."))

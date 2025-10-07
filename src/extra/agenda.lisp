@@ -6,7 +6,7 @@
    :from-roamer :task-node :tasks-between
    :task-record :make-task-record :task-record-task :make-repeated-timestamp
    :make-time-range :make-record-scheduled :make-record-timestamp
-   :make-record-deadline :render-agenda))
+   :make-record-deadline :render-agenda :build-agenda-forest))
 
 (in-package :cltpt/agenda)
 
@@ -189,13 +189,13 @@ the new agenda object will contain all the tasks found in the nodes of the roame
 ;;                      ))))
 ;;     date-text))
 
-(defmethod cltpt/outline:outline-text ((node agenda-outline-node))
+(defmethod cltpt/tree/outline:outline-text ((node agenda-outline-node))
   (agenda-outline-node-text node))
 
 (defmethod cltpt/tree:is-subtree ((node agenda-outline-node) (child task-record))
   t)
 
-(defmethod cltpt/outline:outline-text ((rec task-record))
+(defmethod cltpt/tree/outline:outline-text ((rec task-record))
   (let ((task1 (task-record-task rec)))
     (if (deadline rec)
         (format nil "DEADLINE: ~A" (task-title task1))
@@ -206,65 +206,71 @@ the new agenda object will contain all the tasks found in the nodes of the roame
 (defmethod cltpt/tree:tree-children ((node task-record))
   nil)
 
+(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts)
+  "build a forest representing the data of AGN for the given dates.
+
+the returned list of trees should be implemented using the `cltpt/tree' and `cltpt/tree/outline' interface."
+  (let* ((agenda-forest))
+    (let* ((fully-displayed-days 1)
+           (hour-diff 2)
+           (begin-ts (if begin-ts
+                         (cltpt/base:truncate-to-day begin-ts)
+                         (cltpt/base:today-timestamp)))
+           (end-ts (or end-ts
+                       (cltpt/base:add-duration begin-ts '(:day 14)))))
+      (loop for (day . next-day)
+              in (cltpt/base:list-date-pairs begin-ts end-ts '(:day 1))
+            for i from 0
+            do (let ((day-node (make-agenda-outline-node
+                                :time-range (make-time-range
+                                             :begin day
+                                             :end next-day))))
+                 (setf (agenda-outline-node-text day-node)
+                       (local-time:format-timestring
+                        nil
+                        day
+                        :format '(:long-weekday
+                                  #\space
+                                  (:day 2 #\0)
+                                  #\space
+                                  :long-month)))
+                 (if (< i fully-displayed-days)
+                     (loop
+                       for (hour . next-hour)
+                         in (cltpt/base:list-date-pairs
+                             day
+                             next-day
+                             (list :hour hour-diff))
+                       for hour-node = (make-agenda-outline-node
+                                        :time-range (make-time-range
+                                                     :begin hour
+                                                     :end next-hour))
+                       do (push hour-node (agenda-outline-node-children day-node))
+                          (setf (agenda-outline-node-text hour-node)
+                                (local-time:format-timestring
+                                 nil
+                                 hour
+                                 :format '((:hour 2 #\0)
+                                           #\:
+                                           (:min 2 #\0))))
+                          (loop
+                            for my-record
+                              in (agenda-records-between agn hour next-hour)
+                            do (push my-record
+                                     (agenda-outline-node-children hour-node))))
+                     (loop for my-record
+                             in (agenda-records-between agn day next-day)
+                           do (push my-record
+                                    (agenda-outline-node-children day-node))))
+                 (push day-node agenda-forest)
+                 (setf (agenda-outline-node-children day-node)
+                       (nreverse (agenda-outline-node-children day-node))))))
+    (nreverse agenda-forest)))
+
 (defmethod render-agenda ((agn agenda) &key begin-ts end-ts)
   (with-output-to-string (out)
-    (let* ((agenda-forest))
-      (let* ((fully-displayed-days 1)
-             (hour-diff 2)
-             (begin-ts (if begin-ts
-                           (cltpt/base:truncate-to-day begin-ts)
-                           (cltpt/base:today-timestamp)))
-             (end-ts (or end-ts
-                         (cltpt/base:add-duration begin-ts '(:day 14)))))
-        (loop for (day . next-day)
-                in (cltpt/base:list-date-pairs begin-ts end-ts '(:day 1))
-              for i from 0
-              do (let ((day-node (make-agenda-outline-node
-                                  :time-range (make-time-range
-                                               :begin day
-                                               :end next-day))))
-                   (setf (agenda-outline-node-text day-node)
-                         (local-time:format-timestring
-                          nil
-                          day
-                          :format '(:long-weekday
-                                    #\space
-                                    (:day 2 #\0)
-                                    #\space
-                                    :long-month)))
-                   (if (< i fully-displayed-days)
-                       (loop
-                         for (hour . next-hour)
-                           in (cltpt/base:list-date-pairs
-                               day
-                               next-day
-                               (list :hour hour-diff))
-                         for hour-node = (make-agenda-outline-node
-                                          :time-range (make-time-range
-                                                       :begin hour
-                                                       :end next-hour))
-                         do (push hour-node (agenda-outline-node-children day-node))
-                            (setf (agenda-outline-node-text hour-node)
-                                  (local-time:format-timestring
-                                   nil
-                                   hour
-                                   :format '((:hour 2 #\0)
-                                             #\:
-                                             (:min 2 #\0))))
-                            (loop
-                              for my-record
-                                in (agenda-records-between agn hour next-hour)
-                              do (push my-record
-                                       (agenda-outline-node-children hour-node))))
-                       (loop for my-record
-                               in (agenda-records-between agn day next-day)
-                         do (push my-record
-                                  (agenda-outline-node-children day-node))))
-                   (push day-node agenda-forest)
-                   (setf (agenda-outline-node-children day-node)
-                         (nreverse (agenda-outline-node-children day-node))))))
-      (setf agenda-forest (nreverse agenda-forest))
-      (write-sequence (cltpt/outline:render-forest agenda-forest) out)
+    (let* ((agenda-forest (build-agenda-forest agn begin-ts end-ts)))
+      (write-sequence (cltpt/tree/outline:render-forest agenda-forest) out)
       out)))
 
 ;; (defmethod text-object-agenda-change-state ((fmt1 cltpt/base:text-format) obj-tree)
