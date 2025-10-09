@@ -58,8 +58,7 @@
                                  ;; doesnt work for some reason.
                                  (cltpt/base:convert-tree
                                   clone
-                                  (list 'cltpt/base:text-macro
-                                        'cltpt/base:post-lexer-text-macro)
+                                  (getf cltpt/base:*convert-info* :src-fmt)
                                   backend)))))
           (list :text (cltpt/base:concat result)
                 :recurse nil
