@@ -229,20 +229,6 @@ returns the elements newly inserted into the tree."
                                    (subseq child-text
                                            (- (region-end region)
                                               (region-begin rel-child-region)))))
-                    ;; (test8
-                    ;;   (format t
-                    ;;           "replaced '~A' with '~A'~%"
-                    ;;           (subseq child-text
-                    ;;                   (- (region-begin region)
-                    ;;                      (region-begin rel-child-region))
-                    ;;                   (- (region-end region)
-                    ;;                      (region-begin rel-child-region)))
-                    ;;           new-str))
-                    ;; (test9
-                    ;;   (format t
-                    ;;           "text changed from '~A' to '~A'~%"
-                    ;;           child-text
-                    ;;           new-child-text))
                     (child-idx
                       (when parent
                         (position
@@ -254,6 +240,19 @@ returns the elements newly inserted into the tree."
                          (1- child-idx)
                          (text-object-children (text-object-parent child)))))
                     (next-siblings (cddr prev-sibling-cons)))
+               (when (getf cltpt:*debug* :convert)
+                 (format t
+                         "DEBUG: replaced '~A' with '~A'~%"
+                         (subseq child-text
+                                 (- (region-begin region)
+                                    (region-begin rel-child-region))
+                                 (- (region-end region)
+                                    (region-begin rel-child-region)))
+                         new-str)
+                 (format t
+                         "DEBUG: text changed from '~A' to '~A'~%"
+                         child-text
+                         new-child-text))
                ;; adjust the text of the object accordingly using `text-object-change-text' which handles it correctly
                (text-object-change-text child new-child-text :propagate propagate)
                ;; adjust offset accordingly for next children/regions
@@ -275,9 +274,9 @@ returns the elements newly inserted into the tree."
                              region-relative-to-ancestor
                              (text-object-text ancestor)
                              new-child-text))
-                          (prev-result (cltpt/base:text-object-property
-                                        child
-                                        :combinator-match))
+                          ;; (prev-result (cltpt/base:text-object-property
+                          ;;               child
+                          ;;               :combinator-match))
                           (rules
                             (remove-if-not
                              'identity
@@ -338,7 +337,7 @@ returns the elements newly inserted into the tree."
                                              next-siblings)))
                          (t
                           (setf (text-object-children child) new-objects))))
-                     (when parent
+                     (when (or parent only-simple-changes)
                        (loop for new-child in new-objects
                              do (setf (text-object-parent new-child)
                                       (if only-simple-changes

@@ -1,48 +1,32 @@
 :PROPERTIES:
 :ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
 :END:
-#+title: my doc2
+#+title: my doc
 #+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
+* TODO another due task
+SCHEDULED: <2024-10-15 Tue 16:41:04> DEADLINE: <2024-10-15 Tue 16:51:04>
 
-\#+begin_comment
-\#+end_comment
+* TODO my secondary header
+SCHEDULED: <2025-07-26 Sat 10:55>
 
-some \~text~
-text ~
+test text1
 
-some /tetx here/
+** YOU do something :noexport:
+SCHEDULED: <2025-07-27 Sun 10:55:00>
 
-soem ~code here~ and
+more text that shouldnt be exported
 
-some \(math\) here
+** HERE do something else
+SCHEDULED: <2025-07-27 Sun 17:55:00>
 
-#+name: test-name
-#+more: here eee
-\begin{equation}
-my equation here
-\end{equation}
+** HER send the professor a mail
+DEADLINE: <2025-07-30 Wed 10:00>
 
+hey latex: \(x\)
 
-#+begin_definition :defines standard thing :name def-ac-standard :something :something2
-an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
-1. the circuit is divided into layers, such that edges only connect vertices between subsequent layers.
-2. in each layer there are only \(\textbooland\) or \(\textboolor\) gates (except the input layer).
-3. in subsequent layers there are only different types of gates (e.g. an AND layer is followed by an OR layer, and vice versa).
-we say the circuit is /very standard/ if the indegree of each gate in the first (non-input) layer is at most \(2\log(S)\), where \(S\) is the size of the circuit.
-#+end_definition
+#+mykeyword: value
+some [[mylink1-2:here1][testmore1- 2]] text
+[[attachment:sliding.gif]]
+[[attachment:sliding]]
 
-some code:
-
-#+begin_src python :results output
-  import requests
-  print('whatever')
-  print('whatever2')
-#+end_src
-
-#+RESULTS:
-: whatever
-: whatever2
-: \(11\)
-: wow
-
-ened of code
+hey 1<x2

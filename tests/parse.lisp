@@ -34,7 +34,7 @@
 
 (defun test-org-parse ()
   (cltpt/tree:tree-show
-   (parse-org-file "test.org")))
+   (parse-file cltpt/org-mode:*org-mode* "test2.org")))
 
 (defun test-org-convert ()
   (let ((cltpt/org-mode:*org-enable-macros* t))
