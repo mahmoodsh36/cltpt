@@ -790,14 +790,15 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    :reparse-region inner-region
                    :recurse t)))
           (cltpt/html:*html*
-           (let* ((title-text
+           (let* ((changes)
+                  (title-text
                     (format
                      nil
                      "<h~A>~A</h~A>"
                      ;; we seem to want to start from h2, not h1 in html.
                      (1+ (cltpt/base:text-object-property obj :level))
                      (cltpt/base:text-object-property obj :title)
-                     (cltpt/base:text-object-property obj :level)))
+                     (1+ (cltpt/base:text-object-property obj :level))))
                   (begin-text (format nil "~A~%~A" title-text "<p>"))
                   ;; TODO: we shouldnt be trimming here.
                   (inner-text
@@ -808,13 +809,69 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (inner-region
                     (cltpt/base:make-region
                      :begin (length begin-text)
-                     :end (- (length final-text) (length end-text)))))
-             (list :text final-text
-                   :escape t
-                   :escape-region inner-region
-                   :reparse t
-                   :reparse-region inner-region
-                   :recurse t)))))))
+                     :end (- (length final-text) (length end-text))))
+                  (match (cltpt/base:text-object-property obj :combinator-match))
+                  (title-match (car (cltpt/combinator:find-submatch match 'title)))
+                  (match-begin (getf (car match) :begin))
+                  (match-end (getf (car match) :end))
+                  (close-tag
+                    (format nil
+                            "</h~A>"
+                            ;; we want to start from h2, not h1 in html.
+                            (1+ (cltpt/base:text-object-property obj :level))))
+                  (open-tag
+                    (format nil
+                            "<h~A>"
+                            ;; we want to start from h2, not h1 in html.
+                            (1+ (cltpt/base:text-object-property obj :level))))
+                  (postfix-begin (- (getf title-match :end) match-begin))
+                  (postfix-end (- match-end match-begin))
+                  (prefix-end (- (getf title-match :begin) match-begin))
+                  (old-postfix-region
+                    (cltpt/base:make-region
+                     :begin postfix-begin
+                     :end postfix-end))
+                  (old-prefix-region
+                    (cltpt/base:make-region
+                     :begin 0
+                     :end prefix-end))
+                  (new-postfix-region
+                    (cltpt/base:make-region
+                     :begin (+ postfix-begin
+                               (- (length open-tag)
+                                  (cltpt/base:region-length old-prefix-region)))
+                     :end (+ postfix-end
+                             (- (length open-tag)
+                                (cltpt/base:region-length old-prefix-region))
+                             (- (length close-tag)
+                                (cltpt/base:region-length old-postfix-region)))))
+                  (new-prefix-region
+                    (cltpt/base:make-region
+                     :begin 0
+                     :end (length open-tag))))
+             ;; change the "postfix" text after the title (tags etc)
+             (push (cons close-tag old-postfix-region) changes)
+             ;; change the "prefix" text before the title (stars etc)
+             (push (cons open-tag old-prefix-region) changes)
+             (list
+              :text (cltpt/base:text-object-text obj)
+              :changes changes
+              :escape t
+              ;; escape regions are the title, and the contents of the header
+              :escape-regions
+              (list
+               (cltpt/base:make-region
+                :begin (cltpt/base:region-end new-prefix-region)
+                :end (cltpt/base:region-begin new-postfix-region))
+               (cltpt/base:make-region
+                :begin (cltpt/base:region-end new-postfix-region)
+                :end (+ (text-object-end obj)
+                        (- (length open-tag)
+                           (cltpt/base:region-length old-prefix-region))
+                        (- (length close-tag)
+                           (cltpt/base:region-length old-postfix-region)))))
+              :reparse nil
+              :recurse t)))))))
 
 (defvar *org-link-rule*
   '(:pattern
@@ -1149,10 +1206,27 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       ;; in org-mode itself. this is feasible but will require more work, but for
       ;; now this will be sufficient.
       (when header-stack
+        ;; first extend the last header to the end of the document
         (let ((last-last-header (cltpt/base:last-atom header-stack)))
           (cltpt/base:text-object-extend-in-parent
            last-last-header
-           (cltpt/base:text-object-end obj)))))))
+           (cltpt/base:text-object-end obj)))
+        ;; then ensure all headers encompass their children
+        (dolist (header (reverse header-stack)) ; process from deepest to shallowest
+          (let ((children (cltpt/base:text-object-children header)))
+            (when children
+              (let* ((header-begin (cltpt/base:text-object-begin header))
+                     (header-end (cltpt/base:text-object-end header))
+                     (max-child-abs-end
+                       (reduce #'max
+                               children
+                               :key (lambda (child)
+                                      (+ (cltpt/base:text-object-begin header)
+                                         (cltpt/base:text-object-end child))))))
+                (when (> max-child-abs-end header-end)
+                  (cltpt/base:text-object-extend-in-parent
+                   header
+                   max-child-abs-end))))))))))
 
 (defun ensure-latex-previews-generated (org-doc)
   (let ((mylist))
@@ -1723,8 +1797,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                         (results-end
                           (- (getf (car results-match) :end)
                              (getf (car match) :begin))))
-                   (format t "here91 ~A~%"
-                           (subseq (text-object-text obj) results-begin results-end))
                    ;; we have to push the changes in the correct order. otherwise
                    ;; the incremental parser will not function properly.
                    (push
@@ -1766,7 +1838,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              ;; if its not code, we surround the block's contents with tags
              ;; and convert them.
              )
-         (format t "here99 ~A~%" changes)
          (if changes
              (list :text (text-object-text obj)
                    :changes changes

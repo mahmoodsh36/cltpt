@@ -53,6 +53,14 @@
   "replace the substring bounded by the region R in MAIN-STR with NEW-STR."
   (cltpt/base:replace-substr main-str new-str (region-begin r) (region-end r)))
 
+(defmethod region-intersection ((r1 region) (r2 region))
+  "calculates the intersection of two regions.
+returns a new region if they overlap, otherwise returns NIL."
+  (let ((inter-begin (max (region-begin r1) (region-begin r2)))
+        (inter-end (min (region-end r1) (region-end r2))))
+    (when (< inter-begin inter-end)
+      (make-region :begin inter-begin :end inter-end))))
+
 (defclass text-object ()
   ((properties
     :initarg :properties
@@ -595,7 +603,7 @@ taking care of children indicies would cause issues."
   (let ((new-obj (make-instance (class-of text-obj))))
     (setf (text-object-properties new-obj)
           (copy-tree (text-object-properties text-obj)))
-    (setf (text-object-text new-obj)
+    (setf (slot-value new-obj 'text)
           (copy-seq (text-object-text text-obj)))
     (setf (text-object-text-region new-obj)
           (make-region :begin (text-object-begin text-obj)
