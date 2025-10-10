@@ -3,11 +3,18 @@
 (defun get-line-bounds (str pos)
   "returns (values line-start, line-end, next-line-start) for the line at pos."
   (when (>= pos (length str))
-    (return-from get-line-bounds (values (length str) (length str) (length str))))
-  (let* ((line-start (or (position #\newline str :end pos :from-end t) -1))
+    (return-from get-line-bounds
+      (values (length str)
+              (length str)
+              (length str))))
+  (let* ((line-start (or (position #\newline str :end pos :from-end t)
+                         -1))
          (actual-line-start (1+ line-start))
-         (line-end (or (position #\newline str :start actual-line-start) (length str)))
-         (next-line-start (if (< line-end (length str)) (1+ line-end) line-end)))
+         (line-end (or (position #\newline str :start actual-line-start)
+                       (length str)))
+         (next-line-start (if (< line-end (length str))
+                              (1+ line-end)
+                              line-end)))
     (values actual-line-start line-end next-line-start)))
 
 (defun count-leading-spaces (str start end)
@@ -23,7 +30,6 @@ returns (values is-bullet-p, marker-string, length-of-bullet-structure)."
   (unless (and (>= (- line-end line-start) expected-indent)
                (= (count-leading-spaces str line-start line-end) expected-indent))
     (return-from parse-bullet (values nil nil 0)))
-
   (let ((bullet-start (+ line-start expected-indent)))
     (cond
       ;; dash bullet: "- "
@@ -39,10 +45,13 @@ returns (values is-bullet-p, marker-string, length-of-bullet-structure)."
                     ;; ensure all characters between bullet-start and dot are alphanumeric
                     (loop for i from bullet-start below marker-dot-pos
                           always (alphanumericp (char str i))))
-           (let* ((has-space-after (and (< (1+ marker-dot-pos) line-end)
-                                        (char= (char str (1+ marker-dot-pos)) #\space)))
-                  (bullet-struct-len (+ (- (1+ marker-dot-pos) bullet-start)
-                                        (if has-space-after 1 0))))
+           (let* ((has-space-after
+                    (and (< (1+ marker-dot-pos) line-end)
+                         (char= (char str (1+ marker-dot-pos))
+                                #\space)))
+                  (bullet-struct-len
+                    (+ (- (1+ marker-dot-pos) bullet-start)
+                       (if has-space-after 1 0))))
              (values t
                      (subseq str bullet-start (1+ marker-dot-pos)) ;; subseq ok for small, local value
                      bullet-struct-len)))))
@@ -56,83 +65,88 @@ returns (values item-node, pos-after-item)."
     (multiple-value-bind (is-bullet marker bullet-len)
         (parse-bullet str line-start line-end item-indent)
       (unless is-bullet
-        (return-from parse-single-list-item (values nil item-start-pos)))
-
+        (return-from parse-single-list-item
+          (values nil item-start-pos)))
       (let* ((children-of-item)
              (bullet-begin (+ line-start item-indent))
              (bullet-end (+ bullet-begin (length marker)))
              (content-segments)
              (current-scan-pos next-line-start)
              (end-of-content-lines next-line-start))
-
-        ;; create the bullet node
-        (push (cons (list :id 'list-item-bullet
-                          :begin bullet-begin
-                          :end bullet-end
-                          :str str)
-                    nil)
+        (push (cons
+               (list :id 'list-item-bullet
+                     :begin bullet-begin
+                     :end bullet-end
+                     :str str)
+               nil)
               children-of-item)
-
-        ;; 1. identify all content segments (first line + extra lines)
         (let ((first-line-content-begin (+ bullet-begin bullet-len)))
           (when (< first-line-content-begin line-end)
             (push (cons first-line-content-begin line-end) content-segments)))
-
         (loop
           (when (>= current-scan-pos (length str)) (return))
           (multiple-value-bind (next-l-start next-l-end next-l-next)
               (get-line-bounds str current-scan-pos)
             (let ((next-indent (count-leading-spaces str next-l-start next-l-end)))
               (if (and (> next-indent item-indent)
-                       (not (nth-value 0 (parse-bullet str next-l-start next-l-end next-indent))))
-                  ;; it's an extra line, consume it and add its content segment
+                       (not (nth-value 0
+                                       (parse-bullet str
+                                                     next-l-start
+                                                     next-l-end
+                                                     next-indent))))
                   (progn
                     (let ((extra-line-content-start (+ next-l-start next-indent)))
                       (when (< extra-line-content-start next-l-end)
-                        (push (cons extra-line-content-start next-l-end) content-segments)))
+                        (push (cons extra-line-content-start next-l-end)
+                              content-segments)))
                     (setf current-scan-pos next-l-next)
-                    (setf end-of-content-lines next-l-next)) ;; update end of the text block
-                  ;; not an extra line for this item, stop collecting
+                    (setf end-of-content-lines next-l-next))
                   (return)))))
-
         (setf content-segments (nreverse content-segments))
-
-        ;; 2. parse inline content and nested lists
-        (let ((children-of-content)
-              (pos-after-children current-scan-pos)) ;; position after children defaults to current position
-
-          ;; scan for inline rules within each content segment
-          (when inline-rules
-            (dolist (segment content-segments)
-              (let ((segment-start (car segment))
-                    (segment-end (cdr segment)))
-                (when (< segment-start segment-end)
-                  (let ((matches-in-segment
-                          (cltpt/combinator::scan-all-rules ctx str inline-rules segment-start segment-end)))
-                    (when matches-in-segment
-                      (setf children-of-content (nconc children-of-content matches-in-segment))))))))
-
-          ;; parse nested child lists (which must be more indented)
+        (let* ((children-of-content)
+               (pos-after-children current-scan-pos)
+               (final-end-pos 0) ;; calculated later
+               (content-node-begin
+                 (if content-segments
+                     (caar content-segments)
+                     (+ bullet-begin bullet-len))))
           (when (< current-scan-pos (length str))
             (multiple-value-bind (child-list-match pos-after-child)
-                (org-list-matcher ctx str current-scan-pos inline-rules (1+ item-indent))
+                (org-list-matcher ctx
+                                  str
+                                  current-scan-pos
+                                  inline-rules
+                                  (1+ item-indent))
               (when child-list-match
                 (push child-list-match children-of-content)
-                (setf pos-after-children pos-after-child)))) ;; update position after children are parsed
-
-          ;; create the content node
-          (let ((content-node-begin (if content-segments (caar content-segments) (+ bullet-begin bullet-len)))
-                (content-node-end end-of-content-lines))
-            (push (cons (list :id 'list-item-content
-                              :begin content-node-begin
-                              :end content-node-end
-                              :str str)
-                        (sort children-of-content #'< :key (lambda (n) (getf (car n) :begin))))
-                  children-of-item))
-
-          ;; 3. create the final item node
-          (let* ((final-end-pos (max end-of-content-lines pos-after-children))
-                 (item-parent-info (list :id 'list-item
+                (setf pos-after-children pos-after-child))))
+          (when inline-rules
+            (dolist (segment content-segments)
+              (let ((matches-in-segment
+                      (cltpt/combinator::scan-all-rules
+                       ctx
+                       str
+                       inline-rules
+                       (car segment)
+                       (cdr segment))))
+                (when matches-in-segment
+                  (setf children-of-content
+                        (nconc children-of-content
+                               matches-in-segment))))))
+          ;; calculate the final end position for the *entire item* first.
+          (setf final-end-pos (max end-of-content-lines pos-after-children))
+          ;; now create the content node, using this correct, encompassing end position.
+          ;; the content node's range now correctly includes its text AND its children's ranges.
+          (push (cons (list :id 'list-item-content
+                            :begin content-node-begin
+                            :end final-end-pos
+                            :str str)
+                      (sort children-of-content
+                            #'<
+                            :key (lambda (n)
+                                   (getf (car n) :begin))))
+                children-of-item)
+          (let* ((item-parent-info (list :id 'list-item
                                          :indent item-indent
                                          :begin item-start-pos
                                          :end final-end-pos
@@ -147,15 +161,22 @@ returns (values list-of-item-nodes, pos-after-last-item)."
         (current-pos initial-pos)
         (last-successful-pos initial-pos))
     (loop
-      (when (>= current-pos (length str)) (return))
+      (when (>= current-pos (length str))
+        (return))
       (multiple-value-bind (line-start line-end) (get-line-bounds str current-pos)
-        (unless (= current-pos line-start) (return))
-        (when (>= line-start (length str)) (return))
-
+        (unless (= current-pos line-start)
+          (return))
+        (when (>= line-start (length str))
+          (return))
         (let ((indent-on-this-line (count-leading-spaces str line-start line-end)))
           (unless (= indent-on-this-line expected-indent) (return))
 
-          (if (nth-value 0 (parse-bullet str line-start line-end indent-on-this-line))
+          (if (nth-value
+               0
+               (parse-bullet str
+                             line-start
+                             line-end
+                             indent-on-this-line))
               (multiple-value-bind (item-cons-cell new-item-pos)
                   (parse-single-list-item
                    ctx str current-pos expected-indent inline-rules)
@@ -174,12 +195,18 @@ returns (values match-node, new-pos)."
   (multiple-value-bind (first-line-start first-line-end) (get-line-bounds str pos)
     (unless (= pos first-line-start)
       (return-from org-list-matcher (values nil pos)))
-
-    (let ((initial-indent (count-leading-spaces str first-line-start first-line-end)))
+    (let ((initial-indent (count-leading-spaces
+                           str
+                           first-line-start
+                           first-line-end)))
       (unless (and (>= initial-indent minimum-indent)
-                   (nth-value 0 (parse-bullet str first-line-start first-line-end initial-indent)))
+                   (nth-value
+                    0
+                    (parse-bullet str
+                                  first-line-start
+                                  first-line-end
+                                  initial-indent)))
         (return-from org-list-matcher (values nil pos)))
-
       (multiple-value-bind (top-level-item-nodes final-pos-after-list)
           (parse-list-items-at-indent ctx str pos initial-indent inline-rules)
         (if top-level-item-nodes
@@ -259,8 +286,6 @@ returns (values match-node, new-pos)."
              ;; write any remaining plain text after the last child
              (write-string (subseq original-str current-pos (getf info :end)) s))))
         ('list-item-bullet "") ;; bullets do not render as content
-        ;; add cases for your inline elements here. for example:
-        ;; ('mypair (format nil "<em>~a</em>" (cltpt/combinator:match-text info)))
         (t (cltpt/combinator:match-text info))))))
 
 (defun to-latex-list (parse-tree)
@@ -302,5 +327,4 @@ returns (values match-node, new-pos)."
              ;; write any remaining plain text after the last child
              (write-string (subseq original-str current-pos (getf info :end)) s))))
         ('list-item-bullet "")
-        ;; add cases for your inline elements
         (t (cltpt/combinator:match-text info))))))
