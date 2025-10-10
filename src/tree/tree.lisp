@@ -2,7 +2,7 @@
   (:use :cl)
   (:export
    :tree-value :tree-children :tree-map :tree-find-all :tree-find
-   :is-subtree :tree-root :tree-parent :tree-show :node-depth))
+   :is-subtree :tree-root :tree-parent :tree-show :node-depth :has-children))
 
 (in-package :cltpt/tree)
 
@@ -26,6 +26,9 @@ and returns the value associated with the node at its root."))
 (defgeneric forest-children (node)
   (:documentation "given a forest (better thought of as a node), return its children (trees)."))
 
+(defgeneric has-children (subtree)
+  (:documentation "given a (sub)tree (better thought of as a node), return whether it has children."))
+
 (defmethod tree-value ((subtree cons))
   (car subtree))
 
@@ -37,6 +40,10 @@ and returns the value associated with the node at its root."))
 
 (defmethod forest-children ((forest cons))
   forest)
+
+;; the default 'has-children' should simply return whether 'tree-children' returns non-nil.
+(defmethod has-children ((subtree t))
+  (tree-children subtree))
 
 (defmethod is-subtree (subtree child)
   "we often only want to iterate through the subtrees if they are of
