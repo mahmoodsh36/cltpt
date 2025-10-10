@@ -160,6 +160,7 @@ the new agenda object will contain all the tasks found in the nodes of the roame
           collect task1))
 
 (defstruct agenda-outline-node
+  parent
   text
   time-range
   children
@@ -175,7 +176,15 @@ the new agenda object will contain all the tasks found in the nodes of the roame
                         (list child))))))
 
 (defmethod cltpt/tree:has-children ((node agenda-outline-node))
-  t)
+  (or
+   ;; if it has another agenda-outline-node as a child then it should be expandable
+   (loop for child in (agenda-outline-node-children node)
+         thereis (typep child 'agenda-outline-node))
+   ;; if it has any tasks as children then it also is expandable/collapsable
+   (agenda-outline-node-children node)))
+
+(defmethod cltpt/tree:tree-parent ((node agenda-outline-node))
+  (agenda-outline-node-parent node))
 
 ;; (defmethod cltpt/outline:outline-text ((node agenda-outline-node))
 ;;   (let ((date-text
@@ -256,6 +265,7 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                                                  :begin hour
                                                  :end next-hour))
                    do (push hour-node (agenda-outline-node-children day-node))
+                      (setf (agenda-outline-node-parent hour-node) day-node)
                       (setf (agenda-outline-node-text hour-node)
                             (local-time:format-timestring
                              nil
