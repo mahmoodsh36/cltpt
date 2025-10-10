@@ -1050,7 +1050,7 @@ my equation here
   (format t "~%--- 4. path list output ---~%~a"
           (cltpt/tree/outline:render-as-path-list *test-forest*)))
 
-(defun agenda-test-2 ()
+(defun test-agenda-2 ()
   (let* ((rmr (cltpt/roam:from-files
                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
                   :regex ".*\\.org"
@@ -1069,9 +1069,9 @@ my equation here
    (cltpt/base:add-duration (local-time:today) '(:day 14))
    '(:minute 70)))
 
-(defun agenda-test-3 ()
+(defun test-agenda-3 ()
   (let* ((rmr (cltpt/roam:from-files
-               '((:path ("../test.org")
+               '((:path ("./test2.org")
                   :regex ".*\\.org"
                   :format "org-mode"))))
          (agenda (cltpt/agenda:from-roamer rmr)))
