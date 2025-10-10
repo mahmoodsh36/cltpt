@@ -696,8 +696,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (end-time
                       (when end-ts-match
                         (if (cltpt/combinator:find-submatch end-ts-match 'repeat-num)
-                          (handle-repeated-timestamp end-ts-match)
-                          (org-timestamp-match-to-time end-ts-match))))
+                            (handle-repeated-timestamp end-ts-match)
+                            (org-timestamp-match-to-time end-ts-match))))
                     (new-record
                       (if end-time
                           (cltpt/agenda:make-task-record
@@ -770,7 +770,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
         (list :text "" :reparse t)
         (cltpt/base:pcase backend
           (cltpt/html:*html*
-           (let* ((changes)
+           (let* ((obj-text (cltpt/base:text-object-text obj))
+                  (changes)
                   (match (cltpt/base:text-object-property obj :combinator-match))
                   (title-match (car (cltpt/combinator:find-submatch match 'title)))
                   (match-begin (getf (car match) :begin))
@@ -793,7 +794,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      :begin postfix-begin
                      ;; use 1+ to account for the extra newline at the end which
                      ;; we want removed
-                     :end (1+ postfix-end)))
+                     :end (min (1+ postfix-end)
+                               (length obj-text))))
                   (old-prefix-region
                     (cltpt/base:make-region
                      :begin 0
@@ -817,7 +819,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              ;; change the "prefix" text before the title (stars etc)
              (push (cons open-tag old-prefix-region) changes)
              (list
-              :text (cltpt/base:text-object-text obj)
+              :text obj-text
               :remove-newline-after t
               :changes changes
               :escape t
@@ -1027,9 +1029,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
      (org-table-matcher nil (cltpt/base:text-object-text obj) 0))
     (setf (cltpt/base:text-object-children new-obj)
           (cltpt/base:text-object-children obj))
+    (cltpt/base::text-object-force-set-text
+     new-obj
+     (cltpt/base:text-object-text obj))
     (let* ((new-txt (cltpt/base:convert-tree
                      new-obj
-                     (org-mode-inline-text-object-types)
+                     *org-mode*
                      backend
                      :reparse nil
                      :recurse t
@@ -1689,7 +1694,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (export-code (or (string= exports-keyword "code")
                           (string= exports-keyword "both")))
          (export-results (or (string= exports-keyword "results")
-                             (string= exports-keyword "both"))))
+                             (string= exports-keyword "both")))
+         (match (cltpt/base:text-object-property
+                 obj
+                 :combinator-match))
+         (results-match
+           (cltpt/combinator:find-submatch
+            match
+            'results)))
     ;; export "both" by default, if :exports wasnt provided.
     ;; TODO: this shouldnt be the default behavior. we should have it customizable.
     (when (and is-code (not exports-keyword))
@@ -1737,15 +1749,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (if is-code
              ;; if we wanna export results, we will have to set reparse-region
              ;; accordingly so that the children in the results are handled correctly.
-             (if export-results
-                 (let* ((match (cltpt/base:text-object-property
-                                obj
-                                :combinator-match))
-                        (results-match
-                          (cltpt/combinator:find-submatch
-                           match
-                           'results))
-                        ;; lines starting with ": "
+             (if (and export-results results-match)
+                 (let* (;; lines starting with ": "
                         (match-raw-lines
                           (cltpt/combinator:find-submatch-all
                            results-match

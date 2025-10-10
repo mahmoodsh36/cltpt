@@ -102,7 +102,10 @@ the '\\' and processes the char normally (replace or emit)."
                          &key
                            (reparse nil reparse-supplied)
                            (recurse nil recurse-supplied)
-                           (escape nil escape-supplied))
+                           (escape nil escape-supplied)
+                           (text-object-types
+                            (text-format-text-object-types fmt-src)
+                            text-object-types-supplied))
   (let* ((result (text-object-convert-helper text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (result-text
@@ -128,7 +131,7 @@ the '\\' and processes the char normally (replace or emit)."
                          recurse
                          (or (unless result-is-string (getf result :recurse))
                              to-reparse)))
-         (escapables (collect-escapables (text-format-text-object-types fmt-src)))
+         (escapables (collect-escapables text-object-types))
          (changes (or (unless result-is-string
                         (getf result :changes))
                       ;; if a reparse is requested but not changes were provided
