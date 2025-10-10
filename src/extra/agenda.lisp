@@ -71,19 +71,20 @@
                        (begin local-time:timestamp)
                        (end local-time:timestamp))
   (and (local-time:timestamp>= time begin)
-       (local-time:timestamp<= time end)))
+       (local-time:timestamp< time end)))
 
 (defmethod is-between ((time time-range)
                        (begin local-time:timestamp)
                        (end local-time:timestamp))
-  (and (is-between (time-range-begin time) begin end)
-       (is-between (time-range-end time) begin end)))
+  ;; (and (is-between (time-range-begin time) begin end)
+  ;;      (is-between (time-range-end time) begin end))
+  (is-between (time-range-begin time) begin end))
 
 (defmethod is-between ((time repeated-timestamp)
                        (begin local-time:timestamp)
                        (end local-time:timestamp))
   (and (local-time:timestamp>= (repeated-timestamp-time time) begin)
-       (local-time:timestamp<= (repeated-timestamp-time time) end)))
+       (local-time:timestamp< (repeated-timestamp-time time) end)))
 
 (defstruct task
   title
@@ -216,12 +217,37 @@ the new agenda object will contain all the tasks found in the nodes of the roame
   t)
 
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))
-  (let ((task1 (task-record-task rec)))
-    (if (deadline rec)
-        (format nil "DEADLINE: ~A" (task-title task1))
-        (if (start-task rec)
-            (format nil "START: ~A" (task-title task1))
-            (format nil "~A" (task-title task1))))))
+  (labels ((format-ts (ts)
+             (let ((ts (if (typep ts 'repeated-timestamp)
+                           (repeated-timestamp-time ts)
+                           ts)))
+               (local-time:format-timestring
+                nil
+                ts
+                :format '((:hour 2 #\0)
+                          #\:
+                          (:min 2 #\0)))))
+           (format-time (time)
+             (if (typep time 'time-range)
+                 (format nil "~A--~A"
+                         (format-ts (time-range-begin time))
+                         (format-ts (time-range-end time)))
+                 (format-ts time))))
+    (let ((task1 (task-record-task rec)))
+      (if (deadline rec)
+          (format nil
+                  "DEADLINE: ~A ~A"
+                  (format-time (task-record-time rec))
+                  (task-title task1))
+          (if (start-task rec)
+              (format nil
+                      "START: ~A ~A"
+                      (format-time (task-record-time rec))
+                      (task-title task1))
+              (format nil
+                      "~A ~A"
+                      (format-time (task-record-time rec))
+                      (task-title task1)))))))
 
 (defmethod cltpt/tree:tree-children ((node task-record))
   nil)
@@ -279,7 +305,7 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                         do (push my-record
                                  (agenda-outline-node-children hour-node))))
                  (when (< i fully-displayed-days)
-                   (setf agena-outline-node-expansion-state 'expanded))
+                   (setf (agenda-outline-node-expansion-state day-node) 'expanded))
                  (push day-node agenda-forest)
                  (setf (agenda-outline-node-children day-node)
                        (nreverse (agenda-outline-node-children day-node))))))
@@ -287,7 +313,9 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
 
 (defmethod render-agenda ((agn agenda) &key begin-ts end-ts)
   (with-output-to-string (out)
-    (let* ((agenda-forest (build-agenda-forest agn begin-ts end-ts)))
+    (let* ((agenda-forest (build-agenda-forest agn
+                                               :begin-ts begin-ts
+                                               :end-ts end-ts)))
       (write-sequence (cltpt/tree/outline:render-forest agenda-forest) out)
       out)))
 

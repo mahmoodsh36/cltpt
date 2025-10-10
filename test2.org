@@ -325,4 +325,6 @@ test more
 * TODO task 1
 <2025-10-14 Tue>
 * TODO task 2
-DEADLINE: <2025-10-21 Tue>
+DEADLINE: <2025-10-13 Mon 13:00:00>
+* TODO task 3
+<2025-10-11 Sat 10:00:00 +1w>--<2025-10-11 Sat 14:00:00 +1w>
