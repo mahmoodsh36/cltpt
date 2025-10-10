@@ -35,27 +35,6 @@ directory path.")
   nil
   "the static path to which the static files for html will be copied.")
 
-;; (defvar *html-template*
-;;   "<!DOCTYPE html>
-;; <html>
-;; <head>
-;;   <meta charset=\"UTF-8\">
-;;   <title> %(cltpt/base:document-title (getf cltpt/base:*convert-info* :text-obj)) </title>
-;; </head>
-;; <body>
-;;   here
-;;   date is %(cltpt/base:document-date (getf cltpt/base:*convert-info* :text-obj)).
-;;   #(cltpt/base::make-block :type 'div
-;;                            :let* `((obj ,(getf cltpt/base:*convert-info* :text-obj))
-;;                                    (contents ,(cltpt/base:text-object-contents obj))
-;;                                    (date ,(cltpt/base:document-date obj))
-;;                                    (title ,(cltpt/base:document-title obj))))
-;;     <h1> %title - %date </h1>
-;;     %contents
-;;   #(cltpt/base::block-end)
-;; </body>
-;; </html>"
-;;   "a template for html conversion.")
 (defvar *html-template*
   "<!DOCTYPE html>
 <html>
@@ -73,7 +52,9 @@ directory path.")
   "a template for html conversion.")
 
 (defvar *html-escape-table*
-  '((#\newline . "<br>")
+  '((#\newline . "
+<br>
+"
     (#\< . "&lt;")
     (#\< . "&gt;")
     (#\" . "&quot;")
