@@ -769,47 +769,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (if to-not-export
         (list :text "" :reparse t)
         (cltpt/base:pcase backend
-          (cltpt/latex:*latex*
-           (let* ((begin-text
-                    (format
-                     nil
-                     "\\~Asection{"
-                     (cltpt/base:concat
-                      (loop for i from 1 to (text-object-property obj :level)
-                            collect "sub"))))
-                  (end-text "}")
-                  (inner-text (cltpt/base:text-object-property obj :title))
-                  (final-text (concatenate 'string begin-text inner-text end-text))
-                  (inner-region
-                    (make-region :begin (length begin-text)
-                                 :end (- (length final-text) (length end-text)))))
-             (list :text final-text
-                   :escape t
-                   :escape-region inner-region
-                   :reparse t
-                   :reparse-region inner-region
-                   :recurse t)))
           (cltpt/html:*html*
            (let* ((changes)
-                  (title-text
-                    (format
-                     nil
-                     "<h~A>~A</h~A>"
-                     ;; we seem to want to start from h2, not h1 in html.
-                     (1+ (cltpt/base:text-object-property obj :level))
-                     (cltpt/base:text-object-property obj :title)
-                     (1+ (cltpt/base:text-object-property obj :level))))
-                  (begin-text (format nil "~A~%~A" title-text "<p>"))
-                  ;; TODO: we shouldnt be trimming here.
-                  (inner-text
-                    (string-trim (string #\newline)
-                                 (cltpt/base:text-object-contents obj)))
-                  (end-text "</p>")
-                  (final-text (concatenate 'string begin-text inner-text end-text))
-                  (inner-region
-                    (cltpt/base:make-region
-                     :begin (length begin-text)
-                     :end (- (length final-text) (length end-text))))
                   (match (cltpt/base:text-object-property obj :combinator-match))
                   (title-match (car (cltpt/combinator:find-submatch match 'title)))
                   (match-begin (getf (car match) :begin))
@@ -830,7 +791,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (old-postfix-region
                     (cltpt/base:make-region
                      :begin postfix-begin
-                     :end postfix-end))
+                     ;; use 1+ to account for the extra newline at the end which
+                     ;; we want removed
+                     :end (1+ postfix-end)))
                   (old-prefix-region
                     (cltpt/base:make-region
                      :begin 0
@@ -855,6 +818,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              (push (cons open-tag old-prefix-region) changes)
              (list
               :text (cltpt/base:text-object-text obj)
+              :remove-newline-after t
               :changes changes
               :escape t
               ;; escape regions are the title, and the contents of the header

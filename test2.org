@@ -3,9 +3,8 @@
 :END:
 #+title: my doc
 #+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
-* TODO another due task
+* TODO another due task1
 SCHEDULED: <2024-10-15 Tue 16:41:04> DEADLINE: <2024-10-15 Tue 16:51:04>
-
 * TODO my secondary header
 SCHEDULED: <2025-07-26 Sat 10:55>
 
