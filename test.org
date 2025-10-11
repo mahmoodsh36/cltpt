@@ -4,6 +4,7 @@
 #+title: my doc
 #+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
 * DONE due task :here:there:noexport:
+wow whats up
 SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
 <2025-07-25 Fri 10:00:00>
 :PROPERTIES:

@@ -268,18 +268,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
             (when roam-link
               (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
                      (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
-                (let ((*org-document-convert-with-boilerplate*))
-                  (let ((result (cltpt/base:convert-tree
-                                 dest-text-obj
-                                 *org-mode*
-                                 backend)))
-                    ;; TODO: for some reason redundant newlines in transcluded
-                    ;; documents dont get trimmed.
-                    (setf final-result
-                          (list :text result
-                                :reparse nil
-                                :recurse nil
-                                :escape nil))))))))))
+                (let ((result (cltpt/base:convert-tree
+                               dest-text-obj
+                               *org-mode*
+                               backend)))
+                  ;; TODO: for some reason redundant newlines in transcluded
+                  ;; documents dont get trimmed.
+                  (setf final-result
+                        (list :text result
+                              :reparse nil
+                              :recurse nil
+                              :escape nil)))))))))
     (or final-result
         (list :text ""
               :reparse t))))
@@ -1213,26 +1212,24 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (cltpt/base:pcase backend
     (cltpt/latex:*latex*
      (let* ((my-preamble
-              (if *org-document-convert-with-boilerplate*
-                  (concatenate 'string
-                               (cltpt/latex:generate-latex-preamble
-                                "authorhere" "datehere" "titlehere")
-                               (string #\newline)
-                               "\\begin{document}"
-                               (string #\newline))
-                  ""))
+              (concatenate 'string
+                           (cltpt/latex:generate-latex-preamble
+                            "authorhere" "datehere" "titlehere")
+                           (string #\newline)
+                           "\\begin{document}"
+                           (string #\newline)))
             (my-postamble
-              (if *org-document-convert-with-boilerplate*
-                  (concatenate 'string
-                               (string #\newline)
-                               "\\end{document}")
-                  ""))
+              (concatenate 'string
+                           (string #\newline)
+                           "\\end{document}"))
             (my-text (format nil "~A~A~A"
                              my-preamble
                              (cltpt/base:text-object-text obj)
                              my-postamble))
-            (inner-region (cltpt/base:make-region :begin (length my-preamble)
-                                                  :end (- (length my-text) (length my-postamble)))))
+            (inner-region
+              (cltpt/base:make-region
+               :begin (length my-preamble)
+               :end (- (length my-text) (length my-postamble)))))
        (list :text my-text
              :reparse t
              :recurse t

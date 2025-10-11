@@ -1,14 +1,13 @@
 :PROPERTIES:
 :ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
 :END:
-#+title: my doc
-#+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
+#+title: this is my sooo correct
+#+image: %(get-lax-preview-svg-by-blk-id-1 "fig-graph-1")
 #+name: test-name
 #+more: here eee
 \begin{equation}
 my equation here
 \end{equation}
-
 #+begin_definition :defines standard thing :name def-ac-standard :something :something2
 an \(\compAC\) circuit is a /standard \(\compAC\) circuit/ iff:
 1. the circuit is divided into layers, such that edges only connect vertices between subsequent layers.

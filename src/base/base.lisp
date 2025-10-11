@@ -17,8 +17,7 @@
    :text-format-escape :replace-chars-and-escapes
    :text-format :text-format-conversion-template
 
-   :parse-file
-   :parse :handle-changed-regions
+   :parse-file :parse :handle-changed-regions :handle-change
 
    :convert-tree
    :*convert-escape-newlines*
