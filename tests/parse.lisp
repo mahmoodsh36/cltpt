@@ -72,16 +72,50 @@
       "/tmp/test.out.html")
      nil)))
 
+(defun simplify-match (match)
+  (let ((new-match (copy-tree match)))
+    (remf new-match :rule)
+    (remf new-match :ctx)
+    (remf new-match :id)
+    (remf new-match :children)
+    (format t "here ~A~%" new-match)
+    new-match))
+
+(defun simplify-full-match (match)
+  (cltpt/tree:tree-map match #'simplify-match))
+
+(defun compare-match-loosely (match1 match2)
+  (let ((match11 (simplify-match match1))
+        (match22 (simplify-match match2)))
+    (format t "hi2 ~A~%" match22)
+    (format t "hi1 ~A~%" match11)
+    (equalp match11 match22)))
+
+(defun compare-full-match-loosely (match1 match2)
+  (cltpt/tree::trees-map
+   (list match1 match2)
+   (lambda (submatch1 submatch2)
+     (format t "here ~A~%" (car submatch1))
+     (format t "here ~A~%" (car submatch2))
+     (compare-match-loosely (car submatch1)
+                            (car submatch2)))))
+
+(defun test-org-keyword-1 ()
+  (cltpt/combinator:parse
+   "#+mykeyword: myvalue"
+   (list cltpt/org-mode::*org-keyword-rule*)))
+
 (test org-keyword-parse-test
   (is
-   (equalp
-    (cltpt/combinator::parse
-     "#+mykeyword: myvalue"
-     (list
-      '(:pattern "#+%w: %w")))
-    '(((:ID NIL :BEGIN 0 :END 20 :MATCH "#+mykeyword: myvalue")
-       ((:BEGIN 0 :END 2 :MATCH "#+")) ((:BEGIN 2 :END 11 :MATCH "mykeyword"))
-       ((:BEGIN 11 :END 13 :MATCH ": ")) ((:BEGIN 13 :END 20 :MATCH "myvalue")))))))
+   (compare-full-match-loosely
+    (car (test-org-keyword-1))
+    '((:BEGIN 0 :END 20 :STR "#+mykeyword: myvalue")
+      ((:BEGIN 0 :END 12 :STR "#+mykeyword: myvalue")
+       ((:BEGIN 0 :END 2 :STR "#+mykeyword: myvalue"))
+       ((:BEGIN 2 :END 11 :STR "#+mykeyword: myvalue"))
+       ((:BEGIN 11 :END 12 :STR "#+mykeyword: myvalue")))
+      ((:BEGIN 12 :END 13 :STR "#+mykeyword: myvalue"))
+      ((:BEGIN 13 :END 20 :STR "#+mykeyword: myvalue"))))))
 
 (defun inline-latex-test-func ()
   (let ((other-rules (list '(:pattern "%w world" :id keyword))))
