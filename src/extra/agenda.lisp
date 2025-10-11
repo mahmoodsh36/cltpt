@@ -177,12 +177,11 @@ the new agenda object will contain all the tasks found in the nodes of the roame
                         (list child))))))
 
 (defmethod cltpt/tree:has-children ((node agenda-outline-node))
-  (or
-   ;; if it has another agenda-outline-node as a child then it should be expandable
-   (loop for child in (agenda-outline-node-children node)
-         thereis (typep child 'agenda-outline-node))
-   ;; if it has any tasks as children then it also is expandable/collapsable
-   (agenda-outline-node-children node)))
+  ;; if it has another agenda-outline-node as a child then it should be expandable
+  ;; if it has any tasks as children then it also is expandable/collapsable
+  (loop for child in (agenda-outline-node-children node)
+        thereis (or (typep child 'agenda-outline-node)
+                    (typep child 'task-record))))
 
 (defmethod cltpt/tree:tree-parent ((node agenda-outline-node))
   (agenda-outline-node-parent node))
@@ -215,6 +214,12 @@ the new agenda object will contain all the tasks found in the nodes of the roame
 
 (defmethod cltpt/tree:is-subtree ((node agenda-outline-node) (child task-record))
   t)
+
+;; without this printing a node might cause an infinite loop
+(defmethod print-object ((obj agenda-outline-node) stream)
+  (print-unreadable-object (obj stream :type t)
+    (format stream "-> agenda-outline-node with ~A children."
+            (length (cltpt/tree:tree-children obj)))))
 
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))
   (labels ((format-ts (ts)
@@ -308,7 +313,7 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                    (setf (agenda-outline-node-expansion-state day-node) 'expanded))
                  (push day-node agenda-forest)
                  (setf (agenda-outline-node-children day-node)
-                       (nreverse (agenda-outline-node-children day-node))))))
+                       (reverse (agenda-outline-node-children day-node))))))
     (nreverse agenda-forest)))
 
 (defmethod render-agenda ((agn agenda) &key begin-ts end-ts)
