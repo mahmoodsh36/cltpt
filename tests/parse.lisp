@@ -78,7 +78,6 @@
     (remf new-match :ctx)
     (remf new-match :id)
     (remf new-match :children)
-    (format t "here ~A~%" new-match)
     new-match))
 
 (defun simplify-full-match (match)
@@ -87,16 +86,12 @@
 (defun compare-match-loosely (match1 match2)
   (let ((match11 (simplify-match match1))
         (match22 (simplify-match match2)))
-    (format t "hi2 ~A~%" match22)
-    (format t "hi1 ~A~%" match11)
     (equalp match11 match22)))
 
 (defun compare-full-match-loosely (match1 match2)
   (cltpt/tree::trees-map
    (list match1 match2)
    (lambda (submatch1 submatch2)
-     (format t "here ~A~%" (car submatch1))
-     (format t "here ~A~%" (car submatch2))
      (compare-match-loosely (car submatch1)
                             (car submatch2)))))
 
