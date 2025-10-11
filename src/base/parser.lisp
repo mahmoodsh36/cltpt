@@ -328,7 +328,7 @@ returns the elements newly inserted into the tree."
                           (setf (text-object-children child) new-objects))
                          ((and parent prev-sibling-cons)
                           (progn
-                            (setf (cdr prev-sibling-cons-cons) new-objects)
+                            (setf (cdr prev-sibling-cons) new-objects)
                             (setf (cdr (last new-objects)) next-siblings)))
                          (parent
                           (setf (text-object-children (text-object-parent child))
@@ -384,8 +384,8 @@ returns the elements newly inserted into the tree."
          (is-deletion (> (length (text-object-text obj))
                          (length new-str)))
          (changed-region (if is-deletion
-                             (make-region :begin change-pos
-                                          :end (+ change-pos change-in-length))
+                             (make-region :begin (+ change-pos change-in-length)
+                                          :end change-pos)
                              (make-region :begin change-pos :end change-pos))))
     (if is-deletion
         ;; if its a deletion the change is replacing the region with an empty string.
