@@ -221,6 +221,12 @@ the new agenda object will contain all the tasks found in the nodes of the roame
     (format stream "-> agenda-outline-node with ~A children."
             (length (cltpt/tree:tree-children obj)))))
 
+;; without this printing a node might cause an infinite loop
+(defmethod print-object ((obj task-record) stream)
+  (print-unreadable-object (obj stream :type t)
+    (format stream "-> ~A."
+            (cltpt/tree/outline:outline-text obj))))
+
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))
   (labels ((format-ts (ts)
              (let ((ts (if (typep ts 'repeated-timestamp)
