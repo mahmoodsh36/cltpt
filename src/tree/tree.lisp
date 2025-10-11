@@ -134,3 +134,23 @@ TEST checks for equality between ITEM and `(key SUBTREE)'."
   (loop for item in list
         if (not (tree-parent item))
           collect item))
+
+(defun trees-map (trees func)
+  "iterates through a list of structurally equivalent trees simultaneously
+and runs FUNC on the list of corresponding nodes at each step.
+
+children are handled first. the function is always executed on the initial
+list of trees. from then on, the function runs on corresponding subtrees as
+determined by `is-subtree'."
+  (when (some #'identity trees) ;; only proceed if there is at least one non-nil tree
+    (let* ((list-of-children (mapcar #'tree-children trees))
+           ;; transpose the list of children lists to group corresponding children.
+           ;; e.g., ((c1a c1b) (c2a c2b)) -> ((c1a c2a) (c1b c2b))
+           (corresponding-children (when list-of-children
+                                    (apply #'mapcar #'list list-of-children)))
+           (children-result
+             (loop for child-group in corresponding-children
+                   collect (if (is-subtree (first trees) (first child-group))
+                               (trees-map child-group func)
+                               child-group))))
+      (cons (apply func trees) children-result))))
