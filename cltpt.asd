@@ -30,13 +30,13 @@
                              (:file "transformer")
                              (:file "convert")))
                (:module "latex"
-                :pathname "src/latex/"
+                :pathname "src/format/latex/"
                 :depends-on ("base" "combinator" "file-utils")
                 :components ((:file "latex")
                              (:file "latex-previews")
                              (:file "utils")))
                (:module "html"
-                :pathname "src/html/"
+                :pathname "src/format/html/"
                 :depends-on ("base")
                 :components ((:file "html")))
                (:module "roam"
@@ -48,7 +48,7 @@
                 :depends-on ("base" "roam")
                 :components ((:file "agenda")))
                (:module "org-mode"
-                :pathname "src/org-mode"
+                :pathname "src/format/org-mode"
                 :depends-on ("combinator" "file-utils" "base" "latex" "html")
                 :components ((:file "org-mode")
                              (:file "org-list")

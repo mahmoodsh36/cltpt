@@ -1,12 +1,5 @@
 (defpackage :cltpt/org-mode
-  (:use :cl :cltpt/base :cltpt/latex)
-  (:import-from
-   :cltpt/base :text-object
-   :text-macro :post-lexer-text-macro
-   :document)
-  (:import-from
-   :cltpt/latex
-   :display-math :inline-math :latex-env)
+  (:use :cl)
   (:export :org-list-matcher :org-header :org-list
    :*org-mode* :org-mode-text-object-types
    :org-block :init :*org-enable-macros*))
@@ -50,12 +43,8 @@
         'org-document))
 
 (defvar *org-mode*
-  (make-text-format "org-mode")
+  (cltpt/base:make-text-format "org-mode")
   "`text-format' instance of the org-mode format.")
-
-(defvar *org-document-convert-with-boilerplate*
-  t
-  "whether to convert with preamble/postamble.")
 
 (defun org-mode-text-object-types ()
   (cltpt/base:text-format-text-object-types *org-mode*))
@@ -219,7 +208,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (value (cltpt/combinator:match-text value-match))
          (child (car (cltpt/base:text-object-children obj))))
     (unless value
-      (when (typep child 'post-lexer-text-macro)
+      (when (typep child 'cltpt/base::post-lexer-text-macro)
         ;; if we get here, then the value is meant to be the evaluation result
         ;; of the post-lexer text macro.
         (let ((new-value (cltpt/base::eval-post-lexer-macro child)))
@@ -663,9 +652,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defun handle-repeated-timestamp (ts-match)
   (let ((repeat-num (cltpt/combinator:match-text
-                     (car (cltpt/combinator:find-submatch ts-match 'repeat-num))))
+                     (car (cltpt/combinator:find-submatch ts-match
+                                                          'repeat-num))))
         (repeat-word (cltpt/combinator:match-text
-                      (car (cltpt/combinator:find-submatch ts-match 'repeat-word)))))
+                      (car (cltpt/combinator:find-submatch ts-match
+                                                           'repeat-word)))))
     (cltpt/agenda:make-repeated-timestamp
      :time (org-timestamp-match-to-time ts-match)
      :repeat (get-repeated-duration repeat-num repeat-word))))
@@ -708,7 +699,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                (push new-record task-records)))
     (labels ((is-drawer (obj2)
                (typep obj2 'org-prop-drawer)))
-      (let ((drawers (find-children obj #'is-drawer)))
+      (let ((drawers (cltpt/base:find-children obj #'is-drawer)))
         (loop for drawer in drawers
               do (loop for (key . value) in (org-prop-drawer-alist drawer)
                        do (cond
@@ -737,7 +728,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    task-records))
                  ((string-equal action-name "closed")
                   ))))
-    (setf (text-object-property obj :id) header-id)
+    (setf (cltpt/base:text-object-property obj :id) header-id)
     ;; initialize roam data
     (setf (cltpt/base:text-object-property obj :roam-node)
           (cltpt/roam:make-node
@@ -830,7 +821,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                 :end (cltpt/base:region-begin new-postfix-region))
                (cltpt/base:make-region
                 :begin (cltpt/base:region-end new-postfix-region)
-                :end (+ (text-object-end obj)
+                :end (+ (cltpt/base:text-object-end obj)
                         (- (length open-tag)
                            (cltpt/base:region-length old-prefix-region))
                         (- (length close-tag)
@@ -1095,16 +1086,16 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (setf (cltpt/base:text-object-property obj :keywords-alist)
           (handle-parsed-org-keywords obj))
     (setf doc-title
-          (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+          (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                      "title"))
     ;; denote-style identifier
     (setf doc-id
-          (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+          (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                      "identifier"))
     (setf doc-date
-          (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+          (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                      "date"))
-    (let ((tags-str (alist-get (cltpt/base:text-object-property obj :keywords-alist)
+    (let ((tags-str (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                                "filetags")))
       ;; avoid first and last ':', split by ':' to get tags
       (setf doc-tags (cltpt/base:str-split (cltpt/base:subseq* tags-str 1 -1) ":")))
@@ -1682,8 +1673,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;;                :reparse-region inner-region
 ;;                :escape-region inner-region))))))
 
-(defmethod convert-block ((obj text-object)
-                          (backend text-format)
+(defmethod convert-block ((obj cltpt/base:text-object)
+                          (backend cltpt/base:text-format)
                           block-type
                           is-code)
   (let* ((exports-keyword (org-block-keyword-value obj "exports"))
@@ -1805,7 +1796,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              ;; and convert them.
              )
          (if changes
-             (list :text (text-object-text obj)
+             (list :text (cltpt/base:text-object-text obj)
                    :changes changes
                    :recurse t
                    :reparse nil)
@@ -1815,7 +1806,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               close-tag
               :escape (not is-raw))))))))
 
-(defmethod handle-block-keywords ((obj text-object))
+(defmethod handle-block-keywords ((obj cltpt/base:text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
          (entries
            (cltpt/combinator:find-submatch-all
@@ -1826,7 +1817,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           for val-match = (car (cltpt/combinator:find-submatch entry 'value))
           for kw = (cltpt/combinator:match-text kw-match)
           for val = (cltpt/combinator:match-text val-match)
-          do (push (cons kw val) (text-object-property obj :keywords-alist)))))
+          do (push (cons kw val) (cltpt/base:text-object-property obj :keywords-alist)))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block)
                                            (backend cltpt/base:text-format))
@@ -1878,10 +1869,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-block-rule*))
   (:documentation "org-mode block."))
 
-(defmethod org-block-keyword-value ((obj text-object) kw)
+(defmethod org-block-keyword-value ((obj cltpt/base:text-object) kw)
   "return the value associated with a keyword of an `org-block'."
   (cdr (assoc kw
-              (text-object-property obj :keywords-alist)
+              (cltpt/base:text-object-property obj :keywords-alist)
               :test 'equal)))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-block) str1 match)
