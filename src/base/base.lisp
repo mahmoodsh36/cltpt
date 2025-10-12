@@ -45,7 +45,7 @@
    :text-format-name :text-format-from-alias :text-format-document-type
    :text-object-clone :sort-text-objects :text-object-set-parent
    :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
-   :text-block :text-object-convert-options
+   :text-block :text-object-convert-options :text-object-contents-region
 
    :region-text))
 

@@ -709,7 +709,8 @@ and grabbing each position of each object through its ascendants in the tree."
                         :end (region-begin contents-region)))
          (old-close-tag-region
            (make-region :begin (region-end contents-region)
-                        :end (region-length (text-object-text-region text-obj))))
+                        :end (region-length
+                              (text-object-text-region text-obj))))
          ;; this is the inner region after region shifts caused by `handle-changed-regions'.
          (inner-region
            (make-region

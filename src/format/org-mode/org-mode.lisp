@@ -37,8 +37,8 @@
            ;; and use it for all formats. handle it in text-format.lisp
            '(cltpt/base:text-macro
              cltpt/base:post-lexer-text-macro))))
-  (setf (cltpt/base:text-format-name *org-mode*)
-        "org-mode")
+  ;; (setf (cltpt/base:text-format-name *org-mode*)
+  ;;       "org-mode")
   (setf (cltpt/base:text-format-document-type *org-mode*)
         'org-document))
 
@@ -1377,7 +1377,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          :id keywords-entry)))
       :id keywords)))
 
-;; TODO: make org-src-block contain #+results too
 (defvar *org-babel-results-rule*
   `(:pattern
     (cltpt/combinator:consec
@@ -1686,6 +1685,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (match (cltpt/base:text-object-property
                  obj
                  :combinator-match))
+         (code-end-match
+           (cltpt/combinator:find-submatch
+            match
+            'end))
          (results-match
            (cltpt/combinator:find-submatch
             match
@@ -1720,14 +1723,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                              key
                                              (to-raw-html-string value)))
                       when result collect result))
-              (open-tag
+              (code-open-tag
                 (if is-code
                     "<pre class='org-src'><code>"
                     (format nil
                             "<div class='~A org-block' ~A>"
                             block-type
                             (cltpt/base:str-join props " "))))
-              (close-tag (if is-code
+              (code-close-tag (if is-code
                              "</code></pre>"
                              "</div>"))
               (is-raw is-code)
@@ -1753,9 +1756,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                              (getf (car match) :begin)))
                         (results-end
                           (- (getf (car results-match) :end)
+                             (getf (car match) :begin)))
+                        (results-content-begin
+                          (- (getf (car results-content-match) :begin)
                              (getf (car match) :begin))))
                    ;; we have to push the changes in the correct order. otherwise
                    ;; the incremental parser will not function properly.
+                   ;; changes in the results region
                    (push
                     (cons results-close-tag
                           (cltpt/base:make-region
@@ -1787,7 +1794,25 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (cons results-open-tag
                           (cltpt/base:make-region
                            :begin results-begin
-                           :end results-begin))
+                           :end results-content-begin))
+                    changes)
+                   ;; changes in the code block region
+                   (push
+                    (cons code-close-tag
+                          (cltpt/base:make-region
+                           :begin (cltpt/base:region-end
+                                   (cltpt/base:text-object-contents-region
+                                    obj))
+                           :end (- (getf (car code-end-match) :end)
+                                   (getf (car match) :begin))))
+                    changes)
+                   (push
+                    (cons code-open-tag
+                          (cltpt/base:make-region
+                           :begin 0
+                           :end (cltpt/base:region-begin
+                                 (cltpt/base:text-object-contents-region
+                                  obj))))
                     changes))
                  ;; if we dont export results and export code, theres not much to do.
                  ;; just convert it as raw code.
@@ -1802,8 +1827,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    :reparse nil)
              (cltpt/base:rewrap-within-tags
               obj
-              open-tag
-              close-tag
+              code-open-tag
+              code-close-tag
               :escape (not is-raw))))))))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object))
