@@ -12,23 +12,6 @@
   nil
   "conversion info that may be useful to pass to downstream functions during conversion.")
 
-(defun extract-modified-substring (str1 func main-region modification-region)
-  "extract and modify the substring in MODIFICATION-REGION contained in MAIN-REGION of
-string STR1. notice that MODIFICATION-REGION can be wider and even disjoint from MAIN-REGION."
-  (let ((modification-begin (max (region-begin main-region)
-                                 (region-begin modification-region)))
-        (modification-end (min (region-end main-region)
-                               (region-end modification-region))))
-    (if (and (<= (region-begin modification-region)
-                 (region-end main-region))
-             (>= (region-end modification-region)
-                 (region-begin main-region)))
-        (concatenate 'string
-                     (subseq str1 (region-begin main-region) modification-begin)
-                     (funcall func (subseq str1 modification-begin modification-end))
-                     (subseq str1 modification-end (region-end main-region)))
-        str1)))
-
 (defun replace-chars (s replace-table)
   "return a new string where every character in S that is a key in REPLACE-TABLE is
 replaced by its associated string."
