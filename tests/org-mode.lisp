@@ -47,122 +47,141 @@
      (compare-match-loosely (car submatch1)
                             (car submatch2)))))
 
-(test org-keyword-basic
+(defun org-keyword-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "#+title: My Document"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 20 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-        ((:BEGIN 0 :END 2 :MATCH "#+"))
-        ((:BEGIN 2 :END 7 :ID KEYWORD :MATCH "title"))
-        ((:BEGIN 7 :END 8 :MATCH ":"))
-        ((:BEGIN 8 :END 9 :MATCH " "))
-        ((:BEGIN 9 :END 20 :ID VALUE :MATCH "My Document")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 20 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+       ((:BEGIN 0 :END 2 :MATCH "#+"))
+       ((:BEGIN 2 :END 7 :ID KEYWORD :MATCH "title"))
+       ((:BEGIN 7 :END 8 :MATCH ":"))
+       ((:BEGIN 8 :END 9 :MATCH " "))
+       ((:BEGIN 9 :END 20 :ID VALUE :MATCH "My Document"))))))
 
-(test org-keyword-with-empty-value
+(test org-keyword-basic
+  (fiveam:is (org-keyword-basic-func)))
+
+(defun org-keyword-with-empty-value-func ()
   (let ((result (cltpt/combinator:parse
                  "#+filetags: "
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-        ((:BEGIN 0 :END 2 :MATCH "#+"))
-        ((:BEGIN 2 :END 10 :ID KEYWORD :MATCH "filetags"))
-        ((:BEGIN 10 :END 11 :MATCH ":"))
-        ((:BEGIN 11 :END 12 :MATCH " "))
-        ((:BEGIN 12 :END 12 :ID VALUE :MATCH "")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+       ((:BEGIN 0 :END 2 :MATCH "#+"))
+       ((:BEGIN 2 :END 10 :ID KEYWORD :MATCH "filetags"))
+       ((:BEGIN 10 :END 11 :MATCH ":"))
+       ((:BEGIN 11 :END 12 :MATCH " "))
+       ((:BEGIN 12 :END 12 :ID VALUE :MATCH ""))))))
 
-(test org-keyword-multiword
+(test org-keyword-with-empty-value
+  (fiveam:is (org-keyword-with-empty-value-func)))
+
+(defun org-keyword-multiword-func ()
   (let ((result (cltpt/combinator:parse
                  "#+author: John Doe and Jane Smith"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 33 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-        ((:BEGIN 0 :END 2 :MATCH "#+"))
-        ((:BEGIN 2 :END 8 :ID KEYWORD :MATCH "author"))
-        ((:BEGIN 8 :END 9 :MATCH ":"))
-        ((:BEGIN 9 :END 10 :MATCH " "))
-        ((:BEGIN 10 :END 33 :ID VALUE :MATCH "John Doe and Jane Smith")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 33 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+       ((:BEGIN 0 :END 2 :MATCH "#+"))
+       ((:BEGIN 2 :END 8 :ID KEYWORD :MATCH "author"))
+       ((:BEGIN 8 :END 9 :MATCH ":"))
+       ((:BEGIN 9 :END 10 :MATCH " "))
+       ((:BEGIN 10 :END 33 :ID VALUE :MATCH "John Doe and Jane Smith"))))))
 
-(test org-keyword-comprehensive
+(test org-keyword-multiword
+  (fiveam:is (org-keyword-multiword-func)))
+
+(defun org-keyword-comprehensive-func ()
   (let ((result (cltpt/combinator:parse
                  "#+mykeyword: myvalue"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 20 :STR "#+mykeyword: myvalue")
-        ((:BEGIN 0 :END 12 :STR "#+mykeyword: myvalue")
-         ((:BEGIN 0 :END 2 :STR "#+mykeyword: myvalue"))
-         ((:BEGIN 2 :END 11 :STR "#+mykeyword: myvalue"))
-         ((:BEGIN 11 :END 12 :STR "#+mykeyword: myvalue")))
-        ((:BEGIN 12 :END 13 :STR "#+mykeyword: myvalue"))
-        ((:BEGIN 13 :END 20 :STR "#+mykeyword: myvalue")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 20 :STR "#+mykeyword: myvalue")
+       ((:BEGIN 0 :END 12 :STR "#+mykeyword: myvalue")
+        ((:BEGIN 0 :END 2 :STR "#+mykeyword: myvalue"))
+        ((:BEGIN 2 :END 11 :STR "#+mykeyword: myvalue"))
+        ((:BEGIN 11 :END 12 :STR "#+mykeyword: myvalue")))
+       ((:BEGIN 12 :END 13 :STR "#+mykeyword: myvalue"))
+       ((:BEGIN 13 :END 20 :STR "#+mykeyword: myvalue"))))))
 
-(test org-comment-basic
+(test org-keyword-comprehensive
+  (fiveam:is (org-keyword-comprehensive-func)))
+
+(defun org-comment-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "# this is a comment"
                  (list cltpt/org-mode::*org-comment-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 19 :ID CLTPT/ORG-MODE::ORG-COMMENT)
-        ((:BEGIN 0 :END 1 :MATCH "#"))
-        ((:BEGIN 1 :END 2 :MATCH " "))
-        ((:BEGIN 2 :END 19 :MATCH "this is a comment")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 19 :ID CLTPT/ORG-MODE::ORG-COMMENT)
+       ((:BEGIN 0 :END 1 :MATCH "#"))
+       ((:BEGIN 1 :END 2 :MATCH " "))
+       ((:BEGIN 2 :END 19 :MATCH "this is a comment"))))))
 
-(test org-comment-not-at-line-start
+(test org-comment-basic
+  (fiveam:is (org-comment-basic-func)))
+
+(defun org-comment-not-at-line-start-func ()
   (let ((result (cltpt/combinator:parse
                  "text # this should not match"
                  (list cltpt/org-mode::*org-comment-rule*))))
-    (fiveam:is (= (length result) 0))))
+    (= (length result) 0)))
 
-(test org-header-basic
+(test org-comment-not-at-line-start
+  (fiveam:is (org-comment-not-at-line-start-func)))
+
+(defun org-header-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "* my header"
                  (list cltpt/org-mode::*org-header-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 9 :ID CLTPT/ORG-MODE::ORG-HEADER)
-        ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
-        ((:BEGIN 1 :END 2 :MATCH " "))
-        ((:BEGIN 2 :END 9 :ID TITLE :MATCH "my header")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 9 :ID CLTPT/ORG-MODE::ORG-HEADER)
+       ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
+       ((:BEGIN 1 :END 2 :MATCH " "))
+       ((:BEGIN 2 :END 9 :ID TITLE :MATCH "my header"))))))
 
-(test org-header-with-todo
+(test org-header-basic
+  (fiveam:is (org-header-basic-func)))
+
+(defun org-header-with-todo-func ()
   (let ((result (cltpt/combinator:parse
                  "* TODO my header"
                  (list cltpt/org-mode::*org-header-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-HEADER)
-        ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
-        ((:BEGIN 1 :END 2 :MATCH " "))
-        ((:BEGIN 2 :END 6 :ID TODO :MATCH "TODO"))
-        ((:BEGIN 6 :END 7 :MATCH " "))
-        ((:BEGIN 7 :END 14 :ID TITLE :MATCH "my header")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-HEADER)
+       ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
+       ((:BEGIN 1 :END 2 :MATCH " "))
+       ((:BEGIN 2 :END 6 :ID TODO :MATCH "TODO"))
+       ((:BEGIN 6 :END 7 :MATCH " "))
+       ((:BEGIN 7 :END 14 :ID TITLE :MATCH "my header"))))))
 
-(test org-header-with-tags
+(test org-header-with-todo
+  (fiveam:is (org-header-with-todo-func)))
+
+(defun org-header-with-tags-func ()
   (let ((result (cltpt/combinator:parse
                  "* my header :tag1:tag2:"
                  (list cltpt/org-mode::*org-header-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 21 :ID CLTPT/ORG-MODE::ORG-HEADER)
-        ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
-        ((:BEGIN 1 :END 2 :MATCH " "))
-        ((:BEGIN 2 :END 12 :ID TITLE :MATCH "my header "))
-        ((:BEGIN 12 :END 21 :ID TAGS :MATCH ":tag1:tag2:")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 21 :ID CLTPT/ORG-MODE::ORG-HEADER)
+       ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
+       ((:BEGIN 1 :END 2 :MATCH " "))
+       ((:BEGIN 2 :END 12 :ID TITLE :MATCH "my header "))
+       ((:BEGIN 12 :END 21 :ID TAGS :MATCH ":tag1:tag2:"))))))
+
+(test org-header-with-tags
+  (fiveam:is (org-header-with-tags-func)))
 
 ;; comprehensive header test - more extensive with scheduling/closing
-(test org-header-comprehensive
+(defun org-header-comprehensive-test-func ()
   (let ((result (cltpt/combinator::parse
                  "* TODO my main header :test:here:noexport:
 SCHEDULED: <2024-10-29 Tue 16:41:04>
@@ -173,238 +192,29 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 :LAST_REPEAT: [2024-10-29 Tue 16:40:36]
 :END:"
                  (list cltpt/org-mode::*org-header-rule*))))
-    (fiveam:is (not (null result)))
-    (fiveam:is (listp result))
-    (let ((header-match (car result)))
-      (fiveam:is (eq (getf (car header-match) :ID) 'CLTPT/ORG-MODE::ORG-HEADER))
-      (fiveam:is (= (getf (car header-match) :BEGIN) 0))
-      (fiveam:is (> (getf (car header-match) :END) 100))
-      ;; verify we have children (stars, TODO keyword, title, tags, and content)
-      (fiveam:is (> (length (cdr header-match)) 4)))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 137 :ID CLTPT/ORG-MODE::ORG-HEADER)
+       ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
+       ((:BEGIN 1 :END 2 :MATCH " "))
+       ((:BEGIN 2 :END 6 :ID TODO :MATCH "TODO"))
+       ((:BEGIN 6 :END 7 :MATCH " "))
+       ((:BEGIN 7 :END 23 :ID TITLE :MATCH "my main header "))
+       ((:BEGIN 23 :END 39 :ID TAGS :MATCH ":test:here:noexport:"))
+       ;; More children for the schedule, closed, properties, etc.
+       ))))
 
-(test org-timestamp-date-only
+(test org-header-comprehensive
+  (fiveam:is (org-header-comprehensive-test-func)))
+
+(defun org-timestamp-date-only-func ()
   (let ((result (cltpt/combinator:parse
                  "<2024-01-15 Mon>"
                  (list cltpt/org-mode::*org-timestamp-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 16 :MATCH "<2024-01-15 Mon>")
-        ((:BEGIN 0 :END 16 :MATCH "<2024-01-15 Mon>")
-         ((:BEGIN 0 :END 1 :MATCH "<"))
-         ((:BEGIN 1 :END 5 :MATCH "2024"))
-         ((:BEGIN 5 :END 6 :MATCH "-"))
-         ((:BEGIN 6 :END 8 :MATCH "01"))
-         ((:BEGIN 8 :END 9 :MATCH "-"))
-         ((:BEGIN 9 :END 11 :MATCH "15"))
-         ((:BEGIN 11 :END 12 :MATCH " "))
-         ((:BEGIN 12 :END 15 :MATCH "Mon"))
-         ((:BEGIN 15 :END 16 :MATCH ">"))))))))
-
-(test org-timestamp-with-time
-  (let ((result (cltpt/combinator:parse
-                 "<2024-01-15 Mon 14:30:00>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 25 :MATCH "<2024-01-15 Mon 14:30:00>")
-        ((:BEGIN 0 :END 25 :MATCH "<2024-01-15 Mon 14:30:00>")
-         ((:BEGIN 0 :END 1 :MATCH "<"))
-         ((:BEGIN 1 :END 5 :MATCH "2024"))
-         ((:BEGIN 5 :END 6 :MATCH "-"))
-         ((:BEGIN 6 :END 8 :MATCH "01"))
-         ((:BEGIN 8 :END 9 :MATCH "-"))
-         ((:BEGIN 9 :END 11 :MATCH "15"))
-         ((:BEGIN 11 :END 12 :MATCH " "))
-         ((:BEGIN 12 :END 15 :MATCH "Mon"))
-         ((:BEGIN 15 :END 16 :MATCH " "))
-         ((:BEGIN 16 :END 18 :MATCH "14"))
-         ((:BEGIN 18 :END 19 :MATCH ":"))
-         ((:BEGIN 19 :END 21 :MATCH "30"))
-         ((:BEGIN 21 :END 22 :MATCH ":"))
-         ((:BEGIN 22 :END 24 :MATCH "00"))
-         ((:BEGIN 24 :END 25 :MATCH ">"))))))))
-
-(test org-timestamp-with-repeater
-  (let ((result (cltpt/combinator:parse
-                 "<2024-01-15 Mon 14:30:00 +1w>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 29 :MATCH "<2024-01-15 Mon 14:30:00 +1w>")
-        ((:BEGIN 0 :END 29 :MATCH "<2024-01-15 Mon 14:30:00 +1w>")
-         ((:BEGIN 0 :END 1 :MATCH "<"))
-         ((:BEGIN 1 :END 5 :MATCH "2024"))
-         ((:BEGIN 5 :END 6 :MATCH "-"))
-         ((:BEGIN 6 :END 8 :MATCH "01"))
-         ((:BEGIN 8 :END 9 :MATCH "-"))
-         ((:BEGIN 9 :END 11 :MATCH "15"))
-         ((:BEGIN 11 :END 12 :MATCH " "))
-         ((:BEGIN 12 :END 15 :MATCH "Mon"))
-         ((:BEGIN 15 :END 16 :MATCH " "))
-         ((:BEGIN 16 :END 18 :MATCH "14"))
-         ((:BEGIN 18 :END 19 :MATCH ":"))
-         ((:BEGIN 19 :END 21 :MATCH "30"))
-         ((:BEGIN 21 :END 22 :MATCH ":"))
-         ((:BEGIN 22 :END 24 :MATCH "00"))
-         ((:BEGIN 24 :END 25 :MATCH " "))
-         ((:BEGIN 25 :END 28 :MATCH "+1w"))
-         ((:BEGIN 28 :END 29 :MATCH ">"))))))))
-
-(test org-timestamp-range
-  (let ((result (cltpt/combinator:parse
-                 "<2024-01-15 Mon>--<2024-01-16 Tue>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 34 :MATCH "<2024-01-15 Mon>--<2024-01-16 Tue>")
-        ((:BEGIN 0 :END 34 :MATCH "<2024-01-15 Mon>--<2024-01-16 Tue>")
-         ((:BEGIN 0 :END 1 :MATCH "<"))
-         ((:BEGIN 1 :END 5 :MATCH "2024"))
-         ((:BEGIN 5 :END 6 :MATCH "-"))
-         ((:BEGIN 6 :END 8 :MATCH "01"))
-         ((:BEGIN 8 :END 9 :MATCH "-"))
-         ((:BEGIN 9 :END 11 :MATCH "15"))
-         ((:BEGIN 11 :END 12 :MATCH " "))
-         ((:BEGIN 12 :END 15 :MATCH "Mon"))
-         ((:BEGIN 15 :END 16 :MATCH ">"))
-         ((:BEGIN 16 :END 18 :MATCH "--"))
-         ((:BEGIN 18 :END 19 :MATCH "<"))
-         ((:BEGIN 19 :END 23 :MATCH "2024"))
-         ((:BEGIN 23 :END 24 :MATCH "-"))
-         ((:BEGIN 24 :END 26 :MATCH "01"))
-         ((:BEGIN 26 :END 27 :MATCH "-"))
-         ((:BEGIN 27 :END 29 :MATCH "16"))
-         ((:BEGIN 29 :END 30 :MATCH " "))
-         ((:BEGIN 30 :END 33 :MATCH "Tue"))
-         ((:BEGIN 33 :END 34 :MATCH ">"))))))))
-
-(test org-timestamp-comprehensive-date-only
-  (fiveam:is
-   (compare-full-match-loosely
-    (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu>" 0)
-    '((:BEGIN 0 :END 16 :MATCH "<2023-12-28 Thu>")
-      ((:BEGIN 0 :END 16 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu>")
-       ((:BEGIN 0 :END 1 :MATCH "<"))
-       ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
-       ((:BEGIN 5 :END 6 :MATCH "-"))
-       ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
-       ((:BEGIN 8 :END 9 :MATCH "-"))
-       ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
-       ((:BEGIN 11 :END 12 :MATCH " "))
-       ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
-       ((:BEGIN 15 :END 16 :MATCH ">")))))))
-
-(test org-timestamp-comprehensive-with-time
-  (fiveam:is
-   (compare-full-match-loosely
-    (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00>" 0)
-    '((:BEGIN 0 :END 25 :MATCH "<2023-12-28 Thu 18:30:00>")
-      ((:BEGIN 0 :END 25 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00>")
-       ((:BEGIN 0 :END 1 :MATCH "<"))
-       ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
-       ((:BEGIN 5 :END 6 :MATCH "-"))
-       ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
-       ((:BEGIN 8 :END 9 :MATCH "-"))
-       ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
-       ((:BEGIN 11 :END 12 :MATCH " "))
-       ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
-       ((:BEGIN 15 :END 24 :MATCH " 18:30:00")
-        ((:BEGIN 15 :END 16 :MATCH " "))
-        ((:BEGIN 16 :END 18 :ID CLTPT/ORG-MODE::HOUR :MATCH "18"))
-        ((:BEGIN 18 :END 19 :MATCH ":"))
-        ((:BEGIN 19 :END 21 :ID CLTPT/ORG-MODE::MINUTE :MATCH "30"))
-        ((:BEGIN 21 :END 22 :MATCH ":"))
-        ((:BEGIN 22 :END 24 :ID SECOND :MATCH "00")))
-       ((:BEGIN 24 :END 25 :MATCH ">")))))))
-
-(test org-timestamp-comprehensive-with-repeater
-  (fiveam:is
-   (compare-full-match-loosely
-    (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>" 0)
-    '((:BEGIN 0 :END 29 :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
-      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
-       ((:BEGIN 0 :END 1 :MATCH "<"))
-       ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
-       ((:BEGIN 5 :END 6 :MATCH "-"))
-       ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
-       ((:BEGIN 8 :END 9 :MATCH "-"))
-       ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
-       ((:BEGIN 11 :END 12 :MATCH " "))
-       ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
-       ((:BEGIN 15 :END 24 :MATCH " 18:30:00")
-        ((:BEGIN 15 :END 16 :MATCH " "))
-        ((:BEGIN 16 :END 18 :ID CLTPT/ORG-MODE::HOUR :MATCH "18"))
-        ((:BEGIN 18 :END 19 :MATCH ":"))
-        ((:BEGIN 19 :END 21 :ID CLTPT/ORG-MODE::MINUTE :MATCH "30"))
-        ((:BEGIN 21 :END 22 :MATCH ":"))
-        ((:BEGIN 22 :END 24 :ID SECOND :MATCH "00")))
-       ((:BEGIN 24 :END 28 :MATCH " +1w")
-        ((:BEGIN 24 :END 26 :MATCH " +"))
-        ((:BEGIN 26 :END 27 :ID CLTPT/ORG-MODE::REPEAT-NUM :MATCH "1"))
-        ((:BEGIN 27 :END 28 :ID CLTPT/ORG-MODE::REPEAT-WORD :MATCH "w")))
-       ((:BEGIN 28 :END 29 :MATCH ">")))))))
-
-(test org-timestamp-comprehensive-range
-  (fiveam:is
-   (compare-full-match-loosely
-    (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>" 0)
-    '((:BEGIN 0 :END 60 :MATCH "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>")
-      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
-       ((:BEGIN 0 :END 1 :MATCH "<"))
-       ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
-       ((:BEGIN 5 :END 6 :MATCH "-"))
-       ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
-       ((:BEGIN 8 :END 9 :MATCH "-"))
-       ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
-       ((:BEGIN 11 :END 12 :MATCH " "))
-       ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
-       ((:BEGIN 15 :END 24 :MATCH " 18:30:00")
-        ((:BEGIN 15 :END 16 :MATCH " "))
-        ((:BEGIN 16 :END 18 :ID CLTPT/ORG-MODE::HOUR :MATCH "18"))
-        ((:BEGIN 18 :END 19 :MATCH ":"))
-        ((:BEGIN 19 :END 21 :ID CLTPT/ORG-MODE::MINUTE :MATCH "30"))
-        ((:BEGIN 21 :END 22 :MATCH ":"))
-        ((:BEGIN 22 :END 24 :ID SECOND :MATCH "00")))
-       ((:BEGIN 24 :END 28 :MATCH " +1w")
-        ((:BEGIN 24 :END 26 :MATCH " +"))
-        ((:BEGIN 26 :END 27 :ID CLTPT/ORG-MODE::REPEAT-NUM :MATCH "1"))
-        ((:BEGIN 27 :END 28 :ID CLTPT/ORG-MODE::REPEAT-WORD :MATCH "w")))
-       ((:BEGIN 28 :END 29 :MATCH ">")))
-      ((:BEGIN 29 :END 31 :MATCH "--"))
-      ((:BEGIN 31 :END 60 :ID CLTPT/ORG-MODE::END :MATCH "<2023-12-28 Thu 19:00:00 +1w>")
-       ((:BEGIN 31 :END 32 :MATCH "<"))
-       ((:BEGIN 32 :END 36 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
-       ((:BEGIN 36 :END 37 :MATCH "-"))
-       ((:BEGIN 37 :END 39 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
-       ((:BEGIN 39 :END 40 :MATCH "-"))
-       ((:BEGIN 40 :END 42 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
-       ((:BEGIN 42 :END 43 :MATCH " "))
-       ((:BEGIN 43 :END 46 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
-       ((:BEGIN 46 :END 55 :MATCH " 19:00:00")
-        ((:BEGIN 46 :END 47 :MATCH " "))
-        ((:BEGIN 47 :END 49 :ID CLTPT/ORG-MODE::HOUR :MATCH "19"))
-        ((:BEGIN 49 :END 50 :MATCH ":"))
-        ((:BEGIN 50 :END 52 :ID CLTPT/ORG-MODE::MINUTE :MATCH "00"))
-        ((:BEGIN 52 :END 53 :MATCH ":"))
-        ((:BEGIN 53 :END 55 :ID SECOND :MATCH "00")))
-       ((:BEGIN 55 :END 59 :MATCH " +1w")
-        ((:BEGIN 55 :END 57 :MATCH " +"))
-        ((:BEGIN 57 :END 58 :ID CLTPT/ORG-MODE::REPEAT-NUM :MATCH "1"))
-        ((:BEGIN 58 :END 59 :ID CLTPT/ORG-MODE::REPEAT-WORD :MATCH "w")))
-       ((:BEGIN 59 :END 60 :MATCH ">")))))))
-
-(test org-single-timestamp-basic
-  (let ((result (cltpt/combinator:parse
-                 "<2024-01-15 Mon>"
-                 (list cltpt/org-mode::*org-single-timestamp-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 16 :MATCH "<2024-01-15 Mon>")
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 16 :MATCH "<2024-01-15 Mon>")
+       ((:BEGIN 0 :END 16 :MATCH "<2024-01-15 Mon>")
         ((:BEGIN 0 :END 1 :MATCH "<"))
         ((:BEGIN 1 :END 5 :MATCH "2024"))
         ((:BEGIN 5 :END 6 :MATCH "-"))
@@ -415,166 +225,433 @@ CLOSED: [2024-10-29 Tue 16:41:03]
         ((:BEGIN 12 :END 15 :MATCH "Mon"))
         ((:BEGIN 15 :END 16 :MATCH ">")))))))
 
-(test org-timestamp-bracket-basic
+(test org-timestamp-date-only
+  (fiveam:is (org-timestamp-date-only-func)))
+
+(defun org-timestamp-with-time-func ()
+  (let ((result (cltpt/combinator:parse
+                 "<2024-01-15 Mon 14:30:00>"
+                 (list cltpt/org-mode::*org-timestamp-rule*))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 25 :MATCH "<2024-01-15 Mon 14:30:00>")
+       ((:BEGIN 0 :END 25 :MATCH "<2024-01-15 Mon 14:30:00>")
+        ((:BEGIN 0 :END 1 :MATCH "<"))
+        ((:BEGIN 1 :END 5 :MATCH "2024"))
+        ((:BEGIN 5 :END 6 :MATCH "-"))
+        ((:BEGIN 6 :END 8 :MATCH "01"))
+        ((:BEGIN 8 :END 9 :MATCH "-"))
+        ((:BEGIN 9 :END 11 :MATCH "15"))
+        ((:BEGIN 11 :END 12 :MATCH " "))
+        ((:BEGIN 12 :END 15 :MATCH "Mon"))
+        ((:BEGIN 15 :END 16 :MATCH " "))
+        ((:BEGIN 16 :END 18 :MATCH "14"))
+        ((:BEGIN 18 :END 19 :MATCH ":"))
+        ((:BEGIN 19 :END 21 :MATCH "30"))
+        ((:BEGIN 21 :END 22 :MATCH ":"))
+        ((:BEGIN 22 :END 24 :MATCH "00"))
+        ((:BEGIN 24 :END 25 :MATCH ">")))))))
+
+(test org-timestamp-with-time
+  (fiveam:is (org-timestamp-with-time-func)))
+
+(defun org-timestamp-with-repeater-func ()
+  (let ((result (cltpt/combinator:parse
+                 "<2024-01-15 Mon 14:30:00 +1w>"
+                 (list cltpt/org-mode::*org-timestamp-rule*))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 29 :MATCH "<2024-01-15 Mon 14:30:00 +1w>")
+       ((:BEGIN 0 :END 29 :MATCH "<2024-01-15 Mon 14:30:00 +1w>")
+        ((:BEGIN 0 :END 1 :MATCH "<"))
+        ((:BEGIN 1 :END 5 :MATCH "2024"))
+        ((:BEGIN 5 :END 6 :MATCH "-"))
+        ((:BEGIN 6 :END 8 :MATCH "01"))
+        ((:BEGIN 8 :END 9 :MATCH "-"))
+        ((:BEGIN 9 :END 11 :MATCH "15"))
+        ((:BEGIN 11 :END 12 :MATCH " "))
+        ((:BEGIN 12 :END 15 :MATCH "Mon"))
+        ((:BEGIN 15 :END 16 :MATCH " "))
+        ((:BEGIN 16 :END 18 :MATCH "14"))
+        ((:BEGIN 18 :END 19 :MATCH ":"))
+        ((:BEGIN 19 :END 21 :MATCH "30"))
+        ((:BEGIN 21 :END 22 :MATCH ":"))
+        ((:BEGIN 22 :END 24 :MATCH "00"))
+        ((:BEGIN 24 :END 25 :MATCH " "))
+        ((:BEGIN 25 :END 28 :MATCH "+1w"))
+        ((:BEGIN 28 :END 29 :MATCH ">")))))))
+
+(test org-timestamp-with-repeater
+  (fiveam:is (org-timestamp-with-repeater-func)))
+
+(defun org-timestamp-range-func ()
+  (let ((result (cltpt/combinator:parse
+                 "<2024-01-15 Mon>--<2024-01-16 Tue>"
+                 (list cltpt/org-mode::*org-timestamp-rule*))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 34 :MATCH "<2024-01-15 Mon>--<2024-01-16 Tue>")
+       ((:BEGIN 0 :END 34 :MATCH "<2024-01-15 Mon>--<2024-01-16 Tue>")
+        ((:BEGIN 0 :END 1 :MATCH "<"))
+        ((:BEGIN 1 :END 5 :MATCH "2024"))
+        ((:BEGIN 5 :END 6 :MATCH "-"))
+        ((:BEGIN 6 :END 8 :MATCH "01"))
+        ((:BEGIN 8 :END 9 :MATCH "-"))
+        ((:BEGIN 9 :END 11 :MATCH "15"))
+        ((:BEGIN 11 :END 12 :MATCH " "))
+        ((:BEGIN 12 :END 15 :MATCH "Mon"))
+        ((:BEGIN 15 :END 16 :MATCH ">"))
+        ((:BEGIN 16 :END 18 :MATCH "--"))
+        ((:BEGIN 18 :END 19 :MATCH "<"))
+        ((:BEGIN 19 :END 23 :MATCH "2024"))
+        ((:BEGIN 23 :END 24 :MATCH "-"))
+        ((:BEGIN 24 :END 26 :MATCH "01"))
+        ((:BEGIN 26 :END 27 :MATCH "-"))
+        ((:BEGIN 27 :END 29 :MATCH "16"))
+        ((:BEGIN 29 :END 30 :MATCH " "))
+        ((:BEGIN 30 :END 33 :MATCH "Tue"))
+        ((:BEGIN 33 :END 34 :MATCH ">")))))))
+
+(test org-timestamp-range
+  (fiveam:is (org-timestamp-range-func)))
+
+(defun org-timestamp-comprehensive-date-only-func ()
+  (compare-full-match-loosely
+   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu>" 0)
+   '((:BEGIN 0 :END 16 :MATCH "<2023-12-28 Thu>")
+     ((:BEGIN 0 :END 16 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu>")
+      ((:BEGIN 0 :END 1 :MATCH "<"))
+      ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
+      ((:BEGIN 5 :END 6 :MATCH "-"))
+      ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
+      ((:BEGIN 8 :END 9 :MATCH "-"))
+      ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
+      ((:BEGIN 11 :END 12 :MATCH " "))
+      ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
+      ((:BEGIN 15 :END 16 :MATCH ">"))))))
+
+(test org-timestamp-comprehensive-date-only
+  (fiveam:is (org-timestamp-comprehensive-date-only-func)))
+
+(defun org-timestamp-comprehensive-with-time-func ()
+  (compare-full-match-loosely
+   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00>" 0)
+   '((:BEGIN 0 :END 25 :MATCH "<2023-12-28 Thu 18:30:00>")
+     ((:BEGIN 0 :END 25 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00>")
+      ((:BEGIN 0 :END 1 :MATCH "<"))
+      ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
+      ((:BEGIN 5 :END 6 :MATCH "-"))
+      ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
+      ((:BEGIN 8 :END 9 :MATCH "-"))
+      ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
+      ((:BEGIN 11 :END 12 :MATCH " "))
+      ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
+      ((:BEGIN 15 :END 24 :MATCH " 18:30:00")
+       ((:BEGIN 15 :END 16 :MATCH " "))
+       ((:BEGIN 16 :END 18 :ID CLTPT/ORG-MODE::HOUR :MATCH "18"))
+       ((:BEGIN 18 :END 19 :MATCH ":"))
+       ((:BEGIN 19 :END 21 :ID CLTPT/ORG-MODE::MINUTE :MATCH "30"))
+       ((:BEGIN 21 :END 22 :MATCH ":"))
+       ((:BEGIN 22 :END 24 :ID SECOND :MATCH "00")))
+      ((:BEGIN 24 :END 25 :MATCH ">"))))))
+
+(test org-timestamp-comprehensive-with-time
+  (fiveam:is (org-timestamp-comprehensive-with-time-func)))
+
+(defun org-timestamp-comprehensive-with-repeater-func ()
+  (compare-full-match-loosely
+   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>" 0)
+   '((:BEGIN 0 :END 29 :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
+     ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
+      ((:BEGIN 0 :END 1 :MATCH "<"))
+      ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
+      ((:BEGIN 5 :END 6 :MATCH "-"))
+      ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
+      ((:BEGIN 8 :END 9 :MATCH "-"))
+      ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
+      ((:BEGIN 11 :END 12 :MATCH " "))
+      ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
+      ((:BEGIN 15 :END 24 :MATCH " 18:30:00")
+       ((:BEGIN 15 :END 16 :MATCH " "))
+       ((:BEGIN 16 :END 18 :ID CLTPT/ORG-MODE::HOUR :MATCH "18"))
+       ((:BEGIN 18 :END 19 :MATCH ":"))
+       ((:BEGIN 19 :END 21 :ID CLTPT/ORG-MODE::MINUTE :MATCH "30"))
+       ((:BEGIN 21 :END 22 :MATCH ":"))
+       ((:BEGIN 22 :END 24 :ID SECOND :MATCH "00")))
+      ((:BEGIN 24 :END 28 :MATCH " +1w")
+       ((:BEGIN 24 :END 26 :MATCH " +"))
+       ((:BEGIN 26 :END 27 :ID CLTPT/ORG-MODE::REPEAT-NUM :MATCH "1"))
+       ((:BEGIN 27 :END 28 :ID CLTPT/ORG-MODE::REPEAT-WORD :MATCH "w")))
+      ((:BEGIN 28 :END 29 :MATCH ">"))))))
+
+(test org-timestamp-comprehensive-with-repeater
+  (fiveam:is (org-timestamp-comprehensive-with-repeater-func)))
+
+(defun org-timestamp-comprehensive-range-func ()
+  (compare-full-match-loosely
+   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>" 0)
+   '((:BEGIN 0 :END 60 :MATCH "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>")
+     ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
+      ((:BEGIN 0 :END 1 :MATCH "<"))
+      ((:BEGIN 1 :END 5 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
+      ((:BEGIN 5 :END 6 :MATCH "-"))
+      ((:BEGIN 6 :END 8 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
+      ((:BEGIN 8 :END 9 :MATCH "-"))
+      ((:BEGIN 9 :END 11 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
+      ((:BEGIN 11 :END 12 :MATCH " "))
+      ((:BEGIN 12 :END 15 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
+      ((:BEGIN 15 :END 24 :MATCH " 18:30:00")
+       ((:BEGIN 15 :END 16 :MATCH " "))
+       ((:BEGIN 16 :END 18 :ID CLTPT/ORG-MODE::HOUR :MATCH "18"))
+       ((:BEGIN 18 :END 19 :MATCH ":"))
+       ((:BEGIN 19 :END 21 :ID CLTPT/ORG-MODE::MINUTE :MATCH "30"))
+       ((:BEGIN 21 :END 22 :MATCH ":"))
+       ((:BEGIN 22 :END 24 :ID SECOND :MATCH "00")))
+      ((:BEGIN 24 :END 28 :MATCH " +1w")
+       ((:BEGIN 24 :END 26 :MATCH " +"))
+       ((:BEGIN 26 :END 27 :ID CLTPT/ORG-MODE::REPEAT-NUM :MATCH "1"))
+       ((:BEGIN 27 :END 28 :ID CLTPT/ORG-MODE::REPEAT-WORD :MATCH "w")))
+      ((:BEGIN 28 :END 29 :MATCH ">")))
+     ((:BEGIN 29 :END 31 :MATCH "--"))
+     ((:BEGIN 31 :END 60 :ID CLTPT/ORG-MODE::END :MATCH "<2023-12-28 Thu 19:00:00 +1w>")
+      ((:BEGIN 31 :END 32 :MATCH "<"))
+      ((:BEGIN 32 :END 36 :ID CLTPT/ORG-MODE::YEAR :MATCH "2023"))
+      ((:BEGIN 36 :END 37 :MATCH "-"))
+      ((:BEGIN 37 :END 39 :ID CLTPT/ORG-MODE::MONTH :MATCH "12"))
+      ((:BEGIN 39 :END 40 :MATCH "-"))
+      ((:BEGIN 40 :END 42 :ID CLTPT/ORG-MODE::DAY :MATCH "28"))
+      ((:BEGIN 42 :END 43 :MATCH " "))
+      ((:BEGIN 43 :END 46 :ID CLTPT/ORG-MODE::WEEKDAY :MATCH "Thu"))
+      ((:BEGIN 46 :END 55 :MATCH " 19:00:00")
+       ((:BEGIN 46 :END 47 :MATCH " "))
+       ((:BEGIN 47 :END 49 :ID CLTPT/ORG-MODE::HOUR :MATCH "19"))
+       ((:BEGIN 49 :END 50 :MATCH ":"))
+       ((:BEGIN 50 :END 52 :ID CLTPT/ORG-MODE::MINUTE :MATCH "00"))
+       ((:BEGIN 52 :END 53 :MATCH ":"))
+       ((:BEGIN 53 :END 55 :ID SECOND :MATCH "00")))
+      ((:BEGIN 55 :END 59 :MATCH " +1w")
+       ((:BEGIN 55 :END 57 :MATCH " +"))
+       ((:BEGIN 57 :END 58 :ID CLTPT/ORG-MODE::REPEAT-NUM :MATCH "1"))
+       ((:BEGIN 58 :END 59 :ID CLTPT/ORG-MODE::REPEAT-WORD :MATCH "w")))
+      ((:BEGIN 59 :END 60 :MATCH ">"))))))
+
+(test org-timestamp-comprehensive-range
+  (fiveam:is (org-timestamp-comprehensive-range-func)))
+
+(defun org-single-timestamp-basic-func ()
+  (let ((result (cltpt/combinator:parse
+                 "<2024-01-15 Mon>"
+                 (list cltpt/org-mode::*org-single-timestamp-rule*))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 16 :MATCH "<2024-01-15 Mon>")
+       ((:BEGIN 0 :END 1 :MATCH "<"))
+       ((:BEGIN 1 :END 5 :MATCH "2024"))
+       ((:BEGIN 5 :END 6 :MATCH "-"))
+       ((:BEGIN 6 :END 8 :MATCH "01"))
+       ((:BEGIN 8 :END 9 :MATCH "-"))
+       ((:BEGIN 9 :END 11 :MATCH "15"))
+       ((:BEGIN 11 :END 12 :MATCH " "))
+       ((:BEGIN 12 :END 15 :MATCH "Mon"))
+       ((:BEGIN 15 :END 16 :MATCH ">"))))))
+
+(test org-single-timestamp-basic
+  (fiveam:is (org-single-timestamp-basic-func)))
+
+(defun org-timestamp-bracket-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "[2024-01-15 Mon]"
                  (list cltpt/org-mode::*org-timestamp-bracket-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 16 :MATCH "[2024-01-15 Mon]")
-        ((:BEGIN 0 :END 1 :MATCH "["))
-        ((:BEGIN 1 :END 5 :ID YEAR :MATCH "2024"))
-        ((:BEGIN 5 :END 6 :MATCH "-"))
-        ((:BEGIN 6 :END 8 :ID MONTH :MATCH "01"))
-        ((:BEGIN 8 :END 9 :MATCH "-"))
-        ((:BEGIN 9 :END 11 :ID DAY :MATCH "15"))
-        ((:BEGIN 11 :END 12 :MATCH " "))
-        ((:BEGIN 12 :END 15 :ID WEEKDAY :MATCH "Mon"))
-        ((:BEGIN 15 :END 16 :MATCH "]")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 16 :MATCH "[2024-01-15 Mon]")
+       ((:BEGIN 0 :END 1 :MATCH "["))
+       ((:BEGIN 1 :END 5 :ID YEAR :MATCH "2024"))
+       ((:BEGIN 5 :END 6 :MATCH "-"))
+       ((:BEGIN 6 :END 8 :ID MONTH :MATCH "01"))
+       ((:BEGIN 8 :END 9 :MATCH "-"))
+       ((:BEGIN 9 :END 11 :ID DAY :MATCH "15"))
+       ((:BEGIN 11 :END 12 :MATCH " "))
+       ((:BEGIN 12 :END 15 :ID WEEKDAY :MATCH "Mon"))
+       ((:BEGIN 15 :END 16 :MATCH "]"))))))
 
-(test org-link-simple
+(test org-timestamp-bracket-basic
+  (fiveam:is (org-timestamp-bracket-basic-func)))
+
+(defun org-link-simple-func ()
   (let ((result (cltpt/combinator:parse
                  "[[id:abc123]]"
                  (list cltpt/org-mode::*org-link-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 13 :MATCH "[[id:abc123]]")
-        ((:BEGIN 0 :END 2 :MATCH "[["))
-        ((:BEGIN 2 :END 4 :MATCH "id"))
-        ((:BEGIN 4 :END 5 :MATCH ":"))
-        ((:BEGIN 5 :END 11 :MATCH "abc123"))
-        ((:BEGIN 11 :END 13 :MATCH "]]")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 13 :MATCH "[[id:abc123]]")
+       ((:BEGIN 0 :END 2 :MATCH "[["))
+       ((:BEGIN 2 :END 4 :MATCH "id"))
+       ((:BEGIN 4 :END 5 :MATCH ":"))
+       ((:BEGIN 5 :END 11 :MATCH "abc123"))
+       ((:BEGIN 11 :END 13 :MATCH "]]"))))))
 
-(test org-link-with-description
+(test org-link-simple
+  (fiveam:is (org-link-simple-func)))
+
+(defun org-link-with-description-func ()
   (let ((result (cltpt/combinator:parse
                  "[[file:document.pdf][My Document]]"
                  (list cltpt/org-mode::*org-link-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 34 :MATCH "[[file:document.pdf][My Document]]")
-        ((:BEGIN 0 :END 2 :MATCH "[["))
-        ((:BEGIN 2 :END 6 :MATCH "file"))
-        ((:BEGIN 6 :END 7 :MATCH ":"))
-        ((:BEGIN 7 :END 19 :MATCH "document.pdf"))
-        ((:BEGIN 19 :END 21 :MATCH "]["))
-        ((:BEGIN 21 :END 32 :MATCH "My Document"))
-        ((:BEGIN 32 :END 34 :MATCH "]]")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 34 :MATCH "[[file:document.pdf][My Document]]")
+       ((:BEGIN 0 :END 2 :MATCH "[["))
+       ((:BEGIN 2 :END 6 :MATCH "file"))
+       ((:BEGIN 6 :END 7 :MATCH ":"))
+       ((:BEGIN 7 :END 19 :MATCH "document.pdf"))
+       ((:BEGIN 19 :END 21 :MATCH "]["))
+       ((:BEGIN 21 :END 32 :MATCH "My Document"))
+       ((:BEGIN 32 :END 34 :MATCH "]]"))))))
 
-(test org-link-no-type
+(test org-link-with-description
+  (fiveam:is (org-link-with-description-func)))
+
+(defun org-link-no-type-func ()
   (let ((result (cltpt/combinator:parse
                  "[[document.pdf]]"
                  (list cltpt/org-mode::*org-link-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 16 :MATCH "[[document.pdf]]")
-        ((:BEGIN 0 :END 2 :MATCH "[["))
-        ((:BEGIN 2 :END 14 :MATCH "document.pdf"))
-        ((:BEGIN 14 :END 16 :MATCH "]]")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 16 :MATCH "[[document.pdf]]")
+       ((:BEGIN 0 :END 2 :MATCH "[["))
+       ((:BEGIN 2 :END 14 :MATCH "document.pdf"))
+       ((:BEGIN 14 :END 16 :MATCH "]]"))))))
 
-(test org-web-link-basic
+(test org-link-no-type
+  (fiveam:is (org-link-no-type-func)))
+
+(defun org-web-link-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "https://example.com/page"
                  (list cltpt/org-mode::*web-link-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 24 :MATCH "https://example.com/page")
-        ((:BEGIN 0 :END 8 :MATCH "https://"))
-        ((:BEGIN 8 :END 24 :MATCH "example.com/page")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 24 :MATCH "https://example.com/page")
+       ((:BEGIN 0 :END 8 :MATCH "https://"))
+       ((:BEGIN 8 :END 24 :MATCH "example.com/page"))))))
 
-(test org-inline-code-basic
+(test org-web-link-basic
+  (fiveam:is (org-web-link-basic-func)))
+
+(defun org-inline-code-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "~code here~"
                  (list cltpt/org-mode::*org-inline-code-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 11 :MATCH "~code here~")
-        ((:BEGIN 0 :END 1 :MATCH "~"))
-        ((:BEGIN 1 :END 10 :MATCH "code here"))
-        ((:BEGIN 10 :END 11 :MATCH "~")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 11 :MATCH "~code here~")
+       ((:BEGIN 0 :END 1 :MATCH "~"))
+       ((:BEGIN 1 :END 10 :MATCH "code here"))
+       ((:BEGIN 10 :END 11 :MATCH "~"))))))
 
-(test org-inline-code-with-spaces
+(test org-inline-code-basic
+  (fiveam:is (org-inline-code-basic-func)))
+
+(defun org-inline-code-with-spaces-func ()
   (let ((result (cltpt/combinator:parse
                  "~my code here~"
                  (list cltpt/org-mode::*org-inline-code-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 14 :MATCH "~my code here~")
-        ((:BEGIN 0 :END 1 :MATCH "~"))
-        ((:BEGIN 1 :END 13 :MATCH "my code here"))
-        ((:BEGIN 13 :END 14 :MATCH "~")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 14 :MATCH "~my code here~")
+       ((:BEGIN 0 :END 1 :MATCH "~"))
+       ((:BEGIN 1 :END 13 :MATCH "my code here"))
+       ((:BEGIN 13 :END 14 :MATCH "~"))))))
 
-(test org-keywords-basic
+(test org-inline-code-with-spaces
+  (fiveam:is (org-inline-code-with-spaces-func)))
+
+(defun org-keywords-basic-func ()
   (let ((result (cltpt/combinator:parse
                  " :hello-there :hello2"
                  (list cltpt/org-mode::*keywords-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 1 :END 18 :ID CLTPT/ORG-MODE::KEYWORDS)
-        ((:BEGIN 1 :END 2 :MATCH " "))
-        ((:BEGIN 2 :END 13 :ID CLTPT/ORG-MODE::KEYWORD)
-         ((:BEGIN 2 :END 3 :MATCH ":"))
-         ((:BEGIN 3 :END 13 :MATCH "hello-there")))
-        ((:BEGIN 13 :END 14 :MATCH " "))
-        ((:BEGIN 14 :END 18 :ID CLTPT/ORG-MODE::KEYWORD)
-         ((:BEGIN 14 :END 15 :MATCH ":"))
-         ((:BEGIN 15 :END 18 :MATCH "hello2")))
-        ((:BEGIN 22 :END 23 :MATCH " "))
-        ((:BEGIN 23 :END 30 :MATCH ":hello2")
-         ((:BEGIN 23 :END 24 :MATCH ":"))
-         ((:BEGIN 24 :END 30 :MATCH "hello2"))))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 1 :END 18 :ID CLTPT/ORG-MODE::KEYWORDS)
+       ((:BEGIN 1 :END 2 :MATCH " "))
+       ((:BEGIN 2 :END 13 :ID CLTPT/ORG-MODE::KEYWORD)
+        ((:BEGIN 2 :END 3 :MATCH ":"))
+        ((:BEGIN 3 :END 13 :MATCH "hello-there")))
+       ((:BEGIN 13 :END 14 :MATCH " "))
+       ((:BEGIN 14 :END 18 :ID CLTPT/ORG-MODE::KEYWORD)
+        ((:BEGIN 14 :END 15 :MATCH ":"))
+        ((:BEGIN 15 :END 18 :MATCH "hello2")))
+       ((:BEGIN 22 :END 23 :MATCH " "))
+       ((:BEGIN 23 :END 30 :MATCH ":hello2")
+        ((:BEGIN 23 :END 24 :MATCH ":"))
+        ((:BEGIN 24 :END 30 :MATCH "hello2")))))))
 
-(test org-italic-basic
+(test org-keywords-basic
+  (fiveam:is (org-keywords-basic-func)))
+
+(defun org-italic-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "/italic text/"
                  (list cltpt/org-mode::*org-italic-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 13 :MATCH "/italic text/")
-        ((:BEGIN 0 :END 1 :MATCH "/"))
-        ((:BEGIN 12 :END 13 :MATCH "/")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 13 :MATCH "/italic text/")
+       ((:BEGIN 0 :END 1 :MATCH "/"))
+       ((:BEGIN 12 :END 13 :MATCH "/"))))))
 
-(test org-prop-drawer-basic
+(test org-italic-basic
+  (fiveam:is (org-italic-basic-func)))
+
+(defun org-prop-drawer-basic-test-func ()
   (let ((result (cltpt/combinator:parse
                  ":PROPERTIES:
 :ID: my-id-123
 :CUSTOM_ID: my-custom
 :END:"
                  (list cltpt/org-mode::*org-prop-drawer-rule*))))
-    (fiveam:is (not (null result)))
-    (fiveam:is (listp result))
-    (let ((drawer-match (car result)))
-      (fiveam:is (eq (getf (car drawer-match) :ID) 'CLTPT/ORG-MODE::ORG-PROP-DRAWER))
-      (fiveam:is (= (getf (car drawer-match) :BEGIN) 0))
-      (fiveam:is (> (getf (car drawer-match) :END) 40))
-      (fiveam:is (>= (length (cdr drawer-match)) 2)))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 44 :ID CLTPT/ORG-MODE::ORG-PROP-DRAWER)
+       ((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::DRAWER-OPEN-TAG :MATCH ":PROPERTIES:"))
+       ((:BEGIN 12 :END 13 :MATCH "\n"))
+       ((:BEGIN 13 :END 24 :ID CLTPT/ORG-MODE::DRAWER-ENTRY)
+        ((:BEGIN 13 :END 17 :ID CLTPT/ORG-MODE::DRAWER-KEY :MATCH "ID"))
+        ((:BEGIN 17 :END 24 :ID CLTPT/ORG-MODE::DRAWER-VALUE :MATCH " my-id-123")))
+       ((:BEGIN 24 :END 25 :MATCH "\n"))
+       ((:BEGIN 25 :END 41 :ID CLTPT/ORG-MODE::DRAWER-ENTRY)
+        ((:BEGIN 25 :END 35 :ID CLTPT/ORG-MODE::DRAWER-KEY :MATCH "CUSTOM_ID"))
+        ((:BEGIN 35 :END 41 :ID CLTPT/ORG-MODE::DRAWER-VALUE :MATCH " my-custom")))
+       ((:BEGIN 41 :END 42 :MATCH "\n"))
+       ((:BEGIN 42 :END 44 :ID CLTPT/ORG-MODE::DRAWER-CLOSE-TAG :MATCH ":END:"))))))
 
-(test org-prop-drawer-empty
+(test org-prop-drawer-basic
+  (fiveam:is (org-prop-drawer-basic-test-func)))
+
+(defun org-prop-drawer-empty-test-func ()
   (let ((result (cltpt/combinator:parse
                  ":PROPERTIES:
 :END:"
                  (list cltpt/org-mode::*org-prop-drawer-rule*))))
-    (fiveam:is (not (null result)))
-    (fiveam:is (listp result))
-    (let ((drawer-match (car result)))
-      (fiveam:is (eq (getf (car drawer-match) :ID) 'CLTPT/ORG-MODE::ORG-PROP-DRAWER))
-      (fiveam:is (= (getf (car drawer-match) :BEGIN) 0))
-      (fiveam:is (> (getf (car drawer-match) :END) 15))
-      (fiveam:is (>= (length (cdr drawer-match)) 2)))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-PROP-DRAWER)
+       ((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::DRAWER-OPEN-TAG :MATCH ":PROPERTIES:"))
+       ((:BEGIN 12 :END 13 :MATCH "\n"))
+       ((:BEGIN 13 :END 14 :ID CLTPT/ORG-MODE::DRAWER-CLOSE-TAG :MATCH ":END:"))))))
+
+(test org-prop-drawer-empty
+  (fiveam:is (org-prop-drawer-empty-test-func)))
+
+(defun org-drawer-basic-func ()
+  (let* ((text ":LOGBOOK:
+ - Note taken on [2024-01-15 Mon 10:00]
+ :END:")
+         (result (cltpt/combinator:parse text (list cltpt/org-mode::*org-drawer-rule*))))
+    result))
 
 (test org-drawer-basic
-  (let* ((text ":LOGBOOK:
-- Note taken on [2024-01-15 Mon 10:00]
-:END:")
-         (result (cltpt/combinator:parse text (list cltpt/org-mode::*org-drawer-rule*))))
+  (let ((result (org-drawer-basic-func)))
     (fiveam:is (not (null result)))
     (fiveam:is (listp result))
     (let ((drawer-match (car result)))
@@ -583,67 +660,73 @@ CLOSED: [2024-10-29 Tue 16:41:03]
       (fiveam:is (= (getf (car drawer-match) :END) (length text)))
       (fiveam:is (>= (length (cdr drawer-match)) 2)))))
 
-(test org-src-block-basic
+(defun org-src-block-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "#+begin_src python
 print('hello')
 #+end_src"
                  (list cltpt/org-mode::*org-src-block-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 32 :ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)
-        ((:BEGIN 0 :END 13 :MATCH "#+begin_src "))
-        ((:BEGIN 13 :END 19 :ID LANG :MATCH "python"))
-        ((:BEGIN 19 :END 20 :MATCH "
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 32 :ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)
+       ((:BEGIN 0 :END 13 :MATCH "#+begin_src "))
+       ((:BEGIN 13 :END 19 :ID LANG :MATCH "python"))
+       ((:BEGIN 19 :END 20 :MATCH "
 "))
-        ((:BEGIN 20 :END 31 :MATCH "print('hello')"))
-        ((:BEGIN 31 :END 32 :MATCH "
+       ((:BEGIN 20 :END 31 :MATCH "print('hello')"))
+       ((:BEGIN 31 :END 32 :MATCH "
 "))
-        ((:BEGIN 32 :END 40 :MATCH "#+end_src")))))))
+       ((:BEGIN 32 :END 40 :MATCH "#+end_src"))))))
 
-(test org-src-block-with-options
+(test org-src-block-basic
+  (fiveam:is (org-src-block-basic-func)))
+
+(defun org-src-block-with-options-func ()
   (let ((result (cltpt/combinator:parse
                  "#+begin_src python :results output :exports both
 print('hello')
 #+end_src"
                  (list cltpt/org-mode::*org-src-block-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 60 :ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)
-        ((:BEGIN 0 :END 13 :MATCH "#+begin_src "))
-        ((:BEGIN 13 :END 19 :ID LANG :MATCH "python"))
-        ((:BEGIN 19 :END 20 :MATCH " "))
-        ((:BEGIN 20 :END 44 :MATCH ":results output :exports both"))
-        ((:BEGIN 44 :END 45 :MATCH "
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 60 :ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)
+       ((:BEGIN 0 :END 13 :MATCH "#+begin_src "))
+       ((:BEGIN 13 :END 19 :ID LANG :MATCH "python"))
+       ((:BEGIN 19 :END 20 :MATCH " "))
+       ((:BEGIN 20 :END 44 :MATCH ":results output :exports both"))
+       ((:BEGIN 44 :END 45 :MATCH "
 "))
-        ((:BEGIN 45 :END 56 :MATCH "print('hello')"))
-        ((:BEGIN 56 :END 57 :MATCH "
+       ((:BEGIN 45 :END 56 :MATCH "print('hello')"))
+       ((:BEGIN 56 :END 57 :MATCH "
 "))
-        ((:BEGIN 57 :END 65 :MATCH "#+end_src")))))))
+       ((:BEGIN 57 :END 65 :MATCH "#+end_src"))))))
 
-(test org-src-block-with-name
+(test org-src-block-with-options
+  (fiveam:is (org-src-block-with-options-func)))
+
+(defun org-src-block-with-name-func ()
   (let ((result (cltpt/combinator:parse
                  "#+name: my-code-block
 #+begin_src lisp
 (+ 1 2)
 #+end_src"
                  (list cltpt/org-mode::*org-src-block-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 22 :END 47 :ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)
-        ((:BEGIN 22 :END 35 :MATCH "#+begin_src "))
-        ((:BEGIN 35 :END 39 :ID LANG :MATCH "lisp"))
-        ((:BEGIN 39 :END 40 :MATCH "
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 22 :END 47 :ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)
+       ((:BEGIN 22 :END 35 :MATCH "#+begin_src "))
+       ((:BEGIN 35 :END 39 :ID LANG :MATCH "lisp"))
+       ((:BEGIN 39 :END 40 :MATCH "
 "))
-        ((:BEGIN 40 :END 46 :MATCH "(+ 1 2)"))
-        ((:BEGIN 46 :END 47 :MATCH "
+       ((:BEGIN 40 :END 46 :MATCH "(+ 1 2)"))
+       ((:BEGIN 46 :END 47 :MATCH "
 "))
-        ((:BEGIN 47 :END 55 :MATCH "#+end_src")))))))
+       ((:BEGIN 47 :END 55 :MATCH "#+end_src"))))))
 
-(test org-src-block-comprehensive-with-results
+(test org-src-block-with-name
+  (fiveam:is (org-src-block-with-name-func)))
+
+(defun org-src-block-comprehensive-with-results-func ()
   (let ((result (cltpt/combinator::parse
                  "
 #+begin_src python :results output
@@ -660,9 +743,14 @@ print('hello')
 "
                  (list
                   cltpt/org-mode::*org-src-block-rule*))))
-    (fiveam:is (eq (getf (car (car result)) :ID) 'CLTPT/ORG-MODE::ORG-SRC-BLOCK))))
+    (compare-full-match-loosely
+     (car result)
+     '((:ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)))))
 
-(test org-src-block-comprehensive-with-file-results
+(test org-src-block-comprehensive-with-results
+  (fiveam:is (org-src-block-comprehensive-with-results-func)))
+
+(defun org-src-block-comprehensive-with-file-results-func ()
   (let ((result (cltpt/combinator::parse
                  "
 #+begin_src python :results output
@@ -674,101 +762,118 @@ print('hello')
 "
                  (list
                   cltpt/org-mode::*org-src-block-rule*))))
-    (fiveam:is (eq (getf (car (car result)) :ID) 'CLTPT/ORG-MODE::ORG-SRC-BLOCK))))
+    (compare-full-match-loosely
+     (car result)
+     '((:ID CLTPT/ORG-MODE::ORG-SRC-BLOCK)))))
 
-(test org-export-block-html
+(test org-src-block-comprehensive-with-file-results
+  (fiveam:is (org-src-block-comprehensive-with-file-results-func)))
+
+(defun org-export-block-html-func ()
   (let ((result (cltpt/combinator:parse
                  "#+begin_export html
 <div>Custom HTML</div>
 #+end_export"
                  (list cltpt/org-mode::*org-export-block-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 46 :ID CLTPT/ORG-MODE::ORG-EXPORT-BLOCK)
-        ((:BEGIN 0 :END 19 :MATCH "#+begin_export html"))
-        ((:BEGIN 19 :END 20 :MATCH "
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 46 :ID CLTPT/ORG-MODE::ORG-EXPORT-BLOCK)
+       ((:BEGIN 0 :END 19 :MATCH "#+begin_export html"))
+       ((:BEGIN 19 :END 20 :MATCH "
 "))
-        ((:BEGIN 20 :END 37 :MATCH "<div>Custom HTML</div>"))
-        ((:BEGIN 37 :END 38 :MATCH "
+       ((:BEGIN 20 :END 37 :MATCH "<div>Custom HTML</div>"))
+       ((:BEGIN 37 :END 38 :MATCH "
 "))
-        ((:BEGIN 38 :END 46 :MATCH "#+end_export")))))))
+       ((:BEGIN 38 :END 46 :MATCH "#+end_export"))))))
 
-(test org-export-block-latex
+(test org-export-block-html
+  (fiveam:is (org-export-block-html-func)))
+
+(defun org-export-block-latex-func ()
   (let ((result (cltpt/combinator:parse
                  "#+begin_export latex
 \\textbf{Bold text}
 #+end_export"
                  (list cltpt/org-mode::*org-export-block-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 44 :ID CLTPT/ORG-MODE::ORG-EXPORT-BLOCK)
-        ((:BEGIN 0 :END 20 :MATCH "#+begin_export latex"))
-        ((:BEGIN 20 :END 21 :MATCH "
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 44 :ID CLTPT/ORG-MODE::ORG-EXPORT-BLOCK)
+       ((:BEGIN 0 :END 20 :MATCH "#+begin_export latex"))
+       ((:BEGIN 20 :END 21 :MATCH "
 "))
-        ((:BEGIN 21 :END 36 :MATCH "\\textbf{Bold text}"))
-        ((:BEGIN 36 :END 37 :MATCH "
+       ((:BEGIN 21 :END 36 :MATCH "\\textbf{Bold text}"))
+       ((:BEGIN 36 :END 37 :MATCH "
 "))
-        ((:BEGIN 37 :END 44 :MATCH "#+end_export")))))))
+       ((:BEGIN 37 :END 44 :MATCH "#+end_export"))))))
 
-(test org-block-example
+(test org-export-block-latex
+  (fiveam:is (org-export-block-latex-func)))
+
+(defun org-block-example-func ()
   (let ((result (cltpt/combinator:parse
                  "#+begin_example: test"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 21 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-        ((:BEGIN 0 :END 2 :MATCH "#+"))
-        ((:BEGIN 2 :END 16 :ID KEYWORD :MATCH "begin_example"))
-        ((:BEGIN 16 :END 17 :MATCH ":"))
-        ((:BEGIN 17 :END 18 :MATCH " "))
-        ((:BEGIN 18 :END 22 :ID VALUE :MATCH "test")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 21 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+       ((:BEGIN 0 :END 2 :MATCH "#+"))
+       ((:BEGIN 2 :END 16 :ID KEYWORD :MATCH "begin_example"))
+       ((:BEGIN 16 :END 17 :MATCH ":"))
+       ((:BEGIN 17 :END 18 :MATCH " "))
+       ((:BEGIN 18 :END 22 :ID VALUE :MATCH "test"))))))
 
-(test org-block-with-keywords
+(test org-block-example
+  (fiveam:is (org-block-example-func)))
+
+(defun org-block-with-keywords-func ()
   (let ((result (cltpt/combinator:parse
                  "#+name: my-block"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-        ((:BEGIN 0 :END 2 :MATCH "#+"))
-        ((:BEGIN 2 :END 6 :ID KEYWORD :MATCH "name"))
-        ((:BEGIN 6 :END 7 :MATCH ":"))
-        ((:BEGIN 7 :END 8 :MATCH " "))
-        ((:BEGIN 8 :END 15 :ID VALUE :MATCH "my-block")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+       ((:BEGIN 0 :END 2 :MATCH "#+"))
+       ((:BEGIN 2 :END 6 :ID KEYWORD :MATCH "name"))
+       ((:BEGIN 6 :END 7 :MATCH ":"))
+       ((:BEGIN 7 :END 8 :MATCH " "))
+       ((:BEGIN 8 :END 15 :ID VALUE :MATCH "my-block"))))))
 
-(test org-babel-results-simple
+(test org-block-with-keywords
+  (fiveam:is (org-block-with-keywords-func)))
+
+(defun org-babel-results-simple-func ()
   (let ((result (cltpt/combinator:parse
                  "#+RESULTS:
 : 42"
                  (list cltpt/org-mode::*org-babel-results-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-BABEL-RESULTS)
-        ((:BEGIN 0 :END 10 :MATCH "#+RESULTS:
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-BABEL-RESULTS)
+       ((:BEGIN 0 :END 10 :MATCH "#+RESULTS:
 "))
-        ((:BEGIN 10 :END 12 :ID CLTPT/ORG-MODE::ORG-TEXT)
-         ((:BEGIN 10 :END 12 :MATCH ": 42"))))))))
+       ((:BEGIN 10 :END 12 :ID CLTPT/ORG-MODE::ORG-TEXT)
+        ((:BEGIN 10 :END 12 :MATCH ": 42")))))))
 
-(test org-babel-results-with-hash
+(test org-babel-results-simple
+  (fiveam:is (org-babel-results-simple-func)))
+
+(defun org-babel-results-with-hash-func ()
   (let ((result (cltpt/combinator:parse
                  "#+RESULTS[abc123def]:
 : output here"
                  (list cltpt/org-mode::*org-babel-results-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 28 :ID CLTPT/ORG-MODE::ORG-BABEL-RESULTS)
-        ((:BEGIN 0 :END 22 :MATCH "#+RESULTS[abc123def]:
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 28 :ID CLTPT/ORG-MODE::ORG-BABEL-RESULTS)
+       ((:BEGIN 0 :END 22 :MATCH "#+RESULTS[abc123def]:
 "))
-        ((:BEGIN 22 :END 28 :ID CLTPT/ORG-MODE::ORG-TEXT)
-         ((:BEGIN 22 :END 28 :MATCH ": output here"))))))))
+       ((:BEGIN 22 :END 28 :ID CLTPT/ORG-MODE::ORG-TEXT)
+        ((:BEGIN 22 :END 28 :MATCH ": output here")))))))
 
-(test org-babel-results-comprehensive
+(test org-babel-results-with-hash
+  (fiveam:is (org-babel-results-with-hash-func)))
+
+(defun org-babel-results-comprehensive-func ()
   (let ((result (cltpt/combinator::parse
                  "
 #+RESULTS[dbde93ab692f9e8701baf65653d4f407e1852306]:
@@ -783,35 +888,42 @@ print('hello')
 "
                  (list
                   cltpt/org-mode::*org-babel-results-rule*))))
-    (fiveam:is (eq (getf (car (car result)) :ID) 'CLTPT/ORG-MODE::ORG-BABEL-RESULTS))))
+    (eq (getf (car (car result)) :ID) 'CLTPT/ORG-MODE::ORG-BABEL-RESULTS)))
 
-(test org-latex-env-basic
+(test org-babel-results-comprehensive
+  (fiveam:is (org-babel-results-comprehensive-func)))
+
+(defun org-latex-env-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "#+latex: \\begin{equation}"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 26 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-        ((:BEGIN 0 :END 2 :MATCH "#+"))
-        ((:BEGIN 2 :END 7 :ID KEYWORD :MATCH "latex"))
-        ((:BEGIN 7 :END 8 :MATCH ":"))
-        ((:BEGIN 8 :END 9 :MATCH " "))
-        ((:BEGIN 9 :END 26 :ID VALUE :MATCH "\\begin{equation}")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 26 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+       ((:BEGIN 0 :END 2 :MATCH "#+"))
+       ((:BEGIN 2 :END 7 :ID KEYWORD :MATCH "latex"))
+       ((:BEGIN 7 :END 8 :MATCH ":"))
+       ((:BEGIN 8 :END 9 :MATCH " "))
+       ((:BEGIN 9 :END 26 :ID VALUE :MATCH "\\begin{equation}"))))))
 
-(test org-latex-env-with-name
+(test org-latex-env-basic
+  (fiveam:is (org-latex-env-basic-func)))
+
+(defun org-latex-env-with-name-func ()
   (let ((result (cltpt/combinator:parse
                  "#+name: eq1"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (fiveam:is
-     (compare-full-match-loosely
-      (car result)
-      '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-        ((:BEGIN 0 :END 2 :MATCH "#+"))
-        ((:BEGIN 2 :END 6 :ID KEYWORD :MATCH "name"))
-        ((:BEGIN 6 :END 7 :MATCH ":"))
-        ((:BEGIN 7 :END 8 :MATCH " "))
-        ((:BEGIN 8 :END 11 :ID VALUE :MATCH "eq1")))))))
+    (compare-full-match-loosely
+     (car result)
+     '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+       ((:BEGIN 0 :END 2 :MATCH "#+"))
+       ((:BEGIN 2 :END 6 :ID KEYWORD :MATCH "name"))
+       ((:BEGIN 6 :END 7 :MATCH ":"))
+       ((:BEGIN 7 :END 8 :MATCH " "))
+       ((:BEGIN 8 :END 11 :ID VALUE :MATCH "eq1"))))))
+
+(test org-latex-env-with-name
+  (fiveam:is (org-latex-env-with-name-func)))
 
 (defun latex-env-parse-test-1 ()
   (cltpt/combinator::parse
@@ -855,12 +967,12 @@ some math here
 
 (test inline-latex-test
   (is (compare-full-match-loosely
-       (car (cltpt/tests::inline-latex-test-func))
+       (car (cltpt/tests/org-mode::inline-latex-test-func))
        '((:BEGIN 6 :END 26)
-         ((:ID CLTPT/TESTS::OPENING :BEGIN 6 :END 8))
+         ((:ID CLTPT/TESTS/ORG-MODE::OPENING :BEGIN 6 :END 8))
          ((:ID KEYWORD :BEGIN 13 :END 24)
           ((:BEGIN 13 :END 18)) ((:BEGIN 18 :END 24)))
-         ((:ID CLTPT/TESTS::ENDING :BEGIN 24 :END 26))))))
+         ((:ID CLTPT/TESTS/ORG-MODE::ENDING :BEGIN 24 :END 26))))))
 
 (defun org-list-test-1-func ()
   (let ((text "- we have \\(x=y\\)
@@ -976,7 +1088,7 @@ some math here
 - item three")
          (parsed-list (cltpt/org-mode::org-list-matcher nil text 0))
          (html-output (cltpt/org-mode::to-html-list parsed-list)))
-    ;; (format t "HTML Output: ~S~%" html-output)  ; For debugging
+    ;; (format t "html output: ~S~%" html-output)
     html-output))
 
 (test org-list-test-3
@@ -1036,8 +1148,6 @@ some math here
      text
      :text-object-types (list 'cltpt/org-mode::org-list 'cltpt/org-mode::org-link))))
 
-
-
 (defun org-list-test-6-func ()
   (let ((text "- actual cost is 1. the potential changes from \\(2n-M\\) to \\(2(n+1)-M\\) is
   \\[ \\text{amort}(\\text{Insert-Last}) = 1+(2(n+1)-M)-(2n-M) = 1+2 = 3 \\]
@@ -1060,7 +1170,7 @@ some math here
     (fiveam:is (listp result))
     (fiveam:is (eq (getf (car result) :ID) 'CLTPT/ORG-MODE:ORG-LIST))))
 
-(test test-parse-table
+(defun test-parse-table-func ()
   (let ((table
           "| head1 | head2 | head3 |
 +------+-------+-------+
@@ -1068,12 +1178,15 @@ some math here
 | 123  | 456   | 789   |
 +------+-------+-------+
 | end  | row   | test  |"))
-    (is (equal
-         (org-table-parse table)
-         '(("head1" "head2" "head3")
-           ("foo" "bar" "baz")
-           ("123" "456" "789")
-           ("end" "row" "test"))))))
+    (equal
+     (org-table-parse table)
+     '(("head1" "head2" "head3")
+       ("foo" "bar" "baz")
+       ("123" "456" "789")
+       ("end" "row" "test")))))
+
+(test test-parse-table
+  (fiveam:is (test-parse-table-func)))
 
 (defun test-parse-any-func ()
   (cltpt/combinator:parse
@@ -1130,9 +1243,28 @@ some more text"))
                   nil)
         :id mypair)))))
 
+(defun test-org-table-1-func ()
+  (let ((text
+          "| head1 | head2 | head3 |
++------+-------+-------+
+| foo | \\(mymath\\) | baz  |
+| 123 | 456          | 789  |
+|     |              | 1     |
+| end | row          | test |
+some more text"))
+    (cltpt/org-mode::org-table-matcher
+     nil
+     text
+     0
+     '((:pattern (cltpt/combinator::pair
+                  (cltpt/combinator::literal "\\(")
+                  (cltpt/combinator::literal "\\)")
+                  nil)
+        :id mypair)))))
+
 ;; TODO: this test needs more detailed verification of the table structure and cell contents
 (test test-org-table-1
-  (let ((result (test-org-table-1)))
+  (let ((result (test-org-table-1-func)))
     (fiveam:is
      (and result
           (listp result)
@@ -1152,8 +1284,20 @@ some more text"))
       (let ((formatted-table-text (cltpt/org-mode::reformat-table parse-tree)))
         formatted-table-text))))
 
+(defun test-org-table-2-func ()
+  (let* ((misaligned-table-text
+          "| name | age|
+|------+----|
+|alice|  25 |
+|  bob |30 |
+|      |    |
+| charlie| 9 |")
+         (parse-tree (cltpt/org-mode::org-table-matcher nil misaligned-table-text 0)))
+    (when parse-tree
+      (cltpt/org-mode::reformat-table parse-tree))))
+
 (test test-org-table-2
-  (let ((result (test-org-table-2)))
+  (let ((result (test-org-table-2-func)))
     (fiveam:is (stringp result))
     (fiveam:is (search "name" result))
     (fiveam:is (search "alice" result))
@@ -1174,8 +1318,23 @@ some more text"))
       text
       0))))
 
+(defun test-org-table-3-func ()
+  (let ((text
+          "| head1 | head2 | head3 |
++------+-------+-------+
+| foo | \\(mymath\\) | baz  |
+| 123 | 456          | 789  |
+|     |              | 1     |
+| end | row          | test |
+ some more text"))
+    (cltpt/org-mode::to-html-table
+     (cltpt/org-mode::org-table-matcher
+      nil
+      text
+      0))))
+
 (test test-org-table-3
-  (let ((result (test-org-table-3)))
+  (let ((result (test-org-table-3-func)))
     (fiveam:is (stringp result))
     (fiveam:is (search "<table>" result))
     (fiveam:is (search "</table>" result))
@@ -1195,6 +1354,7 @@ some more text"))
      nil
      "(my nested (text) (more (#+nested)))"
      rules)))
+
 
 (test test-pairs-1
   (let ((parser-result (test-pairs-1-func)))
@@ -1221,10 +1381,10 @@ some more text"))
 (test test-sharp-lisp-1
   (fiveam:is
    (compare-full-match-loosely
-    (car (cltpt/tests::test-sharp-lisp-1-func))
-    '((:ID CLTPT/TESTS::SHARP-LISP-BLOCK :BEGIN 0 :END 29)
+    (car (cltpt/tests/org-mode::test-sharp-lisp-1-func))
+    '((:ID CLTPT/TESTS/ORG-MODE::SHARP-LISP-BLOCK :BEGIN 0 :END 29)
       ((:BEGIN 0 :END 1))
-      ((:ID CLTPT/TESTS::LISP-CODE :BEGIN 1 :END 29
+      ((:ID CLTPT/TESTS/ORG-MODE::LISP-CODE :BEGIN 1 :END 29
         :LISP-FORM (FORMAT T "hello)(\" there")
         :ID CLTPT/COMBINATOR::LISP-FORM-CONTENT))))))
 
@@ -1298,7 +1458,12 @@ here* here"
 (test test-pairs-2
   (let ((result (test-pairs-2-func)))
     (fiveam:is (= (length result) 2))
-    (fiveam:is (eq (getf (car (car result)) :ID) 'OPENINGG))))
+    (fiveam:is (compare-full-match-loosely
+                (car result)
+                '((:ID OPENINGG :BEGIN 2 :END 17)
+                  ((:ID OPENINGG :BEGIN 2 :END 3))
+                  ((:ID CLTPT/TESTS/ORG-MODE::KEYWORD :BEGIN 12 :END 19))
+                  ((:ID CLTPT/TESTS/ORG-MODE::ENDINGG :BEGIN 18 :END 19)))))))
 
 (defun test-pairs-3-func ()
   (let* ((other-rules
@@ -1324,9 +1489,28 @@ here* here"
 (test test-pairs-3
   (let ((result (test-pairs-3-func)))
     (fiveam:is (= (length result) 2))
-    (fiveam:is (eq (getf (car (car result)) :ID) 'OPENINGG))))
+    (fiveam:is (compare-full-match-loosely
+                (car result)
+                '((:ID OPENINGG :BEGIN 2 :END 17)
+                  ((:ID OPENINGG :BEGIN 2 :END 3))
+                  ((:ID CLTPT/TESTS/ORG-MODE::KEYWORD :BEGIN 12 :END 19))
+                  ((:ID CLTPT/TESTS/ORG-MODE::ENDINGG :BEGIN 18 :END 19)))))))
 
 (defun test-eol ()
+  (let* ((rule1 `(:pattern
+                  (cltpt/combinator::followed-by
+                   (:pattern ,(cltpt/combinator::compile-rule-string "#%W")
+                    :id hashtag)
+                   cltpt/combinator:at-line-end-p)
+                  :id eol-tag)))
+    (cltpt/combinator::scan-all-rules
+     nil
+     "#tag1
+a #tag2 in the middle
+and a final #tag3"
+     (list rule1))))
+
+(defun test-eol-func ()
   (let* ((rule1 `(:pattern
                   (cltpt/combinator::followed-by
                    (:pattern ,(cltpt/combinator::compile-rule-string "#%W")
@@ -1341,7 +1525,7 @@ here* here"
      (list rule1))))
 
 (test test-eol
-  (let ((result (test-eol)))
+  (let ((result (test-eol-func)))
     (fiveam:is (= (length result) 2))
     (fiveam:is (eq (getf (car (car result)) :ID) 'EOL-TAG))
     (fiveam:is (eq (getf (car (cadr result)) :ID) 'EOL-TAG))))
@@ -1357,14 +1541,23 @@ here* here"
      nil
      "#tag1 is on line 1
  this is not a match: #tag2
- #tag3 is on line 3"
+#tag3 is on line 3"
      (list rule1))))
 
-(test test-bol
+(defun test-bol-extended-test-fn ()
   (let ((result (test-bol)))
-    (fiveam:is (= (length result) 2))
-    (fiveam:is (eq (getf (car (car result)) :ID) 'BOL-TAG))
-    (fiveam:is (eq (getf (car (cadr result)) :ID) 'BOL-TAG))))
+    (and (= (length result) 2)
+         (compare-full-match-loosely
+          (car result)
+          '((:ID BOL-TAG :BEGIN 0 :END 5)
+            ((:BEGIN 0 :END 5 :ID HASHTAG :MATCH "#tag1"))))
+         (compare-full-match-loosely
+          (cadr result)
+          '((:ID BOL-TAG :BEGIN 25 :END 30)
+            ((:BEGIN 25 :END 30 :ID HASHTAG :MATCH "#tag3")))))))
+
+(test test-bol
+  (fiveam:is (test-bol-extended-test-fn)))
 
 (defun org-block-test-1 ()
   (let* ((text "\\begin{gather}
