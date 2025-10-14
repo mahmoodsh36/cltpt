@@ -108,21 +108,23 @@ the preamble automatically invalidate the old compiled format."
 
 (defun clear-all ()
   "deletes all preview-related files from temporary and cache directories."
-  (cltpt/file-utils:delete-files-by-regex
+  ;; delete precompiled preambles
+  (cltpt/file-utils:delete-files-by-glob
+   *latex-previews-tmp-directory* "preamble-*.fmt")
+  ;; delete temporary previews
+  (cltpt/file-utils:delete-files-by-glob
    *latex-previews-tmp-directory*
-   "preamble-.*\\.fmt")
-  (cltpt/file-utils:delete-files-by-regex
-   *latex-previews-tmp-directory*
-   *preview-filename-prefix*)
-  (cltpt/file-utils:delete-files-by-regex
+   (format nil "~A*" *preview-filename-prefix*))
+  ;; delete cached previews
+  (cltpt/file-utils:delete-files-by-glob
    *latex-previews-cache-directory*
-   *preview-filename-prefix*)
+   (format nil "~A*" *preview-filename-prefix*))
   (format t "~&cleared temporary files, cached previews, and all precompiled preambles.~%"))
 
 (defun format-command (template-string substitutions)
   (let ((result template-string))
     (dolist (sub substitutions result)
-      (setf result (cl-ppcre:regex-replace-all (car sub) result (cdr sub))))))
+      (setf result (cltpt/base:replace-all result (car sub) (cdr sub))))))
 
 (defun cleanup-temp-files (base-name &optional (intermediate-ext ".dvi"))
   (dolist (ext (list ".tex" ".aux" ".log" ".bcf" ".run.xml" intermediate-ext))
