@@ -301,9 +301,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     "-"
     (:pattern (cltpt/combinator:natural-number-matcher)
      :id day)
-    " "
-    (:pattern (cltpt/combinator:word-matcher)
-     :id weekday)
+    (:pattern
+     (cltpt/combinator:consec
+      " "
+      (:pattern (cltpt/combinator:word-matcher)
+       :id weekday))
+     :optional t)
     (:pattern
      (cltpt/combinator:consec-atleast-one
       " "

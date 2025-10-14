@@ -35,6 +35,18 @@ roam (query) files
   ./run.sh roam -r '(:path "/home/mahmooz/brain/daily/" :glob "*.org" :format "org-mode")' -o 'title: %title, id: %id, file: %file'
 #+end_src
 
+agenda (defualts to 14 days from now):
+
+#+begin_src sh :eval no
+  time ./run.sh agenda -r '(:path "/home/mahmooz/brain/notes/" :glob "*.org" :format "org-mode")'
+#+end_src
+
+agenda with a specific date range:
+
+#+begin_src sh :eval no
+  time ./run.sh agenda -r '(:path "/home/mahmooz/brain/notes/" :glob "*.org" :format "org-mode")' -f '2025-01-01' -t '2025-01-28'
+#+end_src
+
 * goals
 
 - [ ] an org-mode-like experience for lem - this is one of the main goals, it is essential
