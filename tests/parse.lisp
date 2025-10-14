@@ -113,7 +113,7 @@
   (time
    (let* ((rmr (cltpt/roam:from-files
                 '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
-                   :regex ".*\\.org"
+                   :glob "*.org"
                    :format "org-mode")))))
      (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
 
@@ -121,7 +121,7 @@
   (time
    (let* ((rmr (cltpt/roam:from-files
                 '((:path ("/home/mahmooz/brain/notes/1710536040.org")
-                   :regex ".*\\.org"
+                   :glob "*.org"
                    :format "org-mode")))))
      (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
 

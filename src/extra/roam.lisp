@@ -85,7 +85,7 @@ form:
   "takes a list of rules for files to find.
 each rule is a plist that can contain the following params.
 :path - path of file/directory,
-:regex - a regex to match against the files found,
+:glob - a glob to match against the files found,
 :recurse - if :path is a directory, this says whether to recursively look for files,
 :format - unused here, but tells us which format to use to parse the files found."
   (let (;; maps a raw filepath to the rule it was found for
@@ -105,7 +105,7 @@ each rule is a plist that can contain the following params.
                      (push (cons filepath file-rule) file-rule-alist)))))
       (loop for file-rule in file-rules-plist
             for paths = (getf file-rule :path)
-            for regex = (getf file-rule :regex)
+            for glob = (getf file-rule :glob)
             for recurse = (getf file-rule :recurse)
             do (loop
                  for path in (if (consp paths) paths (cons paths nil))
@@ -113,10 +113,10 @@ each rule is a plist that can contain the following params.
                         ;; if its a dir, walk it and apply the handler to each file
                         (cltpt/file-utils:walk-dir
                          path
-                         (lambda (path)
-                           (handle-file path file-rule))
-                         regex
-                         recurse)
+                         :handle-file-fn (lambda (path)
+                                           (handle-file path file-rule))
+                         :glob glob
+                         :recurse recurse)
                         ;; if its a file, just execute the handler on it.
                         (handle-file path file-rule))))
       (loop for filepath in file-rules-string

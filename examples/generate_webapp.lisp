@@ -1,5 +1,7 @@
 (asdf:load-system :cltpt)
 
+;; this example has become outdated
+
 (defun title-to-filename (title)
   "takes a title and tries to make it into a suitable filename."
   (with-output-to-string (out)

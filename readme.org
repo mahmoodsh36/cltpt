@@ -1,7 +1,6 @@
 * dependencies
 the project depends on the following packages which could be installed using quicklisp.
 
-- cl-ppcre
 - uiop
 - clingon
 - ironclad
@@ -21,19 +20,19 @@ convert a single file from org to html (the ~%~ part is for "formatting" with li
 convert a bunch of files from org to html:
 
 #+begin_src sh :eval no
-  ./run.sh convert -r '(:path "/home/mahmooz/brain/notes/1684594232.org" :regex ".*\\.org" :format "org-mode")' -d html -o '/tmp/%(identity basename).html'
+  ./run.sh convert -r '(:path "/home/mahmooz/brain/notes/1684594232.org" :glob "*.org" :format "org-mode")' -d html -o '/tmp/%(identity basename).html'
 #+end_src
 
 convert a bunch of files from org to latex:
 
 #+begin_src sh :eval no
-  ./run.sh convert -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -d latex -o '/tmp/%(identity title).tex'
+  ./run.sh convert -r '(:path "/home/mahmooz/brain/daily/" :glob "*.org" :format "org-mode")' -d latex -o '/tmp/%(identity title).tex'
 #+end_src
 
 roam (query) files
 
 #+begin_src sh :eval no
-  ./run.sh roam -r '(:path "/home/mahmooz/brain/daily/" :regex ".*\\.org" :format "org-mode")' -o 'title: %title, id: %id, file: %file'
+  ./run.sh roam -r '(:path "/home/mahmooz/brain/daily/" :glob "*.org" :format "org-mode")' -o 'title: %title, id: %id, file: %file'
 #+end_src
 
 * goals
