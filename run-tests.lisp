@@ -5,3 +5,4 @@
 (asdf:load-system "cltpt" :force t) ;; force recompilation
 (cltpt/zoo:init)
 (cltpt/tests::run-cltpt-tests)
+(cltpt/tests/org-mode::run-org-mode-tests)
