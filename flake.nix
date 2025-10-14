@@ -10,7 +10,6 @@
         pkgs = import nixpkgs { inherit system; };
 
         deps = with pkgs.sbcl.pkgs; [
-          cl-ppcre
           clingon
           ironclad
           fiveam

@@ -45,7 +45,7 @@
 (defun test-agenda-2 ()
   (let* ((rmr (cltpt/roam:from-files
                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
-                  :regex ".*\\.org"
+                  :glob "*.org"
                   :format "org-mode"))))
          (agenda (cltpt/agenda:from-roamer rmr)))
     (cltpt/agenda::render-agenda agenda)))
@@ -53,7 +53,7 @@
 (defun test-agenda-3 ()
   (let* ((rmr (cltpt/roam:from-files
                '((:path ("./test2.org")
-                  :regex ".*\\.org"
+                  :glob "*.org"
                   :format "org-mode"))))
          (agenda (cltpt/agenda:from-roamer rmr)))
     (cltpt/agenda:render-agenda agenda)))
@@ -62,7 +62,7 @@
   (time
    (let* ((rmr (cltpt/roam:from-files
                 '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
-                   :regex ".*\\.org"
+                   :glob "*.org"
                    :format "org-mode")))))
      (format t
              "found ~A nodes in a total of ~A documents"
@@ -75,9 +75,9 @@
 
 (defun agenda-test-1 ()
   (let* ((rmr (cltpt/roam:from-files
-                '((:path ("/home/mahmooz/brain/daily/")
-                   :regex ".*\\.org"
-                   :format "org-mode"))))
+               '((:path ("/home/mahmooz/brain/daily/")
+                  :glob "*.org"
+                  :format "org-mode"))))
          (agenda (cltpt/agenda:from-roamer rmr)))
     agenda))
 

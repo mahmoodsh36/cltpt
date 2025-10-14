@@ -7,7 +7,7 @@
    :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :replace-substr
    :add-duration :list-dates :list-date-pairs
-   :today-timestamp :truncate-to-day
+   :today-timestamp :truncate-to-day :replace-all
 
    :region-incf
 

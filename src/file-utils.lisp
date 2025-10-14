@@ -4,8 +4,9 @@
    :ensure-dir-exists :file-ext
    :file-has-extension-p
    :change-extension :change-dir :path-without-extension
-   :file-basename :base-name-no-ext :delete-files-by-regex
-   :write-file :read-file :join-paths :join-paths-list :walk-dir))
+   :file-basename :base-name-no-ext
+   :write-file :read-file :join-paths :join-paths-list :walk-dir
+   :delete-files-by-glob))
 
 (in-package :cltpt/file-utils)
 
@@ -53,13 +54,6 @@
 (defun base-name-no-ext (path)
   (namestring (make-pathname :name (pathname-name path))))
 
-(defun delete-files-by-regex (directory-path regex)
-  "deletes files in a directory whose names matches REGEX."
-  (let ((all-files (directory (merge-pathnames "*.*" directory-path))))
-    (loop for file in all-files
-          do (when (cl-ppcre:scan regex (file-namestring file))
-               (delete-file file)))))
-
 (defun write-file (filepath str1)
   (with-open-file (f (uiop:parse-unix-namestring filepath)
                      :direction :output
@@ -99,26 +93,42 @@ the function trims excessive use of the separator (usually forward slash)."
           (write-string separator s)
           (write-string part s))))))
 
-(defun walk-dir (path handle-file-fn regex &optional (recursive t))
-  "walks a directory and applies a function to files matching a regex.
+(defun walk-dir (path &key handle-file-fn glob (recurse t))
+  "walk a directory and optionally apply HANDLE-FILE-FN to files matching a glob.
 
 args:
-  path: the starting directory (a pathname or a string).
-  handle-file-fn: a function to call with the path of each matching file.
-  regex: a CL-PPCRE regular expression string to match against file names.
-  recursive: when T (the default), walks the directory tree recursively.
-             when NIL, only processes files directly within PATH."
-  (labels ((process-files-in-directory (dir)
-             (dolist (file (uiop:directory-files dir))
-               ;; check if the file's name matches the regex.
-               (when (cl-ppcre:scan regex (uiop:unix-namestring file))
-                 (funcall handle-file-fn (uiop:unix-namestring file))))))
-    (if recursive
-        (labels ((walk (current-dir)
-                   ;; process files in the current directory first.
-                   (process-files-in-directory current-dir)
-                   ;; get all subdirectories and recurse into each.
-                   (dolist (subdir (uiop:subdirectories current-dir))
-                     (walk subdir))))
-          (walk path))
-        (process-files-in-directory path))))
+  PATH: starting directory (string or pathname).
+  HANDLE-FILE-FN: optional function called with each matching file path (string).
+  GLOB: glob pattern like \"*.lisp\" or \"**/*.txt\" (defaults to all files).
+  RECURSE: when T (default), walks directories recursively. when NIL, only files
+           in the top-level directory are considered.
+
+returns a flat list of file paths as strings."
+  (let ((path (uiop:ensure-directory-pathname path)))
+    (let ((files (uiop:directory-files path))
+          (subdirectories (when recurse (uiop:subdirectories path)))
+          (matching-files))
+      (dolist (file files)
+        (when (or (not glob) (pathname-match-p file (merge-pathnames glob path)))
+          (let ((file-str (uiop:unix-namestring file)))
+            (when handle-file-fn
+              (funcall handle-file-fn file-str))
+            (push file-str matching-files))))
+      ;; recurse into subdirectories (if enabled) and combine results
+      (append (nreverse matching-files)
+              (loop for dir in subdirectories
+                    append (walk-dir dir
+                                     :handle-file-fn handle-file-fn
+                                     :glob glob
+                                     :recurse recurse))))))
+
+(defun delete-files-by-glob (directory-path glob)
+  "delete all files in DIRECTORY-PATH whose names match GLOB.
+uses UIOP's directory* for glob expansion (supports * and **)."
+  (let* ((path (uiop:ensure-directory-pathname directory-path))
+         (pattern (merge-pathnames glob path))
+         (files (uiop:directory* pattern)))
+    (dolist (file files)
+      (when (and (probe-file file)
+                 (not (uiop:directory-pathname-p file))) ;; skip dirs
+        (delete-file file)))))
