@@ -14,6 +14,10 @@
 (defvar *done-states*
   '(done cancelled cancel close))
 
+(defvar *agenda-include-done*
+  nil
+  "whether to include agenda nodes that are in one of the `*done-states*'.")
+
 ;; <2025-02-02 Sun 10:00:00 +1w>
 (defstruct repeated-timestamp
   time ;; could be a time-range or a timestamp
@@ -316,7 +320,8 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                         do (push my-record
                                  (agenda-outline-node-children hour-node))))
                  (when (< i fully-displayed-days)
-                   (setf (agenda-outline-node-expansion-state day-node) 'expanded))
+                   (setf (agenda-outline-node-expansion-state day-node)
+                         'expanded))
                  (push day-node agenda-forest)
                  (setf (agenda-outline-node-children day-node)
                        (reverse (agenda-outline-node-children day-node))))))

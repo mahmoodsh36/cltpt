@@ -455,13 +455,14 @@ before the final closing rule is found."
           (setf chars-consumed (file-position s))
           (when (> chars-consumed 0)
             ;; TODO: no need to run subseq here or even assign "form-str"
-             (setf form-str (subseq str pos (+ pos chars-consumed)))))))
+            (setf form-str (subseq str pos (+ pos chars-consumed)))))))
     (if (and form-str (> chars-consumed 0))
-        (cons (list :begin pos
-                    :end (+ pos (length form-str))
-                    :str str
-                    :ctx ctx
-                    :id 'lisp-form-content)
+        (cons
+         (list :begin pos
+               :end (+ pos (length form-str))
+               :str str
+               :ctx ctx
+               :id 'lisp-form-content)
               nil)
         nil)))
 

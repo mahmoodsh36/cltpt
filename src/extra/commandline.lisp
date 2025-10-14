@@ -12,7 +12,9 @@
    :license "GPL"
    :authors '("Mahmood Sheikh <mahmod.m2015@gmail.com>")
    :handler #'top-level-handler
-   :sub-commands (list (convert-command) (roam-command))
+   :sub-commands (list (convert-command)
+                       (roam-command)
+                       (agenda-command))
    :options (cli-options)))
 
 (defun cli-options ()
@@ -153,8 +155,8 @@
    (clingon:make-option
     :list
     :description "the files to act on."
-    :short-name #\f
-    :long-name "file"
+    :short-name #\i
+    :long-name "input"
     :key :files)
    (clingon:make-option
     :list
@@ -168,6 +170,76 @@
     :description "the output format for the info of a roam node."
     :long-name "out"
     :key :output-format)))
+
+(defun agenda-command ()
+  (clingon:make-command
+   :name "agenda"
+   :description "query agenda tree."
+   :options (agenda-options)
+   :handler #'agenda-handler))
+
+(defun agenda-options ()
+  (list
+   (clingon:make-option
+    :list
+    :description "the files to act on."
+    :short-name #\i
+    :long-name "input"
+    :key :files)
+   (clingon:make-option
+    :list
+    :description "the file rules to pass to `cltpt/base:roamer'."
+    :short-name #\r
+    :long-name "rule"
+    :key :rules)
+   (clingon:make-option
+    :string
+    :short-name #\f
+    :description "the start time for the agenda."
+    :long-name "from"
+    :key :from)
+   (clingon:make-option
+    :string
+    :short-name #\t
+    :description "the end time for the agenda."
+    :long-name "to"
+    :key :to)))
+
+(defun date-str-to-ts (date-str)
+  ;; this is a hack that inserts "<>" around the date string so that it can
+  ;; be parsed as an org timestamp
+  (let* ((date-str (format nil "<~A>" date-str))
+         (timestamp-match (cltpt/combinator:match-rule
+                           nil
+                           cltpt/org-mode::*org-timestamp-rule*
+                           date-str
+                           0))
+         (ts (cltpt/org-mode::org-timestamp-match-to-time timestamp-match)))
+    ts))
+
+(defun agenda-handler (cmd)
+  "the handler for the agenda command"
+  (let* ((args (clingon:command-arguments cmd))
+         (files (clingon:getopt cmd :files))
+         (file-rules (clingon:getopt cmd :rules))
+         (begin-ts-str (clingon:getopt cmd :from))
+         (end-ts-str (clingon:getopt cmd :to))
+         (roamer (if file-rules
+                     (roamer-from-file-rules file-rules)
+                     (when files
+                       (cltpt/roam:from-files files)))))
+    (when roamer
+      (let ((nodes (cltpt/roam:roamer-nodes roamer))
+            (agenda (cltpt/agenda:from-roamer roamer))
+            (begin-ts (when begin-ts-str
+                        (date-str-to-ts begin-ts-str)))
+            (end-ts (when end-ts-str
+                      (date-str-to-ts end-ts-str))))
+        (format t "~A"
+                (cltpt/agenda:render-agenda
+                 agenda
+                 :begin-ts begin-ts
+                 :end-ts end-ts))))))
 
 (defun commandline-main (argv)
   (let ((app (top-level-command)))

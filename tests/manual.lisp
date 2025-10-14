@@ -47,8 +47,10 @@
                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
                   :glob "*.org"
                   :format "org-mode"))))
-         (agenda (cltpt/agenda:from-roamer rmr)))
-    (cltpt/agenda::render-agenda agenda)))
+         (agenda (cltpt/agenda:from-roamer rmr))
+         (begin-ts (local-time:encode-timestamp 0 0 0 0 1 1 2025))
+         (end-ts (local-time:encode-timestamp 0 0 0 0 1 5 2025)))
+    (cltpt/agenda:render-agenda agenda :begin-ts begin-ts :end-ts end-ts)))
 
 (defun test-agenda-3 ()
   (let* ((rmr (cltpt/roam:from-files
