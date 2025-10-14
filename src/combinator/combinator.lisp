@@ -11,7 +11,7 @@
    :at-line-start-p :at-line-end-p :followed-by :match-rule
    :separated-atleast-one :all-but-whitespace :handle-rule-string
    :all-upto :all-upto-included :succeeded-by :all-upto-without
-   :context-rules :consec-with-optional
+   :context-rules :consec-with-optional :compile-rule-string
 
    :find-submatch :find-submatch-all :find-submatch-last :match-text
    ))

@@ -64,4 +64,5 @@
                (:module "tests"
                 :pathname "tests/"
                 :depends-on ("base" "org-mode")
-                :components ((:file "parse")))))
+                :components ((:file "parse")
+                             (:file "org-mode")))))
