@@ -789,6 +789,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (postfix-begin (- (getf title-match :end) match-begin))
                   (postfix-end (- match-end match-begin))
                   (prefix-end (- (getf title-match :begin) match-begin))
+                  ;; the "old postfix" region is the region containing the
+                  ;; tags, and the metadata after the tags+newline
                   (old-postfix-region
                     (cltpt/base:make-region
                      :begin postfix-begin
@@ -796,10 +798,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      ;; we want removed
                      :end (min (1+ postfix-end)
                                (length obj-text))))
+                  ;; the "old prefix" region is the region containing the TODO
+                  ;; keyword
                   (old-prefix-region
                     (cltpt/base:make-region
                      :begin 0
                      :end prefix-end))
+                  ;; the "new postfix" region is the region after the title
                   (new-postfix-region
                     (cltpt/base:make-region
                      :begin (+ postfix-begin
@@ -814,6 +819,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (cltpt/base:make-region
                      :begin 0
                      :end (length open-tag))))
+             ;; remove the children in the metadata region
+             (loop for child in (copy-seq (cltpt/base:text-object-children obj))
+                   do (when (cltpt/base:region-contains
+                             old-postfix-region
+                             (cltpt/base:text-object-begin child))
+                        (setf (cltpt/base:text-object-children obj)
+                              (delete child
+                                      (cltpt/base:text-object-children obj)))))
              ;; change the "postfix" text after the title (tags etc)
              (push (cons close-tag old-postfix-region) changes)
              ;; change the "prefix" text before the title (stars etc)
