@@ -66,15 +66,9 @@
        (list :begin pos
              :end (+ pos match)
              :str str
-             :rule rule
              :ctx ctx)
        nil)
-      ;; set :rule property
-      (if (getf (car match) :rule)
-          match
-          (progn
-            (setf (getf (car match) :rule) rule)
-            match))))
+      match))
 
 (defun match-rule-normalized (ctx rule str pos)
   "calls match-rule and ensures its result is normalized."
@@ -492,7 +486,9 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                    pos)))
             (when sub-pattern-match
               (let* ((parent-info (car sub-pattern-match))
-                     (new-parent-info (list* :id (getf rule :id) parent-info)))
+                     (new-parent-info (list* :id (getf rule :id)
+                                             :rule rule
+                                             parent-info)))
                 (cons new-parent-info (cdr sub-pattern-match)))))))
        ((stringp rule)
         (match-rule ctx (list 'literal rule) str pos))
