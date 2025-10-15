@@ -593,7 +593,7 @@ taking care of children indicies would cause issues."
                    (or
                     (child-at-pos
                      child
-                     (+ pos
+                     (- pos
                         (region-begin
                          (text-object-text-region child))))
                     child)
