@@ -139,15 +139,16 @@
   (let ((result (cltpt/combinator:parse
                  "* my header"
                  (list cltpt/org-mode::*org-header-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 9 :ID CLTPT/ORG-MODE::ORG-HEADER)
-       ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
-       ((:BEGIN 1 :END 2 :MATCH " "))
-       ((:BEGIN 2 :END 9 :ID TITLE :MATCH "my header"))))))
+    result))
 
 (test org-header-basic
-  (fiveam:is (org-header-basic-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car result)
+    '((:BEGIN 0 :END 9 :ID CLTPT/ORG-MODE::ORG-HEADER)
+      ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
+      ((:BEGIN 1 :END 2 :MATCH " "))
+      ((:BEGIN 2 :END 9 :ID TITLE :MATCH "my header"))))))
 
 (defun org-header-with-todo-func ()
   (let ((result (cltpt/combinator:parse

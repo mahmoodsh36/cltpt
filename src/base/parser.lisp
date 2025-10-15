@@ -6,14 +6,17 @@
     (member typ text-macro-classes)))
 
 ;; receives a match result, returns a text object
-;; if MATCH has :id that refers to a `text-object', result will be a `text-object',
+;; if MATCH has :rule that has :type, or if MATCH has :id, that refers to a `text-object', result will be a `text-object',
 ;; otherwise it will be a list that may contain many instances of `text-object'
 (defun handle-match (str1 match text-objects text-object-types)
-  (let ((main-match (car match))
-        (rest (cdr match))
-        (result)
-        (is-new-object t)
-        (child-results))
+  (let* ((main-match (car match))
+         (main-match-rule (getf main-match :rule))
+         (main-match-type (or (getf main-match-rule :type)
+                              (getf main-match :id)))
+         (rest (cdr match))
+         (result)
+         (is-new-object t)
+         (child-results))
     (loop for child in rest
           do (let ((obj (handle-match str1
                                       child
@@ -24,12 +27,11 @@
                      (loop for item in obj
                            do (push item child-results))
                      (push obj child-results)))))
-    (if (member (getf main-match :id) text-object-types)
+    (if (member main-match-type text-object-types)
         (let* ((match-begin (getf main-match :begin))
                (match-end (getf main-match :end))
-               (type1 (getf main-match :id))
-               (new-text-object (make-instance type1))
-               (is-lexer-macro (is-text-macro type1)))
+               (new-text-object (make-instance main-match-type))
+               (is-lexer-macro (is-text-macro main-match-type)))
           (if is-lexer-macro
               (let ((match-text (subseq str1 match-begin match-end))
                     (macro-eval-result))
