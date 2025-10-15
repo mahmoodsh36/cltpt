@@ -19,6 +19,7 @@
            org-table
            org-header
            org-link
+           org-timestamp
            org-src-block
            org-export-block
            org-block
@@ -55,12 +56,16 @@
      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env)
    (org-mode-text-object-types)))
 
-(defun copy-rule-with-id (rule id)
-  (if (cltpt/base::plistp rule)
+(defun copy-rule (rule id &key type)
+  (if (cltpt/base:plistp rule)
       (let ((copy (copy-tree rule)))
         (setf (getf copy :id) id)
+        (when type
+          (setf (getf copy :type) type))
         copy)
-      (list :pattern (copy-tree rule) :id id)))
+      (if type
+          (list :pattern (copy-tree rule) :id id :type type)
+          (list :pattern (copy-tree rule) :id id))))
 
 (defun copy-modify-rule (rule modifications)
   "copy a RULE, apply MODIFICATIONS to it.
@@ -82,7 +87,7 @@ to replace and new-rule is the rule to replace it with."
 (defun org-mode-inline-text-object-rule ()
   (mapcar
    (lambda (subclass-name)
-     (copy-rule-with-id
+     (copy-rule
       (cltpt/base:text-object-rule-from-subclass subclass-name)
       subclass-name))
    (org-mode-inline-text-object-types)))
@@ -167,7 +172,7 @@ to replace and new-rule is the rule to replace it with."
      (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
      (cltpt/combinator:any
       ;; TODO: we shouldnt be enabling text-macros by default, even for keywords.
-      ,(copy-rule-with-id
+      ,(copy-rule
         cltpt/base::*post-lexer-text-macro-rule*
         'cltpt/base::post-lexer-text-macro)
       ;; capture an arbitrary sequence until an EOL (or EOF ofc)
@@ -189,14 +194,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       `(cltpt/combinator:consec
         (cltpt/combinator:separated-atleast-one
          ,(string #\newline)
-         ,(copy-rule-with-id *org-keyword-rule* 'org-keyword))
+         ,(copy-rule *org-keyword-rule* 'org-keyword))
         ,(string #\newline)
         ,rule)
       `(cltpt/combinator:any
         (cltpt/combinator:consec
          (cltpt/combinator:separated-atleast-one
           ,(string #\newline)
-          ,(copy-rule-with-id *org-keyword-rule* 'org-keyword))
+          ,(copy-rule *org-keyword-rule* 'org-keyword))
          ,(string #\newline)
          ,rule)
         ,rule)))
@@ -516,17 +521,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;;               (:pattern (cltpt/combinator:upcase-word-matcher)
 ;;                :id name)
 ;;               ": "
-;;               ,(copy-rule-with-id *org-timestamp-rule* 'timestamp))
+;;               ,(copy-rule *org-timestamp-rule* 'timestamp))
 ;;              :id action-active)
 ;;             (:pattern
 ;;              (cltpt/combinator:consec
 ;;               (:pattern (cltpt/combinator:upcase-word-matcher)
 ;;                :id name)
 ;;               ": "
-;;               ,(copy-rule-with-id *org-timestamp-bracket-rule* 'timestamp))
+;;               ,(copy-rule *org-timestamp-bracket-rule* 'timestamp))
 ;;              :id action-inactive)))
-;;           ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
-;;           ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
+;;           ,(copy-rule *org-timestamp-rule* 'todo-timestamp)
+;;           ,(copy-rule *org-prop-drawer-rule* 'org-prop-drawer)))))
 ;;       :on-char #\*)))
 (let ((tags-rule
         '(cltpt/combinator:consec
@@ -604,22 +609,24 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               (:pattern (cltpt/combinator:upcase-word-matcher)
                :id name)
               ": "
-              ,(copy-rule-with-id *org-timestamp-rule* 'timestamp))
+              ,(copy-rule *org-timestamp-rule* 'timestamp
+                          :type 'org-timestamp))
              :id action-active)
             (:pattern
              (cltpt/combinator:consec
               (:pattern (cltpt/combinator:upcase-word-matcher)
                :id name)
               ": "
-              ,(copy-rule-with-id *org-timestamp-bracket-rule* 'timestamp))
+              ,(copy-rule *org-timestamp-bracket-rule* 'timestamp))
              :id action-inactive)))
-          ,(copy-rule-with-id *org-timestamp-rule* 'todo-timestamp)
+          ,(copy-rule *org-timestamp-rule* 'todo-timestamp
+                      :type 'org-timestamp)
           ;; this causes issues with files such as /home/mahmooz/brain/notes/1678745440.org
           ;; where the list following a header isnt strictly related to it.
           ;; TODO: check if a list has all children start with "State",
           ;; only in this case do they belong to the header as metadata.
-          ,(copy-rule-with-id *org-list-rule* 'org-list)
-          ,(copy-rule-with-id *org-prop-drawer-rule* 'org-prop-drawer)))))
+          ,(copy-rule *org-list-rule* 'org-list)
+          ,(copy-rule *org-prop-drawer-rule* 'org-prop-drawer)))))
       :on-char #\*)))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -1416,11 +1423,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        (cltpt/combinator:consec
         (cltpt/combinator:literal ,(string #\newline))
         (cltpt/combinator:any
-         ,(copy-rule-with-id *org-list-rule* 'org-list)
+         ,(copy-rule *org-list-rule* 'org-list)
          org-table
          org-block
          org-drawer
-         ,(copy-rule-with-id *org-link-rule* 'org-link))))
+         ,(copy-rule *org-link-rule* 'org-link))))
       :id results-content))
     :id results))
 (defvar *org-src-block-no-kw-rule*
@@ -1457,14 +1464,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (cltpt/combinator:any
      ;; block with keywords and execution results
      (cltpt/combinator:consec
-      ,(copy-rule-with-id *org-keyword-rule* 'org-keyword)
+      ,(copy-rule *org-keyword-rule* 'org-keyword)
       ,*org-src-block-no-kw-rule*
       (cltpt/combinator:literal ,(string #\newline))
       (cltpt/combinator:literal ,(string #\newline))
       ,*org-babel-results-rule*)
      ;; block with keywords but no execution results
      (cltpt/combinator:consec
-      ,(copy-rule-with-id *org-keyword-rule* 'org-keyword)
+      ,(copy-rule *org-keyword-rule* 'org-keyword)
       ,*org-src-block-no-kw-rule*)
      ;; block with results but no keywords
      (cltpt/combinator:consec
@@ -1887,7 +1894,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   `(:pattern
     (cltpt/combinator:any
      (cltpt/combinator:consec
-      ,(copy-rule-with-id *org-keyword-rule* 'org-keyword)
+      ,(copy-rule *org-keyword-rule* 'org-keyword)
       ,*org-block-no-kw-rule*)
      ,*org-block-no-kw-rule*)
     :on-char #\#))
@@ -1988,7 +1995,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defvar *org-latex-env-rule*
   `(:pattern
     ,(rule-with-org-keywords
-      (copy-rule-with-id
+      (copy-rule
        cltpt/latex:*latex-env-rule*
        ;; we cant use an id 'latex-env' because that will cause a child of type
        ;; cltpt/latex:latex-env to be matched. we use 'latex-env-1'
