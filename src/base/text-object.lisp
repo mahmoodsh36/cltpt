@@ -394,8 +394,8 @@ taking care of children indicies would cause issues."
 
 ;; we need to evaluate post-lexer text-macros during finalization. the result
 ;; of the evaluation should be also be cached for later use.
-(defmethod cltpt/base:text-object-finalize ((obj post-lexer-text-macro))
-  (eval-post-lexer-macro obj))
+;; (defmethod cltpt/base:text-object-finalize ((obj post-lexer-text-macro))
+;;   (eval-post-lexer-macro obj))
 
 (defvar *cache-post-lexer-macro-evals* nil)
 (defun eval-post-lexer-macro (obj)

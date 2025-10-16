@@ -37,8 +37,7 @@ note that this metadata may not be available during parsing because the roamer
 doesnt handle dependencies between files, so some functionality must be \"postponed\"
 to the time when the roamer is done collecting/parsing.
 form:
-  `(:after-roam-hooks
-    :roamer nil)'")
+  `(:roamer nil)'")
 
 (defclass roamer ()
   ((nodes
@@ -129,8 +128,7 @@ each rule is a plist that can contain the following params.
         (make-hash-table :test 'equal))
   (let* ((file-rule-alist (find-files (roamer-files rmr)))
          (*roam-parse-data*
-           (list :after-roam-hooks nil
-                 :roamer rmr)))
+           (list :roamer rmr)))
     (loop for (file . file-rule) in file-rule-alist
           do (let* ((fmt (if (plistp file-rule)
                              (cltpt/base:text-format-by-name
@@ -153,10 +151,7 @@ each rule is a plist that can contain the following params.
                          (gethash
                           (node-id node)
                           (roamer-node-id-hashtable rmr))
-                         node))))))))
-    ;; handle any hooks that may have been pushed
-    (loop for hook in (getf *roam-parse-data* :after-roam-hooks)
-          do (funcall hook))))
+                         node))))))))))
 
 (defmethod text-object-roam-data ((obj cltpt/base:text-object))
   (cltpt/base:text-object-property obj :roam-node))
@@ -211,11 +206,13 @@ each rule is a plist that can contain the following params.
        (let* ((result
                 (cltpt/base:convert-tree
                  (cltpt/base:parse
+                  (cltpt/base:make-text-format "dummy")
                   format-str
-                  (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))
-                 (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro)
-                 ;; just use org for now
-                 (cltpt/base:text-format-by-name "org-mode"))))
+                  :text-object-types (list 'cltpt/base:text-macro
+                                           'cltpt/base:post-lexer-text-macro))
+                 (cltpt/base:make-text-format "dummy")
+                 (cltpt/base:make-text-format "dummy")
+                 :text-object-types (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
          result)))))
 
 (defmethod convert-link ((rmr roamer)

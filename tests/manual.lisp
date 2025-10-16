@@ -97,3 +97,29 @@
   (let ((cltpt/latex::*latex-compiler-key* :latex))
     (cltpt/latex::generate-previews-for-latex
      (list "\\(x=\\somebrokencommand123\\)"))))
+
+(defun roam-convert-test-1 ()
+  (time
+   (let* ((rmr (cltpt/roam:from-files
+                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
+                   :glob "*.org"
+                   :format "org-mode")))))
+     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
+
+(defun roam-get-title-by-id (_id)
+  (cltpt/roam:node-title
+   (cltpt/roam:get-node-by-id
+    (getf cltpt/roam:*roam-convert-data* :roamer)
+    _id)))
+
+(defun roam-convert-test-2 ()
+  (time
+   (let* ((rmr (cltpt/roam:from-files
+                '((;;:path ("/home/mahmooz/brain/notes/1710536040.org")
+                   :path ("/home/mahmooz/work/cltpt/test2.org")
+                   :glob "*.org"
+                   :format "org-mode")))))
+     (cltpt/roam:convert-all
+      rmr
+      (cltpt/base:text-format-by-name "html")
+      "/tmp/out-%(identity title).html"))))
