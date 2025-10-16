@@ -1396,6 +1396,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        (cltpt/combinator:literal-casein "#+results[")
        (cltpt/combinator:symbol-matcher)
        (cltpt/combinator:literal "]:")))
+     (cltpt/combinator:literal ,(string #\newline))
      (:pattern
       (cltpt/combinator:any
        #| detect syntax like
@@ -1404,9 +1405,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        : more text
        : more text
        |#
-       (cltpt/combinator:atleast-one
+       (cltpt/combinator:separated-atleast-one
+        ,(string #\newline)
         (cltpt/combinator:consec
-         (cltpt/combinator:literal ,(string #\newline))
          (:pattern
           (cltpt/combinator:any
            (cltpt/combinator:consec
@@ -1420,14 +1421,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
        the possible elements could be org-link, org-table, org-block
        |#
-       (cltpt/combinator:consec
-        (cltpt/combinator:literal ,(string #\newline))
-        (cltpt/combinator:any
-         ,(copy-rule *org-list-rule* 'org-list)
-         org-table
-         org-block
-         org-drawer
-         ,(copy-rule *org-link-rule* 'org-link))))
+       (cltpt/combinator:any
+        ,(copy-rule *org-list-rule* 'org-list)
+        org-table
+        org-block
+        org-drawer
+        ,(copy-rule *org-link-rule* 'org-link)))
       :id results-content))
     :id results))
 (defvar *org-src-block-no-kw-rule*
@@ -1605,8 +1604,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (cltpt/base:make-region
                      :begin 0
                      :end (cltpt/base:region-begin
-                           (cltpt/base:text-object-contents-region
-                            obj))))
+                           (cltpt/base:text-object-contents-region obj))))
                   (code-close-tag-region
                     (cltpt/base:make-region
                      :begin (cltpt/base:region-end
@@ -1619,13 +1617,19 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (cltpt/base:make-region
                      :begin results-content-begin
                      :end results-end))
+                  (results-region
+                    (cltpt/base:make-region
+                     :begin results-begin
+                     :end results-end))
                   (code-region
                     (cltpt/base:make-region
                      :begin (cltpt/base:region-end code-open-tag-region)
                      :end (cltpt/base:region-begin code-close-tag-region)))
+                  ;; TODO: this whole logic can be DRYed/simplfied by using
+                  ;; handle-changed-regions to handle escaped regions too.
                   ;; this should store by how much the position of the contents
                   ;; would shift after the incremental changes are applied.
-                  (shift-in-result-contents
+                  (shift-in-result-contents-begin
                     (+
                      ;; the change in the length of the code "opening tag"
                      (length code-open-tag)
@@ -1633,8 +1637,26 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      ;; the change in the length of the code "closing tag"
                      (length code-close-tag)
                      (- (cltpt/base:region-length code-close-tag-region))
-                     ;; we also subtract the length of the #+RESULTS region
-                     (- results-content-begin results-begin))))
+                     ;; the change in the length of the #+RESULTS region
+                     (length results-open-tag)
+                     (- results-begin results-content-begin)))
+                  (raw-results
+                    (when match-raw-lines
+                      (cltpt/base:str-join
+                       (mapcar
+                        (lambda (raw-line-match)
+                          (subseq
+                           (cltpt/combinator:match-text
+                            (car raw-line-match))
+                           2))
+                        match-raw-lines)
+                       (string #\newline))))
+                  (shift-in-result-contents-end
+                    (+ shift-in-result-contents-begin
+                       (if raw-results
+                           (- (length raw-results)
+                              (cltpt/base:region-length results-content-region))
+                           0))))
              ;; both regions of results and code need escaping.
              ;; but the region for the code shouldnt have the newlines escaped.
              ;; but we need to account for the changes in the preceding
@@ -1642,15 +1664,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              ;; incremental changes are applied.
              (push
               (cltpt/base:make-region
+               :begin (+ results-content-begin shift-in-result-contents-begin)
+               :end (+ results-end shift-in-result-contents-end))
+              escape-regions)
+             (push
+              (cltpt/base:make-region
                :begin (length code-open-tag)
                :end (+ (length code-open-tag)
                        (cltpt/base:region-length code-region)))
-              escape-regions)
-             (push
-              (cltpt/base:region-decf
-               (cltpt/base:region-clone
-                results-content-region)
-               shift-in-result-contents)
               escape-regions)
              ;; we have to push the changes in the correct order. otherwise
              ;; the incremental parser will not function properly.
@@ -1667,20 +1688,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                ;; in the other case, its just a collection of org elements
                ;; so we just need to convert them all in the given text region
                ;; of the "results".
-               (push
-                (cons (cltpt/base:str-join
-                       (mapcar
-                        (lambda (raw-line-match)
-                          (subseq
-                           (cltpt/combinator:match-text
-                            (car raw-line-match))
-                           2))
-                        match-raw-lines)
-                       (string #\newline))
-                      (cltpt/base:make-region
-                       :begin results-begin
-                       :end results-end))
-                changes))
+               (push (cons raw-results results-content-region) changes))
              (push
               (cons results-open-tag
                     (cltpt/base:make-region

@@ -98,3 +98,6 @@
 (defvar *simple-format*
   (make-text-format "simple" '(post-lexer-text-macro text-macro))
   "an instance of `cltpt/base:text-object' for a text format with macros only.")
+
+(defmethod cltpt/base:text-format-conversion-template ((fmt (eql *simple-format*)))
+  "%(getf cltpt/base:*convert-info* :text-obj)")

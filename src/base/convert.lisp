@@ -155,6 +155,8 @@ the '\\' and processes the char normally (replace or emit)."
     (labels ((escape-text-in-regions (text containing-region escape-regions)
                (let* ((escape-fn (lambda (s) (escape-text s fmt-dest escapables)))
                       ;; find intersections and sort them to process in order
+                      ;; TODO: dont sort here, make it a condition that
+                      ;; the regions are sorted before being passed.
                       (effective-regions
                         (sort
                          (loop for r in escape-regions
@@ -173,6 +175,11 @@ the '\\' and processes the char normally (replace or emit)."
                        (let ((last-end (region-begin containing-region)))
                          (dolist (r effective-regions)
                            (write-string (subseq text last-end (region-begin r)) s)
+                           (when (getf cltpt:*debug* :convert)
+                             (format t "DEBUG: escaping ~A~%"
+                                     (subseq text
+                                             (region-begin r)
+                                             (region-end r))))
                            (write-string
                             (funcall escape-fn
                                      (subseq text
