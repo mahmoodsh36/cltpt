@@ -11,7 +11,7 @@
 
    :region-incf :region-decf :region-clone
 
-   :make-text-format
+   :make-text-format :*simple-format*
    :text-format-text-object-types :text-format-by-name
    :convert-file :text-macro :post-lexer-text-macro
    :text-format-escape :replace-chars-and-escapes
