@@ -360,9 +360,8 @@ returns the elements newly inserted into the tree."
                    (loop for sibling in next-siblings
                          do (region-incf (text-object-text-region sibling)
                                          change-in-region-length))))
-               ;; we need to finalize after changes. but perhaps not necessarily
-               ;; the root.
-               (finalize-doc (text-object-root child))))
+               ;; we need to finalize after changes.
+               (finalize-doc child)))
     (nreverse new-elements)))
 
 ;; this is used for incremental parsing. it takes a position at which the

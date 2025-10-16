@@ -23,6 +23,7 @@
    :*convert-escape-newlines*
    :*convert-info*
    :rewrap-within-tags
+   :convert-document
 
    :*author*
    :document :document-title :document-date
