@@ -1519,182 +1519,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defun to-raw-html-string (mystr)
   mystr)
 
-;; should take an instance of `org-src-block' or `org-block', but that isnt ensured
-;; (defmethod convert-block ((obj text-object)
-;;                           (backend text-format)
-;;                           block-type
-;;                           is-code)
-;;   (let* ((exports-keyword (org-block-keyword-value obj "exports"))
-;;          (contents (cltpt/base:text-object-contents obj))
-;;          (export-code (or (string= exports-keyword "code")
-;;                           (string= exports-keyword "both")))
-;;          (export-results (or (string= exports-keyword "results")
-;;                              (string= exports-keyword "both"))))
-;;     ;; export "both" by default, if :exports wasnt provided.
-;;     ;; TODO: this shouldnt be the default behavior. we should have it customizable.
-;;     (when (and is-code (not exports-keyword))
-;;       (setf export-code t)
-;;       (setf export-results t))
-;;     ;; when the contents start with the newline that is after the #+begin_block
-;;     ;; it causes a weird newline when cltpt/base:*convert-escape-newlines* is `t'
-;;     ;; so remove it.
-;;     (when (char= (char contents 0) #\newline)
-;;       (setf contents (subseq contents 1)))
-;;     (cond
-;;       ;; if we have `:exports none', we shouldnt export
-;;       ((and exports-keyword (string= exports-keyword "none"))
-;;        (list :text "" :reparse t))
-;;       ((member block-type (list "comment" "my_comment") :test 'string=)
-;;        (list :text "" :reparse t))
-;;       ((eq backend cltpt/latex:*latex*)
-;;        (let* ((begin-tag (format nil "\\begin{~A}" block-type))
-;;               (end-tag (format nil "\\end{~A}" block-type))
-;;               (my-text (concatenate 'string
-;;                                     begin-tag
-;;                                     contents
-;;                                     end-tag))
-;;               (inner-region
-;;                 (cltpt/base:make-region
-;;                  :begin (length begin-tag)
-;;                  :end (- (length my-text) (length end-tag)))))
-;;          (list :text my-text
-;;                :reparse (not is-code)
-;;                :escape (not is-code)
-;;                :reparse-region inner-region
-;;                :escape-region inner-region)))
-;;       ((eq backend cltpt/html:*html*)
-;;        (let* ((all-keywords
-;;                 (concatenate
-;;                  'list
-;;                  `(,(cons "type" (cltpt/base:text-object-property obj :type)))
-;;                  (cltpt/base:text-object-property obj :keywords-alist)))
-;;               (props
-;;                 (loop for (key . value) in all-keywords
-;;                       for result = (unless (member key '("exports" "results"))
-;;                                      (format nil
-;;                                              "data-~A='~A'"
-;;                                              key
-;;                                              (to-raw-html-string value)))
-;;                       when result collect result))
-;;               (open-tag
-;;                 (if is-code
-;;                     "<pre class='org-src'><code>"
-;;                     (format nil
-;;                             "<div class='~A org-block' ~A>"
-;;                             block-type
-;;                             (cltpt/base:str-join props " "))))
-;;               (close-tag (if is-code
-;;                              "</code></pre>"
-;;                              "</div>"))
-;;               (text)
-;;               (inner-region)
-;;               ;; if its code, we might wanna just output it "raw". but that is
-;;               ;; not true if we need to convert results (which may contain org elements).
-;;               (is-raw is-code))
-;;          (if is-code
-;;              ;; if we wanna export results, we will have to set reparse-region
-;;              ;; accordingly so that the children in the results are handled correctly.
-;;              (if export-results
-;;                  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-;;                         (results-match
-;;                           (cltpt/combinator:find-submatch
-;;                            match
-;;                            'results))
-;;                         ;; lines starting with ": "
-;;                         (match-raw-lines
-;;                           (cltpt/combinator:find-submatch-all
-;;                            results-match
-;;                            'output-line))
-;;                         (results-content-match
-;;                           (cltpt/combinator:find-submatch
-;;                            results-match
-;;                            'results-content))
-;;                         (results-text))
-;;                    (cond
-;;                      ;; if its the raw lines (": ") we need to convert, just subseq
-;;                      ;; them accordingly to get rid of the colon and space.
-;;                      (match-raw-lines
-;;                       (setf results-text
-;;                             (cltpt/base:str-join
-;;                              (mapcar
-;;                               (lambda (raw-line-match)
-;;                                 (subseq (cltpt/combinator:match-text (car raw-line-match)) 2))
-;;                               match-raw-lines)
-;;                              (string #\newline)))
-;;                       (setf is-raw t))
-;;                      ;; in the other case, its just a collection of org elements
-;;                      ;; so we just need to convert them all in the given text region
-;;                      ;; of the "results".
-;;                      (t
-;;                       (setf results-text
-;;                             (cltpt/combinator:match-text
-;;                              (car results-content-match)))
-;;                       (setf is-raw nil)))
-;;                    ;; set text to be code+results
-;;                    (let ((results-open-tag "<div class='org-babel-results'>")
-;;                          (results-close-tag "</div>"))
-;;                      ;; since we are restricting the inner region to contents we wont
-;;                      ;; be able to escape the region where the code is. this is
-;;                      ;; because currently convert-tree doesnt handle multiple
-;;                      ;; regions returned by a single convert function.
-;;                      ;; so we just escape it ourselves here before proceeding.
-;;                      ;; TODO: this doesnt work correctly in some cases because
-;;                      ;; it doesnt take into account "escapables".
-;;                      (setf contents
-;;                            (cltpt/base:text-format-escape
-;;                             backend
-;;                             contents
-;;                             nil
-;;                             cltpt/base:*convert-escape-newlines*))
-;;                      (setf text
-;;                            (concatenate 'string
-;;                                         open-tag
-;;                                         contents
-;;                                         results-open-tag
-;;                                         results-text
-;;                                         results-close-tag
-;;                                         close-tag))
-;;                      ;; we need to adjust inner-region to point to the contents
-;;                      ;; of the results region.
-;;                      (setf inner-region
-;;                            (cltpt/base:make-region
-;;                             :begin (+ (length open-tag)
-;;                                       (length contents)
-;;                                       (length results-open-tag))
-;;                             :end (- (length text) (+ (length close-tag)
-;;                                                      (length results-close-tag)))))))
-;;                  (progn
-;;                    ;; if we dont export results and export code, theres not much to do.
-;;                    ;; just convert it as raw code.
-;;                    (setf text
-;;                          (concatenate 'string
-;;                                       open-tag
-;;                                       contents
-;;                                       close-tag))
-;;                    (setf inner-region
-;;                          (cltpt/base:make-region
-;;                           :begin (length open-tag)
-;;                           :end (- (length text) (length close-tag))))
-;;                    (setf is-raw t)))
-;;              ;; if its not code, we surround the block's contents with tags
-;;              ;; and convert them.
-;;              (progn
-;;                (setf text
-;;                      (concatenate 'string
-;;                                   open-tag
-;;                                   contents
-;;                                   close-tag))
-;;                (setf inner-region
-;;                      (cltpt/base:make-region
-;;                       :begin (length open-tag)
-;;                       :end (- (length text) (length close-tag))))))
-;;          (list :text text
-;;                :recurse (not is-raw)
-;;                :reparse (not is-raw)
-;;                :escape t
-;;                :reparse-region inner-region
-;;                :escape-region inner-region))))))
-
 (defmethod convert-block ((obj cltpt/base:text-object)
                           (backend cltpt/base:text-format)
                           block-type
@@ -1753,106 +1577,144 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                             "<div class='~A org-block' ~A>"
                             block-type
                             (cltpt/base:str-join props " "))))
-              (code-close-tag (if is-code
-                             "</code></pre>"
-                             "</div>"))
-              (is-raw is-code)
+              (code-close-tag
+                (if is-code
+                    "</code></pre>"
+                    "</div>"))
               (changes)
               (results-open-tag "<div class='org-babel-results'>")
-              (results-close-tag "</div>"))
-         (if is-code
-             ;; if we wanna export results, we will have to set reparse-region
-             ;; accordingly so that the children in the results are handled correctly.
-             (if (and export-results results-match)
-                 (let* (;; lines starting with ": "
-                        (match-raw-lines
-                          (cltpt/combinator:find-submatch-all
-                           results-match
-                           'output-line))
-                        (results-content-match
-                          (cltpt/combinator:find-submatch
-                           results-match
-                           'results-content))
-                        (results-text)
-                        (results-begin
-                          (- (getf (car results-match) :begin)
-                             (getf (car match) :begin)))
-                        (results-end
-                          (- (getf (car results-match) :end)
-                             (getf (car match) :begin)))
-                        (results-content-begin
-                          (- (getf (car results-content-match) :begin)
+              (results-close-tag "</div>")
+              (escape-regions))
+         ;; if we wanna export results, we will have to apply some modifications
+         ;; to some of the text accordingly so that the #+RESULTS part
+         ;; is ommitted and so that the children after it in the results
+         ;; block are handled correctly (although it code be "raw" and
+         ;; contain no children).
+         ;; if its not code, we surround the block's contents with tags
+         ;; and convert it.
+         (when (and is-code export-results results-match)
+           (let* (;; lines starting with ": "
+                  (match-raw-lines
+                    (cltpt/combinator:find-submatch-all
+                     results-match
+                     'output-line))
+                  (results-content-match
+                    (cltpt/combinator:find-submatch
+                     results-match
+                     'results-content))
+                  (results-text)
+                  (results-begin
+                    (- (getf (car results-match) :begin)
+                       (getf (car match) :begin)))
+                  (results-end
+                    (- (getf (car results-match) :end)
+                       (getf (car match) :begin)))
+                  (results-content-begin
+                    (- (getf (car results-content-match) :begin)
+                       (getf (car match) :begin)))
+                  ;; code-*-tag-region is for the regions related
+                  ;; to the code block /before/ the incremental changes.
+                  (code-open-tag-region
+                    (cltpt/base:make-region
+                     :begin 0
+                     :end (cltpt/base:region-begin
+                           (cltpt/base:text-object-contents-region
+                            obj))))
+                  (code-close-tag-region
+                    (cltpt/base:make-region
+                     :begin (cltpt/base:region-end
+                             (cltpt/base:text-object-contents-region
+                              obj))
+                     :end (- (getf (car code-end-match) :end)
                              (getf (car match) :begin))))
-                   ;; we have to push the changes in the correct order. otherwise
-                   ;; the incremental parser will not function properly.
-                   ;; changes in the results region
-                   (push
-                    (cons results-close-tag
-                          (cltpt/base:make-region
-                           :begin results-end
-                           :end results-end))
-                    changes)
-                   (when match-raw-lines
-                     ;; if its the raw lines (": ") we need to convert, just subseq
-                     ;; them accordingly to get rid of the colon and space.
-                     (push
-                      (cons (cltpt/base:str-join
-                             (mapcar
-                              (lambda (raw-line-match)
-                                (subseq
-                                 (cltpt/combinator:match-text
-                                  (car raw-line-match))
-                                 2))
-                              match-raw-lines)
-                             (string #\newline))
-                            (cltpt/base:make-region
-                             :begin results-begin
-                             :end results-end))
-                      changes)
-                     ;; in the other case, its just a collection of org elements
-                     ;; so we just need to convert them all in the given text region
-                     ;; of the "results".
-                     (setf is-raw t))
-                   (push
-                    (cons results-open-tag
-                          (cltpt/base:make-region
-                           :begin results-begin
-                           :end results-content-begin))
-                    changes)
-                   ;; changes in the code block region
-                   (push
-                    (cons code-close-tag
-                          (cltpt/base:make-region
-                           :begin (cltpt/base:region-end
-                                   (cltpt/base:text-object-contents-region
-                                    obj))
-                           :end (- (getf (car code-end-match) :end)
-                                   (getf (car match) :begin))))
-                    changes)
-                   (push
-                    (cons code-open-tag
-                          (cltpt/base:make-region
-                           :begin 0
-                           :end (cltpt/base:region-begin
-                                 (cltpt/base:text-object-contents-region
-                                  obj))))
-                    changes))
-                 ;; if we dont export results and export code, theres not much to do.
-                 ;; just convert it as raw code.
-                 (setf is-raw t))
-             ;; if its not code, we surround the block's contents with tags
-             ;; and convert them.
-             )
+                  ;; those regions are also /before/ incremental changes
+                  (results-content-region
+                    (cltpt/base:make-region
+                     :begin results-content-begin
+                     :end results-end))
+                  (code-region
+                    (cltpt/base:make-region
+                     :begin (cltpt/base:region-end code-open-tag-region)
+                     :end (cltpt/base:region-begin code-close-tag-region)))
+                  ;; this should store by how much the position of the contents
+                  ;; would shift after the incremental changes are applied.
+                  (shift-in-result-contents
+                    (+
+                     ;; the change in the length of the code "opening tag"
+                     (length code-open-tag)
+                     (- (cltpt/base:region-length code-open-tag-region))
+                     ;; the change in the length of the code "closing tag"
+                     (length code-close-tag)
+                     (- (cltpt/base:region-length code-close-tag-region))
+                     ;; we also subtract the length of the #+RESULTS region
+                     (- results-content-begin results-begin))))
+             ;; both regions of results and code need escaping.
+             ;; but the region for the code shouldnt have the newlines escaped.
+             ;; but we need to account for the changes in the preceding
+             ;; region because :escape-regions is applied after the
+             ;; incremental changes are applied.
+             (push
+              (cltpt/base:make-region
+               :begin (length code-open-tag)
+               :end (+ (length code-open-tag)
+                       (cltpt/base:region-length code-region)))
+              escape-regions)
+             (push
+              (cltpt/base:region-decf
+               (cltpt/base:region-clone
+                results-content-region)
+               shift-in-result-contents)
+              escape-regions)
+             ;; we have to push the changes in the correct order. otherwise
+             ;; the incremental parser will not function properly.
+             ;; changes in the results region
+             (push
+              (cons results-close-tag
+                    (cltpt/base:make-region
+                     :begin results-end
+                     :end results-end))
+              changes)
+             (when match-raw-lines
+               ;; if its the raw lines (": ") we need to convert, just subseq
+               ;; them accordingly to get rid of the colon and space.
+               ;; in the other case, its just a collection of org elements
+               ;; so we just need to convert them all in the given text region
+               ;; of the "results".
+               (push
+                (cons (cltpt/base:str-join
+                       (mapcar
+                        (lambda (raw-line-match)
+                          (subseq
+                           (cltpt/combinator:match-text
+                            (car raw-line-match))
+                           2))
+                        match-raw-lines)
+                       (string #\newline))
+                      (cltpt/base:make-region
+                       :begin results-begin
+                       :end results-end))
+                changes))
+             (push
+              (cons results-open-tag
+                    (cltpt/base:make-region
+                     :begin results-begin
+                     :end results-content-begin))
+              changes)
+             ;; changes in the code block region
+             (push (cons code-close-tag code-close-tag-region) changes)
+             (push (cons code-open-tag code-open-tag-region) changes)))
          (if changes
              (list :text (cltpt/base:text-object-text obj)
                    :changes changes
                    :recurse t
+                   :escape-regions escape-regions
+                   :escape t
                    :reparse nil)
              (cltpt/base:rewrap-within-tags
               obj
               code-open-tag
               code-close-tag
-              :escape (not is-raw))))))))
+              :escape t)))))))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
