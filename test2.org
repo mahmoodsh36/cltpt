@@ -1,7 +1,7 @@
 :PROPERTIES:
 :ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
 :END:
-#+title: this is my sooo correct
+#+title: this is my title
 #+image: %(get-lax-preview-svg-by-blk-id-1 "fig-graph-1")
 #+name: test-name
 #+more: here eee
@@ -63,6 +63,7 @@ latex here
 
 code here
 #+begin_src python :results output
+  "this is a <test></test>"
   import requests
   print('whatever')
   print('whatever2')
@@ -70,6 +71,7 @@ code here
 
 #+RESULTS:
 : whatever
+: <test></test>
 : whatever2
 : \(11\)
 : wow
