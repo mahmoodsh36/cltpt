@@ -11,3 +11,13 @@ got %(cltpt/tests::roam-get-title-by-id "test-id")
 \begin{equation}
 my equation here
 \end{equation}
+
+#+begin_src lisp
+  (let ((my-alist '((a . b))))
+    (push (cons 'x 'y) my-alist)
+    (push '(10 . 20) my-alist))
+#+end_src
+
+#+RESULTS:
+: ((10 . 20) (X . Y) (A . B))
+: ((10 . 20) (X . Y) (A . B))
