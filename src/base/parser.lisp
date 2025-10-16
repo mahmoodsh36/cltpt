@@ -338,13 +338,13 @@ returns the elements newly inserted into the tree."
                                              new-objects
                                              next-siblings)))
                          (t
-                          (setf (text-object-children child) new-objects))))
-                     (when (or parent only-simple-changes)
-                       (loop for new-child in new-objects
-                             do (setf (text-object-parent new-child)
-                                      (if only-simple-changes
-                                          child
-                                          parent)))))
+                          (setf (text-object-children child) new-objects)))
+                       (when (or parent only-simple-changes)
+                         (loop for new-child in new-objects
+                               do (setf (text-object-parent new-child)
+                                        (if only-simple-changes
+                                            child
+                                            parent))))))
                    ;; if we arent reparsing we need to adjust the regions of the
                    ;; children of the object accordingly.
                    (loop for node in (text-object-children child)
