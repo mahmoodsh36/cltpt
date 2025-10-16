@@ -200,7 +200,7 @@ the '\\' and processes the char normally (replace or emit)."
             ;;     ))
             (loop for child in (text-object-children text-obj)
                   do (when (getf cltpt:*debug* :convert)
-                       (format t "converting child ~A~%" child))
+                       (format t "DEBUG: converting child ~A~%" child))
                      (let* ((child-result (convert-tree child fmt-src fmt-dest))
                             (child-options
                               (text-object-convert-options child

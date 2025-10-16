@@ -93,3 +93,8 @@
 
 (defmethod text-format-conversion-template ((fmt t))
   nil)
+
+;; just a dummy format used mainly for conversion with macros
+(defvar *simple-format*
+  (make-text-format "simple" '(post-lexer-text-macro text-macro))
+  "an instance of `cltpt/base:text-object' for a text format with macros only.")
