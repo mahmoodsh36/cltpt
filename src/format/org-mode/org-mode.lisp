@@ -216,20 +216,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       (when (typep child 'cltpt/base::post-lexer-text-macro)
         ;; if we get here, then the value is meant to be the evaluation result
         ;; of the post-lexer text macro.
-        (let ((new-value (cltpt/base::eval-post-lexer-macro child)))
-          ;; check if its a lambda that should be executed once roamer is done.
-          (if (and (consp new-value)
-                   (string= 'after-roam (car new-value))
-                   cltpt/roam:*roam-parse-data*)
-              ;; the new lambda will run the "future" function and set our value
-              ;; properly.
-              (labels ((new-lambda ()
-                         (setf (cltpt/base:text-object-property obj :value)
-                               (funcall (cdr new-value)))))
-                (push #'new-lambda
-                      (getf cltpt/roam:*roam-parse-data* :after-roam-hooks))
-                (setf value 'after-roam))
-              (setf value (cltpt/base::eval-post-lexer-macro child))))))
+        (setf value (cltpt/base::eval-post-lexer-macro child))))
     (setf (cltpt/base:text-object-property obj :value)
           value)
     (setf (cltpt/base:text-object-property obj :keyword)

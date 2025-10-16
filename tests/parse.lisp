@@ -109,22 +109,6 @@
     (fiveam:is (not (null result)))
     (fiveam:is (= (getf (car result) :end) 4))))
 
-(defun roam-convert-test-1 ()
-  (time
-   (let* ((rmr (cltpt/roam:from-files
-                '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
-                   :glob "*.org"
-                   :format "org-mode")))))
-     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
-
-(defun roam-convert-test-2 ()
-  (time
-   (let* ((rmr (cltpt/roam:from-files
-                '((:path ("/home/mahmooz/brain/notes/1710536040.org")
-                   :glob "*.org"
-                   :format "org-mode")))))
-     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
-
 (defun test-incremental-parsing-1 ()
   (let* ((text "- we have [[mylink]]
    a. nested item one \\(x=y\\)
