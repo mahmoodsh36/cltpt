@@ -378,7 +378,7 @@ before the final closing rule is found."
                    (incf i))))
     (when (> i segment-start)
       (push (list 'literal (subseq spec segment-start i)) result))
-    (list* 'consec (nreverse result))))
+    (nreverse result)))
 
 (defun compile-rule-string (str)
   (let ((my-replacements
