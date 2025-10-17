@@ -276,9 +276,6 @@ returns the elements newly inserted into the tree."
                              region-relative-to-ancestor
                              (text-object-text ancestor)
                              new-child-text))
-                          ;; (prev-result (cltpt/base:text-object-property
-                          ;;               child
-                          ;;               :combinator-match))
                           (rules
                             (remove-if-not
                              'identity
