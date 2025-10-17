@@ -774,17 +774,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                             ;; we want to start from h2, not h1 in html.
                             (1+ (cltpt/base:text-object-property obj :level))))
                   (postfix-begin (- (getf title-match :end) match-begin))
-                  (postfix-end (- match-end match-begin))
+                  ;; use 1+ to account for the extra newline at the end which
+                  ;; we want removed
+                  (postfix-end (min (1+ (- match-end match-begin))
+                                    (length obj-text)))
                   (prefix-end (- (getf title-match :begin) match-begin))
                   ;; the "old postfix" region is the region containing the
                   ;; tags, and the metadata after the tags+newline
                   (old-postfix-region
                     (cltpt/base:make-region
                      :begin postfix-begin
-                     ;; use 1+ to account for the extra newline at the end which
-                     ;; we want removed
-                     :end (min (1+ postfix-end)
-                               (length obj-text))))
+                     :end postfix-end))
                   ;; the "old prefix" region is the region containing the TODO
                   ;; keyword
                   (old-prefix-region
@@ -1840,7 +1840,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    lang)
       (list :text (cltpt/base:text-object-contents obj)
             :recurse nil
-            :reparse nil
+            :reparse t
             :escape nil))))
 
 (defvar *org-drawer-rule*
