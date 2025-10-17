@@ -46,7 +46,9 @@
     new-match))
 
 (defun simplify-full-match (match)
-  (cltpt/tree:tree-map match #'simplify-match))
+  (labels ((my-simplify (m)
+             (simplify-match (car m))))
+    (cltpt/tree:tree-map match #'my-simplify)))
 
 (defun compare-match-loosely (match1 match2)
   (let ((match11 (simplify-match match1))
