@@ -8,41 +8,57 @@
 ;; receives a match result, returns a text object
 ;; if MATCH has :rule that has :type, or if MATCH has :id, that refers to a `text-object', result will be a `text-object',
 ;; otherwise it will be a list that may contain many instances of `text-object'
-(defun handle-match (str1 match text-objects text-object-types)
+(defun handle-match (str1 match existing-objects text-object-types)
+  "recursively processes a match from the parser, creating text-objects.
+
+the function passes the state between recursive calls by returning two values:
+1. the new text-object or list of objects created at this level of the match tree.
+   this value is used by the parent call to adopt new children. it is `nil' if the
+   current match is purely structural and not a text-object itself.
+2. the updated list of all text-objects found in the entire process so far.
+   this value is the 'state' that is passed through every recursive call to ensure
+   no created objects are lost."
   (let* ((main-match (car match))
          (main-match-rule (getf main-match :rule))
          (main-match-type (or (getf main-match-rule :type)
                               (getf main-match :id)))
          (rest (cdr match))
-         (result)
          (is-new-object t)
-         (child-results))
+         ;; this list will be built backwards for efficiency.
+         (reversed-child-results)
+         (current-objects existing-objects))
+    ;; collect child objects in reverse order
     (loop for child in rest
-          do (let ((obj (handle-match str1
-                                      child
-                                      text-objects
-                                      text-object-types)))
+          do (multiple-value-bind (obj updated-objects)
+                 (handle-match str1
+                               child
+                               current-objects
+                               text-object-types)
                (when obj
+                 ;; push the objects returned by the child
                  (if (listp obj)
                      (loop for item in obj
-                           do (push item child-results))
-                     (push obj child-results)))))
-    (if (member main-match-type text-object-types)
-        (let* ((match-begin (getf main-match :begin))
-               (match-end (getf main-match :end))
-               (new-text-object (make-instance main-match-type))
-               (is-lexer-macro (is-text-macro main-match-type)))
-          (if is-lexer-macro
+                           do (push item reversed-child-results))
+                     (push obj reversed-child-results)))
+               (setf current-objects updated-objects)))
+    ;; create the final, correctly-ordered list of children with one reversal.
+    (let ((child-results (nreverse reversed-child-results)))
+      (if (member main-match-type text-object-types)
+          ;; this match corresponds to a text-object we need to create.
+          (let* ((match-begin (getf main-match :begin))
+                 (match-end (getf main-match :end))
+                 (new-text-object (make-instance main-match-type))
+                 (is-lexer-macro (is-text-macro main-match-type)))
+            (if is-lexer-macro
               (let ((match-text (subseq str1 match-begin match-end))
                     (macro-eval-result))
+                ;; we always read macro strings in :cl-user package
+                ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
+                ;; skip first char (`*text-macro-char*')
                 (handler-case
                     (eval
-                     ;; we always read macro strings in :cl-user package
                      (let ((*package* (find-package :cl-user)))
-                       (read-from-string
-                        ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
-                        ;; skip first char (`*text-macro-char*')
-                        (subseq match-text 1))))
+                       (read-from-string (subseq match-text 1))))
                   (error (c)
                     (when (getf cltpt:*debug* :parse)
                       (format t
@@ -61,7 +77,7 @@
                   (setf new-text-object (make-instance 'text-object)))
                 (let ((opening-macro)
                       (intermediate-objects))
-                  (loop for entry in (getf text-objects :objects)
+                  (loop for entry in current-objects
                         do (if (and (text-object-property entry :open-macro)
                                     (text-object-ends-by entry macro-eval-result))
                                (progn
@@ -70,68 +86,65 @@
                                (push entry intermediate-objects)))
                   (if opening-macro
                       (progn
-                        (setf
-                         (text-object-property opening-macro :contents-region)
-                         (make-region
-                          :begin (region-length
-                                  (text-object-text-region opening-macro))
-                          :end (- match-begin
-                                  (region-begin
-                                   (text-object-text-region opening-macro)))))
-                        (setf
-                         (text-object-text-region opening-macro)
-                         (make-region
-                          :begin (region-begin
-                                  (text-object-text-region opening-macro))
-                          :end match-end))
-                        ;; extend the text to contain the whole block
-                        (setf
-                         (slot-value opening-macro 'text)
-                         (region-text (text-object-text-region opening-macro)
-                                      str1))
+                        (setf (text-object-property opening-macro :contents-region)
+                              (make-region
+                               :begin (region-length
+                                       (text-object-text-region opening-macro))
+                               :end (- match-begin
+                                       (region-begin
+                                        (text-object-text-region
+                                         opening-macro)))))
+                        (setf (text-object-text-region opening-macro)
+                              (make-region
+                               :begin (region-begin
+                                       (text-object-text-region opening-macro))
+                               :end match-end))
+                        (setf (slot-value opening-macro 'text)
+                              (region-text (text-object-text-region opening-macro)
+                                           str1))
                         (setf (text-object-property opening-macro :open-macro)
                               nil)
                         (loop for item in intermediate-objects
                               do (unless (text-object-parent item)
                                    (text-object-set-parent item opening-macro)
-                                   (text-object-adjust-to-parent item opening-macro)))
-                        ;; after pushing the children to `opening-macro' we need
-                        ;; to reverse them (we used `push').
+                                   (text-object-adjust-to-parent
+                                    item
+                                    opening-macro)))
                         (setf (text-object-children opening-macro)
                               (nreverse (text-object-children opening-macro)))
                         (setf is-new-object nil))
                       (progn
-                        (setf
-                         (text-object-property new-text-object :open-macro)
-                         t)
-                        (setf
-                         (text-object-property new-text-object :eval-result)
-                         macro-eval-result)
+                        (setf (text-object-property new-text-object :open-macro)
+                              t)
+                        (setf (text-object-property new-text-object :eval-result)
+                              macro-eval-result)
                         (text-object-init new-text-object str1 match)))))
               (progn
                 (text-object-init new-text-object str1 match)
                 new-text-object))
-          ;; loop in children, if any return text objects, set them as children of this
-          ;; the children are already reversed, here we are inserting them also
-          ;; in reverse order using *push* (by `text-object-set-parent'),
-          ;; but this means they'll be ordered in the parent correctly
-          (loop for item in child-results
-                do (text-object-set-parent item new-text-object)
-                   (text-object-adjust-to-parent item new-text-object))
-          (when is-new-object
-            (push new-text-object (getf text-objects :objects))
-            new-text-object))
-        (reverse child-results))))
+            ;; assign the correctly-ordered children to the parent.
+            ;; since `text-object-set-parent` uses `push`, this will create a reversed list.
+            (loop for item in child-results
+                  do (text-object-set-parent item new-text-object)
+                     (text-object-adjust-to-parent item new-text-object))
+            ;; reverse the parent's children list to restore the correct order.
+            (when (slot-exists-p new-text-object 'children)
+               (setf (text-object-children new-text-object)
+                     (nreverse (text-object-children new-text-object))))
+            (if is-new-object
+                (values new-text-object (cons new-text-object current-objects))
+                (values nil current-objects)))
+          ;; this is a non-text-object match. return the list of children for
+          ;; the ancestor to process.
+          (values child-results current-objects)))))
 
 (defmethod parse ((format text-format)
                   str1
                   &key
                     (text-object-types (text-format-text-object-types format))
                     doc)
-  "parse a string, returns an object tree."
-  ;; we use a plist for text-objects because we need to modify it in a function
-  ;; and it starts as nil
-  (let* ((text-objects (list :objects nil))
+  "parse a string, returning a document object tree."
+  (let* ((all-objects)
          (data
            (remove-if-not
             'identity
@@ -139,23 +152,24 @@
                   collect (text-object-rule-from-subclass type1))))
          (matches (cltpt/combinator:parse str1 data)))
     (loop for m in matches
-          do (handle-match str1
-                           m
-                           text-objects
-                           text-object-types))
+          do (multiple-value-bind (top-level-result updated-objects)
+                 (handle-match str1
+                               m
+                               all-objects
+                               text-object-types)
+               (setf all-objects updated-objects)))
     ;; here we build the text object forest (collection of trees) properly
     (let ((top-level
             (reverse
              (remove-if
-              (lambda (item)
-                (text-object-parent item))
-              (second text-objects))))
+              (lambda (item) (text-object-parent item))
+              all-objects)))
           (doc (or doc
-                   (make-instance (text-format-document-type format) :text str1))))
+                   (make-instance (text-format-document-type format)
+                                  :text str1))))
       (setf (text-object-text-region doc)
             (make-region :begin 0 :end (length str1)))
-      (setf (slot-value doc 'text)
-            str1)
+      (setf (slot-value doc 'text) str1)
       (mapc
        (lambda (entry)
          (text-object-set-parent entry doc)
@@ -305,7 +319,7 @@ returns the elements newly inserted into the tree."
                           ;; and then turn it into a list isnt pretty. we should
                           ;; use another way of passing the list to the function
                           ;; and getting back the result that isnt hacky.
-                          (new-objects (list :objects nil)))
+                          (new-objects))
                      (unless reparse-all
                        (loop for m in new-result
                              do (handle-match
@@ -318,7 +332,7 @@ returns the elements newly inserted into the tree."
                               (remove-if
                                (lambda (item)
                                  (text-object-parent item))
-                               (getf new-objects :objects))))
+                               new-objects)))
                        (setf new-elements
                              (concatenate 'list new-elements (nreverse new-objects)))
                        ;; we need to replace the old child with the new parse results.
