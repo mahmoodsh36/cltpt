@@ -22,7 +22,7 @@
     (cltpt/combinator::make-context-from-rules rules)))
 
 (defun org-table-parse (table-text)
-  "Parse an org-mode table and return a list of rows, each row being a list of cell values."
+  "parse an org-mode table and return a list of rows, each row being a list of cell values."
   (let ((parsed (cltpt/org-mode::org-table-matcher nil table-text 0)))
     (when parsed
       (loop for row-node in (cdr parsed)
@@ -49,6 +49,10 @@
   (labels ((my-simplify (m)
              (simplify-match (car m))))
     (cltpt/tree:tree-map match #'my-simplify)))
+
+(defun compare-text-object-structure (obj1 obj2)
+  "Compare two text-object structures for equality."
+  (equalp obj1 obj2))
 
 (defun compare-match-loosely (match1 match2)
   (let ((match11 (simplify-match match1))
@@ -1708,6 +1712,31 @@ my equation here
 \\end{equation}
 "))
 
+(test test-org-latex-env-1
+  (let ((result (test-org-latex-env-1)))
+    (fiveam:is (typep result 'cltpt/base:document))
+    (let ((children (cltpt/base:text-object-children result)))
+      (fiveam:is (> (length children) 0))
+      (let ((latex-env (first children)))
+        (fiveam:is (not (null latex-env))) ; ensure not nil
+        (fiveam:is (typep latex-env 'cltpt/org-mode::org-latex-env))
+        ;; Check the children of the latex-env
+        (let ((latex-children (cltpt/base:text-object-children latex-env)))
+          (fiveam:is (>= (length latex-children) 1))
+          ;; Find the name keyword and latex content
+          (let ((name-keyword (find-if (lambda (child) 
+                                         (typep child 'cltpt/org-mode::org-keyword))
+                                       latex-children))
+                (latex-env-content (find-if (lambda (child) 
+                                              (typep child 'cltpt/latex::latex-env))
+                                            latex-children)))
+            ;; Check the name keyword
+            (when name-keyword
+              (fiveam:is (not (null (search "test-name" (cltpt/base:text-object-text name-keyword))))))
+            ;; Check the latex environment content
+            (when latex-env-content
+              (fiveam:is (not (null (search "equation" (cltpt/base:text-object-text latex-env-content))))))))))))
+
 (defun test-org-keyword ()
   (cltpt/combinator:parse
    "
@@ -1764,9 +1793,937 @@ my equation here
     (fiveam:is
      (equal result '(:hour 3)))))
 
+(defun test-org-document-parse-func ()
+  "Test parsing a complete org document with multiple elements."
+  (cltpt/base:parse
+   cltpt/org-mode:*org-mode*
+   "#+title: Test Document
+#+author: John Doe
+
+* Introduction
+This is a test document with various org-mode elements.
+
+** Math Example
+#+name: eq1
+\\begin{equation}
+E = mc^2
+\\end{equation}
+
+** Code Example
+#+begin_src python
+def hello():
+    print(\"Hello World\")
+#+end_src
+
+** Image Example
+#+begin_src python :results file :exports both
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+plt.plot(x, y)
+plt.savefig('plot.png')
+plt.close()
+#+end_src
+
+#+RESULTS:
+[[file:plot.png]]
+
+** List Example
+- Item 1
+- Item 2
+  - Nested item
+- Item 3
+
+| Name | Age |
+|------+-----|
+| John | 25  |
+| Jane | 30  |"))
+
+(test test-org-document-parse
+  (let ((result (test-org-document-parse-func)))
+    (fiveam:is (typep result 'cltpt/base:document))
+    (let ((children (cltpt/base:text-object-children result)))
+      ;; check that we have exactly 3 top-level elements
+      (fiveam:is (= (length children) 3))
+
+      ;; check title keyword (first child)
+      (let ((title-keyword (first children)))
+        (fiveam:is (typep title-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (not (null (search "title" (cltpt/base:text-object-text title-keyword)))))
+        (fiveam:is (not (null (search "Test Document" (cltpt/base:text-object-text title-keyword))))))
+
+      ;; check author keyword (second child)
+      (let ((author-keyword (second children)))
+        (fiveam:is (typep author-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (not (null (search "author" (cltpt/base:text-object-text author-keyword)))))
+        (fiveam:is (not (null (search "John Doe" (cltpt/base:text-object-text author-keyword))))))
+
+      ;; check main introduction header (third child) with nested sub-headers
+      (let ((intro-header (third children)))
+        (fiveam:is (typep intro-header 'cltpt/org-mode::org-header))
+        (fiveam:is (not (null (search "Introduction" (cltpt/base:text-object-text intro-header)))))
+
+        ;; check that the intro header has 4 sub-headers
+        (let ((sub-headers (cltpt/base:text-object-children intro-header)))
+          (fiveam:is (= (length sub-headers) 4))
+
+          ;; check math example sub-header
+          (let ((math-header (first sub-headers)))
+            (fiveam:is (typep math-header 'cltpt/org-mode::org-header))
+            (fiveam:is (not (null (search "Math Example" (cltpt/base:text-object-text math-header)))))
+            ;; check that this header has a latex-env child
+            (let ((math-children (cltpt/base:text-object-children math-header)))
+              (fiveam:is (= (length math-children) 1))
+              (let ((latex-env (first math-children)))
+                (fiveam:is (typep latex-env 'cltpt/org-mode::org-latex-env))
+                (fiveam:is (not (null (search "eq1" (cltpt/base:text-object-text latex-env))))))))
+
+          ;; check code example sub-header
+          (let ((code-header (second sub-headers)))
+            (fiveam:is (typep code-header 'cltpt/org-mode::org-header))
+            (fiveam:is (not (null (search "Code Example" (cltpt/base:text-object-text code-header)))))
+            ;; check that this header has a src-block child
+            (let ((code-children (cltpt/base:text-object-children code-header)))
+              (fiveam:is (= (length code-children) 1))
+              (let ((src-block (first code-children)))
+                (fiveam:is (typep src-block 'cltpt/org-mode::org-src-block))
+                (fiveam:is (not (null (search "python" (cltpt/base:text-object-text src-block))))))))
+
+          ;; check image example sub-header
+          (let ((image-header (third sub-headers)))
+            (fiveam:is (typep image-header 'cltpt/org-mode::org-header))
+            (fiveam:is (not (null (search "Image Example" (cltpt/base:text-object-text image-header)))))
+            ;; check that this header has children (src-block and possibly RESULTS)
+            (let ((image-children (cltpt/base:text-object-children image-header)))
+              (fiveam:is (> (length image-children) 0))
+              ;; Find the src-block among children
+              (let ((src-block (find-if (lambda (child) 
+                                          (typep child 'cltpt/org-mode::org-src-block))
+                                        image-children)))
+                (fiveam:is (not (null src-block)))
+                (when src-block
+                  (fiveam:is (not (null (search "matplotlib" (cltpt/base:text-object-text src-block)))))
+                  ;; Check if RESULTS content is either in src-block or separate
+                  (let ((has-results (or (not (null (search "RESULTS" (cltpt/base:text-object-text src-block))))
+                                         (find-if (lambda (child) 
+                                                    (and (not (typep child 'cltpt/org-mode::org-src-block))
+                                                         (search "RESULTS" (cltpt/base:text-object-text child))))
+                                                  image-children))))
+                    (fiveam:is (not (null has-results)))
+                    ;; Check for plot.png in either src-block or any child
+                    (let ((has-plot (or (not (null (search "plot.png" (cltpt/base:text-object-text src-block))))
+                                        (find-if (lambda (child) 
+                                                   (search "plot.png" (cltpt/base:text-object-text child)))
+                                                 image-children))))
+                      (fiveam:is (not (null has-plot)))))))))
+
+          ;; find and check list example header with list and table
+          (let ((list-header
+                  (find-if
+                   (lambda (child)
+                     (and (typep child 'cltpt/org-mode::org-header)
+                          (search "List Example" (cltpt/base:text-object-text child))))
+                   sub-headers)))
+            (fiveam:is (not (null list-header)))
+            ;; check that this header has list and table children
+            (let ((header-children (cltpt/base:text-object-children list-header)))
+              (fiveam:is (> (length header-children) 0))
+              (let ((list-obj
+                      (find-if
+                       (lambda (child)
+                         (typep child 'cltpt/org-mode::org-list))
+                       header-children))
+                    (table-obj
+                      (find-if
+                       (lambda (child)
+                         (typep child 'cltpt/org-mode::org-table))
+                       header-children)))
+                ;; Check list
+                (when list-obj
+                  (fiveam:is (typep list-obj 'cltpt/org-mode::org-list)))
+                ;; Check table
+                (when table-obj
+                  (fiveam:is (typep table-obj 'cltpt/org-mode::org-table))
+                  (fiveam:is (not (null (search "Name" (cltpt/base:text-object-text table-obj))))))))))))))
+
+(defun test-org-src-block-with-image-result-func ()
+  "Test parsing a src block that generates an image result."
+  (cltpt/base:parse
+   cltpt/org-mode:*org-mode*
+   "#+begin_src python :results file :exports both
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+plt.plot(x, y)
+plt.savefig('plot.png')
+plt.close()
+#+end_src
+
+#+RESULTS:
+[[file:plot.png]]"))
+
+(test test-org-src-block-with-image-result
+  (let ((result (test-org-src-block-with-image-result-func)))
+    (fiveam:is (typep result 'cltpt/base:document))
+    (let ((children (cltpt/base:text-object-children result)))
+      ;; Should have 1 child: src-block (RESULTS is embedded)
+      (fiveam:is (= (length children) 1))
+      
+      ;; Check src-block
+      (let ((src-block (first children)))
+        (fiveam:is (typep src-block 'cltpt/org-mode::org-src-block))
+        (fiveam:is (not (null (search "python" (cltpt/base:text-object-text src-block)))))
+        (fiveam:is (not (null (search "matplotlib" (cltpt/base:text-object-text src-block)))))
+        ;; Check that RESULTS content is embedded in src-block
+        (fiveam:is (not (null (search "RESULTS" (cltpt/base:text-object-text src-block)))))
+        (fiveam:is (not (null (search "plot.png" (cltpt/base:text-object-text src-block)))))))))
+
+(defun test-comprehensive-org-document-func ()
+  "test parsing a comprehensive org document with many features."
+  (cltpt/base:parse
+   cltpt/org-mode:*org-mode*
+   "#+title: Comprehensive Org Document
+#+author: Jane Smith
+#+date: 2024-01-15
+#+email: jane@example.com
+#+options: toc:t num:t
+#+latex_class: article
+#+startup: overview
+
+* Introduction
+This is a comprehensive test document covering many org-mode features.
+
+** Text Formatting
+Here we test *bold*, /italic/, _underline_, =verbatim=, ~code~, +strikethrough+ text.
+
+** Links and URLs
+- Internal link: [[#target-section][Target Section]]
+- External URL: https://www.example.com
+- File link: [[file:document.pdf][PDF Document]]
+- Image link: [[file:image.png][Description]]
+- Email link: [[mailto:user@example.com][Send Email]]
+
+** Lists
+*** Unordered List
+- First item
+- Second item
+  - Nested item 1
+  - Nested item 2
+    - Deeply nested item
+- Third item
+
+*** Ordered List  
+1. First step
+2. Second step
+   1. Sub-step 2.1
+   2. Sub-step 2.2
+3. Third step
+
+*** Description List
+- Term 1 :: Description of term 1
+- Term 2 :: Description of term 2 with [[link][reference]]
+
+** Source Code Blocks
+*** Python Example
+#+begin_src python :results output :exports both
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+print(fibonacci(10))
+#+end_src
+
+#+RESULTS:
+: 55
+
+*** JavaScript Example
+#+begin_src javascript :tangle script.js
+function greet(name) {
+    console.log(\`Hello, \${name}!\`);
+}
+
+greet('World');
+#+end_src
+
+*** LaTeX Example
+#+begin_src latex :exports results
+\\begin{equation}
+\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
+\\end{equation}
+#+end_src
+
+** Mathematical Content
+*** Inline Math
+The equation $E = mc^2$ is famous, and so is $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$.
+
+*** LaTeX Environments
+#+name: integral
+\\begin{equation}
+\\int_{a}^{b} f(x) dx = F(b) - F(a)
+\\end{equation}
+
+#+name: matrix
+\\begin{bmatrix}
+1 & 2 & 3 \\\\
+4 & 5 & 6 \\\\
+7 & 8 & 9
+\\end{bmatrix}
+
+** Tables
+*** Simple Table
+| Name | Age | City |
+|------+-----+------|
+| John | 25  | NYC  |
+| Jane | 30  | LA   |
+| Bob  | 35  | Chicago |
+
+*** Complex Table with Formula
+| Item | Price | Quantity | Total |
+|------+-------+----------+-------|
+| Book | $20   |        2 | $40   |
+| Pen  | $1.5  |       10 | $15   |
+| #TBLFM: $4 = $2 * $3 |
+
+** Timestamps and Scheduling
+*** Deadlines and Scheduling
+- Deadline for project: <2024-02-01 Thu>
+- Meeting scheduled: <2024-01-20 Fri 14:00-15:00>
+- Repeating task: <2024-01-15 Mon ++1w>
+- Time range: <2024-01-01 Mon>--<2024-01-31 Wed>
+
+*** Timestamp Brackets
+- [2024-01-15 Mon] (inactive timestamp)
+- [2024-01-16 Tue 10:00] (inactive with time)
+
+** Tags and Properties
+*** Task with Tags
+*** TODO Write comprehensive documentation :documentation:urgent:
+:PROPERTIES:
+:Effort:   2h
+:Assigned: Jane Smith
+:Due:      2024-02-01
+:END:
+
+*** DONE Review code changes :code:review:
+:PROPERTIES:
+:Effort:   1h
+:Assigned: John Doe
+:END:
+- State \"DONE\" from \"TODO\" [2024-01-15 Mon 10:30]
+
+** Blocks and Export
+*** Quote Block
+#+begin_quote
+This is a blockquote that spans multiple lines
+and demonstrates how org-mode handles quoted text.
+#+end_quote
+
+*** Verse Block
+#+begin_verse
+  Roses are red,
+  Violets are blue,
+  Sugar is sweet,
+  And so are you.
+#+end_verse
+
+*** Center Block
+#+begin_center
+This text is centered
+#+end_center
+
+*** Export Blocks
+#+begin_export html
+<div class=\"custom\">
+  <p>This is custom HTML</p>
+</div>
+#+end_export
+
+#+begin_export latex
+\\customsection{Custom LaTeX Content}
+This will be processed by LaTeX only.
+#+end_export
+
+** Comments and Footnotes
+*** Comments
+# This is a line comment
+This is regular text with a comment inline
+
+*** Footnotes
+This text has a footnote[fn:1].
+
+[fn:1] This is the footnote content.
+
+** Advanced Features
+*** Macros
+#+macro: greeting Hello, $1!
+
+{{{greeting(World)}}}
+
+*** Include Files
+#+include: \"other-file.org\" src lisp
+
+*** Bibliography
+[[cite:author2024]]
+
+** Target Section :target:
+This is the target section referenced from the link above.
+
+** Final Section
+The document ends here with a final *bold* statement."))
+
+;; this test was generated by an llm
+(test test-comprehensive-org-document-parse
+  (let ((result (test-comprehensive-org-document-func)))
+    (fiveam:is (typep result 'cltpt/base:document))
+    (let ((children (cltpt/base:text-object-children result)))
+      ;; Should have 7 top-level keywords + 1 main header = 8 children
+      (fiveam:is (= (length children) 8))
+
+      ;; Check keywords (first 7 children)
+      (let ((title-keyword (first children))
+            (author-keyword (second children))
+            (date-keyword (third children))
+            (email-keyword (fourth children))
+            (options-keyword (fifth children))
+            (latex-class-keyword (sixth children))
+            (startup-keyword (seventh children)))
+
+        ;; Verify keyword types and content
+        (fiveam:is (typep title-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (search "title" (cltpt/base:text-object-text title-keyword)))
+        (fiveam:is (search "Comprehensive Org Document" (cltpt/base:text-object-text title-keyword)))
+
+        (fiveam:is (typep author-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (search "author" (cltpt/base:text-object-text author-keyword)))
+        (fiveam:is (search "Jane Smith" (cltpt/base:text-object-text author-keyword)))
+
+        (fiveam:is (typep date-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (search "date" (cltpt/base:text-object-text date-keyword)))
+
+        (fiveam:is (typep email-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (search "email" (cltpt/base:text-object-text email-keyword)))
+
+        (fiveam:is (typep options-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (search "options" (cltpt/base:text-object-text options-keyword)))
+
+        (fiveam:is (typep latex-class-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (search "latex_class" (cltpt/base:text-object-text latex-class-keyword)))
+
+        (fiveam:is (typep startup-keyword 'cltpt/org-mode::org-keyword))
+        (fiveam:is (search "startup" (cltpt/base:text-object-text startup-keyword))))
+
+      ;; Check main introduction header (8th child)
+      (let ((intro-header (eighth children)))
+        (fiveam:is (typep intro-header 'cltpt/org-mode::org-header))
+        (fiveam:is (search "Introduction" (cltpt/base:text-object-text intro-header)))
+
+        (let ((sub-headers (cltpt/base:text-object-children intro-header)))
+          ;; Should have 13 sub-headers under Introduction
+          (fiveam:is (= (length sub-headers) 13))
+
+          ;; Check Text Formatting header (1st sub-header)
+          (let ((text-format-header (first sub-headers)))
+            (fiveam:is (typep text-format-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Text Formatting" (cltpt/base:text-object-text text-format-header)))
+            (let ((text-children (cltpt/base:text-object-children text-format-header)))
+              (fiveam:is (> (length text-children) 0))
+              ;; Should have org-emph, org-italic, org-inline-code
+              (fiveam:is (find-if (lambda (child) (typep child 'cltpt/org-mode::org-emph)) text-children))
+              (fiveam:is (find-if (lambda (child) (typep child 'cltpt/org-mode::org-italic)) text-children))
+              (fiveam:is (find-if (lambda (child) (typep child 'cltpt/org-mode::org-inline-code)) text-children))))
+
+          ;; Check Links and URLs header (2nd sub-header)
+          (let ((links-header (second sub-headers)))
+            (fiveam:is (typep links-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Links and URLs" (cltpt/base:text-object-text links-header)))
+            (let ((links-children (cltpt/base:text-object-children links-header)))
+              (fiveam:is (= (length links-children) 1))
+              (let ((org-list (first links-children)))
+                (fiveam:is (typep org-list 'cltpt/org-mode::org-list))
+                (let ((list-children (cltpt/base:text-object-children org-list)))
+                  ;; Should have web-link and multiple org-link elements
+                  (fiveam:is (find-if (lambda (child) (typep child 'cltpt/org-mode::web-link)) list-children))
+                  (fiveam:is (> (count-if (lambda (child) (typep child 'cltpt/org-mode::org-link)) list-children) 0))))))
+
+          ;; Check Lists header (3rd sub-header) with nested sub-headers
+          (let ((lists-header (third sub-headers)))
+            (fiveam:is (typep lists-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Lists" (cltpt/base:text-object-text lists-header)))
+            (let ((list-sub-headers (cltpt/base:text-object-children lists-header)))
+              (fiveam:is (= (length list-sub-headers) 3))
+              ;; Check Unordered List, Ordered List, Description List
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Unordered List" (cltpt/base:text-object-text child))))
+                                  list-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Ordered List" (cltpt/base:text-object-text child))))
+                                  list-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Description List" (cltpt/base:text-object-text child))))
+                                  list-sub-headers))))
+
+          ;; Check Source Code Blocks header (4th sub-header)
+          (let ((source-header (fourth sub-headers)))
+            (fiveam:is (typep source-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Source Code Blocks" (cltpt/base:text-object-text source-header)))
+            (let ((source-sub-headers (cltpt/base:text-object-children source-header)))
+              (fiveam:is (= (length source-sub-headers) 3))
+              ;; Should have Python, JavaScript, LaTeX examples
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Python Example" (cltpt/base:text-object-text child))))
+                                  source-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "JavaScript Example" (cltpt/base:text-object-text child))))
+                                  source-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "LaTeX Example" (cltpt/base:text-object-text child))))
+                                  source-sub-headers))
+              ;; Check that each has src-block
+              (let ((python-header (find-if (lambda (child)
+                                              (search "Python Example" (cltpt/base:text-object-text child)))
+                                            source-sub-headers)))
+                (when python-header
+                  (let ((python-children (cltpt/base:text-object-children python-header)))
+                    (fiveam:is (= (length python-children) 1))
+                    (fiveam:is (typep (first python-children) 'cltpt/org-mode::org-src-block)))))))
+
+          ;; Check Mathematical Content header (5th sub-header)
+          (let ((math-header (fifth sub-headers)))
+            (fiveam:is (typep math-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Mathematical Content" (cltpt/base:text-object-text math-header)))
+            (let ((math-sub-headers (cltpt/base:text-object-children math-header)))
+              (fiveam:is (= (length math-sub-headers) 2))
+              ;; Should have Inline Math and LaTeX Environments
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Inline Math" (cltpt/base:text-object-text child))))
+                                  math-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "LaTeX Environments" (cltpt/base:text-object-text child))))
+                                  math-sub-headers))
+              ;; Check LaTeX environments
+              (let ((latex-env-header (find-if (lambda (child)
+                                                 (search "LaTeX Environments" (cltpt/base:text-object-text child)))
+                                               math-sub-headers)))
+                (when latex-env-header
+                  (let ((latex-children (cltpt/base:text-object-children latex-env-header)))
+                    (fiveam:is (= (length latex-children) 2))
+                    ;; Should have org-latex-env with org-keyword children
+                    (fiveam:is (every (lambda (child)
+                                        (typep child 'cltpt/org-mode::org-latex-env))
+                                      latex-children))
+                    (let ((first-latex (first latex-children)))
+                      (fiveam:is (typep first-latex 'cltpt/org-mode::org-latex-env))
+                      (let ((latex-inner-children (cltpt/base:text-object-children first-latex)))
+                        (fiveam:is (= (length latex-inner-children) 1))
+                        (fiveam:is (typep (first latex-inner-children) 'cltpt/org-mode::org-keyword)))))))))
+
+          ;; Check Tables header (6th sub-header)
+          (let ((tables-header (sixth sub-headers)))
+            (fiveam:is (typep tables-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Tables" (cltpt/base:text-object-text tables-header)))
+            (let ((tables-sub-headers (cltpt/base:text-object-children tables-header)))
+              (fiveam:is (= (length tables-sub-headers) 2))
+              ;; Should have Simple Table and Complex Table
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Simple Table" (cltpt/base:text-object-text child))))
+                                  tables-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Complex Table" (cltpt/base:text-object-text child))))
+                                  tables-sub-headers))
+              ;; Check that each has org-table
+              (let ((simple-table (find-if (lambda (child)
+                                             (search "Simple Table" (cltpt/base:text-object-text child)))
+                                           tables-sub-headers)))
+                (when simple-table
+                  (let ((table-children (cltpt/base:text-object-children simple-table)))
+                    (fiveam:is (= (length table-children) 1))
+                    (fiveam:is (typep (first table-children) 'cltpt/org-mode::org-table)))))))
+
+          ;; Check Timestamps and Scheduling header (7th sub-header)
+          (let ((timestamps-header (seventh sub-headers)))
+            (fiveam:is (typep timestamps-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Timestamps and Scheduling" (cltpt/base:text-object-text timestamps-header)))
+            (let ((timestamp-sub-headers (cltpt/base:text-object-children timestamps-header)))
+              (fiveam:is (= (length timestamp-sub-headers) 2))
+              ;; Should have Deadlines and Timestamp Brackets
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Deadlines" (cltpt/base:text-object-text child))))
+                                  timestamp-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Timestamp Brackets" (cltpt/base:text-object-text child))))
+                                  timestamp-sub-headers))))
+
+          ;; Check Tags and Properties header (8th sub-header)
+          (let ((tags-header (eighth sub-headers)))
+            (fiveam:is (typep tags-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Tags and Properties" (cltpt/base:text-object-text tags-header)))
+            (let ((tags-sub-headers (cltpt/base:text-object-children tags-header)))
+              (fiveam:is (= (length tags-sub-headers) 3))
+              ;; Should have Task with Tags, TODO task, DONE task
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "TODO" (cltpt/base:text-object-text child))))
+                                  tags-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "DONE" (cltpt/base:text-object-text child))))
+                                  tags-sub-headers))
+              ;; Check property drawer
+              (let ((todo-header (find-if (lambda (child)
+                                            (search "TODO" (cltpt/base:text-object-text child)))
+                                          tags-sub-headers)))
+                (when todo-header
+                  (let ((todo-children (cltpt/base:text-object-children todo-header)))
+                    (fiveam:is (= (length todo-children) 1))
+                    (fiveam:is (typep (first todo-children) 'cltpt/org-mode::org-prop-drawer)))))))
+
+          ;; Check Blocks and Export header (9th sub-header)
+          (let ((blocks-header (ninth sub-headers)))
+            (fiveam:is (typep blocks-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Blocks and Export" (cltpt/base:text-object-text blocks-header)))
+            (let ((blocks-sub-headers (cltpt/base:text-object-children blocks-header)))
+              (fiveam:is (= (length blocks-sub-headers) 4))
+              ;; Should have Quote, Verse, Center, Export blocks
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Quote Block" (cltpt/base:text-object-text child))))
+                                  blocks-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Verse Block" (cltpt/base:text-object-text child))))
+                                  blocks-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Center Block" (cltpt/base:text-object-text child))))
+                                  blocks-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Export Blocks" (cltpt/base:text-object-text child))))
+                                  blocks-sub-headers))
+              ;; Check block types
+              (let ((quote-header (find-if (lambda (child)
+                                             (search "Quote Block" (cltpt/base:text-object-text child)))
+                                           blocks-sub-headers)))
+                (when quote-header
+                  (let ((quote-children (cltpt/base:text-object-children quote-header)))
+                    (fiveam:is (= (length quote-children) 1))
+                    (fiveam:is (typep (first quote-children) 'cltpt/org-mode::org-block)))))
+              (let ((export-header (find-if (lambda (child)
+                                              (search "Export Blocks" (cltpt/base:text-object-text child)))
+                                            blocks-sub-headers)))
+                (when export-header
+                  (let ((export-children (cltpt/base:text-object-children export-header)))
+                    (fiveam:is (= (length export-children) 2))
+                    (fiveam:is (every (lambda (child)
+                                        (typep child 'cltpt/org-mode::org-export-block))
+                                      export-children)))))))
+
+          ;; Check Comments and Footnotes header (10th sub-header)
+          (let ((comments-header (tenth sub-headers)))
+            (fiveam:is (typep comments-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Comments and Footnotes" (cltpt/base:text-object-text comments-header)))
+            (let ((comments-sub-headers (cltpt/base:text-object-children comments-header)))
+              (fiveam:is (= (length comments-sub-headers) 2))
+              ;; Should have Comments and Footnotes
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Comments" (cltpt/base:text-object-text child))))
+                                  comments-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Footnotes" (cltpt/base:text-object-text child))))
+                                  comments-sub-headers))
+              ;; Check comment
+              (let ((comment-header (find-if (lambda (child)
+                                               (search "Comments" (cltpt/base:text-object-text child)))
+                                             comments-sub-headers)))
+                (when comment-header
+                  (let ((comment-children (cltpt/base:text-object-children comment-header)))
+                    (fiveam:is (= (length comment-children) 1))
+                    (fiveam:is (typep (first comment-children) 'cltpt/org-mode::org-comment)))))))
+
+          ;; Check Advanced Features header (11th sub-header)
+          (let ((advanced-header (nth 10 sub-headers)))
+            (fiveam:is (typep advanced-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Advanced Features" (cltpt/base:text-object-text advanced-header)))
+            (let ((advanced-sub-headers (cltpt/base:text-object-children advanced-header)))
+              (fiveam:is (= (length advanced-sub-headers) 3))
+              ;; Should have Macros, Include, Bibliography
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Macros" (cltpt/base:text-object-text child))))
+                                  advanced-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Include" (cltpt/base:text-object-text child))))
+                                  advanced-sub-headers))
+              (fiveam:is (find-if (lambda (child)
+                                    (and (typep child 'cltpt/org-mode::org-header)
+                                         (search "Bibliography" (cltpt/base:text-object-text child))))
+                                  advanced-sub-headers))
+              ;; Check macro keyword
+              (let ((macro-header (find-if (lambda (child)
+                                             (search "Macros" (cltpt/base:text-object-text child)))
+                                           advanced-sub-headers)))
+                (when macro-header
+                  (let ((macro-children (cltpt/base:text-object-children macro-header)))
+                    (fiveam:is (= (length macro-children) 1))
+                    (fiveam:is (typep (first macro-children) 'cltpt/org-mode::org-keyword))
+                    (fiveam:is (search "macro" (cltpt/base:text-object-text (first macro-children)))))))))
+
+          ;; Check Target Section header (12th sub-header)
+          (let ((target-header (nth 11 sub-headers)))
+            (fiveam:is (typep target-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Target Section" (cltpt/base:text-object-text target-header))))
+
+          ;; Check Final Section header (13th sub-header)
+          (let ((final-header (nth 12 sub-headers)))
+            (fiveam:is (typep final-header 'cltpt/org-mode::org-header))
+            (fiveam:is (search "Final Section" (cltpt/base:text-object-text final-header)))
+            (let ((final-children (cltpt/base:text-object-children final-header)))
+              (fiveam:is (= (length final-children) 1))
+              (fiveam:is (typep (first final-children) 'cltpt/org-mode::org-emph)))))))))
+
+(defun compare-tree-types (actual-tree expected-types-tree &optional (path "root"))
+  "Iterate through two trees simultaneously and check if types match.
+ACTUAL-TREE is the parsed text-object tree.
+EXPECTED-TYPES-TREE is a cons tree of type symbols.
+Uses the cltpt/tree interface for both trees.
+Returns a list of error messages if types don't match."
+  (let ((errors))
+    (labels
+      ((safe-tree-children (node)
+         "Safely get children, handling cases where tree-children might not be applicable"
+         (handler-case
+             (cltpt/tree:tree-children node)
+           (error () nil)))
+
+       (compare-nodes (actual-node expected-node current-path)
+         ;; Check if we have both nodes
+         (cond
+           ;; Both are nil - end of branch
+           ((and (null actual-node) (null expected-node))
+            nil)
+
+           ;; One is nil but not the other - structure mismatch
+           ((null actual-node)
+            (push (format nil "~a: Expected node of type ~a, but got nil"
+                         current-path (cltpt/tree:tree-value expected-node)) errors))
+
+           ((null expected-node)
+            (push (format nil "~a: Got unexpected node of type ~a"
+                         current-path (type-of actual-node)) errors))
+
+           ;; Both exist - compare types and recurse
+           (t
+            ;; Get values and children using tree interface
+            (let ((actual-type (type-of actual-node))
+                  (actual-children (safe-tree-children actual-node))
+                  (expected-type (cltpt/tree:tree-value expected-node))
+                  (expected-children (safe-tree-children expected-node)))
+
+              ;; Compare types - actual-type is a symbol, expected-type comes from tree-value
+              (unless (if (symbolp expected-type)
+                        (equal actual-type expected-type)  ; Both symbols
+                        (string= (symbol-name actual-type) expected-type))  ; Symbol vs string
+                (push (format nil "~a: Expected type ~a, got ~a"
+                             current-path expected-type actual-type) errors))
+
+              ;; Compare children count
+              (unless (= (length actual-children) (length expected-children))
+                (push (format nil "~a: Expected ~d children, got ~d"
+                             current-path (length expected-children) (length actual-children)) errors))
+
+              ;; Recurse on children - iterate through both trees simultaneously
+              (loop for actual-child in actual-children
+                    for expected-child in expected-children
+                    for i from 0
+                    do (compare-nodes actual-child expected-child
+                                    (format nil "~a[~d]" current-path i))))))))
+
+      (compare-nodes actual-tree expected-types-tree path))
+    (nreverse errors)))
+
+(defun create-expected-types-tree ()
+  "Create a cons tree of expected types for the comprehensive org document.
+This exactly matches the actual parsed tree structure."
+  (cons 'cltpt/org-mode::org-document
+        (append
+         ;; 7 keywords at the top level (as cons cells with no children)
+         (list (cons 'cltpt/org-mode::org-keyword nil)
+               (cons 'cltpt/org-mode::org-keyword nil)
+               (cons 'cltpt/org-mode::org-keyword nil)
+               (cons 'cltpt/org-mode::org-keyword nil)
+               (cons 'cltpt/org-mode::org-keyword nil)
+               (cons 'cltpt/org-mode::org-keyword nil)
+               (cons 'cltpt/org-mode::org-keyword nil))
+         ;; Main header that contains all sub-headers (13 of them)
+         (list
+          (cons 'cltpt/org-mode::org-header
+                (list
+                 ;; 1. Text Formatting section
+                 (cons 'cltpt/org-mode::org-header
+                       (list 'cltpt/org-mode::org-emph
+                             'cltpt/org-mode::org-italic
+                             'cltpt/org-mode::org-inline-code))
+                 ;; 2. Links and Images section
+                 (cons 'cltpt/org-mode::org-header
+                       (list (cons 'cltpt/org-mode::org-list
+                                   (list 'cltpt/org-mode::web-link
+                                         'cltpt/org-mode::org-link
+                                         'cltpt/org-mode::org-link
+                                         'cltpt/org-mode::org-link))))
+                 ;; 3. Lists section (3 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Unordered Lists
+                        (cons 'cltpt/org-mode::org-header
+                              (list (cons 'cltpt/org-mode::org-list
+                                          (list (cons 'cltpt/org-mode::org-list
+                                                      (list (cons 'cltpt/org-mode::org-list '())))))))
+                        ;; Ordered Lists
+                        (cons 'cltpt/org-mode::org-header
+                              (list (cons 'cltpt/org-mode::org-list
+                                          (list (cons 'cltpt/org-mode::org-list '())))))
+                        ;; Description Lists
+                        (cons 'cltpt/org-mode::org-header
+                              (list (cons 'cltpt/org-mode::org-list '())))))
+                 ;; 4. Source Code section (3 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Python
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-src-block))
+                        ;; JavaScript
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-src-block))
+                        ;; LaTeX
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-src-block))))
+                 ;; 5. Mathematics section (2 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Inline Math
+                        (cons 'cltpt/org-mode::org-header '())
+                        ;; LaTeX Environments
+                        (cons 'cltpt/org-mode::org-header
+                              (list
+                               ;; First LaTeX environment with keyword
+                               (cons 'cltpt/org-mode::org-latex-env
+                                     (list 'cltpt/org-mode::org-keyword))
+                               ;; Second LaTeX environment with keyword
+                               (cons 'cltpt/org-mode::org-latex-env
+                                     (list 'cltpt/org-mode::org-keyword))))))
+                 ;; 6. Tables section (2 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Simple Table
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-table))
+                        ;; Complex Table
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-table))))
+                 ;; 7. Timestamps section (2 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Deadline
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-list))
+                        ;; Timestamps
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-list))))
+                 ;; 8. Tags and Tasks section (3 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Task with tags
+                        (cons 'cltpt/org-mode::org-header '())
+                        ;; TODO with properties drawer
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-prop-drawer))
+                        ;; DONE with properties drawer and list
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-prop-drawer
+                                    'cltpt/org-mode::org-list))))
+                 ;; 9. Blocks and Quotes section (4 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Quote Block
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-block))
+                        ;; Verse Block
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-block))
+                        ;; Center Block
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-block))
+                        ;; Export Blocks (2 of them)
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-export-block
+                                    'cltpt/org-mode::org-export-block))))
+                 ;; 10. Comments section (2 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Comments
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-comment))
+                        ;; Footnotes
+                        (cons 'cltpt/org-mode::org-header '())))
+                 ;; 11. Advanced Features section (3 sub-headers)
+                 (cons 'cltpt/org-mode::org-header
+                       (list
+                        ;; Macros
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-keyword))
+                        ;; Include
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-keyword))
+                        ;; Bibliography
+                        (cons 'cltpt/org-mode::org-header
+                              (list 'cltpt/org-mode::org-link))))
+                 ;; 12. Target Search section
+                 (cons 'cltpt/org-mode::org-header '())
+                 ;; 13. Final Section
+                 (cons 'cltpt/org-mode::org-header
+                       (list 'cltpt/org-mode::org-emph))))))))
+
+(defun test-comprehensive-org-document-parse ()
+  "test parsing of comprehensive org document and validate structure"
+  (let* ((doc (test-comprehensive-org-document-func))
+         (expected-tree (create-expected-types-tree))
+         (errors (compare-tree-types doc expected-tree)))
+    (if errors
+        (progn
+          (format t "~&tree type validation failed:~%")
+          (loop for error in errors do (format t "  ~a~%" error))
+          nil)
+        t)))
+
+(test comprehensive-org-document-structure-validation
+  (let ((doc (test-comprehensive-org-document-func)))
+    (format t "~&actual tree structure (first 3 levels):~%")
+    (cltpt/tree:tree-show doc)
+    (fiveam:is (test-comprehensive-org-document-parse))))
+
 (defun run-org-mode-tests ()
   "Run all org-mode rules tests."
-  (format t "~&Running org-mode tests...~%")
+  (format t "~&running org-mode tests...~%")
   (let ((results (run! 'org-mode-suite)))
     (unless results
       (explain! results))))
