@@ -1426,7 +1426,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
         org-table
         org-block
         org-drawer
-        ,(copy-rule *org-link-rule* 'org-link)))
+        ,(copy-rule *org-link-rule* 'org-link
+                    :type 'org-link)))
       :id results-content))
     :id results))
 (defvar *org-src-block-no-kw-rule*
