@@ -50,10 +50,6 @@
              (simplify-match (car m))))
     (cltpt/tree:tree-map match #'my-simplify)))
 
-(defun compare-text-object-structure (obj1 obj2)
-  "Compare two text-object structures for equality."
-  (equalp obj1 obj2))
-
 (defun compare-match-loosely (match1 match2)
   (let ((match11 (simplify-match match1))
         (match22 (simplify-match match2)))
@@ -1252,6 +1248,15 @@ some math here
                                  (cltpt/combinator::literal ":")
                                  (cltpt/combinator::all-but "[]")
                                  (cltpt/combinator::literal "]]")))
+      :id org-link))))
+
+(defun test-parse-any-func-2 ()
+  (cltpt/combinator:parse
+   "[[hello:hey][wow]]"
+   (list
+    `(:pattern (cltpt/combinator::any
+                (:pattern (cltpt/combinator:literal "[")
+                 :id my-literal))
       :id org-link))))
 
 (test test-parse-any

@@ -81,7 +81,12 @@
   (loop for one in all
         for match = (match-rule-normalized ctx one str pos)
         do (when match
-             (return-from any match))))
+             (return-from any
+               (cons (list :begin (getf (car match) :begin)
+                           :end (getf (car match) :end)
+                           :str str
+                           :ctx ctx)
+                     (list match))))))
 
 (defun literal (ctx str pos substr)
   "match a literal string."
