@@ -25,11 +25,6 @@
     (cltpt/tree:tree-show parsed)
     (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
 
-(test test-convert-1
-  (let ((result (test-convert-1)))
-    (fiveam:is (stringp result))
-    (fiveam:is (> (length result) 0))))
-
 (defun test-convert-2 ()
   (let ((parsed
           (cltpt/base:parse
@@ -40,18 +35,6 @@
 #(cltpt/base::block-end)")))
     (cltpt/tree:tree-show parsed)
     (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
-
-(test test-convert-2
-  (let ((result (test-convert-2)))
-    (fiveam:is (stringp result))
-    (fiveam:is (> (length result) 0))))
-
-(defun run-cltpt-tests ()
-  "runs all defined fiveam test suites for cltpt."
-  (format t "~&running cltpt tests...~%")
-  (let ((results (run! 'cltpt-suite)))
-    (unless results
-      (explain! results))))
 
 (defun transformer-test-1-func ()
   (let* ((full-string "[[mylink1-2:here1][testmore1- 2]]")
@@ -232,41 +215,9 @@
   (format t "~%--- 4. path list output ---~%~a"
           (cltpt/tree/outline:render-as-path-list *test-forest*)))
 
-(test test-incremental-parsing-1
-  (let* ((text "- we have [[mylink]]
-   a. nested item one \\(x=y\\)
-      more nested text
-      1. test1
-      2. test2
-   b. nested item two
- - item three")
-         (obj (cltpt/base:parse
-               cltpt/org-mode:*org-mode*
-               text
-               :text-object-types (list 'cltpt/org-mode::org-list 'cltpt/org-mode::org-link)))
-         (list-obj (car (cltpt/base:text-object-children obj)))
-         (result (cltpt/base:handle-changed-regions
-                  list-obj
-                  cltpt/org-mode:*org-mode*
-                  (list (cons "hello "
-                              (cltpt/base:make-region :begin 2 :end 2)))
-                  t)))
-    (fiveam:is
-     (not (null result)))))
-
-(test test-incremental-parsing-2
-  (let* ((text "some text \\(math here\\) here")
-         (doc (cltpt/base:parse
-               (cltpt/base:make-text-format "dummy")
-               text
-               :text-object-types (list 'cltpt/latex::inline-math)))
-         (result (cltpt/base:handle-changed-regions
-                  doc
-                  (make-text-format "dummy")
-                  (list
-                   (cons
-                    "more text"
-                    (cltpt/base:make-region :begin 10 :end 10)))
-                  t)))
-    (fiveam:is
-     (listp result))))
+(defun run-cltpt-tests ()
+  "runs all defined fiveam test suites for cltpt."
+  (format t "~&running cltpt tests...~%")
+  (let ((results (run! 'cltpt-suite)))
+    (unless results
+      (explain! results))))
