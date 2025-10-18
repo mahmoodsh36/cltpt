@@ -146,62 +146,6 @@ returns (values row-node, next-line-start-offset)."
                   last-successful-pos))
         (values nil pos))))
 
-(defun to-html-table (parse-tree)
-  "converts a table parse tree to an equivalent HTML table."
-  (when (and parse-tree (eq (getf (car parse-tree) :id) 'org-table))
-    (let* ((children (cdr parse-tree))
-           (header-p (and (> (length children) 1)
-                          (eq (getf (car (second children)) :id)
-                              'table-hrule))))
-      (with-output-to-string (s)
-        (write-string "<table>" s)
-        (loop for row-node in children
-              for is-first = t then nil
-              do (case (getf (car row-node) :id)
-                   ('table-row
-                    (write-string "<tr>" s)
-                    (loop for cell-node in (cdr row-node)
-                          do (format s
-                                     "<~a>~a</~a>"
-                                     (if (and is-first header-p) "th" "td")
-                                     (cltpt/combinator:match-text
-                                      (car cell-node))
-                                     (if (and is-first header-p) "th" "td")))
-                    (write-string "</tr>" s))
-                   ('table-hrule (when is-first (write-string "" s)))))
-        (write-string "</table>" s)))))
-
-(defun to-latex-table (parse-tree)
-  "converts a table parse tree to a latex table."
-  (when (and parse-tree (eq (getf (car parse-tree) :id) 'org-table))
-    (let* ((children (cdr parse-tree))
-           (first-data-row
-             (find 'table-row
-                   children
-                   :key (lambda (n) (getf (car n) :id))))
-           (num-cols (if first-data-row
-                         (length (cdr first-data-row))
-                         1))
-           (col-spec (format nil
-                             "{ |~{~a~^|~}| }"
-                             (loop repeat num-cols collect "l"))))
-      (with-output-to-string (s)
-        (format s "\\begin{tabular}~a~%" col-spec)
-        (format s "\\hline~%")
-        (loop for row-node in children
-              do (case (getf (car row-node) :id)
-                   ('table-row
-                    (format s
-                            "~{~a~^ & ~} \\\\~%"
-                            (mapcar
-                             (lambda (cell)
-                               (cltpt/combinator:match-text (car cell)))
-                             (cdr row-node))))
-                   ('table-hrule
-                    (format s "\\hline~%"))))
-        (format s "\\hline~%")
-        (format s "\\end{tabular}")))))
-
 (defun reformat-table (parse-tree)
   "takes a table parse tree and returns a new string with all columns
 
