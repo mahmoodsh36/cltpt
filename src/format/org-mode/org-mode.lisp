@@ -1040,7 +1040,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
            (parsed (org-table-matcher nil new-txt 0)))
       ;; remove the children so that the `convert-tree' doesnt try to
       ;; 'handle' them which would cause issues since we changed the text.
-      (setf (cltpt/base:text-object-children obj) nil)
+      ;; wait actually this isnt needed if we have :recurse nil
+      ;; (setf (cltpt/base:text-object-children obj) nil)
       (cond
         ((eq backend cltpt/latex:*latex*)
          (list :text (to-latex-table parsed)
@@ -1052,6 +1053,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :recurse nil
                :reparse nil
                :escape nil))))))
+
+;; (defmethod cltpt/base:text-object-convert ((obj org-table)
+;;                                            (backend cltpt/base:text-format))
+;;   )
 
 (defclass org-document (cltpt/base:document)
   ()
