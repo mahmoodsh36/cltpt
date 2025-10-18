@@ -722,10 +722,10 @@ The surrounding whitespace is not consumed."
            (or (>= pos (length str))
                (whitespace-p (char str pos)))))
     (let ((rule-with-succeeding-check
-            `(followed-by ,rule is-succeeded-by-whitespace-p)))
+            `(followed-by ,rule ,#'is-succeeded-by-whitespace-p)))
       (match-rule ctx
                   `(when-match
                     ,rule-with-succeeding-check
-                    is-preceded-by-whitespace-p)
+                    ,#'is-preceded-by-whitespace-p)
                   str
                   pos))))
