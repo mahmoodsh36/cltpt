@@ -32,6 +32,4 @@ my equation here
 #+end_src
 
 #+RESULTS:
-#+begin_export html
-<iframe src="/KYJ3p2o.html" style="aspect-ratio: 1 / 1; width: 100%;"></iframe>
-#+end_export
+| Somewhere Along The Highway | Salvation | Eternal Kingdom | Vertikal | The Beyond | Mariner | Cult of Luna | A Dawn to Fear | The Raging River | The Long Road North | Vertikal I & II | Cygnus (Remix) | Vertikal II | Three Bridges | Cold Burn | The Silent Man | (null) | Lay Your Head to Rest | Into the Night | Live at La Gaîté Lyrique: Paris | Råångest | A Greater Call | Live At the Scala | Bodies/Recluse | The Wreck of S.S. Needle | Cult of Luna 7" | S/T | undefined | Self Titled | Vertikal I  II | Bodies/Recluse VLS | Chop Your Own Head Off | Bodies / Recluse | Vertikal II (EP) | The Flow Reversed | Fire Was Born | Chevron | Bodies / Recluse [Vinyl] | Cult of Luna [Vinyl] | Salvation (2004) | Split [Vinyl] | Hydra Head | Years In A Day | Marching to the Heartbeats / Dim (Live) | Cult of Luna (2003 Reissue) | Finland (Live) | Eviga Riket | Svenska Grammofonstudion 2008-10-19 | Split | Cult of Luna EP |
