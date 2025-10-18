@@ -1223,6 +1223,16 @@ some math here
        ("123" "456" "789")
        ("end" "row" "test")))))
 
+(defun test-parse-table-func-2 ()
+  (let ((table "| head1 | head2 | head3 |
++------+-------+-------+
+|  foo |  bar  |  baz  |
+| 123  | 456   | 789   |
++------+-------+-------+
+| end  | row   | test  |"
+               ))
+    (cltpt/org-mode::org-table-matcher nil table 0)))
+
 (test test-parse-table
   (fiveam:is (test-parse-table-func)))
 
