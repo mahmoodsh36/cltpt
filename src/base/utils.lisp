@@ -125,7 +125,9 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
     (vector 'vector)
     (list 'list)))
 
-(defun concat (seqs)
+;; note that `type' is still necessary in some cases because NIL can be
+;; ambiguous. should we return an empty string? and empty list? its unclear.
+(defun concat (seqs &optional type)
   "run `concatenate', automatically detect type of sequence using `seq-type'.
 
 the type of sequence to return is determined by the first sequences in the list of sequences
@@ -136,7 +138,8 @@ the type of sequence to return is determined by the first sequences in the list 
   \"hihey\"
   CL-USER> (concatenate-type-aware '(#(1 2 3) #(10)))
   #(1 2 3 10)"
-  (apply #'concatenate (list* (seq-type (first seqs)) seqs)))
+  (apply #'concatenate
+         (list* (or type (seq-type (first seqs))) seqs)))
 
 (defun str-prune (string max-length &optional (omission "..."))
   "truncates a string to a maximum length, appending an omission string.

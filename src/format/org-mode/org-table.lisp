@@ -182,7 +182,8 @@ returns (values row-node, next-line-start-offset)."
            (num-cols (if first-data-row
                          (length (cdr first-data-row))
                          1))
-           (col-spec (format nil "{ |~{~a~^|~}| }"
+           (col-spec (format nil
+                             "{ |~{~a~^|~}| }"
                              (loop repeat num-cols collect "l"))))
       (with-output-to-string (s)
         (format s "\\begin{tabular}~a~%" col-spec)
@@ -190,10 +191,12 @@ returns (values row-node, next-line-start-offset)."
         (loop for row-node in children
               do (case (getf (car row-node) :id)
                    ('table-row
-                    (format s "~{~a~^ & ~} \\\\~%"
-                            (mapcar (lambda (cell)
-                                      (cltpt/combinator:match-text (car cell)))
-                                    (cdr row-node))))
+                    (format s
+                            "~{~a~^ & ~} \\\\~%"
+                            (mapcar
+                             (lambda (cell)
+                               (cltpt/combinator:match-text (car cell)))
+                             (cdr row-node))))
                    ('table-hrule
                     (format s "\\hline~%"))))
         (format s "\\hline~%")

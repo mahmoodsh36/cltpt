@@ -12,6 +12,7 @@
    :separated-atleast-one :all-but-whitespace :handle-rule-string
    :all-upto :all-upto-included :succeeded-by :all-upto-without
    :context-rules :consec-with-optional :compile-rule-string
+   :between-whitespace
 
    :find-submatch :find-submatch-all :find-submatch-last :match-text
    ))
@@ -55,6 +56,10 @@
                     (when node-id
                       (setf (gethash node-id rule-hash) node)))))))
     ctx))
+
+(defun whitespace-p (char)
+  "Predicate to check if a character is whitespace (space, newline, or tab)."
+  (member char '(#\space #\newline #\tab)))
 
 (defmethod context-rule-by-id ((ctx context) rule-id)
   (gethash rule-id (context-rule-hash ctx)))
@@ -705,3 +710,22 @@ but if they don't match, parsing continues without them."
                 :str str
                 :ctx ctx)
           (nreverse matches))))
+
+(defun between-whitespace (ctx str pos rule)
+  "a combinator that uses when-match to match a RULE only if the match
+is surrounded by whitespace or the boundaries of the string.
+The surrounding whitespace is not consumed."
+  (flet ((is-preceded-by-whitespace-p (ctx str pos)
+           (or (zerop pos)
+               (whitespace-p (char str (1- pos)))))
+         (is-succeeded-by-whitespace-p (ctx str pos)
+           (or (>= pos (length str))
+               (whitespace-p (char str pos)))))
+    (let ((rule-with-succeeding-check
+            `(followed-by ,rule is-succeeded-by-whitespace-p)))
+      (match-rule ctx
+                  `(when-match
+                    ,rule-with-succeeding-check
+                    is-preceded-by-whitespace-p)
+                  str
+                  pos))))

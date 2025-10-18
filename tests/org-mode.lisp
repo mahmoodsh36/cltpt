@@ -1489,7 +1489,8 @@ some more text"))
                          :id keyword)))
          (rules
            `((cltpt/combinator::pair
-              (:pattern (cltpt/combinator::unescaped (cltpt/combinator::literal "*"))
+              (:pattern
+               (cltpt/combinator::unescaped (cltpt/combinator::literal "*"))
                :id openingg)
               (:pattern (cltpt/combinator::literal "*")
                :id endingg)
@@ -1581,7 +1582,7 @@ and a final #tag3"
     (cltpt/combinator::scan-all-rules
      nil
      "#tag1 is on line 1
- this is not a match: #tag2
+this is not a match: #tag2
 #tag3 is on line 3"
      (list rule1))))
 
@@ -1710,12 +1711,10 @@ my equation here
 (defun test-org-latex-env-1 ()
   (cltpt/base:parse
    cltpt/org-mode:*org-mode*
-   "
-#+name: test-name
+   "#+name: test-name
 \\begin{equation}
 my equation here
-\\end{equation}
-"))
+\\end{equation}"))
 
 (test test-org-latex-env-1
   (let ((result (test-org-latex-env-1)))
@@ -1729,10 +1728,10 @@ my equation here
         (let ((latex-children (cltpt/base:text-object-children latex-env)))
           (fiveam:is (>= (length latex-children) 1))
           ;; Find the name keyword and latex content
-          (let ((name-keyword (find-if (lambda (child) 
+          (let ((name-keyword (find-if (lambda (child)
                                          (typep child 'cltpt/org-mode::org-keyword))
                                        latex-children))
-                (latex-env-content (find-if (lambda (child) 
+                (latex-env-content (find-if (lambda (child)
                                               (typep child 'cltpt/latex::latex-env))
                                             latex-children)))
             ;; Check the name keyword
@@ -1904,7 +1903,7 @@ plt.close()
             (let ((image-children (cltpt/base:text-object-children image-header)))
               (fiveam:is (> (length image-children) 0))
               ;; Find the src-block among children
-              (let ((src-block (find-if (lambda (child) 
+              (let ((src-block (find-if (lambda (child)
                                           (typep child 'cltpt/org-mode::org-src-block))
                                         image-children)))
                 (fiveam:is (not (null src-block)))
@@ -1912,14 +1911,14 @@ plt.close()
                   (fiveam:is (not (null (search "matplotlib" (cltpt/base:text-object-text src-block)))))
                   ;; Check if RESULTS content is either in src-block or separate
                   (let ((has-results (or (not (null (search "RESULTS" (cltpt/base:text-object-text src-block))))
-                                         (find-if (lambda (child) 
+                                         (find-if (lambda (child)
                                                     (and (not (typep child 'cltpt/org-mode::org-src-block))
                                                          (search "RESULTS" (cltpt/base:text-object-text child))))
                                                   image-children))))
                     (fiveam:is (not (null has-results)))
                     ;; Check for plot.png in either src-block or any child
                     (let ((has-plot (or (not (null (search "plot.png" (cltpt/base:text-object-text src-block))))
-                                        (find-if (lambda (child) 
+                                        (find-if (lambda (child)
                                                    (search "plot.png" (cltpt/base:text-object-text child)))
                                                  image-children))))
                       (fiveam:is (not (null has-plot)))))))))
@@ -1977,7 +1976,7 @@ plt.close()
     (let ((children (cltpt/base:text-object-children result)))
       ;; Should have 1 child: src-block (RESULTS is embedded)
       (fiveam:is (= (length children) 1))
-      
+
       ;; Check src-block
       (let ((src-block (first children)))
         (fiveam:is (typep src-block 'cltpt/org-mode::org-src-block))
@@ -2021,7 +2020,7 @@ Here we test *bold*, /italic/, _underline_, =verbatim=, ~code~, +strikethrough+ 
     - Deeply nested item
 - Third item
 
-*** Ordered List  
+*** Ordered List
 1. First step
 2. Second step
    1. Sub-step 2.1
