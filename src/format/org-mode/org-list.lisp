@@ -229,7 +229,8 @@ returns (values match-node, new-pos)."
                         (find 'list-item-bullet
                               (cdr first-item)
                               :key (lambda (n) (getf (car n) :id)))))
-         (marker (when bullet-node (cltpt/combinator:match-text (car bullet-node)))))
+         (marker (when bullet-node
+                   (cltpt/combinator:match-text (car bullet-node)))))
     (if (and marker (string= marker "-")) :ul :ol)))
 
 (defun get-html-ol-type (bullet-marker)
@@ -256,3 +257,86 @@ returns (values match-node, new-pos)."
                            (t "\\arabic"))))))
     (when command
       (format nil "\\renewcommand{\\label~a}{~a{~a.}}" counter command counter))))
+
+(defun to-html-list (parse-tree)
+  (to-html-list-recursive parse-tree))
+
+(defun to-html-list-recursive (node)
+  (when node
+    (destructuring-bind (info . children) node
+      (case (getf info :id)
+        ('org-list
+         (let* ((list-type (get-list-type node))
+                (tag (if (eq list-type :ul) "ul" "ol"))
+                (type-attr
+                  (when (eq list-type :ol)
+                    (let* ((first-item (first children))
+                           (bullet-node (when first-item (find 'list-item-bullet (cdr first-item) :key (lambda (n) (getf (car n) :id)))))
+                           (html-type (when bullet-node (get-html-ol-type (cltpt/combinator:match-text (car bullet-node))))))
+                      (when html-type (format nil " type=\"~a\"" html-type))))))
+           (format nil "<~a~a>~%~{~a~}</~a>~%" tag (or type-attr "") (mapcar #'to-html-list-recursive children) tag)))
+        ('list-item
+         (format nil "<li>~{~a~}</li>~%" (mapcar #'to-html-list-recursive children)))
+        ('list-item-content
+         (with-output-to-string (s)
+           (let ((current-pos (getf info :begin))
+                 (original-str (getf info :str)))
+             ;; loop through the children (inline matches)
+             (dolist (child children)
+               (let* ((child-info (car child))
+                      (child-begin (getf child-info :begin)))
+                 ;; write the plain text between the last position and this child's start
+                 (write-string (subseq original-str current-pos child-begin) s)
+                 ;; write the recursively rendered child
+                 (write-string (to-html-list-recursive child) s)
+                 ;; update the current position to be after this child
+                 (setf current-pos (getf child-info :end))))
+             ;; write any remaining plain text after the last child
+             (write-string (subseq original-str current-pos (getf info :end))
+                           s))))
+        ('list-item-bullet "") ;; bullets do not render as content
+        (t (cltpt/combinator:match-text info))))))
+
+(defun to-latex-list (parse-tree)
+  (to-latex-list-recursive parse-tree))
+
+(defun to-latex-list-recursive (node &optional (depth 0))
+  (when node
+    (destructuring-bind (info . children) node
+      (case (getf info :id)
+        ('org-list
+         (let* ((list-type (get-list-type node))
+                (env (if (eq list-type :ul) "itemize" "enumerate"))
+                (label-command
+                  (when (eq list-type :ol)
+                    (let* ((first-item (first children))
+                           (bullet-node (when first-item (find 'list-item-bullet (cdr first-item) :key (lambda (n) (getf (car n) :id))))))
+                      (when bullet-node
+                        (get-latex-label-command
+                         (cltpt/combinator:match-text (car bullet-node))
+                         depth))))))
+           (format nil "\\begin{~a}~@[~%~a~]~%~{~a~}\\end{~a}~%"
+                   env label-command
+                   (mapcar (lambda (child) (to-latex-list-recursive child (1+ depth))) children)
+                   env)))
+        ('list-item
+         (format nil "\\item ~{~a~}~%"
+                 (mapcar (lambda (child) (to-latex-list-recursive child depth)) children)))
+        ('list-item-content
+         (with-output-to-string (s)
+           (let ((current-pos (getf info :begin))
+                 (original-str (getf info :str)))
+             ;; loop through the children (inline matches)
+             (dolist (child children)
+               (let* ((child-info (car child))
+                      (child-begin (getf child-info :begin)))
+                 ;; write the plain text between the last position and this child's start
+                 (write-string (subseq original-str current-pos child-begin) s)
+                 ;; write the recursively rendered child
+                 (write-string (to-latex-list-recursive child depth) s)
+                 ;; update the current position to be after this child
+                 (setf current-pos (getf child-info :end))))
+             ;; write any remaining plain text after the last child
+             (write-string (subseq original-str current-pos (getf info :end)) s))))
+        ('list-item-bullet "")
+        (t (cltpt/combinator:match-text info))))))
