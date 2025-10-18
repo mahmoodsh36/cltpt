@@ -790,22 +790,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (old-prefix-region
                     (cltpt/base:make-region
                      :begin 0
-                     :end prefix-end))
-                  ;; the "new postfix" region is the region after the title
-                  (new-postfix-region
-                    (cltpt/base:make-region
-                     :begin (+ postfix-begin
-                               (- (length open-tag)
-                                  (cltpt/base:region-length old-prefix-region)))
-                     :end (+ postfix-end
-                             (- (length open-tag)
-                                (cltpt/base:region-length old-prefix-region))
-                             (- (length close-tag)
-                                (cltpt/base:region-length old-postfix-region)))))
-                  (new-prefix-region
-                    (cltpt/base:make-region
-                     :begin 0
-                     :end (length open-tag))))
+                     :end prefix-end)))
              ;; remove the children in the metadata region
              (loop for child in (copy-seq (cltpt/base:text-object-children obj))
                    do (when (cltpt/base:region-contains
@@ -827,15 +812,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               :escape-regions
               (list
                (cltpt/base:make-region
-                :begin (cltpt/base:region-end new-prefix-region)
-                :end (cltpt/base:region-begin new-postfix-region))
+                :begin (cltpt/base:region-end old-prefix-region)
+                :end (cltpt/base:region-begin old-postfix-region))
                (cltpt/base:make-region
-                :begin (cltpt/base:region-end new-postfix-region)
-                :end (+ (cltpt/base:text-object-end obj)
-                        (- (length open-tag)
-                           (cltpt/base:region-length old-prefix-region))
-                        (- (length close-tag)
-                           (cltpt/base:region-length old-postfix-region)))))
+                :begin (cltpt/base:region-end old-postfix-region)
+                :end (length obj-text)))
               :reparse nil
               :recurse t)))))))
 
@@ -1709,21 +1690,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                     (cltpt/base:make-region
                      :begin (cltpt/base:region-end code-open-tag-region)
                      :end (cltpt/base:region-begin code-close-tag-region)))
-                  ;; TODO: this whole logic can be DRYed/simplfied by using
-                  ;; handle-changed-regions to handle escaped regions too.
-                  ;; this should store by how much the position of the contents
-                  ;; would shift after the incremental changes are applied.
-                  (shift-in-result-contents-begin
-                    (+
-                     ;; the change in the length of the code "opening tag"
-                     (length code-open-tag)
-                     (- (cltpt/base:region-length code-open-tag-region))
-                     ;; the change in the length of the code "closing tag"
-                     (length code-close-tag)
-                     (- (cltpt/base:region-length code-close-tag-region))
-                     ;; the change in the length of the #+RESULTS region
-                     (length results-open-tag)
-                     (- results-begin results-content-begin)))
                   (raw-results
                     (when match-raw-lines
                       (cltpt/base:str-join
@@ -1734,13 +1700,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                             (car raw-line-match))
                            2))
                         match-raw-lines)
-                       (string #\newline))))
-                  (shift-in-result-contents-end
-                    (+ shift-in-result-contents-begin
-                       (if raw-results
-                           (- (length raw-results)
-                              (cltpt/base:region-length results-content-region))
-                           0))))
+                       (string #\newline)))))
              ;; both regions of results and code need escaping.
              ;; but the region for the code shouldnt have the newlines escaped.
              ;; but we need to account for the changes in the preceding
@@ -1748,15 +1708,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              ;; incremental changes are applied.
              (push
               (cltpt/base:make-region
-               :begin (+ results-content-begin shift-in-result-contents-begin)
-               :end (+ results-end shift-in-result-contents-end))
+               :begin results-content-begin
+               :end results-end)
               escape-regions)
-             (push
-              (cltpt/base:make-region
-               :begin (length code-open-tag)
-               :end (+ (length code-open-tag)
-                       (cltpt/base:region-length code-region)))
-              escape-regions)
+             (push code-region escape-regions)
              ;; we have to push the changes in the correct order. otherwise
              ;; the incremental parser will not function properly.
              ;; changes in the results region

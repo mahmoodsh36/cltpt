@@ -132,6 +132,36 @@ the '\\' and processes the char normally (replace or emit)."
     (when (getf cltpt:*debug* :convert)
       (format t "DEBUG: before incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
+    ;; adjust 'regions-to-escape' to the changes provided in :changes
+    (when regions-to-escape
+      (setf
+       regions-to-escape
+       (if (and changes regions-to-escape)
+           (let ((sorted-changes
+                   (sort (copy-list changes)
+                         #'<
+                         :key (lambda (c)
+                                (region-begin (cdr c))))))
+             (loop for escape-region in regions-to-escape
+                   collect
+                   (let ((begin-offset 0)
+                         (end-offset 0))
+                     (loop for (str . change-region) in sorted-changes
+                           do (when (< (region-begin change-region)
+                                       (region-begin escape-region))
+                                (incf begin-offset
+                                      (- (length str)
+                                         (region-length change-region)))))
+                     (loop for (str . change-region) in sorted-changes
+                           do (when (< (region-begin change-region)
+                                       (region-end escape-region))
+                                (incf end-offset
+                                      (- (length str)
+                                         (region-length change-region)))))
+                     (make-region
+                      :begin (+ (region-begin escape-region) begin-offset)
+                      :end (+ (region-end escape-region) end-offset)))))
+           regions-to-escape)))
     ;; this is tricky, we are modifying the text of these objects as we are
     ;; advancing, but we arent modifying the text at the root document.
     (if (or changes to-reparse)
