@@ -314,21 +314,6 @@ taking care of children indicies would cause issues."
 (defmethod text-object-ends-by ((text-obj text-block) value)
   (and (symbolp value) (string= value 'block-end)))
 
-;; a utility function to reduce boilerplate for `text-object-convert' implementations
-(defun wrap-contents-for-convert (text-obj preamble postamble
-                                 &key (reparse t) (escape t))
-  (let* ((text (concatenate 'string
-                            preamble
-                            (text-object-contents text-obj)
-                            postamble))
-         (inner-region (make-region :begin (length preamble)
-                                    :end (- (length text) (length postamble)))))
-    (list :text text
-          :reparse reparse
-          :escape escape
-          :reparse-region inner-region
-          :escape-region inner-region)))
-
 (defun sort-text-objects (text-objects)
   "return TEXT-OBJECTS, sorted by starting point."
   (sort
@@ -700,6 +685,7 @@ and grabbing each position of each object through its ascendants in the tree."
   (make-region :begin (text-object-begin-in-root obj)
                :end (text-object-end-in-root obj)))
 
+;; this is a utility for reducing boilerplate for `text-object-convert' functionality
 (defun rewrap-within-tags (text-obj open-tag close-tag
                            &key (reparse nil) (escape t))
   "change the tags wrapping the contents of a text object. this is used for conversion."

@@ -996,12 +996,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                            (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
-     (cltpt/base:wrap-contents-for-convert
+     (cltpt/base:rewrap-within-tags
       obj
       "\\verb{"
-      "}"
-      :escape t
-      :reparse nil))
+      "}"))
     ((eq backend cltpt/html:*html*)
      (cltpt/base:rewrap-within-tags
       obj
@@ -1040,6 +1038,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      :recurse t
                      :escape nil))
            (parsed (org-table-matcher nil new-txt 0)))
+      ;; remove the children so that the `convert-tree' doesnt try to
+      ;; 'handle' them which would cause issues since we changed the text.
+      (setf (cltpt/base:text-object-children obj) nil)
       (cond
         ((eq backend cltpt/latex:*latex*)
          (list :text (to-latex-table parsed)
@@ -1277,9 +1278,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-convert ((obj org-emph) (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
-     (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textbf{" "}")))
-       (setf (getf result :reparse-region) nil)
-       result))
+     (cltpt/base:rewrap-within-tags obj "\\textbf{" "}"))
     ((eq backend cltpt/html:*html*)
      (cltpt/base:rewrap-within-tags obj "<b>" "</b>"))))
 
@@ -1311,14 +1310,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                            (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/latex:*latex*)
-     (let ((result (cltpt/base:wrap-contents-for-convert obj "\\textit{" "}")))
-       (setf (getf result :reparse-region) nil)
-       result))
+     (cltpt/base:rewrap-within-tags obj "\\textit{" "}"))
     ((eq backend cltpt/html:*html*)
      (cltpt/base:rewrap-within-tags obj "<i>" "</i>"))))
 
 ;; wrap text for exporting within specific "tags".
-;; TODO: this is similar to `cltpt/base:wrap-contents-for-content'. perhaps DRY.
 (defun within-tags (open-tag inner-text close-tag
                     &key (reparse t) (escape t))
   (let* ((text (concatenate 'string
@@ -1422,6 +1418,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        the possible elements could be org-link, org-table, org-block
        |#
        (cltpt/combinator:any
+        org-export-block
         ,(copy-rule *org-list-rule* 'org-list)
         org-table
         org-block
@@ -1840,7 +1837,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    lang)
       (list :text (cltpt/base:text-object-contents obj)
             :recurse nil
-            :reparse t
+            :reparse nil
             :escape nil))))
 
 (defvar *org-drawer-rule*

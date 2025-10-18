@@ -39,7 +39,6 @@
    :text-object-init
    :text-object-begin-in-root :text-object-end-in-root
    :make-region
-   :wrap-contents-for-convert
    :find-children-recursively :find-children :list-children-recursively
    :child-at-pos :region-contains
    :text-object-rule-from-subclass
