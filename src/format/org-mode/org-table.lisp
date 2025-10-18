@@ -3,20 +3,31 @@
 (defun get-line-bounds (str pos)
   "returns (values line-start, line-end, next-line-start) for the line at pos."
   (when (>= pos (length str))
-    (return-from get-line-bounds (values (length str) (length str) (length str))))
-  (let* ((line-start (or (position #\newline str :end pos :from-end t) -1))
+    (return-from get-line-bounds
+      (values (length str) (length str) (length str))))
+  (let* ((line-start (or (position #\newline str :end pos :from-end t)
+                         -1))
          (actual-line-start (1+ line-start))
-         (line-end (or (position #\newline str :start actual-line-start) (length str)))
-         (next-line-start (if (< line-end (length str)) (1+ line-end) line-end)))
+         (line-end (or (position #\newline str :start actual-line-start)
+                       (length str)))
+         (next-line-start (if (< line-end (length str))
+                              (1+ line-end)
+                              line-end)))
     (values actual-line-start line-end next-line-start)))
 
 (defun is-table-line-at-pos-p (str pos)
   "checks if the line at pos starts with '|' or '+' after trimming whitespace."
   (multiple-value-bind (line-start line-end) (get-line-bounds str pos)
-    (let ((trimmed-start (position-if-not (lambda (c) (member c '(#\space #\tab)))
-                                          str :start line-start :end line-end)))
+    (let ((trimmed-start
+            (position-if-not
+             (lambda (c)
+               (member c '(#\space #\tab)))
+             str
+             :start line-start
+             :end line-end)))
       (and trimmed-start
-           (member (char str trimmed-start) '(#\| #\+))))))
+           (member (char str trimmed-start)
+                   '(#\| #\+))))))
 
 (defun is-hrule-line-at-pos-p (str pos)
   "checks if the line at pos is a horizontal rule (e.g., |---+---| or +---+)."
@@ -34,8 +45,21 @@
 
 (defun find-content-bounds (str start end)
   "finds the start and end of non-whitespace content within the slice [start, end)."
-  (let ((content-start (position-if-not (lambda (c) (member c '(#\space #\tab))) str :start start :end end))
-        (content-end (position-if-not (lambda (c) (member c '(#\space #\tab))) str :start start :end end :from-end t)))
+  (let ((content-start
+          (position-if-not
+           (lambda (c)
+             (member c '(#\space #\tab)))
+           str
+           :start start
+           :end end))
+        (content-end
+          (position-if-not
+           (lambda (c)
+             (member c '(#\space #\tab)))
+           str
+           :start start
+           :end end
+           :from-end t)))
     (if content-start
         (values content-start (1+ content-end))
         (values start start)))) ;; all whitespace, return zero-length slice
@@ -46,25 +70,35 @@
 returns (values row-node, next-line-start-offset)."
   (multiple-value-bind (line-start line-end next-line-start)
       (get-line-bounds str row-start-offset)
-    (let* ((trimmed-line-start (position-if-not (lambda (c) (member c '(#\space #\tab))) str :start line-start :end line-end))
+    (let* ((trimmed-line-start
+             (position-if-not
+              (lambda (c) (member c '(#\space #\tab)))
+              str
+              :start line-start
+              :end line-end))
            (cell-nodes)
            (current-cell-start (1+ trimmed-line-start))) ;; start after the first '|'
-
-      (loop for pipe-pos = (position #\| str :start current-cell-start :end line-end)
+      (loop for pipe-pos = (position #\|
+                                     str
+                                     :start current-cell-start
+                                     :end line-end)
             while pipe-pos
             do
                (multiple-value-bind (content-begin content-end)
                    (find-content-bounds str current-cell-start pipe-pos)
                  (let ((cell-children
                          (when (and inline-rules (< content-begin content-end))
-                           (cltpt/combinator:scan-all-rules ctx str inline-rules content-begin content-end))))
+                           (cltpt/combinator:scan-all-rules ctx
+                                                            str
+                                                            inline-rules
+                                                            content-begin
+                                                            content-end))))
                    (let ((cell-parent-info (list :id 'table-cell
                                                  :begin content-begin
                                                  :end content-end
                                                  :str str)))
                      (push (cons cell-parent-info cell-children) cell-nodes))))
                (setf current-cell-start (1+ pipe-pos)))
-
       (let ((row-parent-info (list :id 'table-row
                                    :begin trimmed-line-start
                                    :end line-end
@@ -77,16 +111,16 @@ returns (values row-node, next-line-start-offset)."
   (multiple-value-bind (first-line-start) (get-line-bounds str pos)
     (unless (and (= pos first-line-start) (is-table-line-at-pos-p str pos))
       (return-from org-table-matcher (values nil pos))))
-
   (let ((row-nodes)
         (current-pos pos)
         (last-successful-pos pos))
     (loop
-      (when (>= current-pos (length str)) (return))
+      (when (>= current-pos (length str))
+        (return))
       (multiple-value-bind (line-start line-end next-start) (get-line-bounds str current-pos)
-        (unless (and (= current-pos line-start) (is-table-line-at-pos-p str line-start))
+        (unless (and (= current-pos line-start)
+                     (is-table-line-at-pos-p str line-start))
           (return))
-
         (if (is-hrule-line-at-pos-p str line-start)
             (let* ((trimmed-start
                      (position-if-not (lambda (c) (member c '(#\space #\tab)))
@@ -103,7 +137,6 @@ returns (values row-node, next-line-start-offset)."
               (push row-node row-nodes)))
         (setf current-pos next-start)
         (setf last-successful-pos current-pos)))
-
     (if row-nodes
         (let ((table-parent-info (list :id 'org-table
                                        :begin pos
@@ -118,7 +151,8 @@ returns (values row-node, next-line-start-offset)."
   (when (and parse-tree (eq (getf (car parse-tree) :id) 'org-table))
     (let* ((children (cdr parse-tree))
            (header-p (and (> (length children) 1)
-                          (eq (getf (car (second children)) :id) 'table-hrule))))
+                          (eq (getf (car (second children)) :id)
+                              'table-hrule))))
       (with-output-to-string (s)
         (write-string "<table>" s)
         (loop for row-node in children
@@ -127,9 +161,11 @@ returns (values row-node, next-line-start-offset)."
                    ('table-row
                     (write-string "<tr>" s)
                     (loop for cell-node in (cdr row-node)
-                          do (format s "<~a>~a</~a>"
+                          do (format s
+                                     "<~a>~a</~a>"
                                      (if (and is-first header-p) "th" "td")
-                                     (cltpt/combinator:match-text (car cell-node))
+                                     (cltpt/combinator:match-text
+                                      (car cell-node))
                                      (if (and is-first header-p) "th" "td")))
                     (write-string "</tr>" s))
                    ('table-hrule (when is-first (write-string "" s)))))
@@ -177,7 +213,8 @@ neatly aligned based on the widest cell in each column."
            (loop for cell-node in (cdr row-node)
                  for col-idx from 0
                  do
-                    (let* ((cell-text (cltpt/combinator:match-text (car cell-node)))
+                    (let* ((cell-text
+                             (cltpt/combinator:match-text (car cell-node)))
                            (cell-width (length cell-text)))
                       (when (>= col-idx (length col-widths))
                         (vector-push-extend 0 col-widths))
