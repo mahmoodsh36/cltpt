@@ -1011,52 +1011,132 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :allocation :class
     :initform `(:pattern
                 (org-table-matcher
-                 ,*org-inline-text-objects-rule*)
+                 ;; TODO: currently enabling some text objects like org-italic
+                 ;; inside tables causes issues. this happens when there
+                 ;; is something like `| cell / 1 | cell / 2 |` where the
+                 ;; forward slashes may correspond to an org-italic instance
+                 ;; which might break the text-object tree.
+                 ;; TODO: its not good that we're including all rules as
+                 ;; symbols here. it would cause alot of hashmap lookups
+                 ;; during parsing.
+                 ,(set-difference
+                   (org-mode-inline-text-object-types)
+                   '(org-italic org-emph)))
                 :on-char #\|)))
   (:documentation "org-mode table."))
 
-;; hacky, like the one for org-list, they need to be improved
+;; TODO: this uses nconc all the time which causes squared complexity
 (defmethod cltpt/base:text-object-convert ((obj org-table)
                                            (backend cltpt/base:text-format))
-  (let ((new-obj (make-instance 'cltpt/base:text-object)))
-    (cltpt/base:text-object-init
-     new-obj
-     (cltpt/base:text-object-text obj)
-     ;; TODO: shouldnt we passing the combinator context from the original
-     ;; matching run? this could cause issues
-     (org-table-matcher nil (cltpt/base:text-object-text obj) 0))
-    (setf (cltpt/base:text-object-children new-obj)
-          (cltpt/base:text-object-children obj))
-    (cltpt/base::text-object-force-set-text
-     new-obj
-     (cltpt/base:text-object-text obj))
-    (let* ((new-txt (cltpt/base:convert-tree
-                     new-obj
-                     *org-mode*
-                     backend
-                     :reparse nil
-                     :recurse t
-                     :escape nil))
-           (parsed (org-table-matcher nil new-txt 0)))
-      ;; remove the children so that the `convert-tree' doesnt try to
-      ;; 'handle' them which would cause issues since we changed the text.
-      ;; wait actually this isnt needed if we have :recurse nil
-      ;; (setf (cltpt/base:text-object-children obj) nil)
-      (cond
-        ((eq backend cltpt/latex:*latex*)
-         (list :text (to-latex-table parsed)
-               :recurse nil
-               :reparse nil
-               :escape nil))
-        ((eq backend cltpt/html:*html*)
-         (list :text (to-html-table parsed)
-               :recurse nil
-               :reparse nil
-               :escape nil))))))
-
-;; (defmethod cltpt/base:text-object-convert ((obj org-table)
-;;                                            (backend cltpt/base:text-format))
-;;   )
+  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+         (changes)
+         (match-begin (getf (car match) :begin))
+         (escape-regions)
+         (open-tag
+           (cltpt/base:pcase backend
+             (cltpt/html:*html* "<table>")
+             (cltpt/latex:*latex*
+              (format nil
+                      "\\begin{tabular} { |~{~a~^|~}| } \\hline~%"
+                      (loop repeat num-cols collect "l")))))
+         (close-tag
+           (cltpt/base:pcase backend
+             (cltpt/html:*html* "</table>")
+             (cltpt/latex:*latex* "\\hline\\end{tabular}")))
+         (offset (- (length open-tag) 1))
+         ;; if separators are defined, they should be used along with
+         ;; open/close tags. so the behavior may differ from one format
+         ;; to another.
+         (row-open-tag (cltpt/base:pcase backend
+                         (cltpt/html:*html* "<tr>")))
+         (row-close-tag (cltpt/base:pcase backend
+                          (cltpt/html:*html* "<tr>")))
+         (cell-open-tag (cltpt/base:pcase backend
+                          (cltpt/html:*html* "<td>")))
+         (cell-close-tag (cltpt/base:pcase backend
+                           (cltpt/html:*html* "</td>")))
+         (cell-separator (cltpt/base:pcase backend
+                           (cltpt/latex:*latex* "&")))
+         (row-separator (cltpt/base:pcase backend
+                          (cltpt/latex:*latex* "\\hline\\\\"))))
+    ;; opening tag
+    (setf changes
+          (list (cons open-tag
+                      (cltpt/base:make-region
+                       :begin 0
+                       :end 0))))
+    ;; handle table cells
+    (loop for row-match in (cdr match)
+          for is-first-row = t then nil
+          do (case (getf (car row-match) :id)
+               ('table-row
+                (let ((final-open-tag
+                        (cltpt/base:concat
+                         (remove nil
+                                 (list (unless is-first-row row-separator)
+                                       row-open-tag))
+                         'string)))
+                  (nconc changes
+                         (list (cons final-open-tag
+                                     (cltpt/base:region-decf
+                                      (cltpt/base:make-region
+                                       :begin (getf (car row-match) :begin)
+                                       :end (getf (car row-match) :begin))
+                                      match-begin)))))
+                (loop for cell-match in (cdr row-match)
+                      for is-first-cell = t then nil
+                      do (let ((final-open-tag
+                                 (cltpt/base:concat
+                                  (remove
+                                   nil
+                                   (list (unless is-first-cell cell-separator)
+                                         cell-open-tag))
+                                  'string)))
+                           (nconc changes
+                                  (list
+                                   (cons
+                                    final-open-tag
+                                    (cltpt/base:region-decf
+                                     (cltpt/base:make-region
+                                      :begin (getf (car cell-match) :begin)
+                                      :end (getf (car cell-match) :begin))
+                                     match-begin)))))
+                         (when cell-close-tag
+                           (nconc
+                            changes
+                            (list
+                             (cons cell-close-tag
+                                   (cltpt/base:region-decf
+                                    (cltpt/base:make-region
+                                     :begin (getf (car cell-match) :end)
+                                     :end (getf (car cell-match) :end))
+                                    match-begin))))))
+                (nconc changes
+                       (list (cons row-close-tag
+                                   (cltpt/base:region-decf
+                                    (cltpt/base:make-region
+                                     :begin (getf (car row-match) :end)
+                                     :end (getf (car row-match) :end))
+                                    match-begin)))))
+               ('table-hrule
+                (nconc changes
+                       (list (cons ""
+                                   (cltpt/base:region-decf
+                                    (cltpt/base:make-region
+                                     :begin (getf (car row-match) :begin)
+                                     :end (getf (car row-match) :end))
+                                    match-begin)))))))
+    ;; ending tag
+    (nconc changes
+           (list (cons close-tag
+                       (cltpt/base:make-region
+                        :begin (length (cltpt/base:text-object-text obj))
+                        :end (length (cltpt/base:text-object-text obj))))))
+    (list :text (cltpt/base:text-object-text obj)
+          :changes changes
+          :escape nil
+          :reparse nil
+          :recurse t)))
 
 (defclass org-document (cltpt/base:document)
   ()
@@ -1255,12 +1335,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   ((cltpt/base::rule
     :allocation :class
     :initform `(:pattern
-                (cltpt/combinator:pair
-                 (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
-                 (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
-                 nil
-                 nil
-                 nil)
+                (cltpt/combinator:between-whitespace
+                 (cltpt/combinator:pair
+                  (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
+                  (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
+                  nil
+                  nil
+                  nil))
                 :escapable #\*
                 :on-char #\*)))
   (:documentation "org-mode emphasized text (surrounded by asterisks)."))
@@ -1291,12 +1372,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;; preceded/succeeded by spaces.
 (defvar *org-italic-rule*
   '(:pattern
-    (cltpt/combinator:pair
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-     nil
-     nil
-     nil)
+    (cltpt/combinator:between-whitespace
+     (cltpt/combinator:pair
+      (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
+      (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
+      nil
+      nil
+      nil))
     :on-char #\/))
 (defclass org-italic (cltpt/base:text-object)
   ((cltpt/base::rule
