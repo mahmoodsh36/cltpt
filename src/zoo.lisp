@@ -13,10 +13,7 @@
       (setf type1 (string-downcase (string type1))))
     (cltpt/base:pcase backend
       (cltpt/latex:*latex*
-       (cltpt/base:wrap-contents-for-convert
-        obj
-        (format nil "\\begin{~A}" type1)
-        (format nil "\\end{~A}" type1)))
+       )
       (cltpt/html:*html*
        (if type1
            (cltpt/base:rewrap-within-tags

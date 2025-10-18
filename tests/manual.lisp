@@ -21,7 +21,8 @@
         (cltpt/base:text-format-by-name "html")
         ;; "/home/mahmooz/brain/notes/1684594232.org"
         ;; "test.org"
-        "test.org"
+        ;; "test2.org"
+        "/home/mahmooz/brain/notes/1697750918.org"
         "test.out.html")
        nil))))
 

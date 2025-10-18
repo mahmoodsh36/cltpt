@@ -21,3 +21,17 @@ my equation here
 #+RESULTS:
 : ((10 . 20) (X . Y) (A . B))
 : ((10 . 20) (X . Y) (A . B))
+
+* header
+
+#+begin_src bash :wrap export html :var f=(cached-file "KYJ3p2o.html") :exports results :var orgstaticdir=(identity *static-html-dir*) :dir
+  out="$orgstaticdir/$(basename $f)"
+  cp $f $out
+  # echo "<iframe src=\"/$(basename $orgstaticdir)/$(basename $f)\" style=\"aspect-ratio: 1 / 1; width: 100%;\"></iframe>"
+  echo "<iframe src=\"/$(basename $f)\" style=\"aspect-ratio: 1 / 1; width: 100%;\"></iframe>"
+#+end_src
+
+#+RESULTS:
+#+begin_export html
+<iframe src="/KYJ3p2o.html" style="aspect-ratio: 1 / 1; width: 100%;"></iframe>
+#+end_export
