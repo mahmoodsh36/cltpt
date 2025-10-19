@@ -7,8 +7,14 @@
    (parse-file cltpt/org-mode:*org-mode* "tests/test.org")))
 
 (defun test-org-convert ()
-  (let ((cltpt/org-mode:*org-enable-macros* t))
+  (let ((filepath "/home/mahmooz/brain/notes/1707069432.org")
+        ;; "/home/mahmooz/brain/notes/1684594232.org"
+        ;; "test.org"
+        ;; "tests/test2.org"
+        (cltpt/org-mode:*org-enable-macros* t))
     (cltpt/zoo:init)
+    (cltpt/tree:tree-show
+     (parse-file cltpt/org-mode:*org-mode* filepath))
     (time
      (progn
        ;; (cltpt/base:convert-file
@@ -19,11 +25,7 @@
        (cltpt/base:convert-file
         (cltpt/base:text-format-by-name "org-mode")
         (cltpt/base:text-format-by-name "html")
-        ;; "/home/mahmooz/brain/notes/1684594232.org"
-        ;; "test.org"
-        "tests/test2.org"
-        ;; "/home/mahmooz/brain/notes/1657010001.org"
-        ;; "/home/mahmooz/brain/notes/1702841877.org"
+        filepath
         "test.out.html")
        nil))))
 
