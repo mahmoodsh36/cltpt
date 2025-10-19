@@ -1583,10 +1583,20 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (match (cltpt/base:text-object-property
                  obj
                  :combinator-match))
+         ;; TODO: code-end-match is really just block-end-match, should be renamed
+         ;; when its a regular block, we want to find the last end delimiter
+         ;; in this match because there could be nested blocks that have
+         ;; their own end delimiters. when its a code block we only
+         ;; want the first since there cant be nested code blocks, and we dont
+         ;; wanna catch the delimiters inside the results regions (if any)
          (code-end-match
-           (cltpt/combinator:find-submatch
-            match
-            'end))
+           (if is-code
+               (cltpt/combinator:find-submatch
+                match
+                'end)
+               (cltpt/combinator:find-submatch-last
+                match
+                'end)))
          (results-match
            (cltpt/combinator:find-submatch
             match
