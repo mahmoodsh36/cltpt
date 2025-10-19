@@ -54,6 +54,7 @@ to recurse on. the default behavior will be checking whether they are
 of the same type, e.g. both are conses."
   (equal (type-of child) (type-of subtree)))
 
+;; this is pre-order DFS
 (defun tree-map (subtree func)
   "we iterate through the tree one subtree at a time and run FUNC on each.
 
