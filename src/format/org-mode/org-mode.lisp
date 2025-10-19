@@ -1331,13 +1331,19 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (setf (cltpt/base:text-object-property obj :is-inline)
         t))
 
+;; this function shouldnt have a repeated effect on repeated calls, since
+;; it is called in finalization methods and those are called when
+;; handling incremental changes.
 (defun compress-contents-region-by-one (obj)
   (setf (cltpt/base:text-object-property obj :contents-region)
         (cltpt/base:make-region
-         :begin 1
-         :end (1-
-               (cltpt/base:region-length
-                (cltpt/base:text-object-text-region obj))))))
+         :begin 0
+         :end (cltpt/base:region-length
+               (cltpt/base:text-object-text-region obj))))
+  (cltpt/base:region-compress
+   (cltpt/base:text-object-property obj :contents-region)
+   1
+   1))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-emph))
   (compress-contents-region-by-one obj))
@@ -1575,7 +1581,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                           block-type
                           is-code)
   (let* ((exports-keyword (org-block-keyword-value obj "exports"))
-         (contents (cltpt/base:text-object-contents obj))
          (export-code (or (string= exports-keyword "code")
                           (string= exports-keyword "both")))
          (export-results (or (string= exports-keyword "results")
@@ -1606,11 +1611,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (when (and is-code (not exports-keyword))
       (setf export-code t)
       (setf export-results t))
-    ;; when the contents start with the newline that is after the #+begin_block
-    ;; it causes a weird newline when cltpt/base:*convert-escape-newlines* is `t'
-    ;; so remove it.
-    (when (char= (char contents 0) #\newline)
-      (setf contents (subseq contents 1)))
     (cond
       ;; if we have `:exports none', we shouldnt export
       ((and exports-keyword (string= exports-keyword "none"))
@@ -1721,7 +1721,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :begin results-content-begin
                :end results-end)
               escape-regions)
-             (push code-region escape-regions)
+             ;; we compress by 1 from each side to discard the newlines.
+             (push (cltpt/base:region-compress
+                    (cltpt/base:region-clone code-region)
+                    1
+                    1)
+                   escape-regions)
              ;; we have to push the changes in the correct order. otherwise
              ;; the incremental parser will not function properly.
              ;; changes in the results region
@@ -1758,7 +1763,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               obj
               code-open-tag
               code-close-tag
-              :escape t)))))))
+              :escape t
+              :compress-region (cltpt/base:make-region :begin 1 :end 1))))))))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))

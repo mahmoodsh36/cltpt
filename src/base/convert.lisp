@@ -321,6 +321,10 @@ the '\\' and processes the char normally (replace or emit)."
 (defmethod convert-document ((src-fmt text-format)
                              (dest-fmt text-format)
                              (doc document))
+  "convert a document from one text format to another.
+
+this grabs the template defined for the destination format using `text-format-conversion-template'
+before calling `convert-tree' on the given DOC."
   (let ((*convert-info*
           (merge-plist *convert-info*
                        (list :text-obj doc
@@ -332,7 +336,7 @@ the '\\' and processes the char normally (replace or emit)."
     (if template
         (convert-tree
          (parse
-          dest-fmt
+          *simple-format*
           template
           :text-object-types (list 'cltpt/base:text-macro
                                    'cltpt/base:post-lexer-text-macro))
