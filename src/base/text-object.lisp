@@ -700,12 +700,12 @@ and grabbing each position of each object through its ascendants in the tree."
          ;; this is the inner region after region shifts caused by `handle-changed-regions'.
          (inner-region
            (make-region
-            :begin (length open-tag)
-            :end (+ (length open-tag) (region-length contents-region)))))
+            :begin (region-begin contents-region)
+            :end (region-end contents-region))))
     (list :text (text-object-text text-obj)
           :changes (list (cons open-tag old-open-tag-region)
                          (cons close-tag old-close-tag-region))
           :recurse t
-          :reparse nil
-          :escape t
+          :reparse reparse
+          :escape escape
           :escape-region inner-region)))
