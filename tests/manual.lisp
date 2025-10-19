@@ -4,7 +4,7 @@
 
 (defun test-org-parse ()
   (cltpt/tree:tree-show
-   (parse-file cltpt/org-mode:*org-mode* "test.org")))
+   (parse-file cltpt/org-mode:*org-mode* "tests/test.org")))
 
 (defun test-org-convert ()
   (let ((cltpt/org-mode:*org-enable-macros* t))
@@ -21,8 +21,9 @@
         (cltpt/base:text-format-by-name "html")
         ;; "/home/mahmooz/brain/notes/1684594232.org"
         ;; "test.org"
-        "test2.org"
+        "tests/test2.org"
         ;; "/home/mahmooz/brain/notes/1657010001.org"
+        ;; "/home/mahmooz/brain/notes/1702841877.org"
         "test.out.html")
        nil))))
 

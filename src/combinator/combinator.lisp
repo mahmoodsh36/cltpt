@@ -449,7 +449,7 @@ before the final closing rule is found."
         (form-str))
     (when (and (< pos (length str))
                ;; dont read it if it starts with space (default behavior by `read')
-               (not (char-equal (char str pos) #\space)))
+               (not (whitespace-p (char str pos))))
       (with-input-from-string (s str :start pos)
         (handler-case
             (setf lisp-form (read s))
