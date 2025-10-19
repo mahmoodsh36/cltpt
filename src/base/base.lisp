@@ -9,7 +9,7 @@
    :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day :replace-all
 
-   :region-incf :region-decf :region-clone
+   :region-incf :region-decf :region-clone :region-compress :region-compress-by
 
    :make-text-format :*simple-format*
    :text-format-text-object-types :text-format-by-name
