@@ -12,7 +12,7 @@
    :separated-atleast-one :all-but-whitespace :handle-rule-string
    :all-upto :all-upto-included :succeeded-by :all-upto-without
    :context-rules :consec-with-optional :compile-rule-string
-   :between-whitespace
+   :between-whitespace :when-match-after
 
    :find-submatch :find-submatch-all :find-submatch-last :match-text
    ))
@@ -729,3 +729,11 @@ The surrounding whitespace is not consumed."
                     ,#'is-preceded-by-whitespace-p)
                   str
                   pos))))
+
+(defun when-match-after (ctx str pos rule condition-fn)
+  "this function is used to condition matches after they occur.
+
+for a given match, run CONDITION-FN and only if it returns true, return the match."
+  (let ((match (match-rule ctx rule str pos)))
+    (when (funcall condition-fn ctx str pos rule match)
+      match)))
