@@ -463,6 +463,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :reparse nil
                :escape nil))))))
 
+;; matching an org-list after a header we should only match if the list items
+;; start with "State". otherwise its not a list that should be part of the
+;; header's metadata.
+(defun is-header-metadata-list (ctx rule str pos list-match)
+  (uiop:string-prefix-p
+   "State"
+   (cltpt/combinator:match-text
+    (car (cltpt/combinator:find-submatch
+          list-match
+          'list-item-content)))))
+
 ;; TODO: we may want to match tags-rule only if its before a newline
 ;; (let ((tags-rule
 ;;         '(cltpt/combinator:consec
@@ -608,11 +619,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              :id action-inactive)))
           ,(copy-rule *org-timestamp-rule* 'todo-timestamp
                       :type 'org-timestamp)
-          ;; this causes issues with files such as /home/mahmooz/brain/notes/1678745440.org
-          ;; where the list following a header isnt strictly related to it.
-          ;; TODO: check if a list has all children start with "State",
-          ;; only in this case do they belong to the header as metadata.
-          ,(copy-rule *org-list-rule* 'org-list)
+          (cltpt/combinator:when-match-after
+           ,(copy-rule *org-list-rule* 'org-list)
+           is-header-metadata-list)
           ,(copy-rule *org-prop-drawer-rule* 'org-prop-drawer)))))
       :on-char #\*)))
 (defclass org-header (cltpt/base:text-object)
