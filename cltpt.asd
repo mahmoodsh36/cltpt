@@ -24,6 +24,7 @@
                 :depends-on ("combinator" "file-utils")
                 :components ((:file "base")
                              (:file "utils")
+                             (:file "region")
                              (:file "text-object")
                              (:file "text-format")
                              (:file "parser")
