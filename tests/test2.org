@@ -1,3 +1,5 @@
+- test 1
+- test 2
 * part 1, univariate linear regression
 #+begin_task
 create the variables ~x~ and ~y~, and divide them into train and test, where train size = 80% and test size = 20%
@@ -11,3 +13,11 @@ create the variables ~x~ and ~y~, and divide them into train and test, where tra
   print("x_test", x_test.shape)
   print("y_test", y_test.shape)
 #+end_src
+* DONE some task
+CLOSED: [2024-10-29 Tue 16:41:04]
+:PROPERTIES:
+:LAST_REPEAT: [2024-10-29 Tue 16:40:36]
+:END:
+- State "DONE"       from "TODO"       [2024-10-29 Tue 16:41:04]
+- State "CANCELED"   from "TODO"       [2024-10-29 Tue 16:40:36]
+- State "MISSED"     from "TODO"       [2024-10-15 Tue 19:46:43]
