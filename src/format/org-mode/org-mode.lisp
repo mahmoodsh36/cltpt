@@ -1334,7 +1334,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   ((cltpt/base::rule
     :allocation :class
     :initform `(:pattern
-                (cltpt/combinator:between-whitespace
+                (cltpt/combinator:flanked-by-whitespace
                  (cltpt/combinator:pair
                   (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
                   (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
@@ -1377,7 +1377,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;; preceded/succeeded by spaces.
 (defvar *org-italic-rule*
   '(:pattern
-    (cltpt/combinator:between-whitespace
+    (cltpt/combinator:flanked-by-whitespace
      (cltpt/combinator:pair
       (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
       (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
