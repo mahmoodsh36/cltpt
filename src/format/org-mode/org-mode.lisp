@@ -1009,9 +1009,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                  ;; TODO: its not good that we're including all rules as
                  ;; symbols here. it would cause alot of hashmap lookups
                  ;; during parsing.
-                 ,(set-difference
+                 (eval
+                  (set-difference
                    (org-mode-inline-text-object-types)
-                   '(org-italic org-emph)))
+                   '(org-italic org-emph))))
                 :on-char #\|)))
   (:documentation "org-mode table."))
 
@@ -1033,14 +1034,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
            (cltpt/base:pcase backend
              (cltpt/html:*html* "</table>")
              (cltpt/latex:*latex* "\\hline\\end{tabular}")))
-         (offset (- (length open-tag) 1))
          ;; if separators are defined, they should be used along with
          ;; open/close tags. so the behavior may differ from one format
          ;; to another.
          (row-open-tag (cltpt/base:pcase backend
                          (cltpt/html:*html* "<tr>")))
          (row-close-tag (cltpt/base:pcase backend
-                          (cltpt/html:*html* "<tr>")))
+                          (cltpt/html:*html* "</tr>")))
          (cell-open-tag (cltpt/base:pcase backend
                           (cltpt/html:*html* "<td>")))
          (cell-close-tag (cltpt/base:pcase backend
@@ -1073,7 +1073,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                        :begin (getf (car row-match) :begin)
                                        :end (getf (car row-match) :begin))
                                       match-begin)))))
-                (loop for cell-match in (cdr row-match)
+                (loop for cell-match
+                        in (cltpt/combinator:find-submatch-all
+                            row-match
+                            'table-cell)
                       for is-first-cell = t then nil
                       do (let ((final-open-tag
                                  (cltpt/base:concat
@@ -1088,7 +1091,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                     final-open-tag
                                     (cltpt/base:region-decf
                                      (cltpt/base:make-region
-                                      :begin (getf (car cell-match) :begin)
+                                      ;; we use 1- to get the space at the start
+                                      ;; of each cell. this prevents the handle-changed-regions
+                                      ;; function from thinking the change
+                                      ;; is part of a child when it shouldnt be
+                                      ;; we use another 1- to get a | replaced too.
+                                      :begin (1- (1- (getf (car cell-match) :begin)))
                                       :end (getf (car cell-match) :begin))
                                      match-begin)))))
                          (when cell-close-tag
@@ -1105,7 +1113,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                        (list (cons row-close-tag
                                    (cltpt/base:region-decf
                                     (cltpt/base:make-region
-                                     :begin (getf (car row-match) :end)
+                                     ;; we add 1- to get the | at the end of the row
+                                     :begin (1- (getf (car row-match) :end))
                                      :end (getf (car row-match) :end))
                                     match-begin)))))
                ('table-hrule

@@ -21,3 +21,6 @@ CLOSED: [2024-10-29 Tue 16:41:04]
 - State "DONE"       from "TODO"       [2024-10-29 Tue 16:41:04]
 - State "CANCELED"   from "TODO"       [2024-10-29 Tue 16:40:36]
 - State "MISSED"     from "TODO"       [2024-10-15 Tue 19:46:43]
+
+| \(mymath\) | hello |
+| ~code~     | hey   |
