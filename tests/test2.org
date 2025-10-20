@@ -4,6 +4,7 @@
 #+begin_task
 create the variables ~x~ and ~y~, and divide them into train and test, where train size = 80% and test size = 20%
 #+end_task
+
 #+begin_src python :session :results output
   subset_train, subset_test = sklearn.model_selection.train_test_split(data_subset, test_size=0.2)
   x_train, y_train = subset_train['size'], subset_train['price']
