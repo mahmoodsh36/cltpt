@@ -44,8 +44,8 @@ the '\\' and processes the char normally (replace or emit)."
                    (let ((replacement (cdr (assoc ch replace-table :test #'char=))))
                      (princ (or replacement ch) out)))))))
 
-(defun escape-text (text backend escapable-chars)
-  (text-format-escape backend text escapable-chars *convert-escape-newlines*))
+(defun escape-text (text backend escapable-chars to-escape-newlines)
+  (text-format-escape backend text escapable-chars to-escape-newlines))
 
 (defun collect-escapables (text-object-types)
   (remove-if-not
@@ -103,8 +103,6 @@ the '\\' and processes the char normally (replace or emit)."
                          reparse
                          (unless result-is-string
                            (getf result :reparse))))
-         (region-to-reparse (when (and to-reparse (not result-is-string))
-                              (getf result :reparse-region)))
          ;; look for :escape-regions, fall back to :escape-region, and store as a list.
          (regions-to-escape (when (and to-escape (not result-is-string))
                               (or (getf result :escape-regions)
@@ -142,25 +140,30 @@ the '\\' and processes the char normally (replace or emit)."
                          #'<
                          :key (lambda (c)
                                 (region-begin (cdr c))))))
-             (loop for escape-region in regions-to-escape
+             (loop for region-spec in regions-to-escape
                    collect
-                   (let ((begin-offset 0)
-                         (end-offset 0))
+                   (let* ((region (if (consp region-spec) (car region-spec) region-spec))
+                          (plist (if (consp region-spec) (cdr region-spec) nil))
+                          (begin-offset 0)
+                          (end-offset 0))
                      (loop for (str . change-region) in sorted-changes
                            do (when (< (region-begin change-region)
-                                       (region-begin escape-region))
+                                       (region-begin region))
                                 (incf begin-offset
                                       (- (length str)
                                          (region-length change-region)))))
                      (loop for (str . change-region) in sorted-changes
                            do (when (< (region-begin change-region)
-                                       (region-end escape-region))
+                                       (region-end region))
                                 (incf end-offset
                                       (- (length str)
                                          (region-length change-region)))))
-                     (make-region
-                      :begin (+ (region-begin escape-region) begin-offset)
-                      :end (+ (region-end escape-region) end-offset)))))
+                     (let ((new-region (make-region
+                                        :begin (+ (region-begin region) begin-offset)
+                                        :end (+ (region-end region) end-offset))))
+                       (if plist
+                           (cons new-region plist)
+                           new-region)))))
            regions-to-escape)))
     ;; this is tricky, we are modifying the text of these objects as we are
     ;; advancing, but we arent modifying the text at the root document.
@@ -183,18 +186,25 @@ the '\\' and processes the char normally (replace or emit)."
     ;; grab the new text after the changes were applied above.
     (setf result-text (text-object-text text-obj))
     (labels ((escape-text-in-regions (text containing-region escape-regions)
-               (let* ((escape-fn (lambda (s) (escape-text s fmt-dest escapables)))
-                      ;; find intersections and sort them to process in order
-                      ;; TODO: dont sort here, make it a condition that
-                      ;; the regions are sorted before being passed.
-                      (effective-regions
+               ;; find intersections and sort them to process in order
+               ;; TODO: dont sort here, make it a condition that
+               ;; the regions are sorted before being passed.
+               (let* ((effective-regions
                         (sort
-                         (loop for r in escape-regions
+                         (loop for region-spec in escape-regions
+                               for r = (if (consp region-spec)
+                                           (car region-spec)
+                                           region-spec)
+                               for plist = (when (consp region-spec)
+                                             (cdr region-spec))
                                for intersection = (region-intersection
                                                    r
                                                    containing-region)
-                               when intersection collect intersection)
-                         #'< :key #'region-begin)))
+                               when intersection
+                                 collect (cons intersection plist))
+                         #'<
+                         :key (lambda (item)
+                                (region-begin (car item))))))
                  (if (not effective-regions)
                      ;; if no escape regions are in this section, just return the text.
                      (subseq text
@@ -203,20 +213,31 @@ the '\\' and processes the char normally (replace or emit)."
                      ;; otherwise, build the string with escaped parts.
                      (with-output-to-string (s)
                        (let ((last-end (region-begin containing-region)))
-                         (dolist (r effective-regions)
-                           (write-string (subseq text last-end (region-begin r)) s)
-                           (when (getf cltpt:*debug* :convert)
-                             (format t "DEBUG: escaping ~A~%"
-                                     (subseq text
-                                             (region-begin r)
-                                             (region-end r))))
-                           (write-string
-                            (funcall escape-fn
-                                     (subseq text
-                                             (region-begin r)
-                                             (region-end r)))
-                            s)
-                           (setf last-end (region-end r)))
+                         (dolist (region-spec effective-regions)
+                           (let* ((r (car region-spec))
+                                  (plist (cdr region-spec))
+                                  (escape-newlines
+                                    (getf plist
+                                          :escape-newlines
+                                          *convert-escape-newlines*)))
+                             (write-string
+                              (subseq text last-end (region-begin r))
+                              s)
+                             (when (getf cltpt:*debug* :convert)
+                               (format t "DEBUG: escaping ~A~%"
+                                       (subseq text
+                                               (region-begin r)
+                                               (region-end r))))
+                             (write-string
+                              (escape-text
+                               (subseq text
+                                       (region-begin r)
+                                       (region-end r))
+                               fmt-dest
+                               escapables
+                               escape-newlines)
+                              s)
+                             (setf last-end (region-end r))))
                          (write-string
                           (subseq text
                                   last-end
@@ -262,7 +283,8 @@ the '\\' and processes the char normally (replace or emit)."
                                                text-in-between-begin
                                                text-in-between-end)
                                        fmt-dest
-                                       escapables))
+                                       escapables
+                                       *convert-escape-newlines*))
                                   (subseq result-text
                                           text-in-between-begin
                                           text-in-between-end))))
@@ -275,7 +297,7 @@ the '\\' and processes the char normally (replace or emit)."
                          (when (and (< idx (length result-text))
                                     (equal (char result-text idx) #\newline))
                            (incf idx)))))
-            ;; we need to handle region-to-reparse properly on the remaining text after
+            ;; we need to handle regions-to-escape properly on the remaining text after
             ;; the region of the last child
             (let ((final-text-in-between
                     (if to-escape
@@ -285,7 +307,10 @@ the '\\' and processes the char normally (replace or emit)."
                              (make-region :begin idx
                                           :end (length result-text))
                              regions-to-escape)
-                            (escape-text (subseq result-text idx) fmt-dest escapables))
+                            (escape-text (subseq result-text idx)
+                                         fmt-dest
+                                         escapables
+                                         *convert-escape-newlines*))
                         (subseq result-text idx))))
               (push final-text-in-between final-result-fragments)
               (apply 'concatenate 'string (nreverse final-result-fragments))))
@@ -296,7 +321,10 @@ the '\\' and processes the char normally (replace or emit)."
                    (make-region :begin 0
                                 :end (length result-text))
                    regions-to-escape)
-                  (escape-text result-text fmt-dest escapables))
+                  (escape-text result-text
+                               fmt-dest
+                               escapables
+                               *convert-escape-newlines*))
               result-text)))))
 
 ;; this barely handles simple patterns, it cannot be relied on, but it may make some things easier.

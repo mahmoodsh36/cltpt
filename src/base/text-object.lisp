@@ -633,7 +633,8 @@ and grabbing each position of each object through its ascendants in the tree."
                            &key
                              (reparse nil)
                              (escape t)
-                             compress-region)
+                             compress-region
+                             escape-region-options)
   "change the tags wrapping the contents of a text object. this is used for conversion.
 
 contents region is further compressed by COMPRESS-REGION if provided."
@@ -657,4 +658,7 @@ contents region is further compressed by COMPRESS-REGION if provided."
           :recurse t
           :reparse reparse
           :escape escape
-          :escape-region inner-region)))
+          :escape-regions (list
+                           (if escape-region-options
+                               (cons inner-region escape-region-options)
+                               inner-region)))))
