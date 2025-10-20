@@ -1,7 +1,8 @@
 (defpackage :cltpt/combinator/utils
   (:use :cl)
-  (:export :find-submatch :find-submatch-all :find-submatch-last
-           :match-text))
+  (:export
+   :find-submatch :find-submatch-all :find-submatch-last
+   :match-text))
 
 (in-package :cltpt/combinator/utils)
 
