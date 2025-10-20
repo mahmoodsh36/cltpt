@@ -1739,11 +1739,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :begin results-content-begin
                :end results-end)
               escape-regions)
-             ;; we compress by 1 from each side to discard the newlines.
-             (push (cltpt/base:region-compress
-                    (cltpt/base:region-clone code-region)
-                    1
-                    1)
+             (push (cons code-region (list :escape-newlines nil))
                    escape-regions)
              ;; we have to push the changes in the correct order. otherwise
              ;; the incremental parser will not function properly.
@@ -1782,7 +1778,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               code-open-tag
               code-close-tag
               :escape t
-              :compress-region (cltpt/base:make-region :begin 1 :end 1))))))))
+              :compress-region (cltpt/base:make-region :begin 1 :end 1)
+              :escape-region-options (when is-code
+                                       (list :escape-newlines nil)))))))))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
