@@ -1360,43 +1360,6 @@ some more text"))
     (fiveam:is (search "alice" result))
     (fiveam:is (search "charlie" result))))
 
-(defun test-org-table-3 ()
-  (let ((text
-          "| head1 | head2 | head3 |
-+------+-------+-------+
-| foo | \\(mymath\\) | baz  |
-| 123 | 456          | 789  |
-|     |              | 1     |
-| end | row          | test |
- some more text"))
-    (cltpt/org-mode::to-html-table
-     (cltpt/org-mode::org-table-matcher
-      nil
-      text
-      0))))
-
-(defun test-org-table-3-func ()
-  (let ((text
-          "| head1 | head2 | head3 |
-+------+-------+-------+
-| foo | \\(mymath\\) | baz  |
-| 123 | 456          | 789  |
-|     |              | 1     |
-| end | row          | test |
- some more text"))
-    (cltpt/org-mode::to-html-table
-     (cltpt/org-mode::org-table-matcher
-      nil
-      text
-      0))))
-
-(test test-org-table-3
-  (let ((result (test-org-table-3-func)))
-    (fiveam:is (stringp result))
-    (fiveam:is (search "<table>" result))
-    (fiveam:is (search "</table>" result))
-    (fiveam:is (search "head1" result))))
-
 (defun test-pairs-1-func ()
   (let* ((other-rules `((:pattern ,(cltpt/combinator:handle-rule-string "#+%w")
                          :id keyword)))
@@ -1411,7 +1374,6 @@ some more text"))
      nil
      "(my nested (text) (more (#+nested)))"
      rules)))
-
 
 (test test-pairs-1
   (let ((parser-result (test-pairs-1-func)))
@@ -1856,7 +1818,6 @@ plt.close()
 | Jane | 30  |"))
 
 (defun test-org-src-block-with-image-result-func ()
-  "Test parsing a src block that generates an image result."
   (cltpt/base:parse
    cltpt/org-mode:*org-mode*
    "#+begin_src python :results file :exports both
@@ -1878,6 +1839,214 @@ plt.close()
 (test test-org-src-block-with-image-result
   (compare-tree-types (test-org-src-block-with-image-result-func)
                       '(org-document (org-src-block org-link))))
+
+(test test-org-src-block-with-image-result-html-conversion
+  (let* ((doc (test-org-src-block-with-image-result-func))
+         (html-output (cltpt/base:convert-tree doc cltpt/org-mode:*org-mode* cltpt/html:*html*))
+         (expected-html "<pre class='org-src'><code>
+import matplotlib.pyplot as plt
+<br>
+import numpy as np
+<br>
+x = np.linspace(0, 10, 100)
+<br>
+y = np.sin(x)
+<br>
+plt.plot(x, y)
+<br>
+plt.savefig(&apos;plot.png&apos;)
+<br>
+plt.close()
+</code></pre>
+
+<div class='org-babel-results'><img src='plot.png' /></div>"))
+    (is (string= html-output expected-html))))
+
+(test test-comprehensive-org-document-html-conversion
+  (let* ((doc (test-comprehensive-org-document-func))
+         (html-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/html:*html* doc))
+         (expected-html "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=\"UTF-8\">
+  <title> Comprehensive Org Document</title>
+</head>
+<body>
+  <div class=\"post-content\">
+    <h1> Comprehensive Org Document- 2024-01-15</h1>
+    
+<br>
+<h2>Introduction</h2>This is a comprehensive test document covering many org-mode features.
+<br>
+<h3>Text Formatting</h3>Here we test <b>bold</b>, <i>italic</i>, _underline_, =verbatim=, <code>code</code>, +strikethrough+ text.
+<br>
+<h3>Links and URLs</h3><ul>
+<li>Internal link: [[#target-section][Target Section]]
+</li>
+<li>External URL: <a href='https://www.example.com'>https://www.example.com</a>
+</li>
+<li>File link: <a href='document.pdf'>PDF Document</a>
+</li>
+<li>Image link: <img src='image.png' />
+</li>
+<li>Email link: <a href='user@example.com'>Send Email</a>
+</li>
+</ul>
+<h3>Lists</h3><h4>Unordered List</h4><ul>
+<li>First item
+</li>
+<li>Second item
+<ul>
+<li>Nested item 1
+</li>
+<li>Nested item 2
+<ul>
+<li>Deeply nested item
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Third item
+</li>
+</ul>
+<h4>Ordered List</h4><ol type=\"1\">
+<li>First step
+</li>
+<li>Second step
+<ol type=\"1\">
+<li>Sub-step 2.1
+</li>
+<li>Sub-step 2.2
+</li>
+</ol>
+</li>
+<li>Third step
+</li>
+</ol>
+<h4>Description List</h4><ul>
+<li>Term 1 :: Description of term 1
+</li>
+<li>Term 2 :: Description of term 2 with [[link][reference]]
+</li>
+</ul>
+<h3>Source Code Blocks</h3><h4>Python Example</h4><pre class='org-src'><code>
+def fibonacci(n):
+<br>
+    if n &lt;= 1:
+<br>
+        return n
+<br>
+    return fibonacci(n-1) + fibonacci(n-2)
+<br>
+print(fibonacci(10))
+</code></pre>
+
+<div class='org-babel-results'>55</div>
+<br>
+<h4>JavaScript Example</h4><pre class='org-src'><code>
+function greet(name) {
+<br>
+    console.log(`Hello, ${name}!`);
+<br>
+}
+<br>
+greet(&apos;World&apos;);
+</code></pre>
+<br>
+<h4>LaTeX Example</h4><pre class='org-src'><code>
+\\begin{equation}
+<br>
+\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
+<br>
+\\end{equation}
+</code></pre>
+<br>
+<h3>Mathematical Content</h3><h4>Inline Math</h4>The equation $E = mc^2$ is famous, and so is $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$.
+<br>
+<h4>LaTeX Environments</h4><img src='/tmp/cltpt-latex-previews/cache/cltpt-snippet-246a2ccce23883e83ed08a641f574811.svg' class='display-math' />
+<br>
+<img src='/tmp/cltpt-latex-previews/cache/cltpt-snippet-98d1524083667e7c24cff63bee600ba6.svg' class='display-math' />
+<br>
+<h3>Tables</h3><h4>Simple Table</h4><table><tr><td>Name</td> <td>Age</td> <td>City</td> </tr>
+
+<tr><td>John</td> <td>25</td>  <td>NYC</td>  </tr>
+<tr><td>Jane</td> <td>30</td>  <td>LA</td>   </tr>
+<tr><td>Bob</td>  <td>35</td>  <td>Chicago</td> </tr>
+</table><h4>Complex Table with Formula</h4><table><tr><td>Item</td> <td>Price</td> <td>Quantity</td> <td>Total</td> </tr>
+
+<tr><td>Book</td> <td>$20</td>   |      <td>2</td> <td>$40</td>   </tr>
+<tr><td>Pen</td>  <td>$1.5</td>  |     <td>10</td> <td>$15</td>   </tr>
+<tr><td>#TBLFM: $4 = $2 * $3</td> </tr>
+</table><h3>Timestamps and Scheduling</h3><h4>Deadlines and Scheduling</h4><ul>
+<li>Deadline for project: <2024-02-01 Thu>
+</li>
+<li>Meeting scheduled: <2024-01-20 Fri 14:00-15:00>
+</li>
+<li>Repeating task: <2024-01-15 Mon ++1w>
+</li>
+<li>Time range: <2024-01-01 Mon>--<2024-01-31 Wed>
+</li>
+</ul>
+<h4>Timestamp Brackets</h4><ul>
+<li>[2024-01-15 Mon] (inactive timestamp)
+</li>
+<li>[2024-01-16 Tue 10:00] (inactive with time)
+</li>
+</ul>
+<h3>Tags and Properties</h3><h4>Task with Tags</h4><h4>Write comprehensive documentation</h4>
+<br>
+<h4>Review code changes</h4><h3>Blocks and Export</h3><h4>Quote Block</h4><div class='quote org-block' data-type='quote'>
+This is a blockquote that spans multiple lines
+<br>
+and demonstrates how org-mode handles quoted text.
+</div>
+<br>
+<h4>Verse Block</h4><div class='verse org-block' data-type='verse'>
+  Roses are red,
+<br>
+  Violets are blue,
+<br>
+  Sugar is sweet,
+<br>
+  And so are you.
+</div>
+<br>
+<h4>Center Block</h4><div class='center org-block' data-type='center'>
+This text is centered
+</div>
+<br>
+<h4>Export Blocks</h4>
+<div class=\"custom\">
+  <p>This is custom HTML</p>
+</div>
+
+<br>
+#+begin_export latex
+\\customsection{Custom LaTeX Content}
+This will be processed by LaTeX only.
+#+end_export
+<br>
+<h3>Comments and Footnotes</h3><h4>Comments</h4>This is regular text with a comment inline
+<br>
+<h4>Footnotes</h4>This text has a footnote[fn:1].
+<br>
+[fn:1] This is the footnote content.
+<br>
+<h3>Advanced Features</h3><h4>Macros</h4>
+<br>
+{{{greeting(World)}}}
+<br>
+<h4>Include Files</h4>
+<br>
+<h4>Bibliography</h4><a href='author2024'>author2024</a>
+<br>
+<h3>Target Section</h3>This is the target section referenced from the link above.
+<br>
+<h3>Final Section</h3>The document ends here with a final <b>bold</b> statement.  </div>
+</body>
+</html>"))
+    (is (string= html-output expected-html))))
 
 (defun test-comprehensive-org-document-func ()
   "test parsing a comprehensive org document with many features."

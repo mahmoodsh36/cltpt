@@ -12,7 +12,7 @@
    :separated-atleast-one :all-but-whitespace :handle-rule-string
    :all-upto :all-upto-included :succeeded-by :all-upto-without
    :context-rules :consec-with-optional :compile-rule-string
-   :between-whitespace :when-match-after
+   :between-whitespace :when-match-after :flanked-by-whitespace
 
    :find-submatch :find-submatch-all :find-submatch-last :match-text
    ))
@@ -729,6 +729,25 @@ The surrounding whitespace is not consumed."
                     ,#'is-preceded-by-whitespace-p)
                   str
                   pos))))
+
+(defun flanked-by-whitespace (ctx str pos rule)
+  "a combinator that matches a RULE only if it is either preceded OR
+succeeded by whitespace or a string boundary. the flanking whitespace is not consumed."
+  (let ((match (match-rule-normalized ctx rule str pos)))
+    (when match
+      (flet ((is-preceded-by-whitespace-p (p)
+               (or (zerop p)
+                   (whitespace-p (char str (1- p)))))
+             (is-succeeded-by-whitespace-p (p)
+               (or (>= p (length str))
+                   (whitespace-p (char str p)))))
+        (let* ((match-info (car match))
+               (start-pos (getf match-info :begin))
+               (end-pos (getf match-info :end)))
+          ;; succeed if EITHER the preceding OR succeeding check is true
+          (when (or (is-preceded-by-whitespace-p start-pos)
+                    (is-succeeded-by-whitespace-p end-pos))
+            match))))))
 
 (defun when-match-after (ctx str pos rule condition-fn)
   "this function is used to condition matches after they occur.
