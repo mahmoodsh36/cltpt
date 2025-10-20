@@ -54,46 +54,92 @@ to recurse on. the default behavior will be checking whether they are
 of the same type, e.g. both are conses."
   (equal (type-of child) (type-of subtree)))
 
-;; this is pre-order DFS
-(defun tree-map (subtree func)
-  "we iterate through the tree one subtree at a time and run FUNC on each.
+(defun tree-walk (subtree func &key (strategy :dfs) (order :pre-order))
+  "walk a tree and apply FUNC to each node.
 
-children are handled first. the function will always be executed on the initial
-subtree even if its not an actual tree (unless its `nil'). from then on the
-function will run only on subtrees as determined by `is-subtree'."
+STRATEGY can be :dfs or :bfs.
+ORDER can be :pre-order or :post-order (only applies to :dfs)."
+  (case strategy
+    (:dfs
+     (labels ((walk-dfs (node)
+                (when node
+                  (when (eq order :pre-order)
+                    (funcall func node))
+                  (loop for child in (tree-children node)
+                        do (when (is-subtree node child)
+                             (walk-dfs child)))
+                  (when (eq order :post-order)
+                    (funcall func node)))))
+       (walk-dfs subtree)))
+    (:bfs
+     (when subtree
+       (let ((queue (list subtree)))
+         (loop while queue
+               do (let ((current-node (pop queue)))
+                    (funcall func current-node)
+                    (loop for child in (tree-children current-node)
+                          do (when (is-subtree current-node child)
+                               (setf queue (append queue (list child))))))))))
+    (t (error "unknown strategy: ~a. use :dfs or :bfs." strategy))))
+
+(defun tree-map (subtree func &key (order :post-order))
+  "maps a tree to a new tree, applying FUNC to each node.
+
+this is a DFS operation.
+ORDER can be :pre-order or :post-order.
+this function's default behavior is identical to the original."
   (when subtree
-    (let ((children-result
-            (loop for child in (tree-children subtree)
-                  collect (if (is-subtree subtree child)
-                              (tree-map child func)
-                              child))))
-      (cons (funcall func subtree)
-            children-result))))
+    (case order
+      (:post-order
+       (let ((children-result
+               (loop for child in (tree-children subtree)
+                     collect (if (is-subtree subtree child)
+                                 (tree-map child func :order order)
+                                 child))))
+         (cons (funcall func subtree) children-result)))
+      (:pre-order
+       (let ((new-node (funcall func subtree)))
+         (cons new-node
+               (loop for child in (tree-children subtree)
+                     collect (if (is-subtree subtree child)
+                                 (tree-map child func :order order)
+                                 child)))))
+      (t (error "unknown order: ~a. use :pre-order or :post-order." order)))))
 
 (defun tree-find (subtree item
-                  &key (test #'equal) (key #'identity))
-  "find `ITEM' from in `SUBTREE'.
+                  &key
+                    (test #'equal) (key #'identity)
+                    (strategy :dfs) (order :pre-order))
+  "find ITEM in SUBTREE.
 
-TEST checks for equality between ITEM and `(key SUBTREE)'."
-  (tree-map
+STRATEGY can be :dfs or :bfs.
+ORDER can be :pre-order or :post-order (only applies to :dfs)."
+  (tree-walk
    subtree
    (lambda (other-subtree)
-     (when (funcall test
-                    item
-                    (funcall key other-subtree))
-       (return-from tree-find other-subtree))))
+     (when (funcall test item (funcall key other-subtree))
+       (return-from tree-find other-subtree)))
+   :strategy strategy
+   :order order)
   nil)
 
 (defun tree-find-all (subtree item
-                      &key (test #'equal) (key #'identity))
-  "similar to `tree-find' but returns all instances matched from the tree."
-  (let ((result))
-    (tree-map
+                      &key
+                        (test #'equal) (key #'identity)
+                        (strategy :dfs) (order :pre-order))
+  "find all instances of ITEM in SUBTREE using a configurable traversal.
+
+STRATEGY can be :dfs or :bfs.
+ORDER applies to DFS and controls the order of items in the returned list."
+  (let ((results '()))
+    (tree-walk
      subtree
      (lambda (other-subtree)
        (when (funcall test item (funcall key other-subtree))
-         (push other-subtree result))))
-    result))
+         (push other-subtree results)))
+     :strategy strategy
+     :order order)
+    (nreverse results)))
 
 (defun tree-root (subtree)
   "given a tree, return its root. this naturally takes logarithmic time."
