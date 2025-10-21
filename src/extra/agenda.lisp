@@ -4,10 +4,11 @@
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :from-roamer :task-node :tasks-between
-   :task-record :make-task-record :task-record-task :make-repeated-timestamp
+   :task-record :make-task-record :task-record-task
    :make-time-range :make-record-scheduled :make-record-timestamp
    :make-record-deadline :render-agenda :build-agenda-forest
-   :agenda-outline-node :agenda-outline-node-expansion-state))
+   :agenda-outline-node :agenda-outline-node-expansion-state
+   :task-record-repeat :task-record-time))
 
 (in-package :cltpt/agenda)
 
@@ -17,11 +18,6 @@
 (defvar *agenda-include-done*
   nil
   "whether to include agenda nodes that are in one of the `*done-states*'.")
-
-;; <2025-02-02 Sun 10:00:00 +1w>
-(defstruct repeated-timestamp
-  time ;; could be a time-range or a timestamp
-  repeat)
 
 ;; <2025-02-02 Sun 10:00:00 +1w>--<2025-02-02 Sun 14:00:00 +1w>
 (defstruct time-range
@@ -33,7 +29,8 @@
 (defstruct task-record
   type ;; what do we call the keywords "SCHEDULED", "DEADLINE", etc?
   task
-  time)
+  time
+  repeat)
 
 ;; CLOSED: [2024-04-02 Tue 19:27:34] SCHEDULED: <2024-04-02 Tue>
 (defstruct (record-scheduled (:include task-record))
@@ -68,6 +65,34 @@
 (defmethod start-task ((rec task-record))
   (task-record-time rec))
 
+(defmethod repeat-task ((rec task-record) (rng time-range))
+  (let* ((time (task-record-time rec))
+         (repeat (task-record-repeat rec))
+         (time-begin (if (typep time 'time-range)
+                         (time-range-begin time)
+                         time))
+         (time-end (and (typep time 'time-range) (time-range-end time)))
+         (increment (when time-end
+                      (local-time:timestamp-difference time-end time-begin))))
+    (when repeat
+      (let ((dates1 (cltpt/base:list-dates time-begin
+                                           (time-range-end rng)
+                                           repeat))
+            (dates2 (when time-end
+                      (cltpt/base:list-dates time-end
+                                             (time-range-end rng)
+                                             repeat))))
+        (loop for date1 in dates1
+              for date2 = (when increment
+                            (local-time:timestamp+ date1 increment :sec))
+              collect (cltpt/agenda:make-task-record
+                       :type 'dupe
+                       :task (task-record-task rec)
+                       :time (if date2
+                                 (make-time-range :begin date1
+                                                  :end date2)
+                                 date1)))))))
+
 (defgeneric is-between (time begin-time end-time)
   (:documentation "given 3 timestamps, check whether the first is between the other 2."))
 
@@ -84,11 +109,11 @@
   ;;      (is-between (time-range-end time) begin end))
   (is-between (time-range-begin time) begin end))
 
-(defmethod is-between ((time repeated-timestamp)
-                       (begin local-time:timestamp)
-                       (end local-time:timestamp))
-  (and (local-time:timestamp>= (repeated-timestamp-time time) begin)
-       (local-time:timestamp< (repeated-timestamp-time time) end)))
+;; (defmethod is-between ((time repeated-timestamp)
+;;                        (begin local-time:timestamp)
+;;                        (end local-time:timestamp))
+;;   (and (local-time:timestamp>= (repeated-timestamp-time time) begin)
+;;        (local-time:timestamp< (repeated-timestamp-time time) end)))
 
 (defstruct task
   title
@@ -150,9 +175,17 @@ the new agenda object will contain all the tasks found in the nodes of the roame
 
 (defun records-between (records begin-ts end-ts)
   (loop for record in records
-        for time = (task-record-time record)
-        if (is-between time begin-ts end-ts)
-          collect record))
+        append (let ((new-records
+                       (repeat-task record
+                                    (make-time-range :begin begin-ts
+                                                     :end end-ts))))
+                 (if new-records
+                     (loop for new-record in new-records
+                           when (is-between (task-record-time new-record)
+                                            begin-ts end-ts)
+                           collect new-record)
+                     (and (is-between (task-record-time record) begin-ts end-ts)
+                          (list record))))))
 
 (defmethod agenda-records-between ((agn agenda) begin-ts end-ts)
   (loop for task1 in (agenda-tasks agn)
@@ -233,15 +266,12 @@ the new agenda object will contain all the tasks found in the nodes of the roame
 
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))
   (labels ((format-ts (ts)
-             (let ((ts (if (typep ts 'repeated-timestamp)
-                           (repeated-timestamp-time ts)
-                           ts)))
-               (local-time:format-timestring
-                nil
-                ts
-                :format '((:hour 2 #\0)
-                          #\:
-                          (:min 2 #\0)))))
+             (local-time:format-timestring
+              nil
+              ts
+              :format '((:hour 2 #\0)
+                        #\:
+                        (:min 2 #\0))))
            (format-time (time)
              (if (typep time 'time-range)
                  (format nil "~A--~A"
