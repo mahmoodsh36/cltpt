@@ -9,62 +9,6 @@ the project depends on the following packages which could be installed using qui
 
 the code uses some sbcl-specific libraries for now, so it is unlikely that it will run on other dialects.
 
-* example usage
+* documentation
 
-convert a single file from org to html (the ~%~ part is for "formatting" with lisp code):
-
-#+begin_src sh :eval no
-  ./run.sh convert -f 'test.org' -d html -o '/tmp/%(identity basename).html'
-#+end_src
-
-convert a bunch of files from org to html:
-
-#+begin_src sh :eval no
-  ./run.sh convert -r '(:path "/home/mahmooz/brain/notes/1684594232.org" :glob "*.org" :format "org-mode")' -d html -o '/tmp/%(identity basename).html'
-#+end_src
-
-convert a bunch of files from org to latex:
-
-#+begin_src sh :eval no
-  ./run.sh convert -r '(:path "/home/mahmooz/brain/daily/" :glob "*.org" :format "org-mode")' -d latex -o '/tmp/%(identity title).tex'
-#+end_src
-
-roam (query) files
-
-#+begin_src sh :eval no
-  ./run.sh roam -r '(:path "/home/mahmooz/brain/daily/" :glob "*.org" :format "org-mode")' -o 'title: %title, id: %id, file: %file'
-#+end_src
-
-agenda (defualts to 14 days from now):
-
-#+begin_src sh :eval no
-  time ./run.sh agenda -r '(:path "/home/mahmooz/brain/notes/" :glob "*.org" :format "org-mode")'
-#+end_src
-
-agenda with a specific date range:
-
-#+begin_src sh :eval no
-  time ./run.sh agenda -r '(:path "/home/mahmooz/brain/notes/" :glob "*.org" :format "org-mode")' -f '2025-01-01' -t '2025-01-28'
-#+end_src
-
-* goals
-
-- [ ] an org-mode-like experience for lem - this is one of the main goals, it is essential
-      that the project supports most if not all features of org so that people can just
-      try lem with org-mode (if they wish to do so) without much hassle.
-- [ ] org-agenda support
-- [ ] org-babel support
-- [ ] use a unified interface for both markdown and org (and perhaps even other formats)
-- [ ] org-roam-like functionality (links by ids, navigation by titles), as well as transclusions.
-- [ ] an ideal way of mixing inline common lisp code with arbitrary text, and the ability
-      to have custom definitions of syntax.
-- [ ] a commandline interface for your text files that supports actions such as exporting
-      to latex and fetching various kinds of metadata for external use.
-
-i should note that i am yet not very familiar with lem and i expect that porting this to lem will take more time than the other tasks.
-
-* contributions
-
-- contributions are welcome.
-- the code is subject to heavy changes.
-- the code as it is right now handles some of org-mode's syntax and allows for partially functional exports to latex, my idea was to not write an "org parser", but a parser that parses different types of text that follows certain patterns, and use this functionality to provide a builtin org-mode functionality, so that we may easily choose to parse different formats aswell and have a partially uniform interface for both markdown and org-mode in the future.
+see 
