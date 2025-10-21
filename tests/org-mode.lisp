@@ -2462,6 +2462,13 @@ This exactly matches the actual parsed tree structure."
     (cltpt/tree:tree-show doc)
     (fiveam:is (test-comprehensive-org-document-parse))))
 
+(defun org-timestamp-1 ()
+  (let ((result (cltpt/combinator:parse
+                 "<2025-10-14 Tue +1d>"
+                 ;; "<2025-10-14 10:00 +1d>"
+                 (list cltpt/org-mode::*org-timestamp-rule*))))
+    (cltpt/org-mode::handle-time-match (car result))))
+
 (defun run-org-mode-tests ()
   "Run all org-mode rules tests."
   (format t "~&running org-mode tests...~%")
