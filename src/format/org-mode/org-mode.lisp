@@ -300,16 +300,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        :id weekday))
      :optional t)
     (:pattern
-     (cltpt/combinator:consec-atleast-one
+     (cltpt/combinator:consec
       " "
       (:pattern (cltpt/combinator:natural-number-matcher)
        :id hour)
-      ":"
-      (:pattern (cltpt/combinator:natural-number-matcher)
-       :id minute)
-      ":"
-      (:pattern (cltpt/combinator:natural-number-matcher)
-       :id second))
+      (cltpt/combinator:consec-atleast-one
+       ":"
+       (:pattern (cltpt/combinator:natural-number-matcher)
+        :id minute)
+       ":"
+       (:pattern (cltpt/combinator:natural-number-matcher)
+        :id second)))
      :optional t)
     (:pattern
      (cltpt/combinator:consec-atleast-one
@@ -646,7 +647,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (setf (cltpt/base:text-object-property obj :initial-match-length)
           (- (getf (car match) :end) (getf (car match) :begin)))))
 
-(defun get-repeated-duration (repeat-num repeat-word)
+(defun get-repeat-interval (repeat-num repeat-word)
   (let ((repeat-num (parse-integer repeat-num :junk-allowed t)))
     (cond
       ((equal repeat-word "w")
@@ -656,16 +657,36 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       ((equal repeat-word "h")
        (list :hour repeat-num)))))
 
-(defun handle-repeated-timestamp (ts-match)
-  (let ((repeat-num (cltpt/combinator:match-text
-                     (car (cltpt/combinator:find-submatch ts-match
-                                                          'repeat-num))))
-        (repeat-word (cltpt/combinator:match-text
-                      (car (cltpt/combinator:find-submatch ts-match
-                                                           'repeat-word)))))
-    (cltpt/agenda:make-repeated-timestamp
-     :time (org-timestamp-match-to-time ts-match)
-     :repeat (get-repeated-duration repeat-num repeat-word))))
+(defun repeat-interval-from-timestamp-match (ts-match)
+  (let ((repeat-num
+          (cltpt/combinator:match-text
+           (car (cltpt/combinator:find-submatch ts-match 'repeat-num))))
+        (repeat-word
+          (cltpt/combinator:match-text
+           (car (cltpt/combinator:find-submatch ts-match 'repeat-word)))))
+    (when (and repeat-num repeat-word)
+      (get-repeat-interval repeat-num repeat-word))))
+
+(defun handle-time-match (ts-match &optional (record (cltpt/agenda:make-task-record)))
+  (let* ((begin-ts-match
+           (cltpt/combinator:find-submatch ts-match 'begin))
+         (end-ts-match
+           (cltpt/combinator:find-submatch ts-match 'end))
+         (begin-time (org-timestamp-match-to-time begin-ts-match))
+         (end-time
+           (when end-ts-match
+             (org-timestamp-match-to-time end-ts-match)))
+         (repeat-interval
+           (repeat-interval-from-timestamp-match begin-ts-match)))
+    (if end-time
+        (setf (cltpt/agenda:task-record-time record)
+              (cltpt/agenda:make-time-range
+               :begin begin-time
+               :end end-time))
+        (setf (cltpt/agenda:task-record-time record)
+              begin-time))
+    (setf (cltpt/agenda:task-record-repeat record) repeat-interval)
+    record))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
   (let* ((match (cltpt/base:text-object-property obj :combinator-match))
@@ -681,27 +702,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (action-inactive-matches
            (cltpt/combinator:find-submatch-all match 'action-inactive)))
     (loop for ts-match in timestamp-matches
-          do (let* ((begin-ts-match
-                      (cltpt/combinator:find-submatch ts-match 'begin))
-                    (end-ts-match
-                      (cltpt/combinator:find-submatch ts-match 'end))
-                    (begin-time
-                      (if (cltpt/combinator:find-submatch begin-ts-match 'repeat-num)
-                          (handle-repeated-timestamp begin-ts-match)
-                          (org-timestamp-match-to-time begin-ts-match)))
-                    (end-time
-                      (when end-ts-match
-                        (if (cltpt/combinator:find-submatch end-ts-match 'repeat-num)
-                            (handle-repeated-timestamp end-ts-match)
-                            (org-timestamp-match-to-time end-ts-match))))
-                    (new-record
-                      (if end-time
-                          (cltpt/agenda:make-task-record
-                           :time (cltpt/agenda:make-time-range
-                                  :begin begin-time
-                                  :end end-time))
-                          (cltpt/agenda:make-task-record
-                           :time begin-time))))
+          do (let ((new-record (handle-time-match ts-match)))
                (push new-record task-records)))
     (labels ((is-drawer (obj2)
                (typep obj2 'org-prop-drawer)))
@@ -723,15 +724,15 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      (cltpt/combinator:find-submatch action-match 'timestamp)))
                (cond
                  ((string-equal action-name "scheduled")
-                  (push
-                   (cltpt/agenda:make-record-scheduled
-                    :time (org-timestamp-match-to-time action-timestamp))
-                   task-records))
+                  (push (handle-time-match
+                         action-timestamp
+                         (cltpt/agenda:make-record-scheduled))
+                        task-records))
                  ((string-equal action-name "deadline")
-                  (push
-                   (cltpt/agenda:make-record-deadline
-                    :time (org-timestamp-match-to-time action-timestamp))
-                   task-records))
+                  (push (handle-time-match
+                         action-timestamp
+                         (cltpt/agenda:make-record-deadline))
+                        task-records))
                  ((string-equal action-name "closed")
                   ))))
     (setf (cltpt/base:text-object-property obj :id) header-id)

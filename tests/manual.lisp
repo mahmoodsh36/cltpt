@@ -59,11 +59,15 @@
 
 (defun test-agenda-3 ()
   (let* ((rmr (cltpt/roam:from-files
-               '((:path ("./test2.org")
+               '((:path ("./tests/test2.org")
                   :glob "*.org"
                   :format "org-mode"))))
+         (begin-ts (local-time:encode-timestamp 0 0 0 0 13 10 2025))
+         (end-ts (local-time:encode-timestamp 0 0 0 0 18 10 2025))
          (agenda (cltpt/agenda:from-roamer rmr)))
-    (cltpt/agenda:render-agenda agenda)))
+    (cltpt/agenda:render-agenda agenda
+                                :begin-ts begin-ts
+                                :end-ts end-ts)))
 
 (defun roam-test-1 ()
   (time
