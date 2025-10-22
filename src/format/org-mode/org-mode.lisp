@@ -1595,6 +1595,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defun to-raw-html-string (mystr)
   mystr)
 
+;; TODO: handle verbatim blocks such as #+begin_example.
 (defmethod convert-block ((obj cltpt/base:text-object)
                           (backend cltpt/base:text-format)
                           block-type
