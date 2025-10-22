@@ -10,7 +10,8 @@
    :render-as-s-expression
    :render-as-json
    :render-as-dot
-   :render-as-path-list))
+   :render-as-path-list
+   :could-expand))
 
 (in-package :cltpt/tree/outline)
 
@@ -19,6 +20,9 @@
 
 (defgeneric outline-text (node)
   (:documentation "the text to display for a node in the generated outline."))
+
+(defgeneric could-expand (node)
+  (:documentation "whether a node can be expanded."))
 
 ;; (defmethod expand-node ((node cons))
 ;;   (setf (getf node :expanded) t))
@@ -45,6 +49,9 @@
 
 (defmethod outline-text ((node t))
   (cltpt/tree:tree-value node))
+
+(defmethod could-expand ((node t))
+  (should-expand node))
 
 (defclass drawing-style ()
   ((branch-connector :initarg :branch-connector :reader branch-connector)
