@@ -662,3 +662,6 @@ contents region is further compressed by COMPRESS-REGION if provided."
                            (if escape-region-options
                                (cons inner-region escape-region-options)
                                inner-region)))))
+
+(defmethod text-object-combinator-match ((text-obj text-object))
+  (text-object-property text-obj :combinator-match))
