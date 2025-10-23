@@ -45,9 +45,12 @@
                 :depends-on ("base" "file-utils")
                 :components ((:file "roam")))
                (:module "agenda"
-                :pathname "src/extra/"
+                :pathname "src/extra/agenda"
                 :depends-on ("base" "roam")
-                :components ((:file "agenda")))
+                :components ((:file "time")
+                             (:file "state")
+                             (:file "task")
+                             (:file "agenda")))
                (:module "org-mode"
                 :pathname "src/format/org-mode"
                 :depends-on ("combinator" "file-utils" "base" "latex" "html")
