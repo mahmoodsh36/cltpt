@@ -1,129 +1,65 @@
 (defpackage :cltpt/agenda
   (:use :cl)
+  (:import-from :cltpt/agenda/state
+   :state-name :state-is-terminal :make-state :state-by-name
+   :state-desc-name :state-desc-is-terminal
+   :make-state-desc :make-state-sequence-desc
+   :state-sequence-desc-state-descs)
+  (:import-from :cltpt/agenda/time
+   :time-range :make-time-range :time-range-begin :time-range-end
+   :is-between)
+  (:import-from
+   :cltpt/agenda/task
+   :task :make-task :task :agenda-tasks
+   :task-state :task-tags :task-title :task-description :task-records
+   :task-record :make-task-record :task-record-task
+   :task-record-repeat :task-record-time
+
+   :repeat-task :deadline :start-task
+
+   :task-node
+   :text-object-task)
   (:export
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
-   :from-roamer :task-node :tasks-between
    :task-record :make-task-record :task-record-task
+   :task-record-repeat :task-record-time
+
+   :from-roamer :task-node :tasks-between
    :make-time-range :make-record-scheduled :make-record-timestamp
    :make-record-deadline :render-agenda :build-agenda-forest
    :agenda-outline-node :agenda-outline-node-expansion-state
-   :task-record-repeat :task-record-time))
+
+   :state-by-name))
 
 (in-package :cltpt/agenda)
 
-(defvar *done-states*
-  '(done cancelled cancel close))
+(defvar *agenda-seqs*
+  (list
+   (make-state-sequence-desc
+    :name 'basic
+    :state-descs (list
+                  (make-state-desc
+                   :name 'todo
+                   :is-terminal nil)
+                  (make-state-desc
+                   :name 'done
+                   :is-terminal t)))))
+
+;; this grabs a state by its name, its not very smart and it cant tell the
+;; difference between two states of the same name from different sequences.
+;; but this is the way that org-mode does it so we use that for now.
+(defun state-by-name (name)
+  (loop for seq-desc in *agenda-seqs*
+        do (loop for state-desc in (state-sequence-desc-state-descs seq-desc)
+                 do (when (string= (state-desc-name state-desc) name)
+                      (return-from state-by-name
+                        (make-state :desc state-desc
+                                    :sequence-desc seq-desc))))))
 
 (defvar *agenda-include-done*
   nil
   "whether to include agenda nodes that are in one of the `*done-states*'.")
-
-;; <2025-02-02 Sun 10:00:00 +1w>--<2025-02-02 Sun 14:00:00 +1w>
-(defstruct time-range
-  begin
-  end)
-
-;; <2024-11-26 Tue 12:00:00>
-;; <2025-02-02 Sun 10:00:00 +1w>--<2025-02-02 Sun 14:00:00 +1w>
-(defstruct task-record
-  type ;; what do we call the keywords "SCHEDULED", "DEADLINE", etc?
-  task
-  time
-  repeat)
-
-;; CLOSED: [2024-04-02 Tue 19:27:34] SCHEDULED: <2024-04-02 Tue>
-(defstruct (record-scheduled (:include task-record))
-  )
-
-;; CLOSED: [2025-09-17 Wed 23:44:42] DEADLINE: <2025-09-13 Sat>
-(defstruct (record-deadline (:include task-record))
-  )
-
-(defgeneric deadline (record)
-  (:documentation "a record that behaves as a deadline should return a timestamp as a deadline."))
-
-(defgeneric start-task (record)
-  (:documentation "a record that behaves as a \"when to start\" should return a timestamp."))
-
-(defgeneric end-task (record)
-  (:documentation "a record that behaves as a \"when to end\" should return a timestamp."))
-
-(defgeneric repeat-task (record time-range)
-  (:documentation "a repetitive `task-record' should return as many instances as it needs for the given time range."))
-
-(defmethod deadline ((rec record-deadline))
-  (task-record-time rec))
-
-;; only `record-deadline' sets a deadline, atleast for now.
-(defmethod deadline ((rec t))
-  nil)
-
-(defmethod start-task ((rec record-scheduled))
-  (task-record-time rec))
-
-(defmethod start-task ((rec task-record))
-  (task-record-time rec))
-
-(defmethod repeat-task ((rec task-record) (rng time-range))
-  (let* ((time (task-record-time rec))
-         (repeat (task-record-repeat rec))
-         (time-begin (if (typep time 'time-range)
-                         (time-range-begin time)
-                         time))
-         (time-end (and (typep time 'time-range) (time-range-end time)))
-         (increment (when time-end
-                      (local-time:timestamp-difference time-end time-begin))))
-    (when repeat
-      (let ((dates1 (cltpt/base:list-dates time-begin
-                                           (time-range-end rng)
-                                           repeat))
-            (dates2 (when time-end
-                      (cltpt/base:list-dates time-end
-                                             (time-range-end rng)
-                                             repeat))))
-        (loop for date1 in dates1
-              for date2 = (when increment
-                            (local-time:timestamp+ date1 increment :sec))
-              collect (cltpt/agenda:make-task-record
-                       :type 'dupe
-                       :task (task-record-task rec)
-                       :time (if date2
-                                 (make-time-range :begin date1
-                                                  :end date2)
-                                 date1)))))))
-
-(defgeneric is-between (time begin-time end-time)
-  (:documentation "given 3 timestamps, check whether the first is between the other 2."))
-
-(defmethod is-between ((time local-time:timestamp)
-                       (begin local-time:timestamp)
-                       (end local-time:timestamp))
-  (and (local-time:timestamp>= time begin)
-       (local-time:timestamp< time end)))
-
-(defmethod is-between ((time time-range)
-                       (begin local-time:timestamp)
-                       (end local-time:timestamp))
-  ;; (and (is-between (time-range-begin time) begin end)
-  ;;      (is-between (time-range-end time) begin end))
-  (is-between (time-range-begin time) begin end))
-
-;; (defmethod is-between ((time repeated-timestamp)
-;;                        (begin local-time:timestamp)
-;;                        (end local-time:timestamp))
-;;   (and (local-time:timestamp>= (repeated-timestamp-time time) begin)
-;;        (local-time:timestamp< (repeated-timestamp-time time) end)))
-
-(defstruct task
-  title
-  description
-  records ;; list of task-record
-  state ;; a symbol
-  tags
-  node ;; node refers to a cltpt/roam:node
-  children
-  parent)
 
 (defclass agenda ()
   ((tasks
@@ -138,7 +74,7 @@ the new agenda object will contain all the tasks found in the nodes of the roame
   (let ((results))
     (loop for node in (cltpt/roam:roamer-nodes rmr)
           for obj = (cltpt/roam:node-text-obj node)
-          for task = (text-object-agenda-data obj)
+          for task = (text-object-task obj)
           do (when task
                (setf (task-node task) node)
                (push task results)))
@@ -157,21 +93,6 @@ the new agenda object will contain all the tasks found in the nodes of the roame
                           (setf (task-parent task) other-task)
                           (push task (task-children other-task))))))
     (make-instance 'agenda :tasks results)))
-
-(defmethod text-object-agenda-data ((obj cltpt/base:text-object))
-  (cltpt/base:text-object-property obj :task))
-
-;; (defmethod cltpt/tree:tree-children ((node task))
-;;   (task-children node))
-
-;; (defmethod cltpt/tree:tree-parent ((node task))
-;;   (task-parent node))
-
-;; (defmethod cltpt/outline:outline-text ((node task))
-;;   (format nil "~A: ~A" (task-state node) (task-title node)))
-
-;; (defmethod cltpt/tree:is-subtree ((subtree task) child)
-;;   (typep child 'task))
 
 (defun records-between (records begin-ts end-ts)
   (loop for record in records
@@ -249,7 +170,8 @@ the new agenda object will contain all the tasks found in the nodes of the roame
 (defmethod cltpt/tree/outline:outline-text ((node agenda-outline-node))
   (agenda-outline-node-text node))
 
-(defmethod cltpt/tree:is-subtree ((node agenda-outline-node) (child task-record))
+(defmethod cltpt/tree:is-subtree ((node agenda-outline-node)
+                                  (child task-record))
   t)
 
 ;; without this printing a node might cause an infinite loop
@@ -282,15 +204,18 @@ the new agenda object will contain all the tasks found in the nodes of the roame
       (if (deadline rec)
           (format nil
                   "DEADLINE: ~A ~A"
+                  (state-name (task-state task1))
                   (format-time (task-record-time rec))
                   (task-title task1))
           (if (start-task rec)
               (format nil
-                      "START: ~A ~A"
+                      "START: (~A) ~A ~A"
+                      (state-name (task-state task1))
                       (format-time (task-record-time rec))
                       (task-title task1))
               (format nil
-                      "~A ~A"
+                      "~A (~A) ~A"
+                      (state-name (task-state task1))
                       (format-time (task-record-time rec))
                       (task-title task1)))))))
 

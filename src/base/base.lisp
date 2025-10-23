@@ -8,6 +8,7 @@
    :merge-plist :replace-substr
    :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day :replace-all
+   :find-cons-if
 
    :region-incf :region-decf :region-clone :region-compress :region-compress-by
 
