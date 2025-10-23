@@ -197,6 +197,18 @@ key value is greater than X. returns NIL if insertion should be at head."
           do (return prev)
         finally (return prev)))
 
+(defun find-cons-if (predicate list &key (key #'identity))
+  "finds and returns the first cons cell in LIST whose CAR satisfies the PREDICATE.
+
+- PREDICATE: a function of one argument that returns true or false.
+- LIST: the list to search through.
+- KEY: a function to be applied to the element before it's passed to the predicate.
+
+returns the cons cell on success, or NIL if no element satisfies the predicate."
+  (loop for cons on list
+        when (funcall predicate (funcall key (car cons)))
+          do (return cons)))
+
 (defun sorted-insert (list item &key (key #'identity))
   "insert ITEM into LIST, preserving ascending order based on KEY.
 returns the (possibly new) list."

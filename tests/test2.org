@@ -1,6 +1,6 @@
 - test 1
 - test 2
-* TODO part 1, univariate linear regression
+* TODO part 2, univariate linear regression
 <2025-10-14 Tue 10:00 +1d>--<2025-10-28 Tue 12:00>
 <2025-10-14 Tue>--<2025-10-25 Sat>
 #+begin_task
