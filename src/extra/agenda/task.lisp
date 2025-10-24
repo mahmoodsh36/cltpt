@@ -10,9 +10,7 @@
    :task-record-repeat :task-record-time
 
    :repeat-task :deadline :start-task
-
-   :task-node
-   :text-object-task))
+   :task-node :text-object-task))
 
 (in-package :cltpt/agenda/task)
 

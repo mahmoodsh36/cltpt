@@ -4,7 +4,7 @@
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
    :make-state-desc :make-state-sequence-desc
-   :state-sequence-desc-state-descs))
+   :state-sequence-desc :state-sequence-desc-state-descs :cycle))
 
 (in-package :cltpt/agenda/state)
 
@@ -68,7 +68,7 @@
          (state-cdr (cltpt/base:find-cons-if
                      (lambda (x)
                        (equal x s))
-                     (state-sequence-desc-states seq-desc)))
+                     (state-sequence-desc-state-descs seq-desc)))
          (next-state-desc (cadr state-cdr))
          (next-state (make-state :desc next-state-desc
                                  :timestamp (local-time:now)
