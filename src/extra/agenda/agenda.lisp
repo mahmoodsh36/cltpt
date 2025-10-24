@@ -4,7 +4,7 @@
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
    :make-state-desc :make-state-sequence-desc
-   :state-sequence-desc-state-descs)
+   :state-sequence-desc :state-sequence-desc-state-descs :cycle)
   (:import-from :cltpt/agenda/time
    :time-range :make-time-range :time-range-begin :time-range-end
    :is-between)
@@ -30,7 +30,14 @@
    :make-record-deadline :render-agenda :build-agenda-forest
    :agenda-outline-node :agenda-outline-node-expansion-state
 
-   :state-by-name))
+   :state-name :state-is-terminal :make-state :state-by-name
+   :state-desc-name :state-desc-is-terminal
+   :make-state-desc :make-state-sequence-desc
+   :state-sequence-desc :state-sequence-desc-state-descs :cycle
+
+   :text-object-task
+
+   :cycle :state-by-name))
 
 (in-package :cltpt/agenda)
 

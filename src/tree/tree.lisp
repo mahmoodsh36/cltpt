@@ -1,7 +1,7 @@
 (defpackage :cltpt/tree
   (:use :cl)
   (:export
-   :tree-value :tree-children :tree-map :tree-find-all :tree-find
+   :tree-value :tree-children :tree-map :tree-find-all :tree-find :tree-walk
    :is-subtree :tree-root :tree-parent :tree-show :node-depth :has-children))
 
 (in-package :cltpt/tree)
