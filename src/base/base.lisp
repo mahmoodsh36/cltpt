@@ -3,7 +3,7 @@
   (:export
    :flatten :tree-find :pcase :plistp
    :bind-and-eval :bind-and-eval*
-   :compress-consec :str-join :concat :str-prune :str-split
+   :compress-consec :str-join :concat :str-prune :str-split :str-dupe
    :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :replace-substr
    :add-duration :list-dates :list-date-pairs

@@ -18,11 +18,11 @@
      (parse-file cltpt/org-mode:*org-mode* filepath))
     (time
      (progn
-       ;; (cltpt/base:convert-file
-       ;;  (cltpt/base:text-format-by-name "org-mode")
-       ;;  (cltpt/base:text-format-by-name "latex")
-       ;;  "test3.org"
-       ;;  "test.out.tex")
+       (cltpt/base:convert-file
+        (cltpt/base:text-format-by-name "org-mode")
+        (cltpt/base:text-format-by-name "latex")
+        filepath
+        "test.out.tex")
        (cltpt/base:convert-file
         (cltpt/base:text-format-by-name "org-mode")
         (cltpt/base:text-format-by-name "html")

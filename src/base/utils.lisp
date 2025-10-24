@@ -291,3 +291,9 @@ the loop stops when NEXT-DATE would be after END-DATE."
                            :end (or pos (length string)))
           when pos do (write-string replacement out)
             while pos)))
+
+(defun str-dupe (str count)
+  "return STR concatenated COUNT times."
+  (with-output-to-string (out)
+    (loop for i from 0 upto count
+          do (write-sequence str out))))

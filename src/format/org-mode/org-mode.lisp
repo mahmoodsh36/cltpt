@@ -262,7 +262,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                               :escape nil)))))))))
     (or final-result
         (list :text ""
-              :reparse t))))
+              :recurse nil))))
 
 (defvar *org-comment-rule*
   '(:pattern
@@ -755,7 +755,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               do (setf (cltpt/agenda:task-record-task record) task))
         (setf (cltpt/base:text-object-property obj :task) task)))))
 
-;; TODO: fix conversion to latex.
 (defmethod cltpt/base:text-object-convert ((obj org-header)
                                            (backend cltpt/base:text-format))
   (let ((to-not-export
@@ -766,70 +765,79 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   :test 'equal)))
     (if to-not-export
         (list :text "" :reparse t)
-        (cltpt/base:pcase backend
-          (cltpt/html:*html*
-           (let* ((obj-text (cltpt/base:text-object-text obj))
-                  (changes)
-                  (match (cltpt/base:text-object-property obj :combinator-match))
-                  (title-match (car (cltpt/combinator:find-submatch match 'title)))
-                  (match-begin (getf (car match) :begin))
-                  (match-end (getf (car match) :end))
-                  (close-tag
+        (let* ((obj-text (cltpt/base:text-object-text obj))
+               (changes)
+               (match (cltpt/base:text-object-property obj :combinator-match))
+               (title-match (car (cltpt/combinator:find-submatch match 'title)))
+               (match-begin (getf (car match) :begin))
+               (match-end (getf (car match) :end))
+               (close-tag
+                 (cltpt/base:pcase backend
+                   (cltpt/html:*html*
                     (format nil
                             "</h~A>"
                             ;; we want to start from h2, not h1 in html.
                             (1+ (cltpt/base:text-object-property obj :level))))
-                  (open-tag
+                   (cltpt/latex:*latex* "}")))
+               (open-tag
+                 (cltpt/base:pcase backend
+                   (cltpt/html:*html*
                     (format nil
                             "<h~A>"
                             ;; we want to start from h2, not h1 in html.
                             (1+ (cltpt/base:text-object-property obj :level))))
-                  (postfix-begin (- (getf title-match :end) match-begin))
-                  ;; use 1+ to account for the extra newline at the end which
-                  ;; we want removed
-                  (postfix-end (min (1+ (- match-end match-begin))
-                                    (length obj-text)))
-                  (prefix-end (- (getf title-match :begin) match-begin))
-                  ;; the "old postfix" region is the region containing the
-                  ;; tags, and the metadata after the tags+newline
-                  (old-postfix-region
-                    (cltpt/base:make-region
-                     :begin postfix-begin
-                     :end postfix-end))
-                  ;; the "old prefix" region is the region containing the TODO
-                  ;; keyword
-                  (old-prefix-region
-                    (cltpt/base:make-region
-                     :begin 0
-                     :end prefix-end)))
-             ;; remove the children in the metadata region
-             (loop for child in (copy-seq (cltpt/base:text-object-children obj))
-                   do (when (cltpt/base:region-contains
-                             old-postfix-region
-                             (cltpt/base:text-object-begin child))
-                        (setf (cltpt/base:text-object-children obj)
-                              (delete child
-                                      (cltpt/base:text-object-children obj)))))
-             ;; change the "postfix" text after the title (tags etc)
-             (push (cons close-tag old-postfix-region) changes)
-             ;; change the "prefix" text before the title (stars etc)
-             (push (cons open-tag old-prefix-region) changes)
-             (list
-              :text obj-text
-              :remove-newline-after t
-              :changes changes
-              :escape t
-              ;; escape regions are the title, and the contents of the header
-              :escape-regions
-              (list
-               (cltpt/base:make-region
-                :begin (cltpt/base:region-end old-prefix-region)
-                :end (cltpt/base:region-begin old-postfix-region))
-               (cltpt/base:make-region
-                :begin (cltpt/base:region-end old-postfix-region)
-                :end (length obj-text)))
-              :reparse nil
-              :recurse t)))))))
+                   (cltpt/latex:*latex*
+                    (format nil
+                            "\\~Asection{"
+                            (cltpt/base:str-dupe
+                             "sub"
+                             (cltpt/base:text-object-property obj :level))))))
+               (postfix-begin (- (getf title-match :end) match-begin))
+               ;; use 1+ to account for the extra newline at the end which
+               ;; we want removed
+               (postfix-end (min (1+ (- match-end match-begin))
+                                 (length obj-text)))
+               (prefix-end (- (getf title-match :begin) match-begin))
+               ;; the "old postfix" region is the region containing the
+               ;; tags, and the metadata after the tags+newline
+               (old-postfix-region
+                 (cltpt/base:make-region
+                  :begin postfix-begin
+                  :end postfix-end))
+               ;; the "old prefix" region is the region containing the TODO
+               ;; keyword
+               (old-prefix-region
+                 (cltpt/base:make-region
+                  :begin 0
+                  :end prefix-end)))
+          ;; remove the children in the metadata region
+          (loop for child in (copy-seq (cltpt/base:text-object-children obj))
+                do (when (cltpt/base:region-contains
+                          old-postfix-region
+                          (cltpt/base:text-object-begin child))
+                     (setf (cltpt/base:text-object-children obj)
+                           (delete child
+                                   (cltpt/base:text-object-children obj)))))
+          ;; change the "postfix" text after the title (tags etc)
+          (push (cons close-tag old-postfix-region) changes)
+          ;; change the "prefix" text before the title (stars etc)
+          (push (cons open-tag old-prefix-region) changes)
+          (list
+           :text obj-text
+           :remove-newline-after t
+           :changes changes
+           :escape t
+           ;; escape regions are the title, and the contents of the header
+           :escape-regions
+           (list
+            (cltpt/base:make-region
+             :begin (cltpt/base:region-end old-prefix-region)
+             :end (cltpt/base:region-begin old-postfix-region))
+            (cltpt/base:make-region
+             :begin (cltpt/base:region-end old-postfix-region)
+             :end (length obj-text)))
+           :reparse nil
+           :recurse t)))))
 
 (defvar *org-link-rule*
   '(:pattern
@@ -865,7 +873,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-link-rule*))
   (:documentation "org-mode link."))
 
-(defmethod cltpt/base:text-object-convert ((obj org-link) (backend cltpt/base:text-format))
+;; TODO: fix latex conversion
+(defmethod cltpt/base:text-object-convert ((obj org-link)
+                                           (backend cltpt/base:text-format))
   (cond
     ((eq backend cltpt/html:*html*)
      (let* ((desc (cltpt/base:text-object-property obj :desc))
@@ -1029,9 +1039,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
            (cltpt/base:pcase backend
              (cltpt/html:*html* "<table>")
              (cltpt/latex:*latex*
-              (format nil
-                      "\\begin{tabular} { |~{~a~^|~}| } \\hline~%"
-                      (loop repeat num-cols collect "l")))))
+              (let* ((first-row-match (cltpt/combinator:find-submatch
+                                       match
+                                       'table-row))
+                     (num-cols
+                       (length
+                        (cltpt/combinator:find-submatch-all
+                         match
+                         'table-cell))))
+                (format nil
+                        "\\begin{tabular} { |~{~a~^|~}| } \\hline~%"
+                        (loop repeat num-cols collect "l"))))))
          (close-tag
            (cltpt/base:pcase backend
              (cltpt/html:*html* "</table>")
@@ -1297,40 +1315,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-convert ((obj org-document)
                                            (backend cltpt/base:text-format))
-  (cltpt/base:pcase backend
-    (cltpt/latex:*latex*
-     (let* ((my-preamble
-              (concatenate 'string
-                           (cltpt/latex:generate-latex-preamble
-                            "authorhere" "datehere" "titlehere")
-                           (string #\newline)
-                           "\\begin{document}"
-                           (string #\newline)))
-            (my-postamble
-              (concatenate 'string
-                           (string #\newline)
-                           "\\end{document}"))
-            (my-text (format nil "~A~A~A"
-                             my-preamble
-                             (cltpt/base:text-object-text obj)
-                             my-postamble))
-            (inner-region
-              (cltpt/base:make-region
-               :begin (length my-preamble)
-               :end (- (length my-text) (length my-postamble)))))
-       (list :text my-text
-             :reparse t
-             :recurse t
-             :reparse-region inner-region
-             :escape t
-             ;; dont escape the commands in the preamble
-             :escape-region inner-region)))
-    (cltpt/html:*html*
-     (ensure-latex-previews-generated obj)
-     (list :text (cltpt/base:text-object-text obj)
-           :escape t
-           :reparse nil
-           :recurse t))))
+  (list :text (cltpt/base:text-object-text obj)
+        :escape t
+        :reparse nil
+        :recurse t))
 
 (defclass org-emph (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -1592,10 +1580,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
   (init-org-src-block obj match))
 
-;; placeholder
-(defun to-raw-html-string (mystr)
-  mystr)
-
 ;; TODO: handle verbatim blocks such as #+begin_example.
 (defmethod convert-block ((obj cltpt/base:text-object)
                           (backend cltpt/base:text-format)
@@ -1638,7 +1622,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        (list :text "" :reparse t))
       ((member block-type (list "comment" "my_comment") :test 'string=)
        (list :text "" :reparse t))
-      ((eq backend cltpt/html:*html*)
+      (t
        (let* ((all-keywords
                 (concatenate
                  'list
@@ -1650,22 +1634,53 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                      (format nil
                                              "data-~A='~A'"
                                              key
-                                             (to-raw-html-string value)))
+                                             value))
                       when result collect result))
+              (props-str (cltpt/base:str-join props " "))
               (code-open-tag
-                (if is-code
-                    "<pre class='org-src'><code>"
-                    (format nil
-                            "<div class='~A org-block' ~A>"
-                            block-type
-                            (cltpt/base:str-join props " "))))
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html*
+                   (if is-code
+                       (format nil
+                               "<pre class='org-src' ~A><code>"
+                               props-str)
+                       (format nil
+                               "<div class='~A org-block' ~A>"
+                               block-type
+                               props-str)))
+                  (cltpt/latex:*latex*
+                   (format nil
+                           "\\begin{~A}"
+                           (if is-code
+                               cltpt/latex:*latex-code-env*
+                               block-type)))))
               (code-close-tag
-                (if is-code
-                    "</code></pre>"
-                    "</div>"))
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html*
+                   (if is-code
+                       "</code></pre>"
+                       "</div>"))
+                  (cltpt/latex:*latex*
+                   (format nil
+                           "\\end{~A}"
+                           (if is-code
+                               cltpt/latex:*latex-code-env*
+                               block-type)))))
               (changes)
-              (results-open-tag "<div class='org-babel-results'>")
-              (results-close-tag "</div>")
+              (results-open-tag
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html* "<div class='org-babel-results'>")
+                  (cltpt/latex:*latex*
+                   (format nil
+                           "\\begin{~A}"
+                           cltpt/latex:*latex-code-env*))))
+              (results-close-tag
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html* "</div>")
+                  (cltpt/latex:*latex*
+                   (format nil
+                           "\\end{~A}"
+                           cltpt/latex:*latex-code-env*))))
               (escape-regions))
          ;; if we wanna export results, we will have to apply some modifications
          ;; to some of the text accordingly so that the #+RESULTS part
@@ -1800,7 +1815,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block)
                                            (backend cltpt/base:text-format))
-  (convert-block obj backend "lstlisting" t))
+  (convert-block obj backend nil t))
 
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair
@@ -1910,12 +1925,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (lang-match (car (cltpt/combinator:find-submatch match 'lang)))
          (lang (cltpt/combinator:match-text lang-match)))
     ;; we only export if the destination matches the lang set by the export block
-    (when (string= (cltpt/base:text-format-name backend)
-                   lang)
-      (list :text (cltpt/base:text-object-contents obj)
-            :recurse nil
-            :reparse nil
-            :escape nil))))
+    (if (string= (cltpt/base:text-format-name backend) lang)
+        (list :text (cltpt/base:text-object-contents obj)
+              :recurse nil
+              :reparse nil
+              :escape t)
+        (list :text ""
+              :recurse nil))))
 
 (defvar *org-drawer-rule*
   `(:pattern
