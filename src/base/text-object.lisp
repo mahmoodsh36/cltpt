@@ -47,7 +47,13 @@ object that was detected by the parser combinator."))
 
 (defgeneric text-object-finalize (text-obj)
   (:documentation "this function is invoked by the parser once it is done.
-the text object should finalize initialization or any other functionality."))
+
+the text object should finalize initialization or any other functionality.
+
+work that is done in finalization should not have a compounded effect when
+the function is applied multiple times to an unchanged text-object.
+this has to be true for incremental changes (e.g. `handle-changed-regions') to
+work properly."))
 
 (defgeneric text-object-ends-by (text-obj value)
   (:documentation "should return whether the value indicates the ending of the
@@ -665,3 +671,19 @@ contents region is further compressed by COMPRESS-REGION if provided."
 
 (defmethod text-object-combinator-match ((text-obj text-object))
   (text-object-property text-obj :combinator-match))
+
+(defun normalize-match-positions (match)
+  (let ((new-match (copy-tree match))
+        (pos (getf (car match) :begin)))
+    (cltpt/tree:tree-walk
+     new-match
+     (lambda (submatch)
+       (when (plistp (car submatch))
+         (decf (getf (car submatch) :begin) pos)
+         (decf (getf (car submatch) :end) pos))))
+    new-match))
+
+;; TODO: optimize, this runs linearly on each call.
+(defmethod text-object-normalized-combinator-match ((text-obj text-object))
+  (normalize-match-positions
+   (text-object-property text-obj :combinator-match)))
