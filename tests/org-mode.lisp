@@ -13,9 +13,14 @@
    'identity
    (loop
      for type1
-       in (cltpt/base:text-format-text-object-types
-           cltpt/org-mode:*org-mode*)
+       in (cltpt/base:text-format-text-object-types cltpt/org-mode:*org-mode*)
      collect (cltpt/base:text-object-rule-from-subclass type1))))
+
+(defun rules-from-symbols (syms)
+  (remove-if-not
+   'identity
+   (loop for sym in syms
+         collect (cltpt/base:text-object-rule-from-subclass sym))))
 
 (defun make-dummy-context ()
   (let ((rules (org-rules)))
@@ -2431,6 +2436,35 @@ This exactly matches the actual parsed tree structure."
                  ;; "<2025-10-14 10:00 +1d>"
                  (list cltpt/org-mode::*org-timestamp-rule*))))
     (cltpt/org-mode::handle-time-match (car result))))
+
+(defun org-combinator-test-1 ()
+  (time
+   (let ((files (uiop:directory-files "/home/mahmooz/brain/notes/"
+                                      "*.org")))
+     (loop for file in files
+           for i from 0
+           for text = (cltpt/file-utils:read-file file)
+           do (let ((tree (cltpt/combinator:parse
+                           text
+                           (org-rules))))
+                ;; (format t "done ~A ~A~%" i file)
+                )))))
+
+(defun org-combinator-test-2 ()
+  (time
+   (let ((files (uiop:directory-files "/home/mahmooz/brain/notes/"
+                                      "*.org")))
+     (loop for file in files
+           for i from 0
+           for text = (cltpt/file-utils:read-file file)
+           do (let ((tree (cltpt/combinator:parse
+                           text
+                           (rules-from-symbols
+                            '(cltpt/org-mode::org-link
+                              cltpt/org-mode::org-timestamp
+                              )))))
+                ;; (format t "done ~A ~A~%" i file)
+                )))))
 
 (defun run-org-mode-tests ()
   "Run all org-mode rules tests."
