@@ -4,30 +4,30 @@
    :*latex* :display-math
    :inline-math :*inline-math-rule* :display-math :*display-math-rule*
    :latex-env :*latex-env-rule*
-   :generate-latex-preamble :*latex-preamble* :*latex-preview-preamble*
+   :*latex-preview-preamble*
    :*latex-compiler-key* :*latex-previews-cache-directory*
-   :generate-previews-for-latex :init :*latex-preview-pipeline-key*))
+   :generate-previews-for-latex :init :*latex-preview-pipeline-key*
+   :*latex-code-env*))
 
 (in-package :cltpt/latex)
 
-(defvar *latex-preamble*
+(defvar *latex-template*
   "\\documentclass[11pt]{article}
 \\usepackage{amsmath}
-\\usepackage{hyperref}")
+\\usepackage{hyperref}
 
-(defun generate-latex-preamble (author date title)
-  (format nil "~A
-\\author{~A}
-\\date{~A}
-\\title{~A}
-\\hypersetup{
- pdfauthor={~A},
- pdftitle={~A},
- pdfkeywords={},
- pdfsubject={},
- pdfcreator={cltpt},
- pdflang={English}}"
-          *latex-preamble* author date title author title))
+\\author{mahmood sheikh}
+\\title{%(cltpt/base:document-title (getf cltpt/base:*convert-info* :text-obj))}
+
+\\begin{document}
+
+%(getf cltpt/base:*convert-info* :text-obj)
+
+\\end{document}"
+  "a template for html conversion.")
+
+(defvar *latex-code-env*
+  "lstlisting")
 
 (defun make-latex ()
   (cltpt/base:make-text-format
@@ -82,7 +82,8 @@
   (setf (cltpt/base:text-object-property obj :is-inline)
         t))
 
-(defmethod cltpt/base:text-object-convert ((obj inline-math) (fmt (eql *latex*)))
+(defmethod cltpt/base:text-object-convert ((obj inline-math)
+                                           (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
         :recurse t
         :escape nil))
@@ -143,3 +144,6 @@
         :reparse nil
         :recurse nil
         :escape nil))
+
+(defmethod cltpt/base:text-format-conversion-template ((fmt (eql *latex*)))
+  *latex-template*)
