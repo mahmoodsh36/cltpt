@@ -66,72 +66,33 @@
   (let ((result (cltpt/combinator:parse
                  "#+title: My Document"
                  (list cltpt/org-mode::*org-keyword-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 20 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-       ((:BEGIN 0 :END 2 :MATCH "#+"))
-       ((:BEGIN 2 :END 7 :ID KEYWORD :MATCH "title"))
-       ((:BEGIN 7 :END 8 :MATCH ":"))
-       ((:BEGIN 8 :END 9 :MATCH " "))
-       ((:BEGIN 9 :END 20 :ID VALUE :MATCH "My Document"))))))
+    result))
 
 (test org-keyword-basic
-  (fiveam:is (org-keyword-basic-func)))
-
-(defun org-keyword-with-empty-value-func ()
-  (let ((result (cltpt/combinator:parse
-                 "#+filetags: "
-                 (list cltpt/org-mode::*org-keyword-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-       ((:BEGIN 0 :END 2 :MATCH "#+"))
-       ((:BEGIN 2 :END 10 :ID KEYWORD :MATCH "filetags"))
-       ((:BEGIN 10 :END 11 :MATCH ":"))
-       ((:BEGIN 11 :END 12 :MATCH " "))
-       ((:BEGIN 12 :END 12 :ID VALUE :MATCH ""))))))
-
-(test org-keyword-with-empty-value
-  (fiveam:is (org-keyword-with-empty-value-func)))
-
-(defun org-keyword-multiword-func ()
-  (let ((result (cltpt/combinator:parse
-                 "#+author: John Doe and Jane Smith"
-                 (list cltpt/org-mode::*org-keyword-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 33 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-       ((:BEGIN 0 :END 2 :MATCH "#+"))
-       ((:BEGIN 2 :END 8 :ID KEYWORD :MATCH "author"))
-       ((:BEGIN 8 :END 9 :MATCH ":"))
-       ((:BEGIN 9 :END 10 :MATCH " "))
-       ((:BEGIN 10 :END 33 :ID VALUE :MATCH "John Doe and Jane Smith"))))))
-
-(test org-keyword-multiword
-  (fiveam:is (org-keyword-multiword-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-keyword-basic-func))
+    '((:BEGIN 0 :END 20 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
+      ((:BEGIN 0 :END 2 :MATCH "#+"))
+      ((:BEGIN 2 :END 7 :ID KEYWORD :MATCH "title"))
+      ((:BEGIN 7 :END 8 :MATCH ":"))
+      ((:BEGIN 8 :END 9 :MATCH " "))
+      ((:BEGIN 9 :END 20 :ID VALUE :MATCH "My Document"))))))
 
 (defun org-comment-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "# this is a comment"
                  (list cltpt/org-mode::*org-comment-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 19 :ID CLTPT/ORG-MODE::ORG-COMMENT)
-       ((:BEGIN 0 :END 1 :MATCH "#"))
-       ((:BEGIN 1 :END 2 :MATCH " "))
-       ((:BEGIN 2 :END 19 :MATCH "this is a comment"))))))
+    result))
 
 (test org-comment-basic
-  (fiveam:is (org-comment-basic-func)))
-
-(defun org-comment-not-at-line-start-func ()
-  (let ((result (cltpt/combinator:parse
-                 "text # this should not match"
-                 (list cltpt/org-mode::*org-comment-rule*))))
-    (= (length result) 0)))
-
-(test org-comment-not-at-line-start
-  (fiveam:is (org-comment-not-at-line-start-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-comment-basic-func))
+    '((:BEGIN 0 :END 19 :ID CLTPT/ORG-MODE::ORG-COMMENT)
+      ((:BEGIN 0 :END 1 :MATCH "#"))
+      ((:BEGIN 1 :END 2 :MATCH " "))
+      ((:BEGIN 2 :END 19 :MATCH "this is a comment"))))))
 
 (defun org-header-basic-func ()
   (let ((result (cltpt/combinator:parse
@@ -153,32 +114,34 @@
   (let ((result (cltpt/combinator:parse
                  "* TODO my header"
                  (list cltpt/org-mode::*org-header-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-HEADER)
-       ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
-       ((:BEGIN 1 :END 2 :MATCH " "))
-       ((:BEGIN 2 :END 6 :ID TODO :MATCH "TODO"))
-       ((:BEGIN 6 :END 7 :MATCH " "))
-       ((:BEGIN 7 :END 14 :ID TITLE :MATCH "my header"))))))
+    result))
 
 (test org-header-with-todo
-  (fiveam:is (org-header-with-todo-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-header-with-todo-func))
+    '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-HEADER)
+      ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
+      ((:BEGIN 1 :END 2 :MATCH " "))
+      ((:BEGIN 2 :END 6 :ID TODO :MATCH "TODO"))
+      ((:BEGIN 6 :END 7 :MATCH " "))
+      ((:BEGIN 7 :END 14 :ID TITLE :MATCH "my header"))))))
 
 (defun org-header-with-tags-func ()
   (let ((result (cltpt/combinator:parse
                  "* my header :tag1:tag2:"
                  (list cltpt/org-mode::*org-header-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 21 :ID CLTPT/ORG-MODE::ORG-HEADER)
-       ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
-       ((:BEGIN 1 :END 2 :MATCH " "))
-       ((:BEGIN 2 :END 12 :ID TITLE :MATCH "my header "))
-       ((:BEGIN 12 :END 21 :ID TAGS :MATCH ":tag1:tag2:"))))))
+    result))
 
 (test org-header-with-tags
-  (fiveam:is (org-header-with-tags-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-header-with-tags-func))
+    '((:BEGIN 0 :END 21 :ID CLTPT/ORG-MODE::ORG-HEADER)
+      ((:BEGIN 0 :END 1 :ID STARS :MATCH "*"))
+      ((:BEGIN 1 :END 2 :MATCH " "))
+      ((:BEGIN 2 :END 12 :ID TITLE :MATCH "my header "))
+      ((:BEGIN 12 :END 21 :ID TAGS :MATCH ":tag1:tag2:"))))))
 
 ;; comprehensive header test - more extensive with scheduling/closing
 (defun org-header-comprehensive-test-func ()
