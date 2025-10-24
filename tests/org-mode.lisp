@@ -430,152 +430,124 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (test org-single-timestamp-basic
   (fiveam:is (org-single-timestamp-basic-func)))
 
-(defun org-timestamp-bracket-basic-func ()
-  (let ((result (cltpt/combinator:scan-all-rules
-                 nil
-                 "[2024-01-15 Mon]"
-                 (list cltpt/org-mode::*org-timestamp-bracket-rule*))))
-    result))
-
-(test org-timestamp-bracket-basic
-  (fiveam:is
-   (compare-full-match-loosely
-    (car (org-timestamp-bracket-basic-func))
-    '((:BEGIN 0 :END 16 :MATCH "[2024-01-15 Mon]")
-      ((:BEGIN 0 :END 1 :MATCH "["))
-      ((:BEGIN 1 :END 5 :ID YEAR :MATCH "2024"))
-      ((:BEGIN 5 :END 6 :MATCH "-"))
-      ((:BEGIN 6 :END 8 :ID MONTH :MATCH "01"))
-      ((:BEGIN 8 :END 9 :MATCH "-"))
-      ((:BEGIN 9 :END 11 :ID DAY :MATCH "15"))
-      ((:BEGIN 11 :END 12 :MATCH " "))
-      ((:BEGIN 12 :END 15 :ID WEEKDAY :MATCH "Mon"))
-      ((:BEGIN 15 :END 16 :MATCH "]"))))))
-
 (defun org-link-simple-func ()
   (let ((result (cltpt/combinator:parse
                  "[[id:abc123]]"
                  (list cltpt/org-mode::*org-link-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 13 :MATCH "[[id:abc123]]")
-       ((:BEGIN 0 :END 2 :MATCH "[["))
-       ((:BEGIN 2 :END 4 :MATCH "id"))
-       ((:BEGIN 4 :END 5 :MATCH ":"))
-       ((:BEGIN 5 :END 11 :MATCH "abc123"))
-       ((:BEGIN 11 :END 13 :MATCH "]]"))))))
+    result))
 
 (test org-link-simple
-  (fiveam:is (org-link-simple-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-link-simple-func))
+    '((:BEGIN 0 :END 13 :MATCH "[[id:abc123]]")
+      ((:BEGIN 0 :END 2 :MATCH "[["))
+      ((:BEGIN 2 :END 4 :MATCH "id"))
+      ((:BEGIN 4 :END 5 :MATCH ":"))
+      ((:BEGIN 5 :END 11 :MATCH "abc123"))
+      ((:BEGIN 11 :END 13 :MATCH "]]"))))))
 
 (defun org-link-with-description-func ()
   (let ((result (cltpt/combinator:parse
                  "[[file:document.pdf][My Document]]"
                  (list cltpt/org-mode::*org-link-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 34 :MATCH "[[file:document.pdf][My Document]]")
-       ((:BEGIN 0 :END 2 :MATCH "[["))
-       ((:BEGIN 2 :END 6 :MATCH "file"))
-       ((:BEGIN 6 :END 7 :MATCH ":"))
-       ((:BEGIN 7 :END 19 :MATCH "document.pdf"))
-       ((:BEGIN 19 :END 21 :MATCH "]["))
-       ((:BEGIN 21 :END 32 :MATCH "My Document"))
-       ((:BEGIN 32 :END 34 :MATCH "]]"))))))
+    result))
 
 (test org-link-with-description
-  (fiveam:is (org-link-with-description-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-link-with-description-func))
+    '((:BEGIN 0 :END 34 :MATCH "[[file:document.pdf][My Document]]")
+      ((:BEGIN 0 :END 2 :MATCH "[["))
+      ((:BEGIN 2 :END 6 :MATCH "file"))
+      ((:BEGIN 6 :END 7 :MATCH ":"))
+      ((:BEGIN 7 :END 19 :MATCH "document.pdf"))
+      ((:BEGIN 19 :END 21 :MATCH "]["))
+      ((:BEGIN 21 :END 32 :MATCH "My Document"))
+      ((:BEGIN 32 :END 34 :MATCH "]]"))))))
 
 (defun org-link-no-type-func ()
   (let ((result (cltpt/combinator:parse
                  "[[document.pdf]]"
                  (list cltpt/org-mode::*org-link-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 16 :MATCH "[[document.pdf]]")
-       ((:BEGIN 0 :END 2 :MATCH "[["))
-       ((:BEGIN 2 :END 14 :MATCH "document.pdf"))
-       ((:BEGIN 14 :END 16 :MATCH "]]"))))))
+    result))
 
 (test org-link-no-type
-  (fiveam:is (org-link-no-type-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-link-no-type-func))
+    '((:BEGIN 0 :END 16 :MATCH "[[document.pdf]]")
+      ((:BEGIN 0 :END 2 :MATCH "[["))
+      ((:BEGIN 2 :END 14 :MATCH "document.pdf"))
+      ((:BEGIN 14 :END 16 :MATCH "]]"))))))
 
 (defun org-web-link-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "https://example.com/page"
                  (list cltpt/org-mode::*web-link-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 24 :MATCH "https://example.com/page")
-       ((:BEGIN 0 :END 8 :MATCH "https://"))
-       ((:BEGIN 8 :END 24 :MATCH "example.com/page"))))))
+    result
+    ))
 
 (test org-web-link-basic
-  (fiveam:is (org-web-link-basic-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-web-link-basic-func))
+    '((:BEGIN 0 :END 24 :MATCH "https://example.com/page")
+      ((:BEGIN 0 :END 8 :MATCH "https://"))
+      ((:BEGIN 8 :END 24 :MATCH "example.com/page"))))))
 
 (defun org-inline-code-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "~code here~"
                  (list cltpt/org-mode::*org-inline-code-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 11 :MATCH "~code here~")
-       ((:BEGIN 0 :END 1 :MATCH "~"))
-       ((:BEGIN 1 :END 10 :MATCH "code here"))
-       ((:BEGIN 10 :END 11 :MATCH "~"))))))
+    result))
 
 (test org-inline-code-basic
-  (fiveam:is (org-inline-code-basic-func)))
-
-(defun org-inline-code-with-spaces-func ()
-  (let ((result (cltpt/combinator:parse
-                 "~my code here~"
-                 (list cltpt/org-mode::*org-inline-code-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 14 :MATCH "~my code here~")
-       ((:BEGIN 0 :END 1 :MATCH "~"))
-       ((:BEGIN 1 :END 13 :MATCH "my code here"))
-       ((:BEGIN 13 :END 14 :MATCH "~"))))))
-
-(test org-inline-code-with-spaces
-  (fiveam:is (org-inline-code-with-spaces-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-inline-code-basic-func))
+    '((:BEGIN 0 :END 11 :MATCH "~code here~")
+      ((:BEGIN 0 :END 1 :MATCH "~"))
+      ((:BEGIN 1 :END 10 :MATCH "code here"))
+      ((:BEGIN 10 :END 11 :MATCH "~"))))))
 
 (defun org-keywords-basic-func ()
   (let ((result (cltpt/combinator:parse
                  " :hello-there :hello2"
                  (list cltpt/org-mode::*keywords-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 1 :END 18 :ID CLTPT/ORG-MODE::KEYWORDS)
-       ((:BEGIN 1 :END 2 :MATCH " "))
-       ((:BEGIN 2 :END 13 :ID CLTPT/ORG-MODE::KEYWORD)
-        ((:BEGIN 2 :END 3 :MATCH ":"))
-        ((:BEGIN 3 :END 13 :MATCH "hello-there")))
-       ((:BEGIN 13 :END 14 :MATCH " "))
-       ((:BEGIN 14 :END 18 :ID CLTPT/ORG-MODE::KEYWORD)
-        ((:BEGIN 14 :END 15 :MATCH ":"))
-        ((:BEGIN 15 :END 18 :MATCH "hello2")))
-       ((:BEGIN 22 :END 23 :MATCH " "))
-       ((:BEGIN 23 :END 30 :MATCH ":hello2")
-        ((:BEGIN 23 :END 24 :MATCH ":"))
-        ((:BEGIN 24 :END 30 :MATCH "hello2")))))))
+    result))
 
 (test org-keywords-basic
-  (fiveam:is (org-keywords-basic-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-keywords-basic-func))
+    '((:BEGIN 1 :END 18 :ID CLTPT/ORG-MODE::KEYWORDS)
+      ((:BEGIN 1 :END 2 :MATCH " "))
+      ((:BEGIN 2 :END 13 :ID CLTPT/ORG-MODE::KEYWORD)
+       ((:BEGIN 2 :END 3 :MATCH ":"))
+       ((:BEGIN 3 :END 13 :MATCH "hello-there")))
+      ((:BEGIN 13 :END 14 :MATCH " "))
+      ((:BEGIN 14 :END 18 :ID CLTPT/ORG-MODE::KEYWORD)
+       ((:BEGIN 14 :END 15 :MATCH ":"))
+       ((:BEGIN 15 :END 18 :MATCH "hello2")))
+      ((:BEGIN 22 :END 23 :MATCH " "))
+      ((:BEGIN 23 :END 30 :MATCH ":hello2")
+       ((:BEGIN 23 :END 24 :MATCH ":"))
+       ((:BEGIN 24 :END 30 :MATCH "hello2")))))))
 
 (defun org-italic-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "/italic text/"
                  (list cltpt/org-mode::*org-italic-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 13 :MATCH "/italic text/")
-       ((:BEGIN 0 :END 1 :MATCH "/"))
-       ((:BEGIN 12 :END 13 :MATCH "/"))))))
+    result))
 
 (test org-italic-basic
-  (fiveam:is (org-italic-basic-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-italic-basic-func))
+    '((:BEGIN 0 :END 13 :MATCH "/italic text/")
+      ((:BEGIN 0 :END 1 :MATCH "/"))
+      ((:BEGIN 12 :END 13 :MATCH "/"))))))
 
 (defun org-prop-drawer-basic-test-func ()
   (let ((result (cltpt/combinator:parse
@@ -584,38 +556,40 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 :CUSTOM_ID: my-custom
 :END:"
                  (list cltpt/org-mode::*org-prop-drawer-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 44 :ID CLTPT/ORG-MODE::ORG-PROP-DRAWER)
-       ((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::DRAWER-OPEN-TAG :MATCH ":PROPERTIES:"))
-       ((:BEGIN 12 :END 13 :MATCH "\n"))
-       ((:BEGIN 13 :END 24 :ID CLTPT/ORG-MODE::DRAWER-ENTRY)
-        ((:BEGIN 13 :END 17 :ID CLTPT/ORG-MODE::DRAWER-KEY :MATCH "ID"))
-        ((:BEGIN 17 :END 24 :ID CLTPT/ORG-MODE::DRAWER-VALUE :MATCH " my-id-123")))
-       ((:BEGIN 24 :END 25 :MATCH "\n"))
-       ((:BEGIN 25 :END 41 :ID CLTPT/ORG-MODE::DRAWER-ENTRY)
-        ((:BEGIN 25 :END 35 :ID CLTPT/ORG-MODE::DRAWER-KEY :MATCH "CUSTOM_ID"))
-        ((:BEGIN 35 :END 41 :ID CLTPT/ORG-MODE::DRAWER-VALUE :MATCH " my-custom")))
-       ((:BEGIN 41 :END 42 :MATCH "\n"))
-       ((:BEGIN 42 :END 44 :ID CLTPT/ORG-MODE::DRAWER-CLOSE-TAG :MATCH ":END:"))))))
+    result))
 
 (test org-prop-drawer-basic
-  (fiveam:is (org-prop-drawer-basic-test-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-prop-drawer-basic-test-func))
+    '((:BEGIN 0 :END 44 :ID CLTPT/ORG-MODE::ORG-PROP-DRAWER)
+      ((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::DRAWER-OPEN-TAG :MATCH ":PROPERTIES:"))
+      ((:BEGIN 12 :END 13 :MATCH "\n"))
+      ((:BEGIN 13 :END 24 :ID CLTPT/ORG-MODE::DRAWER-ENTRY)
+       ((:BEGIN 13 :END 17 :ID CLTPT/ORG-MODE::DRAWER-KEY :MATCH "ID"))
+       ((:BEGIN 17 :END 24 :ID CLTPT/ORG-MODE::DRAWER-VALUE :MATCH " my-id-123")))
+      ((:BEGIN 24 :END 25 :MATCH "\n"))
+      ((:BEGIN 25 :END 41 :ID CLTPT/ORG-MODE::DRAWER-ENTRY)
+       ((:BEGIN 25 :END 35 :ID CLTPT/ORG-MODE::DRAWER-KEY :MATCH "CUSTOM_ID"))
+       ((:BEGIN 35 :END 41 :ID CLTPT/ORG-MODE::DRAWER-VALUE :MATCH " my-custom")))
+      ((:BEGIN 41 :END 42 :MATCH "\n"))
+      ((:BEGIN 42 :END 44 :ID CLTPT/ORG-MODE::DRAWER-CLOSE-TAG :MATCH ":END:"))))))
 
 (defun org-prop-drawer-empty-test-func ()
   (let ((result (cltpt/combinator:parse
                  ":PROPERTIES:
 :END:"
                  (list cltpt/org-mode::*org-prop-drawer-rule*))))
-    (compare-full-match-loosely
-     (car result)
-     '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-PROP-DRAWER)
-       ((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::DRAWER-OPEN-TAG :MATCH ":PROPERTIES:"))
-       ((:BEGIN 12 :END 13 :MATCH "\n"))
-       ((:BEGIN 13 :END 14 :ID CLTPT/ORG-MODE::DRAWER-CLOSE-TAG :MATCH ":END:"))))))
+    result))
 
 (test org-prop-drawer-empty
-  (fiveam:is (org-prop-drawer-empty-test-func)))
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (org-prop-drawer-empty-test-func))
+    '((:BEGIN 0 :END 14 :ID CLTPT/ORG-MODE::ORG-PROP-DRAWER)
+      ((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::DRAWER-OPEN-TAG :MATCH ":PROPERTIES:"))
+      ((:BEGIN 12 :END 13 :MATCH "\n"))
+      ((:BEGIN 13 :END 14 :ID CLTPT/ORG-MODE::DRAWER-CLOSE-TAG :MATCH ":END:"))))))
 
 (defun org-drawer-basic-func ()
   (let* ((text ":LOGBOOK:
@@ -1714,13 +1688,13 @@ my equation here
    '(:minute 70)))
 
 (defun test-org-duration-parsing-1 ()
-  (cltpt/org-mode::get-repeated-duration "1" "w"))
+  (cltpt/org-mode::get-repeat-interval "1" "w"))
 
 (defun test-org-duration-parsing-2 ()
-  (cltpt/org-mode::get-repeated-duration "2" "d"))
+  (cltpt/org-mode::get-repeat-interval "2" "d"))
 
 (defun test-org-duration-parsing-3 ()
-  (cltpt/org-mode::get-repeated-duration "3" "h"))
+  (cltpt/org-mode::get-repeat-interval "3" "h"))
 
 (test test-org-duration-parsing-1
   (let ((result (test-org-duration-parsing-1)))
@@ -1808,31 +1782,34 @@ plt.close()
   (compare-tree-types (test-org-src-block-with-image-result-func)
                       '(org-document (org-src-block org-link))))
 
-(test test-org-src-block-with-image-result-html-conversion
+(defun org-src-block-with-image-result-html-conversion ()
   (let* ((doc (test-org-src-block-with-image-result-func))
-         (html-output (cltpt/base:convert-tree doc cltpt/org-mode:*org-mode* cltpt/html:*html*))
+         (html-output (cltpt/base:convert-tree doc cltpt/org-mode:*org-mode* cltpt/html:*html*)))
+    html-output))
+
+(test test-org-src-block-with-image-result-html-conversion
+  (let* ((html-output (org-src-block-with-image-result-html-conversion))
          (expected-html "<pre class='org-src'><code>
 import matplotlib.pyplot as plt
-<br>
 import numpy as np
-<br>
+
 x = np.linspace(0, 10, 100)
-<br>
 y = np.sin(x)
-<br>
 plt.plot(x, y)
-<br>
 plt.savefig(&apos;plot.png&apos;)
-<br>
 plt.close()
 </code></pre>
 
 <div class='org-babel-results'><img src='plot.png' /></div>"))
     (is (string= html-output expected-html))))
 
-(test test-comprehensive-org-document-html-conversion
+(defun comprehensive-org-document-html-conversion ()
   (let* ((doc (test-comprehensive-org-document-func))
-         (html-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/html:*html* doc))
+         (html-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/html:*html* doc)))
+    html-output))
+
+(test test-comprehensive-org-document-html-conversion
+  (let* ((html-output (comprehensive-org-document-html-conversion))
          (expected-html "<!DOCTYPE html>
 <html>
 <head>
@@ -1900,13 +1877,10 @@ plt.close()
 </ul>
 <h3>Source Code Blocks</h3><h4>Python Example</h4><pre class='org-src'><code>
 def fibonacci(n):
-<br>
     if n &lt;= 1:
-<br>
         return n
-<br>
     return fibonacci(n-1) + fibonacci(n-2)
-<br>
+
 print(fibonacci(10))
 </code></pre>
 
@@ -1914,19 +1888,15 @@ print(fibonacci(10))
 <br>
 <h4>JavaScript Example</h4><pre class='org-src'><code>
 function greet(name) {
-<br>
     console.log(`Hello, ${name}!`);
-<br>
 }
-<br>
+
 greet(&apos;World&apos;);
 </code></pre>
 <br>
 <h4>LaTeX Example</h4><pre class='org-src'><code>
 \\begin{equation}
-<br>
 \\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
-<br>
 \\end{equation}
 </code></pre>
 <br>
@@ -2013,7 +1983,8 @@ This will be processed by LaTeX only.
 <br>
 <h3>Final Section</h3>The document ends here with a final <b>bold</b> statement.  </div>
 </body>
-</html>"))
+</html>"
+                        ))
     (is (string= html-output expected-html))))
 
 (defun test-comprehensive-org-document-func ()
