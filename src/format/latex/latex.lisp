@@ -125,10 +125,7 @@
   (:documentation "latex environment."))
 
 (defclass latex-link (cltpt/base:text-object)
-  ((cltpt/base::shared-name
-    :allocation :class
-    :initform 'cltpt/base::link)
-   (cltpt/base::rule
+  ((cltpt/base::rule
     :allocation :class
     :initform '(:pattern
                 (cltpt/combinator:consec
