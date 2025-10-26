@@ -19,17 +19,17 @@ in the future."))
 ;;   ;; the destination `text-object'.
 ;;   dest-text-obj)
 
-(defmethod link-resolve ((link-type (eql 'cltpt/base::file))
+(defmethod link-resolve ((link-type (eql 'file))
                          dest
                          desc)
-  (pathname dest))
+  (uiop:parse-unix-namestring dest))
 
 (defmethod link-resolve ((link-type symbol)
                          dest
                          desc)
   nil)
 
-(defmethod link-resolve ((link-type (eql 'cltpt/base::id))
+(defmethod link-resolve ((link-type (eql 'id))
                          dest
                          desc)
   ;; should return a 'target' that includes a filepath and a position in the file
