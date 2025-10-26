@@ -5,8 +5,8 @@
    :node-id :node-title :node-desc :node-file :node-text-obj :node-file-rule
    :roamer-node-id-hashtable :get-node-by-id :convert-all
    :node-format :node-info-format-str :make-node :text-object-roam-data
-   :roamer :*convert-roamer* :*roam-convert-data* :*roam-parse-data* :convert-link
-   :resolve-link :link-dest-node :current-roamer :link-dest-file))
+   :roamer :*convert-roamer* :*roam-convert-data* :*roam-parse-data*
+   :current-roamer :node))
 
 (in-package :cltpt/roam)
 
@@ -53,17 +53,6 @@ form:
     :initform (make-hash-table :test 'equal)
     :accessor roamer-node-id-hashtable
     :documentation "map a node to its id.")))
-
-(defstruct link
-  src-node ;; source roam node
-  dest-node ;; destination roam node, might not be set
-  ;; TODO: keeping dest-node/dest-file isnt ideal when a node is an abstraction
-  ;; over a 'file'. perhaps static files (such as images) should be considered
-  ;; nodes too?
-  dest-file
-  src-text-obj ;; the text object which created the link (e.g. an instance of 'org-link')
-  type ;; link type, should be a symbol
-  )
 
 (defun from-files (files)
   "see documentation of `find-files' for FILES. takes a set of rules, returns a
@@ -179,11 +168,15 @@ each rule is a plist that can contain the following params.
                           (funcall convert-file-predicate in-file))
                  (when (getf cltpt:*debug* :roam)
                    (format t "converting ~A to ~A~%" in-file out-file))
-                 (cltpt/base:convert-file
-                  (node-format node)
-                  dest-format
-                  in-file
-                  out-file)
+                 (let ((cltpt/base:*convert-info*
+                         (cltpt/base:merge-plist
+                          cltpt/base:*convert-info*
+                          (list :filepath-format filepath-format))))
+                   (cltpt/base:convert-file
+                    (node-format node)
+                    dest-format
+                    in-file
+                    out-file))
                  (setf (gethash in-file files-done) t))))))
 
 (defmethod node-info-format-str ((node node) format-str)
@@ -200,7 +193,8 @@ each rule is a plist that can contain the following params.
        (root-title ,root-title)
        (file ,(cltpt/roam:node-file node))
        (id ,(cltpt/roam:node-id node))
-       (file-no-ext ,(cltpt/file-utils:path-without-extension (cltpt/roam:node-file node)))
+       (file-no-ext ,(cltpt/file-utils:path-without-extension
+                      (cltpt/roam:node-file node)))
        (basename ,(cltpt/file-utils:base-name-no-ext (node-file node))))
      (lambda ()
        (let* ((result
@@ -212,115 +206,59 @@ each rule is a plist that can contain the following params.
                                            'cltpt/base:post-lexer-text-macro))
                  (cltpt/base:make-text-format "dummy")
                  (cltpt/base:make-text-format "dummy")
-                 :text-object-types (list 'cltpt/base:text-macro 'cltpt/base:post-lexer-text-macro))))
+                 :text-object-types (list 'cltpt/base:text-macro
+                                          'cltpt/base:post-lexer-text-macro))))
          result)))))
 
-(defmethod convert-link ((rmr roamer)
-                         (src-node node)
-                         (link-obj cltpt/base:text-object)
-                         filepath-format
-                         backend)
-  "when converting links, we need to be aware of the roamer we're working with,
-in order to be able to get the destination of the link incase it is an id-link.
-this function handles an object that should have the properties of a link,
-which may include the destination, description and type."
-  ;; TODO: we must ensure that LINK-OBJ contains these properties. perhaps
-  ;; we need to write a class inheriting from `text-object' that is for links
-  ;; that has these properties as slots.
-  (let* ((desc (cltpt/base:text-object-property link-obj :desc))
-         (dest (cltpt/base:text-object-property link-obj :dest))
-         (type (cltpt/base:text-object-property link-obj :type)))
-    ;; type is a string originally, we convert it to a symbol.
-    (when type
-      (setf type (intern type)))
-    (if type
-        (let* ((link (resolve-link rmr src-node link-obj type dest))
-               (dest-node (when link (link-dest-node link)))
-               (dest-file (if dest-node
-                              (node-file dest-node)
-                              (when link (link-dest-file link)))))
-          (if dest-file
-              (progn
-                ;; when its a node, the destination file needs to be determined
-                ;; using filepath-format. if its just a static file, we dont
-                ;; change the destination filepath here.
-                (when dest-node
-                  (setf dest-file (node-info-format-str dest-node filepath-format)))
-                (let ((new-obj (cltpt/base:text-object-clone link-obj))
-                      ;; set this dynamically to make the conversion function
-                      ;; not call this function again
-                      (*roam-convert-data*))
-                  (setf (cltpt/base:text-object-property new-obj :dest) dest-file)
-                  (cltpt/base:text-object-convert new-obj backend)))
-              (format nil "broken link: ~A:~A" type dest)))
-        ;; set this dynamically to make the conversion function
-        ;; not call this function again
-        (let ((*roam-convert-data*))
-          (cltpt/base:text-object-convert link-obj backend)))))
+(defmethod link-resolve ((link-type (eql 'cltpt/base::id))
+                         dest
+                         desc)
+  (let ((rmr (getf cltpt/roam:*roam-convert-data* :roamer))
+        (dest-node (cltpt/roam:get-node-by-id rmr dest-id)))
+    dest-node))
 
-(defgeneric resolve-link (rmr src-node src-text-obj link-type dest)
-  (:documentation "LINK-TYPE is a symbol indicating the type of the link. DEST is the destination, specified as a string. it should return a `link'."))
-
-(defmethod make-id-link ((rmr roamer)
-                         (src-node node)
-                         (src-text-obj cltpt/base:text-object)
-                         link-type
-                         dest-id)
-  (let* ((dest-node (cltpt/roam:get-node-by-id rmr dest-id))
-         (new-link (make-instance 'link)))
-    (when dest-node
-      (setf (link-src-text-obj new-link) src-text-obj)
-      (setf (link-dest-node new-link) dest-node)
-      (setf (link-src-node new-link) src-node)
-      (setf (link-type new-link) link-type)
-      new-link)))
-
-(defmethod make-file-link ((rmr roamer)
-                           (src-node node)
-                           (src-text-obj cltpt/base:text-object)
-                           link-type
-                           dest-file)
-  (let* ((new-link (make-instance 'link)))
-    (setf (link-src-text-obj new-link) src-text-obj)
-    (setf (link-dest-file new-link) dest-file)
-    (setf (link-src-node new-link) src-node)
-    (setf (link-type new-link) link-type)
-    new-link))
-
-(defmethod resolve-link ((rmr roamer)
-                         (src-node node)
-                         (src-text-obj cltpt/base:text-object)
-                         (link-type symbol)
-                         dest)
-  (make-id-link rmr src-node src-text-obj link-type dest))
-
-(defmethod resolve-link ((rmr roamer)
-                         (src-node node)
-                         (src-text-obj cltpt/base:text-object)
-                         (link-type (eql 'denote))
-                         dest)
-  (make-id-link rmr src-node src-text-obj link-type dest))
-
-(defmethod resolve-link ((rmr roamer)
-                         (src-node node)
-                         (src-text-obj cltpt/base:text-object)
-                         (link-type (eql 'blk))
-                         dest)
-  (make-id-link rmr src-node src-text-obj link-type dest))
-
-(defmethod resolve-link ((rmr roamer)
-                         (src-node node)
-                         (src-text-obj cltpt/base:text-object)
-                         (link-type (eql 'id))
-                         dest)
-  (make-id-link rmr src-node src-text-obj link-type dest))
-
-(defmethod resolve-link ((rmr roamer)
-                         (src-node node)
-                         (src-text-obj cltpt/base:text-object)
-                         (link-type (eql 'file))
-                         dest)
-  (make-file-link rmr src-node src-text-obj link-type dest))
+;; (defmethod convert-link ((rmr roamer)
+;;                          (src-node node)
+;;                          (link-obj cltpt/base:text-object)
+;;                          filepath-format
+;;                          backend)
+;;   "when converting links, we need to be aware of the roamer we're working with,
+;; in order to be able to get the destination of the link incase it is an id-link.
+;; this function handles an object that should have the properties of a link,
+;; which may include the destination, description and type."
+;;   ;; TODO: we must ensure that LINK-OBJ contains these properties. perhaps
+;;   ;; we need to write a class inheriting from `text-object' that is for links
+;;   ;; that has these properties as slots.
+;;   (let* ((desc (cltpt/base:text-object-property link-obj :desc))
+;;          (dest (cltpt/base:text-object-property link-obj :dest))
+;;          (type (cltpt/base:text-object-property link-obj :type)))
+;;     ;; type is a string originally, we convert it to a symbol.
+;;     (when type
+;;       (setf type (intern type)))
+;;     (if type
+;;         (let* ((link (resolve-link rmr src-node link-obj type dest))
+;;                (dest-node (when link (link-dest-node link)))
+;;                (dest-file (if dest-node
+;;                               (node-file dest-node)
+;;                               (when link (link-dest-file link)))))
+;;           (if dest-file
+;;               (progn
+;;                 ;; when its a node, the destination file needs to be determined
+;;                 ;; using filepath-format. if its just a static file, we dont
+;;                 ;; change the destination filepath here.
+;;                 (when dest-node
+;;                   (setf dest-file (node-info-format-str dest-node filepath-format)))
+;;                 (let ((new-obj (cltpt/base:text-object-clone link-obj))
+;;                       ;; set this dynamically to make the conversion function
+;;                       ;; not call this function again
+;;                       (*roam-convert-data*))
+;;                   (setf (cltpt/base:text-object-property new-obj :dest) dest-file)
+;;                   (cltpt/base:text-object-convert new-obj backend)))
+;;               (format nil "broken link: ~A:~A" type dest)))
+;;         ;; set this dynamically to make the conversion function
+;;         ;; not call this function again
+;;         (let ((*roam-convert-data*))
+;;           (cltpt/base:text-object-convert link-obj backend)))))
 
 ;; TODO: hacky function to get current dynamically bound roamer.
 (defun current-roamer ()

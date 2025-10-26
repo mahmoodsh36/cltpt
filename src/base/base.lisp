@@ -47,7 +47,11 @@
    :text-object-clone :sort-text-objects :text-object-set-parent
    :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
    :text-block :text-object-convert-options :text-object-contents-region
-   :text-object-combinator-match
+   :text-object-combinator-match :text-object-normalized-combinator-match
+   :text-link :text-link-link
+
+   :link-resolve :text-link-link :link-desc :link-dest :link-type
+   :*image-ext* :*video-ext*
 
    :region-text))
 

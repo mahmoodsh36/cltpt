@@ -1,41 +1,48 @@
 (in-package :cltpt/base)
 
-;; this should be inherited from, it doesnt store the "destination" in a meaningful
-;; way that can be resolved, just the destination as it was encountered in the text.
-;; but we want the destination to be a `text-object' or a filepath.
+;; "struct representing a link, but doesnt define how it should be resolved."
 (defstruct link
-  "struct representing a, but doesnt define how it should be resolved."
-  (src-text-obj nil "the text object which created the link (e.g. an instance of 'org-link')")
+  type
   desc
   dest)
 
-(defgeneric link-create (src-text-obj link-type link-dest link-desc)
-  (:documentation "return a `link' using the given properties."))
+(defgeneric link-resolve (type desc dest)
+  (:documentation "given a link (by its properties), return a target.
 
-(defgeneric link-resolve (link-instance)
-  (:documentation "given LINK-INSTANCE, return a destination filepath."))
+target can be a filepath or a text-object. perhaps this isnt the best way
+to handle this but it should work. we should define exactly what a target is
+in the future."))
 
-;; we need an additional function for "exact" location resolving, filepath+position.
-(defgeneric link-resolve-exact (link-instance)
-  (:documentation "given LINK-INSTANCE, return a destination filepath+position."))
+;; a `link' type that resolves to a text object.
+;; (defstruct (link-text-obj (:include link))
+;;   ;; the filepath in which the destination text object resides.
+;;   ;; the destination `text-object'.
+;;   dest-text-obj)
 
-(defstruct (link-text-obj (:include link))
-  "a `link' type that resolves to a text object."
-  (filepath nil "the filepath in which the destination text object resides.")
-  (dest-text-obj nil "the destination `text-object'."))
+(defmethod link-resolve ((link-type (eql 'cltpt/base::file))
+                         dest
+                         desc)
+  (pathname dest))
 
-(defstruct (link-static (:include link))
-  "a `link' type that resolves to a static file."
-  (filepath nil "the destination filepath."))
+(defmethod link-resolve ((link-type symbol)
+                         dest
+                         desc)
+  nil)
 
-(defmethod link-create ((obj text-object)
-                        (link-type (eql 'file))
-                        dest
-                        desc)
-  (make-link :src-text-obj obj
-             :dest dest
-             :desc desc))
+(defmethod link-resolve ((link-type (eql 'cltpt/base::id))
+                         dest
+                         desc)
+  ;; should return a 'target' that includes a filepath and a position in the file
+  )
 
-;; for resolving static file links.
-(defmethod link-resolve ((link-instance link-static))
-  (link-filepath link-instance))
+;; (defmethod text-object-link ((text-obj text-object))
+;;   (let* ((link-type (cltpt/base:text-object-property obj :type))
+;;          (link-desc (cltpt/base:text-object-property obj :dest))
+;;          (link-dest (cltpt/base:text-object-property obj :desc)))
+;;     (when link-dest
+;;       (let ((l (link-create text-obj)))
+;;         (link-create text-obj
+;;                      (when link-type
+;;                        (intern link-type))
+;;                      link-dest
+;;                      link-desc)))))

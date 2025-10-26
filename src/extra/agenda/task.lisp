@@ -5,9 +5,11 @@
   (:export
    :cltpt/agenda/task
    :task :make-task :task :agenda-tasks
+
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task
    :task-record-repeat :task-record-time
+   :make-record-scheduled
 
    :repeat-task :deadline :start-task
    :task-node :text-object-task))

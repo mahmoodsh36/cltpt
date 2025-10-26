@@ -80,6 +80,21 @@
    (string= (cltpt/tests::transformer-test-1-func)
             "\\ref{here1}")))
 
+(defun transformer-test-3-func ()
+  (let* ((str "[[id:myid][desc]]")
+         (parsed (cltpt/combinator:parse
+                  str
+                  cltpt/org-mode::*org-link-rule*))
+         (dest-rule
+           '(:pattern
+             (cltpt/combinator:consec
+              "\\ref{"
+              (:pattern (cltpt/combinator:symbol-matcher)
+               :id link-dest)
+              "}")
+             :id latex-link)))
+    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
+
 (defun test-combinator-number-1 ()
   (cltpt/combinator:match-rule
    nil
