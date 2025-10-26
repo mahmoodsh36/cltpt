@@ -58,31 +58,6 @@ the '\\' and processes the char normally (replace or emit)."
          collect (let ((rule (text-object-rule-from-subclass type1)))
                    (getf rule :escapable)))))
 
-(defun text-object-convert-helper (text-obj backend)
-  ;; if the text-object type has a :shared-name, we may want to treat it
-  ;; in a special way.
-  (let* ((shared-name (text-object-shared-name-from-subclass
-                       (class-name (class-of text-obj))))
-         (dest-text-obj-type
-           (find shared-name
-                 (text-format-text-object-types backend)
-                 :key (lambda (entry)
-                        (text-object-shared-name-from-subclass entry))))
-         (dest-rule (when dest-text-obj-type
-                      (text-object-rule-from-subclass dest-text-obj-type)))
-         (src-match (text-object-property text-obj :combinator-match))
-         (src-str (cltpt/combinator:match-text (car src-match))))
-    (if (and shared-name dest-rule)
-        (let ((transformed-string
-                (cltpt/transformer:reconstruct-string-from-rule
-                 dest-rule
-                 src-match)))
-          (list :text transformed-string
-                :recurse nil
-                :reparse nil
-                :escape nil))
-        (text-object-convert text-obj backend))))
-
 ;; TODO: `to-recurse' isnt handled correctly. perhaps it should be used to
 ;; prevent iterating through children (but maybe not escaping? specified regions
 ;; should still be escaped).
@@ -96,7 +71,7 @@ the '\\' and processes the char normally (replace or emit)."
                            (text-object-types
                             (text-format-text-object-types fmt-src)
                             text-object-types-supplied))
-  (let* ((result (text-object-convert-helper text-obj fmt-dest))
+  (let* ((result (text-object-convert text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (result-text
            (if result-is-string
