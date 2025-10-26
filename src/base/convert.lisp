@@ -4,13 +4,17 @@
   t
   "whether to escape newlines on conversion. see `text-format-escape'.")
 
-;; during conversion, we may need some data bound dynamically for use in templates
-;; (e.g. cltpt/html:*html-template*) and in other functions/location during the
-;; conversion process.
-
 (defvar *convert-info*
   nil
   "conversion info that may be useful to pass to downstream functions during conversion.")
+
+(defvar *image-ext*
+  (list "png" "webp" "svg" "jpg" "jpeg" "gif")
+  "a list holding the file extensions that should be recognized as image links.")
+
+(defvar *video-ext*
+  (list "mp4")
+  "a list holding the file extensions that should be recognized as video links.")
 
 (defun replace-chars (s replace-table)
   "return a new string where every character in S that is a key in REPLACE-TABLE is
@@ -79,6 +83,9 @@ the '\\' and processes the char normally (replace or emit)."
                 :escape nil))
         (text-object-convert text-obj backend))))
 
+;; TODO: `to-recurse' isnt handled correctly. perhaps it should be used to
+;; prevent iterating through children (but maybe not escaping? specified regions
+;; should still be escaped).
 (defmethod convert-tree ((text-obj text-object)
                          (fmt-src text-format)
                          (fmt-dest text-format)

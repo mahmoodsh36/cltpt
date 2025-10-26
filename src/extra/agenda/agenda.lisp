@@ -1,15 +1,18 @@
 (defpackage :cltpt/agenda
   (:use :cl)
-  (:import-from :cltpt/agenda/state
+  (:import-from
+   :cltpt/agenda/state
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
    :make-state-desc :make-state-sequence-desc
    :state-sequence-desc :state-sequence-desc-state-descs :cycle)
-  (:import-from :cltpt/agenda/time
-   :time-range :make-time-range :time-range-begin :time-range-end
-   :is-between)
+  (:import-from
+   :cltpt/agenda/time
+   :time-range :make-time-range :time-range-begin
+   :time-range-end :is-between)
   (:import-from
    :cltpt/agenda/task
+   :make-record-scheduled :make-record-deadline
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task
@@ -26,9 +29,9 @@
    :task-record-repeat :task-record-time
 
    :from-roamer :task-node :tasks-between
-   :make-time-range :make-record-scheduled :make-record-timestamp
-   :make-record-deadline :render-agenda :build-agenda-forest
-   :agenda-outline-node :agenda-outline-node-expansion-state
+   :make-time-range :make-record-scheduled :make-record-deadline
+   :make-record-timestamp :make-record-deadline :render-agenda
+   :build-agenda-forest :agenda-outline-node :agenda-outline-node-expansion-state
 
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal

@@ -6,7 +6,7 @@
    :change-extension :change-dir :path-without-extension
    :file-basename :base-name-no-ext
    :write-file :read-file :join-paths :join-paths-list :walk-dir
-   :delete-files-by-glob))
+   :delete-files-by-glob :ensure-filepath-pathname :ensure-filepath-string))
 
 (in-package :cltpt/file-utils)
 
@@ -132,3 +132,13 @@ uses UIOP's directory* for glob expansion (supports * and **)."
       (when (and (probe-file file)
                  (not (uiop:directory-pathname-p file))) ;; skip dirs
         (delete-file file)))))
+
+(defun ensure-filepath-string (fp)
+  (if (typep fp 'pathname)
+      (uiop:unix-namestring fp)
+      fp))
+
+(defun ensure-filepath-pathname (fp)
+  (if (typep fp 'string)
+      fp
+      (pathname fp)))
