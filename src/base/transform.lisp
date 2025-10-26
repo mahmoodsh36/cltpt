@@ -5,20 +5,24 @@
 
 (in-package :cltpt/transformer)
 
+;; this module hasnt been put to use yet.. i think it can simplify conversion
+;; functions but im not yet sure how to really implement/use it.
+
 (defun find-node-by-id (parse-node target-id)
   (when parse-node
     (let ((parent-info (car parse-node))
           (children (cdr parse-node)))
       (if (string= (getf parent-info :id) target-id)
           parse-node
-          (loop for child in children thereis (find-node-by-id child target-id))))))
+          (loop for child in children
+                thereis (find-node-by-id child target-id))))))
 
 (defun generate-new-text-segment (context-node rule-for-new-text)
   (let ((rule-type (first rule-for-new-text)))
     (cond
-      ((eq rule-type 'cltpt/combinator::literal)
+      ((eq rule-type 'cltpt/combinator:literal)
        (second rule-for-new-text))
-      ((eq rule-type 'cltpt/combinator::pair)
+      ((eq rule-type 'cltpt/combinator:pair)
        (concatenate 'string
                     (generate-new-text-segment context-node
                                                (second rule-for-new-text))
@@ -26,20 +30,25 @@
                                                (third rule-for-new-text))
                     (generate-new-text-segment context-node
                                                (fourth rule-for-new-text))))
-      ((eq rule-type 'cltpt/combinator::consec)
-       (apply #'concatenate 'string
+      ((eq rule-type 'cltpt/combinator:consec)
+       (apply #'concatenate
+              'string
               (loop for sub-rule in (rest rule-for-new-text)
                     collect (generate-new-text-segment context-node sub-rule))))
-      (t (error "unsupported rule type for text transformation: ~S" rule-type)))))
+      (t (error "unsupported rule type for text transformation: ~S"
+                rule-type)))))
 
 (defun generate-text-from-patterns (patterns original-parse-result)
-  (apply #'concatenate 'string
+  (apply #'concatenate
+         'string
          (loop for pattern-rule in patterns
                collect (let* ((target-sub-rule (second pattern-rule))
                               (id-value (fourth pattern-rule))
-                              (context-node (find-node-by-id original-parse-result
-                                                             id-value)))
-                         (generate-new-text-segment context-node target-sub-rule)))))
+                              (context-node
+                                (find-node-by-id original-parse-result
+                                                 id-value)))
+                         (generate-new-text-segment context-node
+                                                    target-sub-rule)))))
 
 (defun find-anchor-for-patterns (patterns original-parse-result)
   (loop for pattern-rule in patterns
@@ -51,7 +60,7 @@
   (when (and rule (listp rule))
     (let ((op (first rule)))
       (cond
-        ((and (member op '(cltpt/combinator::pair cltpt/combinator::consec))
+        ((and (member op '(cltpt/combinator:pair cltpt/combinator:consec))
               (not
                (every
                 (lambda (child)
@@ -59,21 +68,25 @@
                        (eq (first child) :pattern)))
                 (rest rule))))
          (loop for child-rule in (rest rule)
-               appending (collect-replacements child-rule original-parse-result)))
-        ((and (member op '(cltpt/combinator::pair cltpt/combinator::consec))
+               appending (collect-replacements
+                          child-rule
+                          original-parse-result)))
+        ((and (member op '(cltpt/combinator:pair cltpt/combinator:consec))
               (every
                (lambda (child)
                  (and (listp child)
                       (eq (first child) :pattern)))
                (rest rule)))
          (let* ((patterns (rest rule))
-                (anchor-node (find-anchor-for-patterns patterns
-                                                       original-parse-result)))
+                (anchor-node (find-anchor-for-patterns
+                              patterns
+                              original-parse-result)))
            (when anchor-node
              (list (list (getf (car anchor-node) :begin)
                          (getf (car anchor-node) :end)
-                         (generate-text-from-patterns patterns
-                                                      original-parse-result))))))
+                         (generate-text-from-patterns
+                          patterns
+                          original-parse-result))))))
         ((eq op :pattern)
          (let* ((target-sub-rule (second rule))
                 (id-value (fourth rule))
@@ -102,9 +115,11 @@
       (push (subseq original-string current-pos) result-parts))
     (apply #'concatenate 'string (nreverse result-parts))))
 
-(defun transform-string-via-rule (original-string original-parse-result transformation-rule)
-  (let ((replacements (collect-replacements transformation-rule
-                                            original-parse-result)))
+(defun transform-string-via-rule (original-string
+                                  original-parse-result
+                                  transformation-rule)
+  (let ((replacements
+          (collect-replacements transformation-rule original-parse-result)))
     (apply-replacements original-string replacements)))
 
 (defun reconstruct-string-from-rule (rule parsed-data-source)
@@ -144,8 +159,51 @@
                     cltpt/combinator:pair)))
      (apply #'concatenate 'string
             (loop for sub-rule in (rest rule)
-                  collect (reconstruct-string-from-rule sub-rule
-                                                        parsed-data-source))))
+                  collect (reconstruct-string-from-rule
+                           sub-rule
+                           parsed-data-source))))
     (t
      (warn "ignoring unknown rule component in reconstruction: ~S" rule)
      "")))
+
+;; (defun transform (str tree src-rule dest-rule)
+;;   (let* ((dest-rule-root (car dest-rule))
+;;          (dest-rule-root* (if (plistp dest-rule-root)
+;;                               (getf dest-rule-root :pattern)
+;;                               dest-rule-root))
+;;          (dest-node-id (when (plistp dest-rule-root)
+;;                          (getf dest-rule-root :id)))
+;;          (dest-node (if dest-node-id
+;;                         (find-node-by-id tree dest-node-id)
+;;                         tree))
+;;          (dest-node-begin (getf dest-node :begin))
+;;          (dest-node-end (getf dest-node :end))
+;;          (text-begin
+;;            (when dest-node-begin
+;;              (subseq str 0 dest-node-begin)))
+;;          (text-end
+;;            (when dest-node-end
+;;              (subseq str dest-node-end)))
+;;          (inner-text))
+;;     (setf
+;;      inner-text
+;;      (cond
+;;        ((string= (car dest-rule-root*) 'literal)
+;;         (cadr dest-rule-root*))
+;;        ((string= (car dest-rule-root*) 'consec)
+;;         (with-output-to-string (out)
+;;           (let ((idx text-begin)
+;;                 (first-child-idx)
+;;                 (last-child-idx))
+;;             (write-sequence (subseq ) out)
+;;             (loop for child-tree in (cdr dest-node)
+;;                   for child-rule in (cdr dest-rule-root*)
+;;                   for child-begin = (getf (car child-tree) :begin)
+;;                   for child-end = (getf (car child-tree) :end)
+;;                   for child-str = (subseq str child-begin child-end)
+;;                   do (let ((result (transform child-str
+;;                                               child-tree
+;;                                               child-rule
+;;                                               )))
+;;                        (write-sequence (transform )))))))))
+;;     (concatenate 'string text-begin inner-text text-end)))

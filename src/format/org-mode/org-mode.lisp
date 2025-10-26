@@ -228,41 +228,41 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (value (cltpt/base:text-object-property obj :value))
          (final-result))
     ;; handle transclusions
-    (when (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
-      (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
-             (first-child (car (cltpt/base:text-object-children
-                                org-link-parse-result))))
-        (when (typep first-child 'org-link)
-          (let* ((dest (cltpt/base:text-object-property first-child :dest))
-                 (type (cltpt/base:text-object-property first-child :type))
-                 (rmr (getf cltpt/roam:*roam-convert-data* :roamer))
-                 (roam-link (cltpt/roam:resolve-link
-                             rmr
-                             (getf cltpt/roam:*roam-convert-data* :node)
-                             obj
-                             ;; if link doesnt have a type, treat it as an 'id' link
-                             (if type
-                                 (intern type :cltpt/roam)
-                                 'cltpt/roam::file)
-                             dest)))
-            ;; just convert the linked node's object and return that
-            (when roam-link
-              (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
-                     (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
-                (let ((result (cltpt/base:convert-tree
-                               dest-text-obj
-                               *org-mode*
-                               backend)))
-                  ;; TODO: for some reason redundant newlines in transcluded
-                  ;; documents dont get trimmed.
-                  (setf final-result
-                        (list :text result
-                              :reparse nil
-                              :recurse nil
-                              :escape nil)))))))))
+    ;; (when (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
+    ;;   (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
+    ;;          (first-child (car (cltpt/base:text-object-children
+    ;;                             org-link-parse-result))))
+    ;;     (when (typep first-child 'org-link)
+    ;;       (let* ((dest (cltpt/base:text-object-property first-child :dest))
+    ;;              (type (cltpt/base:text-object-property first-child :type))
+    ;;              (rmr (getf cltpt/roam:*roam-convert-data* :roamer))
+    ;;              (roam-link (cltpt/roam:resolve-link
+    ;;                          rmr
+    ;;                          (getf cltpt/roam:*roam-convert-data* :node)
+    ;;                          obj
+    ;;                          ;; if link doesnt have a type, treat it as an 'id' link
+    ;;                          (if type
+    ;;                              (intern type :cltpt/roam)
+    ;;                              'cltpt/roam::file)
+    ;;                          dest)))
+    ;;         ;; just convert the linked node's object and return that
+    ;;         (when roam-link
+    ;;           (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
+    ;;                  (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
+    ;;             (let ((result (cltpt/base:convert-tree
+    ;;                            dest-text-obj
+    ;;                            *org-mode*
+    ;;                            backend)))
+    ;;               ;; TODO: for some reason redundant newlines in transcluded
+    ;;               ;; documents dont get trimmed.
+    ;;               (setf final-result
+    ;;                     (list :text result
+    ;;                           :reparse nil
+    ;;                           :recurse nil
+    ;;                           :escape nil)))))))))
     (or final-result
         (list :text ""
-              :recurse nil))))
+              :reparse t))))
 
 (defvar *org-comment-rule*
   '(:pattern
@@ -864,87 +864,84 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
       "]]"))
     :on-char #\[))
-(defclass org-link (cltpt/base:text-object)
-  ((cltpt/base::shared-name
-    :allocation :class
-    :initform 'cltpt/base::link)
-   (cltpt/base::rule
+(defclass org-link (cltpt/base:text-link)
+  ((cltpt/base::rule
     :allocation :class
     :initform *org-link-rule*))
   (:documentation "org-mode link."))
 
 ;; TODO: fix latex conversion
-(defmethod cltpt/base:text-object-convert ((obj org-link)
-                                           (backend cltpt/base:text-format))
-  (cond
-    ((eq backend cltpt/html:*html*)
-     (let* ((desc (cltpt/base:text-object-property obj :desc))
-            (dest (cltpt/base:text-object-property obj :dest))
-            (type (or (cltpt/base:text-object-property obj :type)
-                      "file"))
-            (final-desc (or desc dest)))
-       (when dest
-         (if cltpt/roam:*roam-convert-data*
-             (cltpt/roam:convert-link
-              (getf cltpt/roam:*roam-convert-data* :roamer)
-              (getf cltpt/roam:*roam-convert-data* :node)
-              obj
-              (getf cltpt/roam:*roam-convert-data* :filepath-format)
-              backend)
-             (if (and (string= type "file")
-                      (cltpt/file-utils:file-has-extension-p
-                       dest
-                       (list "png" "jpg" "svg" "webp" "mp4" "jpeg" "gif")))
-                 ;; if its an image we need to "display" it in html.
-                 (when (cltpt/file-utils:file-has-extension-p
-                        dest
-                        (list "png" "jpg" "svg" "webp" "jpeg" "gif"))
-                   (let ((new-path (if cltpt/html:*html-static-dir*
-                                       (cltpt/file-utils:change-dir
-                                        dest
-                                        cltpt/html:*html-static-dir*)
-                                       dest)))
-                     (unless (string= dest new-path)
-                       (when (uiop:probe-file* dest)
-                         (uiop:copy-file
-                          dest
-                          new-path)))
-                     (list :text (format nil
-                                         "<img src='~A' />"
-                                         (if cltpt/html:*html-static-route*
-                                             (cltpt/file-utils:change-dir
-                                              new-path
-                                              cltpt/html:*html-static-route*)
-                                             dest))
-                           :escape nil)))
-                 ;; TODO: we should be handling contents in the link description,
-                 ;; as it may contain org elements itself. but this is currently
-                 ;; somewhat problematic because link descriptions such as "1.mylink"
-                 ;; are detected as a list and reparsed/converted as such.
-                 (within-tags
-                  (if cltpt/html:*html-static-route*
-                      (format nil
-                              "<a href='~A'>"
-                              (cltpt/file-utils:change-dir
-                               dest
-                               cltpt/html:*html-static-route*))
-                      (format nil "<a href='~A'>" dest))
-                  final-desc
-                  "</a>"
-                  :reparse nil))))))))
+;; (defmethod cltpt/base:text-object-convert ((obj org-link)
+;;                                            (backend cltpt/base:text-format))
+;;   (cond
+;;     ((eq backend cltpt/html:*html*)
+;;      (let* ((desc (cltpt/base:text-object-property obj :desc))
+;;             (dest (cltpt/base:text-object-property obj :dest))
+;;             (type (or (cltpt/base:text-object-property obj :type)
+;;                       "file"))
+;;             (final-desc (or desc dest)))
+;;        (when dest
+;;          (if cltpt/roam:*roam-convert-data*
+;;              (cltpt/roam:convert-link
+;;               (getf cltpt/roam:*roam-convert-data* :roamer)
+;;               (getf cltpt/roam:*roam-convert-data* :node)
+;;               obj
+;;               (getf cltpt/roam:*roam-convert-data* :filepath-format)
+;;               backend)
+;;              (if (and (string= type "file")
+;;                       (cltpt/file-utils:file-has-extension-p
+;;                        dest
+;;                        (list "png" "jpg" "svg" "webp" "mp4" "jpeg" "gif")))
+;;                  ;; if its an image we need to "display" it in html.
+;;                  (when (cltpt/file-utils:file-has-extension-p
+;;                         dest
+;;                         (list "png" "jpg" "svg" "webp" "jpeg" "gif"))
+;;                    (let ((new-path (if cltpt/html:*html-static-dir*
+;;                                        (cltpt/file-utils:change-dir
+;;                                         dest
+;;                                         cltpt/html:*html-static-dir*)
+;;                                        dest)))
+;;                      (unless (string= dest new-path)
+;;                        (when (uiop:probe-file* dest)
+;;                          (uiop:copy-file
+;;                           dest
+;;                           new-path)))
+;;                      (list :text (format nil
+;;                                          "<img src='~A' />"
+;;                                          (if cltpt/html:*html-static-route*
+;;                                              (cltpt/file-utils:change-dir
+;;                                               new-path
+;;                                               cltpt/html:*html-static-route*)
+;;                                              dest))
+;;                            :escape nil)))
+;;                  ;; TODO: we should be handling contents in the link description,
+;;                  ;; as it may contain org elements itself. but this is currently
+;;                  ;; somewhat problematic because link descriptions such as "1.mylink"
+;;                  ;; are detected as a list and reparsed/converted as such.
+;;                  (within-tags
+;;                   (if cltpt/html:*html-static-route*
+;;                       (format nil
+;;                               "<a href='~A'>"
+;;                               (cltpt/file-utils:change-dir
+;;                                dest
+;;                                cltpt/html:*html-static-route*))
+;;                       (format nil "<a href='~A'>" dest))
+;;                   final-desc
+;;                   "</a>"
+;;                   :reparse nil))))))))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
-  (let ((link-type-match (car (cltpt/combinator:find-submatch match 'link-type)))
-        (link-dest-match (car (cltpt/combinator:find-submatch match 'link-dest)))
-        (link-desc-match (car (cltpt/combinator:find-submatch match 'link-desc))))
-    (setf (cltpt/base:text-object-property obj :desc)
-          (cltpt/combinator:match-text link-desc-match))
-    (setf (cltpt/base:text-object-property obj :dest)
-          (cltpt/combinator:match-text link-dest-match))
-    (setf (cltpt/base:text-object-property obj :type)
-          (cltpt/combinator:match-text link-type-match))
-    (setf (cltpt/base:text-object-property obj :is-inline)
-          t)))
+;; (defmethod cltpt/base:text-object-init :after ((obj org-link) str1 match)
+;;   (let ((link-type-match (car (cltpt/combinator:find-submatch match 'link-type)))
+;;         (link-dest-match (car (cltpt/combinator:find-submatch match 'link-dest)))
+;;         (link-desc-match (car (cltpt/combinator:find-submatch match 'link-desc))))
+;;     (setf (cltpt/base:text-object-property obj :desc)
+;;           (cltpt/combinator:match-text link-desc-match))
+;;     (setf (cltpt/base:text-object-property obj :dest)
+;;           (cltpt/combinator:match-text link-dest-match))
+;;     (setf (cltpt/base:text-object-property obj :type)
+;;           (cltpt/combinator:match-text link-type-match))
+;;     (setf (cltpt/base:text-object-property obj :is-inline)
+;;           t)))
 
 ;; we're not being clever about it
 (defvar *web-link-rule*
@@ -1929,9 +1926,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
         (list :text (cltpt/base:text-object-contents obj)
               :recurse nil
               :reparse nil
-              :escape t)
+              :escape nil)
         (list :text ""
-              :recurse nil))))
+              :reparse t))))
 
 (defvar *org-drawer-rule*
   `(:pattern
@@ -1973,11 +1970,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (name (cltpt/base:alist-get keywords-alist "name"))
          (caption (cltpt/base:alist-get keywords-alist "caption")))
     (setf (cltpt/base:text-object-property obj :roam-node)
-          (cltpt/roam:make-node
-           :id name
-           :title nil
-           :desc nil
-           :text-obj obj))))
+          (cltpt/roam:make-node :id name
+                                :title nil
+                                :desc nil
+                                :text-obj obj))))
 
 (defun region-in-tags (match &optional include-tags)
   "takes a combinator match, returns a `region' that should contain the contents between the begin/end tags, like the indicies for the region enclosing \\begin{tag}..\\end{tag} for latex environments.

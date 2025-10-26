@@ -223,7 +223,8 @@ taking care of children indicies would cause issues."
           (elt (text-object-children parent) (1- idx)))))))
 
 (defmethod text-object-finalize ((obj text-object))
-  "default finalize function, does nothing.")
+  "default finalize function, does nothing."
+  nil)
 
 (defclass document (text-object)
   ()
@@ -473,15 +474,15 @@ taking care of children indicies would cause issues."
          (text-object-property prev :eval-result))
         (t nil)))))
 
-(defun make-text-link (&rest kws &key &allow-other-keys)
-  (let* ((id (getf kws :id))
-         (text (getf kws :text))
-         (obj (make-instance 'text-link)))
-    (setf (text-object-property obj :id) id)
-    (setf (text-object-property obj :text) text)
-    (loop for (key value) on kws by #'cddr
-          do (setf (text-object-property obj key) value))
-    obj))
+;; (defun make-text-link (&rest kws &key &allow-other-keys)
+;;   (let* ((id (getf kws :id))
+;;          (text (getf kws :text))
+;;          (obj (make-instance 'text-link)))
+;;     (setf (text-object-property obj :id) id)
+;;     (setf (text-object-property obj :text) text)
+;;     (loop for (key value) on kws by #'cddr
+;;           do (setf (text-object-property obj key) value))
+;;     obj))
 
 ;; TODO: easy to optimize
 ;; inefficient :(, takes O(log(n)) when it should take O(1)
@@ -687,3 +688,23 @@ contents region is further compressed by COMPRESS-REGION if provided."
 (defmethod text-object-normalized-combinator-match ((text-obj text-object))
   (normalize-match-positions
    (text-object-property text-obj :combinator-match)))
+
+(defclass text-link (text-object)
+  ((link
+    :accessor text-link-link
+    :initform nil
+    :documentation "the link object of the text-link."))
+  (:documentation "base text-object for links."))
+
+(defmethod cltpt/base:text-object-init :after ((obj text-link) str1 match)
+  (let ((link-type-match
+          (car (cltpt/combinator:find-submatch match 'link-type)))
+        (link-dest-match
+          (car (cltpt/combinator:find-submatch match 'link-dest)))
+        (link-desc-match
+          (car (cltpt/combinator:find-submatch match 'link-desc))))
+    (setf (text-link-link obj)
+          (make-link :type (cltpt/combinator:match-text link-type-match)
+                     :desc (cltpt/combinator:match-text link-desc-match)
+                     :dest (cltpt/combinator:match-text link-dest-match)))
+    (setf (cltpt/base:text-object-property obj :is-inline) t)))

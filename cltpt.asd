@@ -26,9 +26,10 @@
                              (:file "utils")
                              (:file "region")
                              (:file "text-object")
+                             (:file "link")
                              (:file "text-format")
                              (:file "parser")
-                             (:file "transformer")
+                             (:file "transform")
                              (:file "convert")))
                (:module "latex"
                 :pathname "src/format/latex/"
@@ -59,7 +60,7 @@
                              (:file "org-table")))
                (:module "zoo"
                 :pathname "src/"
-                :depends-on ("base" "latex" "html" "org-mode")
+                :depends-on ("base" "latex" "html" "org-mode" "roam")
                 :components ((:file "zoo")))
                (:module "commandline"
                 :pathname "src/extra"
@@ -68,6 +69,6 @@
                (:module "tests"
                 :pathname "tests/"
                 :depends-on ("base" "org-mode")
-                :components ((:file "parse")
+                :components ((:file "more")
                              (:file "org-mode")
                              (:file "manual")))))
