@@ -143,7 +143,7 @@
   (let* ((link (cltpt/base:text-link-link obj))
          (desc (cltpt/base:link-desc link))
          (type (if (cltpt/base:link-type link)
-                   (intern (cltpt/base:link-type link))
+                   (cltpt/base:link-type link)
                    'cltpt/base::file))
          (dest (cltpt/base:link-dest link))
          (final-desc (or desc dest))
@@ -158,12 +158,14 @@
          (desc-end (getf (car desc-match) :end))
          (dest-filepath))
     (when dest
-      (cltpt/base:pcase (type-of resolved)
-        ('pathname
+      (typecase resolved
+        (pathname
          (setf dest-filepath
                (cltpt/file-utils:ensure-filepath-string resolved)))
-        ('cltpt/roam:node
-         (setf dest-filepath (cltpt/roam:node-file resolved))))
+        (cltpt/roam:node
+         (setf dest-filepath (cltpt/roam:node-file resolved)))
+        (t
+         dest))
       (when dest-filepath
         ;; initialize the tags to the <a> tag, if its a video or an image,
         ;; it gets overwritten later.
@@ -202,7 +204,7 @@
                   (cltpt/base:pcase backend
                     (cltpt/html:*html*
                      (format nil
-                             "<img src='~A'>"
+                             "<img src='~A' />"
                              dest-filepath))
                     (cltpt/latex:*latex*
                      (format nil
@@ -210,8 +212,9 @@
                              dest-filepath))))
             (setf close-tag
                   (cltpt/base:pcase backend
-                    (cltpt/html:*html* "</img>")
-                    (cltpt/latex:*latex* "}")))))
+                    (cltpt/html:*html* "")
+                    (cltpt/latex:*latex* "}")))
+            (setf final-desc "")))
         ;; when there's no description for the link the resulting text
         ;; would just be an html snippet with no need for escaping or recursing.
         (list :text (if desc-match
