@@ -685,14 +685,15 @@ contents region is further compressed by COMPRESS-REGION if provided."
   (:documentation "base text-object for links."))
 
 (defmethod cltpt/base:text-object-init :after ((obj text-link) str1 match)
-  (let ((link-type-match
-          (car (cltpt/combinator:find-submatch match 'link-type)))
-        (link-dest-match
-          (car (cltpt/combinator:find-submatch match 'link-dest)))
-        (link-desc-match
-          (car (cltpt/combinator:find-submatch match 'link-desc))))
+  (let* ((link-type-match
+           (car (cltpt/combinator:find-submatch match 'link-type)))
+         (link-dest-match
+           (car (cltpt/combinator:find-submatch match 'link-dest)))
+         (link-desc-match
+           (car (cltpt/combinator:find-submatch match 'link-desc)))
+         (type-str (string-upcase (cltpt/combinator:match-text link-type-match))))
     (setf (text-link-link obj)
-          (make-link :type (cltpt/combinator:match-text link-type-match)
+          (make-link :type (when type-str (intern type-str :cltpt/base))
                      :desc (cltpt/combinator:match-text link-desc-match)
                      :dest (cltpt/combinator:match-text link-dest-match)))
     (setf (cltpt/base:text-object-property obj :is-inline) t)))
