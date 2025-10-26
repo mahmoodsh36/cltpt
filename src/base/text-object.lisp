@@ -32,12 +32,7 @@
     :accessor text-object-rule
     :allocation :class
     :initform nil
-    :documentation "the matching method from `*matching-methods*' used to match against the text object.")
-   (shared-name
-    :accessor text-object-shared-name
-    :allocation :class
-    :initform nil
-    :documentation "text objects that have the same `shared-name' should be easier to identify across formats."))
+    :documentation "the matching method from `*matching-methods*' used to match against the text object."))
   (:documentation "cltpt objects base class"))
 
 (defgeneric text-object-init (text-obj str1 match)
@@ -438,13 +433,6 @@ taking care of children indicies would cause issues."
     (unless (getf rule :id)
       (setf (getf rule :id) subclass))
     rule))
-
-(defun text-object-shared-name-from-subclass (subclass)
-  (ensure-finalized subclass)
-  (let ((cls (find-class-faster subclass)))
-    (when (slot-boundp (sb-mop:class-prototype cls) 'shared-name)
-      (slot-value (sb-mop:class-prototype cls)
-                  'shared-name))))
 
 (defmethod cltpt/tree:tree-children ((subtree text-object))
   (text-object-children subtree))
