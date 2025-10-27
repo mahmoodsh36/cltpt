@@ -213,8 +213,10 @@ each rule is a plist that can contain the following params.
 (defmethod link-resolve ((link-type (eql 'cltpt/base::id))
                          dest
                          desc)
-  (let ((rmr (getf cltpt/roam:*roam-convert-data* :roamer))
-        (dest-node (cltpt/roam:get-node-by-id rmr dest-id)))
+  (let* ((rmr (getf cltpt/roam:*roam-convert-data* :roamer))
+         (dest-node
+           (when rmr
+             (cltpt/roam:get-node-by-id rmr dest))))
     dest-node))
 
 ;; (defmethod convert-link ((rmr roamer)
