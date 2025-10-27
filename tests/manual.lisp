@@ -4,7 +4,7 @@
 
 (defun test-org-parse ()
   (cltpt/tree:tree-show
-   (parse-file cltpt/org-mode:*org-mode* "tests/test.org")))
+   (cltpt/base:parse-file cltpt/org-mode:*org-mode* "tests/test.org")))
 
 (defun test-org-convert ()
   (let ((filepath
@@ -15,7 +15,7 @@
         (cltpt/org-mode:*org-enable-macros* t))
     (cltpt/zoo:init)
     (cltpt/tree:tree-show
-     (parse-file cltpt/org-mode:*org-mode* filepath))
+     (cltpt/base:parse-file cltpt/org-mode:*org-mode* filepath))
     (time
      (progn
        (cltpt/base:convert-file

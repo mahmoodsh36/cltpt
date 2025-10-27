@@ -1,5 +1,5 @@
 (defpackage :cltpt/tests
-  (:use :cl :it.bese.fiveam :cltpt/base)
+  (:use :cl :it.bese.fiveam)
   (:export #:run-cltpt-tests))
 
 (in-package :cltpt/tests)
