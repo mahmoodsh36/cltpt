@@ -634,19 +634,19 @@ and grabbing each position of each object through its ascendants in the tree."
 
 contents region is further compressed by COMPRESS-REGION if provided."
   (let* ((contents-region (text-object-contents-region text-obj))
-         (old-open-tag-region
-           (make-region :begin 0
-                        :end (region-begin contents-region)))
-         (old-close-tag-region
-           (make-region :begin (region-end contents-region)
-                        :end (region-length
-                              (text-object-text-region text-obj))))
          ;; this is the inner region after region shifts caused by `handle-changed-regions'.
          (inner-region
            (if compress-region
                (region-compress-by (region-clone contents-region)
                                    compress-region)
-               contents-region)))
+               contents-region))
+         (old-open-tag-region
+           (make-region :begin 0
+                        :end (region-begin inner-region)))
+         (old-close-tag-region
+           (make-region :begin (region-end inner-region)
+                        :end (region-length
+                              (text-object-text-region text-obj)))))
     (list :text (text-object-text text-obj)
           :changes (list (cons open-tag old-open-tag-region)
                          (cons close-tag old-close-tag-region))
