@@ -3,11 +3,10 @@
   (:import-from :cltpt/agenda/time
    :time-range :make-time-range :time-range-begin :time-range-end)
   (:export
-   :cltpt/agenda/task
    :task :make-task :task :agenda-tasks
 
    :task-state :task-tags :task-title :task-description :task-records
-   :task-record :make-task-record :task-record-task
+   :task-record :make-task-record :task-record-task :task-parent :task-children
    :task-record-repeat :task-record-time
    :make-record-scheduled
 
