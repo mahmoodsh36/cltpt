@@ -87,6 +87,7 @@ a_1 b_2 - a_2 b_1
 \end{bmatrix}. \]
 
 * TODO another due task
+<2025-10-29 Tue 10:00:00 +1w>--<2025-10-29 Tue 14:00:00 +1w>
 SCHEDULED: <2024-10-15 Tue 16:41:04> DEADLINE: <2024-10-15 Tue 16:51:04>
 
 #(cltpt/base::make-block :loop `(thing ,(list "some" "thingy" 1 2 3))

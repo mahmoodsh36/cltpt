@@ -15,7 +15,7 @@
    :make-record-scheduled :make-record-deadline
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
-   :task-record :make-task-record :task-record-task
+   :task-record :make-task-record :task-record-task :task-parent :task-children
    :task-record-repeat :task-record-time
 
    :repeat-task :deadline :start-task
@@ -25,7 +25,7 @@
   (:export
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
-   :task-record :make-task-record :task-record-task
+   :task-record :make-task-record :task-record-task :task-parent :task-children
    :task-record-repeat :task-record-time
 
    :from-roamer :task-node :tasks-between
