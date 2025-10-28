@@ -44,7 +44,7 @@
     (destructuring-bind (sym val-expr) (car bindings)
       (progv
           (list (change-symbol-package sym pkg-to-eval-in))
-          (list val-expr)
+          (list (eval val-expr))
         (bind-and-eval* (cdr bindings) func pkg-to-eval-in)))))
 ;; example
 ;; (bind-and-eval '((x 1) (y (+ 1 2))) (lambda () (+ x y)))
