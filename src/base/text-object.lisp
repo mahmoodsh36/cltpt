@@ -711,3 +711,11 @@ contents region is further compressed by COMPRESS-REGION if provided."
                      :desc (cltpt/combinator:match-text link-desc-match)
                      :dest (cltpt/combinator:match-text link-dest-match)))
     (setf (cltpt/base:text-object-property obj :is-inline) t)))
+
+(defmethod text-link-resolve ((obj text-link))
+  (let* ((link (text-link-link obj))
+         (type (or (link-type link) 'file))
+         (dest (link-dest link))
+         (desc (link-desc link))
+         (resolved (cltpt/base:link-resolve type dest desc)))
+    resolved))

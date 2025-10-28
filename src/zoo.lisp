@@ -147,14 +147,11 @@
                                            (backend cltpt/base:text-format))
   (let* ((link (cltpt/base:text-link-link obj))
          (desc (cltpt/base:link-desc link))
-         (type (if (cltpt/base:link-type link)
-                   (cltpt/base:link-type link)
-                   'cltpt/base::file))
          (dest (cltpt/base:link-dest link))
          (final-desc (or desc dest))
          (open-tag)
          (close-tag)
-         (resolved (cltpt/base:link-resolve type dest desc))
+         (resolved (cltpt/base:text-link-resolve obj))
          (desc-match
            (cltpt/combinator:find-submatch
             (cltpt/base:text-object-normalized-combinator-match obj)
@@ -163,93 +160,89 @@
          (desc-end (getf (car desc-match) :end))
          (dest-filepath))
     (when dest
-      (typecase resolved
-        (pathname
-         (setf dest-filepath
-               (cltpt/file-utils:ensure-filepath-string resolved)))
-        (cltpt/roam:node
-         (setf dest-filepath (cltpt/roam:node-file resolved)))
-        (t
-         dest))
-      (when dest-filepath
-        ;; initialize the tags to the <a> tag, if its a video or an image,
-        ;; it gets overwritten later.
-        (setf open-tag
-              (cltpt/base:pcase backend
-                (cltpt/html:*html*
-                 (format nil
-                         "<a href='~A'>"
-                         dest-filepath))
-                (cltpt/latex:*latex*
-                 (format nil
-                         "\\href{~A}{"
-                         dest-filepath))))
-        (setf close-tag
-              (cltpt/base:pcase backend
-                (cltpt/html:*html* "</a>")
-                (cltpt/latex:*latex* "}")))
-        ;; TODO: copy the destination file to the destination dir
-        (when (cltpt/file-utils:file-has-extension-p
-               dest-filepath
-               (append cltpt/base:*image-ext* cltpt/base:*video-ext*))
-          ;; if its an image we need to "display" it in html.
-          (let ((new-path (cltpt/base:pcase backend
-                            (cltpt/html:*html*
-                             (if cltpt/html:*html-static-dir*
-                                 (cltpt/file-utils:change-dir
-                                  dest-filepath
-                                  cltpt/html:*html-static-dir*)
-                                 dest-filepath))
-                            (t dest-filepath))))
-            ;; we should check if its the same file, otherwise copy-file will break
-            (unless (string= dest-filepath new-path)
-              (when (uiop:probe-file* dest-filepath)
-                (uiop:copy-file dest-filepath new-path)))
-            (setf open-tag
-                  (cltpt/base:pcase backend
-                    (cltpt/html:*html*
-                     (format nil
-                             "<img src='~A' />"
-                             dest-filepath))
-                    (cltpt/latex:*latex*
-                     (format nil
-                             "\\href{~A}{"
-                             dest-filepath))))
-            (setf close-tag
-                  (cltpt/base:pcase backend
-                    (cltpt/html:*html* "")
-                    (cltpt/latex:*latex* "}")))
-            (setf final-desc "")))
-        ;; when there's no description for the link the resulting text
-        ;; would just be an html snippet with no need for escaping or recursing.
-        (list :text (if desc-match
-                        (cltpt/base:text-object-text obj)
-                        (concatenate 'string
-                                     open-tag
-                                     final-desc
-                                     close-tag))
-              :changes (when desc-match
-                         (list
-                          (cons
-                           open-tag
-                           (cltpt/base:make-region
-                            :begin 0
-                            :end desc-begin))
-                          (cons
-                           final-desc
-                           (cltpt/base:make-region
-                            :begin desc-begin
-                            :end desc-end))
-                          (cons
-                           close-tag
-                           (cltpt/base:make-region
-                            :begin desc-end
-                            :end (length (cltpt/base:text-object-text obj))))))
-              :recurse desc-match
-              :escape-region (when desc-match
-                               (cltpt/base:make-region
-                                :begin desc-begin
-                                :end desc-end)))))))
+      (setf dest-filepath
+            (typecase resolved
+              (pathname (cltpt/file-utils:ensure-filepath-string resolved))
+              (cltpt/roam:node (cltpt/roam:node-file resolved))
+              (t dest)))
+      ;; initialize the tags to the <a> tag, if its a video or an image,
+      ;; it gets overwritten later.
+      (setf open-tag
+            (cltpt/base:pcase backend
+              (cltpt/html:*html*
+               (format nil
+                       "<a href='~A'>"
+                       dest-filepath))
+              (cltpt/latex:*latex*
+               (format nil
+                       "\\href{~A}{"
+                       dest-filepath))))
+      (setf close-tag
+            (cltpt/base:pcase backend
+              (cltpt/html:*html* "</a>")
+              (cltpt/latex:*latex* "}")))
+      ;; TODO: copy the destination file to the destination dir
+      (when (cltpt/file-utils:file-has-extension-p
+             dest-filepath
+             (append cltpt/base:*image-ext* cltpt/base:*video-ext*))
+        ;; if its an image we need to "display" it in html.
+        (let ((new-path (cltpt/base:pcase backend
+                          (cltpt/html:*html*
+                           (if cltpt/html:*html-static-dir*
+                               (cltpt/file-utils:change-dir
+                                dest-filepath
+                                cltpt/html:*html-static-dir*)
+                               dest-filepath))
+                          (t dest-filepath))))
+          ;; we should check if its the same file, otherwise copy-file will break
+          (unless (string= dest-filepath new-path)
+            (when (uiop:probe-file* dest-filepath)
+              (uiop:copy-file dest-filepath new-path)))
+          (setf open-tag
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html*
+                   (format nil
+                           "<img src='~A' />"
+                           dest-filepath))
+                  (cltpt/latex:*latex*
+                   (format nil
+                           "\\href{~A}{"
+                           dest-filepath))))
+          (setf close-tag
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html* "")
+                  (cltpt/latex:*latex* "}")))
+          (setf final-desc "")))
+      ;; when there's no description for the link the resulting text
+      ;; would just be an html snippet with no need for escaping or recursing.
+      (list :text (if desc-match
+                      (cltpt/base:text-object-text obj)
+                      (concatenate 'string
+                                   open-tag
+                                   final-desc
+                                   close-tag))
+            :changes (when desc-match
+                       (list
+                        (cons
+                         open-tag
+                         (cltpt/base:make-region
+                          :begin 0
+                          :end desc-begin))
+                        (cons
+                         final-desc
+                         (cltpt/base:make-region
+                          :begin desc-begin
+                          :end desc-end))
+                        (cons
+                         close-tag
+                         (cltpt/base:make-region
+                          :begin desc-end
+                          :end (length (cltpt/base:text-object-text obj))))))
+            :recurse desc-match
+            :escape-region (when desc-match
+                             (cltpt/base:make-region
+                              :begin desc-begin
+                              :end desc-end))))))
 
 (defun init ()
   "function to run any necessary initialization code for cltpt.
