@@ -68,7 +68,7 @@
                                     :sequence-desc seq-desc))))))
 
 (defvar *agenda-include-done*
-  nil
+  t
   "whether to include agenda nodes that are in one of the `*done-states*'.")
 
 (defclass agenda ()
@@ -114,13 +114,17 @@ the new agenda object will contain all the tasks found in the nodes of the roame
                      (loop for new-record in new-records
                            when (is-between (task-record-time new-record)
                                             begin-ts end-ts)
-                           collect new-record)
+                             collect new-record)
                      (and (is-between (task-record-time record) begin-ts end-ts)
                           (list record))))))
 
 (defmethod agenda-records-between ((agn agenda) begin-ts end-ts)
   (loop for task1 in (agenda-tasks agn)
-        append (records-between (task-records task1) begin-ts end-ts)))
+        ;; we dont include a task if its DONE (in a terminal state), unless
+        ;; `*agenda-include-done*' is set to `t'
+        append (unless (and (state-is-terminal (task-state task1))
+                            (not *agenda-include-done*))
+                 (records-between (task-records task1) begin-ts end-ts))))
 
 (defmethod agenda-tasks-between ((agn agenda) begin-ts end-ts)
   "return all tasks that have a `task-record' whose `time' is between BEGIN-TS and END-TS."
@@ -299,6 +303,3 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                                                :end-ts end-ts)))
       (write-sequence (cltpt/tree/outline:render-forest agenda-forest) out)
       out)))
-
-;; (defmethod text-object-agenda-change-state ((fmt1 cltpt/base:text-format) obj-tree)
-;;   )
