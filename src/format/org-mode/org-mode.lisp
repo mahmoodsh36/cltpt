@@ -747,8 +747,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       (let ((task (cltpt/agenda:make-task
                    :title (cltpt/combinator:match-text title-match)
                    :description nil
-                   :state (cltpt/agenda:state-by-name
-                           (cltpt/combinator:match-text todo-keyword-match))
+                   :state (or (cltpt/agenda:state-by-name
+                               (cltpt/combinator:match-text todo-keyword-match))
+                              (cltpt/agenda:state-by-name "TODO"))
                    :tags nil
                    :records task-records)))
         (loop for record in task-records
