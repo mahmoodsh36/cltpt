@@ -1622,8 +1622,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (code-open-tag-region
                     (cltpt/base:make-region
                      :begin 0
-                     :end (cltpt/base:region-begin
-                           (cltpt/base:text-object-contents-region obj))))
+                     ;; we use 1+ to get rid of the new line at the end of the opening tag
+                     :end (1+ (cltpt/base:region-begin
+                               (cltpt/base:text-object-contents-region obj)))))
                   (code-close-tag-region
                     (cltpt/base:make-region
                      :begin (cltpt/base:region-end
