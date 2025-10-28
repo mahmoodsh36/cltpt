@@ -1320,23 +1320,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     ((eq backend cltpt/html:*html*)
      (cltpt/base:rewrap-within-tags obj "<i>" "</i>"))))
 
-;; wrap text for exporting within specific "tags".
-(defun within-tags (open-tag inner-text close-tag
-                    &key (reparse t) (escape t))
-  (let* ((text (concatenate 'string
-                            open-tag
-                            inner-text
-                            close-tag))
-         (inner-region (cltpt/base:make-region
-                        :begin (length open-tag)
-                        :end (- (length text) (length close-tag)))))
-    (list :text text
-          :recurse t
-          :reparse-region inner-region
-          :escape-region inner-region
-          :reparse reparse
-          :escape escape)))
-
 ;; we dont want a keyword to be matched as a value, e.g. ":keyword1 :keyword2".
 ;; so we discard any match starting with ":".
 (let ((not-starting-with-colon

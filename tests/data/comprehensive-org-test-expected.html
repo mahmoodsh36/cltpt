@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title> Comprehensive Org Document</title>
+</head>
+<body>
+  <div class="post-content">
+    <h1> Comprehensive Org Document- 2024-01-15</h1>
+    
+<br>
+<h2>Introduction</h2>This is a comprehensive test document covering many org-mode features.
+<br>
+<h3>Text Formatting</h3>Here we test <b>bold</b>, <i>italic</i>, _underline_, =verbatim=, <code>code</code>, +strikethrough+ text.
+<br>
+<h3>Links and URLs</h3><ul>
+<li>Internal link: [[#target-section][Target Section]]
+</li>
+<li>External URL: <a href='https://www.example.com'>https://www.example.com</a>
+</li>
+<li>File link: <a href='document.pdf'>PDF Document</a>
+</li>
+<li>Image link: <img src='image.png' />
+</li>
+<li>Email link: [[mailto:user@example.com][Send Email]]
+</li>
+</ul>
+<h3>Lists</h3><h4>Unordered List</h4><ul>
+<li>First item
+</li>
+<li>Second item
+<ul>
+<li>Nested item 1
+</li>
+<li>Nested item 2
+<ul>
+<li>Deeply nested item
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Third item
+</li>
+</ul>
+<h4>Ordered List</h4><ol type="1">
+<li>First step
+</li>
+<li>Second step
+<ol type="1">
+<li>Sub-step 2.1
+</li>
+<li>Sub-step 2.2
+</li>
+</ol>
+</li>
+<li>Third step
+</li>
+</ol>
+<h4>Description List</h4><ul>
+<li>Term 1 :: Description of term 1
+</li>
+<li>Term 2 :: Description of term 2 with [[link][reference]]
+</li>
+</ul>
+<h3>Source Code Blocks</h3><h4>Python Example</h4><pre class='org-src' data-type='NIL' data-exports='both' data-results='output'><code>
+def fibonacci(n):
+    if n &lt;= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+print(fibonacci(10))
+</code></pre>
+
+<div class='org-babel-results'>55</div>
+<br>
+<h4>JavaScript Example</h4><pre class='org-src' data-type='NIL' data-tangle='script.js'><code>function greet(name) {
+    console.log(`Hello, ${name}!`);
+}
+
+greet(&apos;World&apos;);</code></pre>
+<br>
+<h4>LaTeX Example</h4><pre class='org-src' data-type='NIL' data-exports='results'><code>\begin{equation}
+\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
+\end{equation}</code></pre>
+<br>
+<h3>Mathematical Content</h3><h4>Inline Math</h4>The equation $E = mc^2$ is famous, and so is $\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$.
+<br>
+<h4>LaTeX Environments</h4><img src='/tmp/cltpt-latex-previews/cache/cltpt-snippet-466ffe37adc584ad1828408666a7415e.svg' class='display-math' />
+<br>
+<img src='/tmp/cltpt-latex-previews/cache/cltpt-snippet-7cbe5fb3f53e4ebe70c3f2db1b406228.svg' class='display-math' />
+<br>
+<h3>Tables</h3><h4>Simple Table</h4><table><tr><td>Name</td> <td>Age</td> <td>City</td> </tr>
+
+<tr><td>John</td> <td>25</td>  <td>NYC</td>  </tr>
+<tr><td>Jane</td> <td>30</td>  <td>LA</td>   </tr>
+<tr><td>Bob</td>  <td>35</td>  <td>Chicago</td> </tr>
+</table><h4>Complex Table with Formula</h4><table><tr><td>Item</td> <td>Price</td> <td>Quantity</td> <td>Total</td> </tr>
+
+<tr><td>Book</td> <td>$20</td>   |      <td>2</td> <td>$40</td>   </tr>
+<tr><td>Pen</td>  <td>$1.5</td>  |     <td>10</td> <td>$15</td>   </tr>
+<tr><td>#TBLFM: $4 = $2 * $3</td> </tr>
+</table><h3>Timestamps and Scheduling</h3><h4>Deadlines and Scheduling</h4><ul>
+<li>Deadline for project: <2024-02-01 Thu>
+</li>
+<li>Meeting scheduled: <2024-01-20 Fri 14:00-15:00>
+</li>
+<li>Repeating task: <2024-01-15 Mon ++1w>
+</li>
+<li>Time range: <2024-01-01 Mon>--<2024-01-31 Wed>
+</li>
+</ul>
+<h4>Timestamp Brackets</h4><ul>
+<li>[2024-01-15 Mon] (inactive timestamp)
+</li>
+<li>[2024-01-16 Tue 10:00] (inactive with time)
+</li>
+</ul>
+<h3>Tags and Properties</h3><h4>Task with Tags</h4><h4>Write comprehensive documentation</h4>
+<br>
+<h4>Review code changes</h4><h3>Blocks and Export</h3><h4>Quote Block</h4><div class='quote org-block' data-type='quote'>This is a blockquote that spans multiple lines
+<br>
+and demonstrates how org-mode handles quoted text.</div>
+<br>
+<h4>Verse Block</h4><div class='verse org-block' data-type='verse'>  Roses are red,
+<br>
+  Violets are blue,
+<br>
+  Sugar is sweet,
+<br>
+  And so are you.</div>
+<br>
+<h4>Center Block</h4><div class='center org-block' data-type='center'>This text is centered</div>
+<br>
+<h4>Export Blocks</h4>
+<div class="custom">
+  <p>This is custom HTML</p>
+</div>
+
+<br>
+
+<br>
+<h3>Comments and Footnotes</h3><h4>Comments</h4>This is regular text with a comment inline
+<br>
+<h4>Footnotes</h4>This text has a footnote[fn:1].
+<br>
+[fn:1] This is footnote content.
+<br>
+<h3>Advanced Features</h3><h4>Macros</h4>
+<br>
+{{{greeting(World)}}}
+<br>
+<h4>Include Files</h4>
+<br>
+<h4>Bibliography</h4>[[cite:author2024]]
+<br>
+<h3>Target Section</h3>This is the target section referenced from the link above.
+<br>
+<h3>Final Section</h3>The document ends here with a final <b>bold</b> statement.  </div>
+</body>
+</html>
