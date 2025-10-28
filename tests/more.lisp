@@ -114,7 +114,7 @@
       1. test1
       2. test2
    b. nested item two
- - item three")
+- item three")
          (obj (cltpt/base:parse
                cltpt/org-mode:*org-mode*
                text

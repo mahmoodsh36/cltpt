@@ -369,19 +369,18 @@ taking care of children indicies would cause issues."
 (defun convert-post-lexer-macro-obj (obj backend)
   (let ((eval-result (eval-post-lexer-macro obj)))
     (if (typep eval-result 'text-object)
-        (let ((dest-fmt (getf *convert-info* :dest-fmt)))
-          (list :text (convert-tree eval-result
-                                    (getf *convert-info* :src-fmt)
-                                    (getf *convert-info* :dest-fmt))
-                :recurse nil
-                :reparse nil
-                :escape nil))
+        (list :text (convert-tree eval-result
+                                  (getf *convert-info* :src-fmt)
+                                  (getf *convert-info* :dest-fmt))
+              :recurse nil
+              :reparse nil
+              :escape nil)
         (list :text (princ-to-string eval-result)
               :recurse t
               ;; :reparse makes post-lexer macros able to contain markup contents
               ;; that gets handled during conversion.
               ;; currently, the code for converting org-document exploits this.
-              :reparse t))))
+              :reparse nil))))
 
 (defmethod text-object-convert ((obj post-lexer-text-macro) backend)
   (convert-post-lexer-macro-obj obj backend))
@@ -522,18 +521,33 @@ taking care of children indicies would cause issues."
                     child)
                    child)))))
 
-(defmethod text-object-clone ((text-obj text-object))
+(defmethod text-object-clone ((text-obj text-object)
+                              &key
+                                (clone-parent t)
+                                (clone-children t))
   (let ((new-obj (make-instance (class-of text-obj))))
+    (if (and clone-parent (text-object-parent text-obj))
+        (setf (text-object-parent new-obj)
+              (text-object-clone
+               (text-object-parent text-obj)
+               :clone-children nil))
+        (setf (text-object-parent new-obj)
+              (text-object-parent text-obj)))
     (setf (text-object-properties new-obj)
           (copy-tree (text-object-properties text-obj)))
-    (setf (slot-value new-obj 'text)
-          (copy-seq (text-object-text text-obj)))
+    (when (slot-boundp text-obj 'text)
+      (setf (slot-value new-obj 'text)
+            (copy-seq (text-object-text text-obj))))
     (setf (text-object-text-region new-obj)
-          (make-region :begin (text-object-begin text-obj)
-                       :end (text-object-end text-obj)))
-    (setf (text-object-children new-obj)
-          (loop for child in (text-object-children text-obj)
-                collect (text-object-clone child)))
+          (region-clone (text-object-text-region text-obj)))
+    (if clone-children
+        (setf (text-object-children new-obj)
+              (loop for child in (text-object-children text-obj)
+                    for cloned-child = (text-object-clone child :clone-parent nil)
+                    do (setf (text-object-parent cloned-child) new-obj)
+                    collect cloned-child))
+        (setf (text-object-children new-obj)
+              (text-object-children text-obj)))
     new-obj))
 
 (defun map-text-object-with-pos-in-root (text-obj func &optional (pos 0))
