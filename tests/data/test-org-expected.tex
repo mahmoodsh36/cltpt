@@ -1,0 +1,210 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\author{mahmood sheikh}
+\title{my doc}
+
+\begin{document}
+
+\subsubsection{another due task}\\\#(cltpt/base::make-block :loop `(thing ,(list "some" "thingy" 1 2 3))\\                         :let* `((my-full-title\\                                 ,(if (and 1 3)\\                                   (format nil "<h1> \verb{A - }A </h1>" 4 5)\\                                   ""))))\\  here %my-full-title and %thing\\  \#(cltpt/base::make-block :loop '(thing3 (thing "some2" "thing" 1 2 3))\\                           :let* '((thing4 "hi")\\                                   (thing2 (format nil "hello\textasciitilde{}A" thing3))))\\    thing2 is: %thing2\\    thing3 is: %thing3\\    thing4 is: %thing4\\  \#(cltpt/base::block-end)\\\#(cltpt/base::block-end)\\\subsubsection{header my secondary header}\\test text1\\\subsubsubsection{do something else}\\\subsubsubsection{send the professor a mail}\\hey latex: \(x\)\\some [[mylink1-2:here1][testmore1- 2]] text\\[[attachment:sliding.gif]]\\[[attachment:sliding]]\\comment here\\\textbackslash{}\#+begin\_comment\\this is a comment 2\\\textbackslash{}\#+end\_comment\\some *text*\\text *\\some \textasciitilde{}text\textasciitilde{}\\text \textasciitilde{}\\latex here\\\[ x = \sqrt{x^2} \]\\code here\\\begin{lstlisting}
+  import requests
+  print('whatever')
+  print('whatever2')
+\end{lstlisting}
+
+\begin{lstlisting}whatever\\whatever2\\\textbackslash{}(11\textbackslash{})\\wow\end{lstlisting}\\\begin{lstlisting}
+  do nothing
+\end{lstlisting}
+
+\begin{lstlisting}\href{~/brain/out/jyBtMrE.svg}{}\end{lstlisting}\\\begin{dummy}
+  this is a test
+\end{dummy}\\\\escaped macro here: \textbackslash{}\#(format nil "test\textasciitilde{}A" 1)\\\#(cltpt/base::make-block :type 'definition)\\my first block\\\#(cltpt/base::block-end)\\\#(cltpt/base::make-block :type 'theorem :let '((a "some text")))\\  my first block\\  %a\\  \#(cltpt/base::make-block :type 'subtheorem\\               :let* '((b " that will be included on export")))\\    %(concatenate 'string a b)\\  \#(cltpt/base::block-end)\\\#(cltpt/base::block-end)\\\\add 1 to get %(+ (cltpt/base::prev-obj-eval) 1), add 10 to get %(+ (cltpt/base::prev-obj-eval) 10)\\\#(cltpt/base::blk :type 'theorem\\        :let '((prev-num (prev))\\               (next-num (parse-integer (car (text-list-items (next 'text-list)))))\\               (new-num (+ prev-num next-num))))\\then add the first number from the next list to get %new-num\\multiply that by 5 to get %(* new-num 5). anything is possible! this is only a simple example\\\#(cltpt/base::/blk)\\\begin{itemize}
+\item 45 \href{mylink}{mylink}
+
+\item 45 \(mathhh\)
+
+\item 50
+
+\item 10
+
+\end{itemize}
+hi\\\begin{itemize}
+\item we have \(x=y\)
+\begin{enumerate}
+\renewcommand{\labelenumii}{\alph{enumii.}}
+\item nested item one
+     more nested text
+\begin{enumerate}
+\renewcommand{\labelenumiii}{\arabic{enumiii.}}
+\item test1
+
+\item test2
+
+\end{enumerate}
+
+\item nested item two
+
+\end{enumerate}
+
+\item item three
+
+\end{itemize}
+the \textit{links}:\\\begin{itemize}
+\item org-mode link:                [[block1][next block]]
+
+\item link using our "text macros": #(ref :id "block1" :text "next block")
+
+\item markdown link:                ()[]
+
+\end{itemize}
+are equivalent, they point to the same object which is the next 'definition' block.\\the specific functionality or syntax (like the org-mode link syntax above) can be enabled or\\disabled as desired by the user. the parser is completely customizable and extensible,\\we provide a default mode that parses \textit{most} of org-mode's syntax but it need not be used.\\i personally plan on reducing my usage of org-mode syntax elements and use the "text-macro"\\syntax above because it is a much more powerful alternative.\\\#(cltpt/base::b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))\\output: %(concatenate 'string "value: [\href{" myvar1 "}{" myvar1 "}]").\\\#(cltpt/base::/b)\\to transclude some block (possibly from another file ofcourse):\\\#(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))\\here is \textbf{some important text}, but also more \textbf{important text}.\\also \textbf{more}. but more*\\some \verb{inline code} here.\\some \textit{italicized text} here, and some \verb{code} here.\\tables\\\begin{tabular} { |l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l| } \hline
+code                             &math                  
+
+\hline\\\verb{layer-x\textbackslash{}9*1*0}                  &\(I^\ell\)            
+\hline\\\verb{layer-y}                        &\(\hat Y^\ell\)       
+\hline\\\verb{layer-y-unactivated}            &\(S^\ell\)            
+\hline\\\verb{s-deltas}                       &\(\Delta S^\ell\)     
+\hline\\\verb{x-deltas}                       &\(I^\ell\)            
+\hline\\\verb{activation-function}            &\(\phi\)              
+\hline\\\verb{activation-function-derivative} &\(\phi'\)             
+\hline\\\verb{propped-deltas}                 &\(\Delta I^{\ell+1}\) 
+\hline\\\verb{learning-rate}                  &\(\alpha\)            
+\hline\end{tabular}\\\begin{tabular} { |l|l|l|l|l|l|l|l|l|l|l|l|l|l|l| } \hline
+head1   &head2 &head3 
+
+\hline\\foo    &       &baz   
+\hline\\123     &456   &789   
+\hline\\\(x=y\)&      &       
+
+\hline\\end     &row   &test  
+\hline\end{tabular}\\\( more math \)\\\\\begin{lstlisting}
+  import matplotlib
+  matplotlib.use('Agg')
+  import matplotlib.pyplot as plt
+  import matplotlib.patches as patches
+  import numpy as np
+
+  def draw\_circle(ax, center, radius, label):
+      """Helper function to draw a circle for a node."""
+      circle = patches.Circle(center, radius, facecolor='white', edgecolor='black', lw=2, zorder=3)
+      ax.add\_patch(circle)
+      ax.text(center[0], center[1], label, ha='center', va='center', fontsize=16, fontweight='bold', zorder=4)
+
+  def draw\_triangle(ax, top\_vertex, width, height, label):
+      """Helper function to draw a triangle for a subtree, positioned by its top vertex."""
+      x, y = top\_vertex
+      vertices = np.array([[x - width / 2, y - height], [x + width / 2, y - height], [x, y]])
+      triangle = patches.Polygon(vertices, closed=True, facecolor='white', edgecolor='black', lw=2, zorder=3)
+      ax.add\_patch(triangle)
+      ax.text(x, y - height * 0.6, label, ha='center', va='center', fontsize=16, zorder=4)
+
+  def draw\_edge\_line(ax, center1, center2, r1, r2):
+      """Helper function to draw a line between the edges of two shapes."""
+      x1, y1 = center1
+      x2, y2 = center2
+      dx, dy = x2 - x1, y2 - y1
+      dist = np.sqrt(dx**2 + dy**2)
+      
+      if dist == 0: return
+      
+      start\_x = x1 + r1 * (dx / dist)
+      start\_y = y1 + r1 * (dy / dist)
+      end\_x = x2 - r2 * (dx / dist)
+      end\_y = y2 - r2 * (dy / dist)
+      
+      ax.plot([start\_x, end\_x], [start\_y, end\_y], 'k-', lw=2, zorder=1)
+
+  \# --- Main Script ---
+  fig, ax = plt.subplots(figsize=(16, 6))
+  ax.set\_aspect('equal')
+  ax.axis('off')
+
+  \# Common parameters
+  radius = 0.7
+  tri\_width = 2.5
+  tri\_height = 1.5
+
+  \# --- Tree 1 ---
+  z1\_pos = (5, 10)
+  y1\_pos = (7.5, 7)
+  x1\_pos = (10, 4)
+  alpha1\_pos = (3, 8)
+  beta1\_pos = (5.5, 5)
+  gamma1\_pos = (8, 2)
+  delta1\_pos = (12, 2)
+
+  draw\_edge\_line(ax, z1\_pos, y1\_pos, radius, radius)
+  draw\_edge\_line(ax, z1\_pos, alpha1\_pos, radius, 0)
+  draw\_edge\_line(ax, y1\_pos, x1\_pos, radius, radius)
+  draw\_edge\_line(ax, y1\_pos, beta1\_pos, radius, 0)
+  draw\_edge\_line(ax, x1\_pos, gamma1\_pos, radius, 0)
+  draw\_edge\_line(ax, x1\_pos, delta1\_pos, radius, 0)
+
+  draw\_circle(ax, z1\_pos, radius, 'z')
+  draw\_circle(ax, y1\_pos, radius, 'y')
+  draw\_circle(ax, x1\_pos, radius, 'x')
+  draw\_triangle(ax, alpha1\_pos, tri\_width, tri\_height, 'α')
+  draw\_triangle(ax, beta1\_pos, tri\_width, tri\_height, 'β')
+  draw\_triangle(ax, gamma1\_pos, tri\_width, tri\_height, 'γ')
+  draw\_triangle(ax, delta1\_pos, tri\_width, tri\_height, 'δ')
+
+  \# --- Tree 2 ---
+  y2\_pos = (20.5, 10)
+  z2\_pos = (17, 7)
+  x2\_pos = (24, 7)
+  alpha2\_pos = (15, 5)
+  beta2\_pos = (19, 5)
+  gamma2\_pos = (22, 5)
+  delta2\_pos = (26, 5)
+
+  draw\_edge\_line(ax, y2\_pos, z2\_pos, radius, radius)
+  draw\_edge\_line(ax, y2\_pos, x2\_pos, radius, radius)
+  draw\_edge\_line(ax, z2\_pos, alpha2\_pos, radius, 0)
+  draw\_edge\_line(ax, z2\_pos, beta2\_pos, radius, 0)
+  draw\_edge\_line(ax, x2\_pos, gamma2\_pos, radius, 0)
+  draw\_edge\_line(ax, x2\_pos, delta2\_pos, radius, 0)
+
+  draw\_circle(ax, y2\_pos, radius, 'y')
+  draw\_circle(ax, z2\_pos, radius, 'z')
+  draw\_circle(ax, x2\_pos, radius, 'x')
+  draw\_triangle(ax, alpha2\_pos, tri\_width, tri\_height, 'α')
+  draw\_triangle(ax, beta2\_pos, tri\_width, tri\_height, 'β')
+  draw\_triangle(ax, gamma2\_pos, tri\_width, tri\_height, 'γ')
+  draw\_triangle(ax, delta2\_pos, tri\_width, tri\_height, 'δ')
+
+  \# --- Tree 3 ---
+  x3\_pos = (36, 10)
+  y3\_pos = (33.5, 7)
+  z3\_pos = (31, 4)
+  alpha3\_pos = (29, 2)
+  beta3\_pos = (33, 2)
+  gamma3\_pos = (35.5, 5)
+  delta3\_pos = (38, 8)
+
+  draw\_edge\_line(ax, x3\_pos, y3\_pos, radius, radius)
+  draw\_edge\_line(ax, x3\_pos, delta3\_pos, radius, 0)
+  draw\_edge\_line(ax, y3\_pos, z3\_pos, radius, radius)
+  draw\_edge\_line(ax, y3\_pos, gamma3\_pos, radius, 0)
+  draw\_edge\_line(ax, z3\_pos, alpha3\_pos, radius, 0)
+  draw\_edge\_line(ax, z3\_pos, beta3\_pos, radius, 0)
+
+  draw\_circle(ax, x3\_pos, radius, 'x')
+  draw\_circle(ax, y3\_pos, radius, 'y')
+  draw\_circle(ax, z3\_pos, radius, 'z')
+  draw\_triangle(ax, alpha3\_pos, tri\_width, tri\_height, 'α')
+  draw\_triangle(ax, beta3\_pos, tri\_width, tri\_height, 'β')
+  draw\_triangle(ax, gamma3\_pos, tri\_width, tri\_height, 'γ')
+  draw\_triangle(ax, delta3\_pos, tri\_width, tri\_height, 'δ')
+
+  \# Final plot adjustments
+  plt.ylim(0, 12)
+  plt.xlim(0, 40)
+
+  \# Save the figure to an SVG file
+  plt.savefig(filepath, format="svg", bbox\_inches='tight', pad\_inches=0.1)
+  plt.close() \# Close the plot to free up memory
+  return filepath
+\end{lstlisting}
+
+\begin{lstlisting}\href{/home/mahmooz/brain/out/WRB4q2d.svg}{}\end{lstlisting}\\test more\end{document}

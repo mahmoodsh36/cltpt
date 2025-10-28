@@ -1789,7 +1789,7 @@ plt.close()
 
 (test test-org-src-block-with-image-result-html-conversion
   (let* ((html-output (org-src-block-with-image-result-html-conversion))
-         (expected-html "<pre class='org-src'><code>
+         (expected-html "<pre class='org-src' data-type='NIL' data-exports='both' data-results='file'><code>
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -1810,376 +1810,55 @@ plt.close()
 
 (test test-comprehensive-org-document-html-conversion
   (let* ((html-output (comprehensive-org-document-html-conversion))
-         (expected-html "<!DOCTYPE html>
-<html>
-<head>
-  <meta charset=\"UTF-8\">
-  <title> Comprehensive Org Document</title>
-</head>
-<body>
-  <div class=\"post-content\">
-    <h1> Comprehensive Org Document- 2024-01-15</h1>
-    
-<br>
-<h2>Introduction</h2>This is a comprehensive test document covering many org-mode features.
-<br>
-<h3>Text Formatting</h3>Here we test <b>bold</b>, <i>italic</i>, _underline_, =verbatim=, <code>code</code>, +strikethrough+ text.
-<br>
-<h3>Links and URLs</h3><ul>
-<li>Internal link: [[#target-section][Target Section]]
-</li>
-<li>External URL: <a href='https://www.example.com'>https://www.example.com</a>
-</li>
-<li>File link: <a href='document.pdf'>PDF Document</a>
-</li>
-<li>Image link: <img src='image.png' />
-</li>
-<li>Email link: <a href='user@example.com'>Send Email</a>
-</li>
-</ul>
-<h3>Lists</h3><h4>Unordered List</h4><ul>
-<li>First item
-</li>
-<li>Second item
-<ul>
-<li>Nested item 1
-</li>
-<li>Nested item 2
-<ul>
-<li>Deeply nested item
-</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>Third item
-</li>
-</ul>
-<h4>Ordered List</h4><ol type=\"1\">
-<li>First step
-</li>
-<li>Second step
-<ol type=\"1\">
-<li>Sub-step 2.1
-</li>
-<li>Sub-step 2.2
-</li>
-</ol>
-</li>
-<li>Third step
-</li>
-</ol>
-<h4>Description List</h4><ul>
-<li>Term 1 :: Description of term 1
-</li>
-<li>Term 2 :: Description of term 2 with [[link][reference]]
-</li>
-</ul>
-<h3>Source Code Blocks</h3><h4>Python Example</h4><pre class='org-src'><code>
-def fibonacci(n):
-    if n &lt;= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
-
-print(fibonacci(10))
-</code></pre>
-
-<div class='org-babel-results'>55</div>
-<br>
-<h4>JavaScript Example</h4><pre class='org-src'><code>
-function greet(name) {
-    console.log(`Hello, ${name}!`);
-}
-
-greet(&apos;World&apos;);
-</code></pre>
-<br>
-<h4>LaTeX Example</h4><pre class='org-src'><code>
-\\begin{equation}
-\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
-\\end{equation}
-</code></pre>
-<br>
-<h3>Mathematical Content</h3><h4>Inline Math</h4>The equation $E = mc^2$ is famous, and so is $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$.
-<br>
-<h4>LaTeX Environments</h4><img src='/tmp/cltpt-latex-previews/cache/cltpt-snippet-246a2ccce23883e83ed08a641f574811.svg' class='display-math' />
-<br>
-<img src='/tmp/cltpt-latex-previews/cache/cltpt-snippet-98d1524083667e7c24cff63bee600ba6.svg' class='display-math' />
-<br>
-<h3>Tables</h3><h4>Simple Table</h4><table><tr><td>Name</td> <td>Age</td> <td>City</td> </tr>
-
-<tr><td>John</td> <td>25</td>  <td>NYC</td>  </tr>
-<tr><td>Jane</td> <td>30</td>  <td>LA</td>   </tr>
-<tr><td>Bob</td>  <td>35</td>  <td>Chicago</td> </tr>
-</table><h4>Complex Table with Formula</h4><table><tr><td>Item</td> <td>Price</td> <td>Quantity</td> <td>Total</td> </tr>
-
-<tr><td>Book</td> <td>$20</td>   |      <td>2</td> <td>$40</td>   </tr>
-<tr><td>Pen</td>  <td>$1.5</td>  |     <td>10</td> <td>$15</td>   </tr>
-<tr><td>#TBLFM: $4 = $2 * $3</td> </tr>
-</table><h3>Timestamps and Scheduling</h3><h4>Deadlines and Scheduling</h4><ul>
-<li>Deadline for project: <2024-02-01 Thu>
-</li>
-<li>Meeting scheduled: <2024-01-20 Fri 14:00-15:00>
-</li>
-<li>Repeating task: <2024-01-15 Mon ++1w>
-</li>
-<li>Time range: <2024-01-01 Mon>--<2024-01-31 Wed>
-</li>
-</ul>
-<h4>Timestamp Brackets</h4><ul>
-<li>[2024-01-15 Mon] (inactive timestamp)
-</li>
-<li>[2024-01-16 Tue 10:00] (inactive with time)
-</li>
-</ul>
-<h3>Tags and Properties</h3><h4>Task with Tags</h4><h4>Write comprehensive documentation</h4>
-<br>
-<h4>Review code changes</h4><h3>Blocks and Export</h3><h4>Quote Block</h4><div class='quote org-block' data-type='quote'>
-This is a blockquote that spans multiple lines
-<br>
-and demonstrates how org-mode handles quoted text.
-</div>
-<br>
-<h4>Verse Block</h4><div class='verse org-block' data-type='verse'>
-  Roses are red,
-<br>
-  Violets are blue,
-<br>
-  Sugar is sweet,
-<br>
-  And so are you.
-</div>
-<br>
-<h4>Center Block</h4><div class='center org-block' data-type='center'>
-This text is centered
-</div>
-<br>
-<h4>Export Blocks</h4>
-<div class=\"custom\">
-  <p>This is custom HTML</p>
-</div>
-
-<br>
-#+begin_export latex
-\\customsection{Custom LaTeX Content}
-This will be processed by LaTeX only.
-#+end_export
-<br>
-<h3>Comments and Footnotes</h3><h4>Comments</h4>This is regular text with a comment inline
-<br>
-<h4>Footnotes</h4>This text has a footnote[fn:1].
-<br>
-[fn:1] This is the footnote content.
-<br>
-<h3>Advanced Features</h3><h4>Macros</h4>
-<br>
-{{{greeting(World)}}}
-<br>
-<h4>Include Files</h4>
-<br>
-<h4>Bibliography</h4><a href='author2024'>author2024</a>
-<br>
-<h3>Target Section</h3>This is the target section referenced from the link above.
-<br>
-<h3>Final Section</h3>The document ends here with a final <b>bold</b> statement.  </div>
-</body>
-</html>"
-                        ))
+         (expected-html (uiop:read-file-string "tests/data/comprehensive-org-test-expected.html")))
     (is (string= html-output expected-html))))
+
+(defun text-block-test-conversion-func ()
+  "Test conversion of text-block-test.txt using simple format and compare with expected output."
+  (let* ((content (uiop:read-file-string "tests/data/text-block-test.txt"))
+         (parsed (cltpt/base:parse cltpt/base:*simple-format* content))
+         (actual-output (cltpt/base:convert-document cltpt/base:*simple-format* cltpt/base:*simple-format* parsed))
+         (expected-output (uiop:read-file-string "tests/data/text-block-test-expected.txt")))
+    (values actual-output expected-output)))
+
+(test text-block-test-conversion
+  (multiple-value-bind (actual-output expected-output)
+      (text-block-test-conversion-func)
+    (is (string= actual-output expected-output)
+        "Simple format conversion of text-block-test.txt should match expected output")))
+
+(defun test-org-html-conversion-func ()
+  "Test conversion of test.org to HTML and compare with expected output."
+  (let* ((content (uiop:read-file-string "tests/test.org"))
+         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* content))
+         (actual-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/html:*html* parsed))
+         (expected-output (uiop:read-file-string "tests/data/test-org-expected.html")))
+    (values actual-output expected-output)))
+
+(test test-org-html-conversion
+  (multiple-value-bind (actual-output expected-output)
+      (test-org-html-conversion-func)
+    (is (string= actual-output expected-output)
+        "HTML conversion of test.org should match expected output")))
+
+(defun test-org-latex-conversion-func ()
+  "Test conversion of test.org to LaTeX and compare with expected output."
+  (let* ((content (uiop:read-file-string "tests/test.org"))
+         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* content))
+         (actual-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/latex:*latex* parsed))
+         (expected-output (uiop:read-file-string "tests/data/test-org-expected.tex")))
+    (values actual-output expected-output)))
+
+(test test-org-latex-conversion
+  (multiple-value-bind (actual-output expected-output)
+      (test-org-latex-conversion-func)
+    (is (string= actual-output expected-output)
+        "LaTeX conversion of test.org should match expected output")))
 
 (defun test-comprehensive-org-document-func ()
   "test parsing a comprehensive org document with many features."
-  (cltpt/base:parse
-   cltpt/org-mode:*org-mode*
-   "#+title: Comprehensive Org Document
-#+author: Jane Smith
-#+date: 2024-01-15
-#+email: jane@example.com
-#+options: toc:t num:t
-#+latex_class: article
-#+startup: overview
-
-* Introduction
-This is a comprehensive test document covering many org-mode features.
-
-** Text Formatting
-Here we test *bold*, /italic/, _underline_, =verbatim=, ~code~, +strikethrough+ text.
-
-** Links and URLs
-- Internal link: [[#target-section][Target Section]]
-- External URL: https://www.example.com
-- File link: [[file:document.pdf][PDF Document]]
-- Image link: [[file:image.png][Description]]
-- Email link: [[mailto:user@example.com][Send Email]]
-
-** Lists
-*** Unordered List
-- First item
-- Second item
-  - Nested item 1
-  - Nested item 2
-    - Deeply nested item
-- Third item
-
-*** Ordered List
-1. First step
-2. Second step
-   1. Sub-step 2.1
-   2. Sub-step 2.2
-3. Third step
-
-*** Description List
-- Term 1 :: Description of term 1
-- Term 2 :: Description of term 2 with [[link][reference]]
-
-** Source Code Blocks
-*** Python Example
-#+begin_src python :results output :exports both
-def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
-
-print(fibonacci(10))
-#+end_src
-
-#+RESULTS:
-: 55
-
-*** JavaScript Example
-#+begin_src javascript :tangle script.js
-function greet(name) {
-    console.log(\`Hello, \${name}!\`);
-}
-
-greet('World');
-#+end_src
-
-*** LaTeX Example
-#+begin_src latex :exports results
-\\begin{equation}
-\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
-\\end{equation}
-#+end_src
-
-** Mathematical Content
-*** Inline Math
-The equation $E = mc^2$ is famous, and so is $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$.
-
-*** LaTeX Environments
-#+name: integral
-\\begin{equation}
-\\int_{a}^{b} f(x) dx = F(b) - F(a)
-\\end{equation}
-
-#+name: matrix
-\\begin{bmatrix}
-1 & 2 & 3 \\\\
-4 & 5 & 6 \\\\
-7 & 8 & 9
-\\end{bmatrix}
-
-** Tables
-*** Simple Table
-| Name | Age | City |
-|------+-----+------|
-| John | 25  | NYC  |
-| Jane | 30  | LA   |
-| Bob  | 35  | Chicago |
-
-*** Complex Table with Formula
-| Item | Price | Quantity | Total |
-|------+-------+----------+-------|
-| Book | $20   |        2 | $40   |
-| Pen  | $1.5  |       10 | $15   |
-| #TBLFM: $4 = $2 * $3 |
-
-** Timestamps and Scheduling
-*** Deadlines and Scheduling
-- Deadline for project: <2024-02-01 Thu>
-- Meeting scheduled: <2024-01-20 Fri 14:00-15:00>
-- Repeating task: <2024-01-15 Mon ++1w>
-- Time range: <2024-01-01 Mon>--<2024-01-31 Wed>
-
-*** Timestamp Brackets
-- [2024-01-15 Mon] (inactive timestamp)
-- [2024-01-16 Tue 10:00] (inactive with time)
-
-** Tags and Properties
-*** Task with Tags
-*** TODO Write comprehensive documentation :documentation:urgent:
-:PROPERTIES:
-:Effort:   2h
-:Assigned: Jane Smith
-:Due:      2024-02-01
-:END:
-
-*** DONE Review code changes :code:review:
-:PROPERTIES:
-:Effort:   1h
-:Assigned: John Doe
-:END:
-- State \"DONE\" from \"TODO\" [2024-01-15 Mon 10:30]
-
-** Blocks and Export
-*** Quote Block
-#+begin_quote
-This is a blockquote that spans multiple lines
-and demonstrates how org-mode handles quoted text.
-#+end_quote
-
-*** Verse Block
-#+begin_verse
-  Roses are red,
-  Violets are blue,
-  Sugar is sweet,
-  And so are you.
-#+end_verse
-
-*** Center Block
-#+begin_center
-This text is centered
-#+end_center
-
-*** Export Blocks
-#+begin_export html
-<div class=\"custom\">
-  <p>This is custom HTML</p>
-</div>
-#+end_export
-
-#+begin_export latex
-\\customsection{Custom LaTeX Content}
-This will be processed by LaTeX only.
-#+end_export
-
-** Comments and Footnotes
-*** Comments
-# This is a line comment
-This is regular text with a comment inline
-
-*** Footnotes
-This text has a footnote[fn:1].
-
-[fn:1] This is the footnote content.
-
-** Advanced Features
-*** Macros
-#+macro: greeting Hello, $1!
-
-{{{greeting(World)}}}
-
-*** Include Files
-#+include: \"other-file.org\" src lisp
-
-*** Bibliography
-[[cite:author2024]]
-
-** Target Section :target:
-This is the target section referenced from the link above.
-
-** Final Section
-The document ends here with a final *bold* statement."))
+  (let ((content (uiop:read-file-string "tests/data/comprehensive-org-test.org")))
+    (cltpt/base:parse cltpt/org-mode:*org-mode* content)))
 
 (defun compare-tree-types (actual-tree expected-types-tree &optional (path "root"))
   "Iterate through two trees simultaneously and check if types match.
