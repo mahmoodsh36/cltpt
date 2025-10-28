@@ -3,6 +3,7 @@
 :END:
 #+title: my doc
 #+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
+[[/home/mahmooz/]]
 * DONE due task :here:there:noexport:
 wow whats up
 SCHEDULED: <2024-10-29 Tue 16:41:04> DEADLINE: <2024-10-29 Tue 16:51:04>
