@@ -28,11 +28,13 @@
                     "\\end{~A}")
                    (cltpt/html:*html*
                     "</~A>"))
-                 type1))
+                 type1)
+         :escape (cltpt/base:text-object-property obj :escape t))
         (cltpt/base:rewrap-within-tags
          obj
          ""
-         ""))))
+         ""
+         :escape (cltpt/base:text-object-property obj :escape t)))))
 
 ;; TODO: conversion with :loop doesnt work for nested text-block's with :loop
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-block)
