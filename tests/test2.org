@@ -1,31 +1,37 @@
-- test 1
-- test 2
-* DONE part 2, univariate linear regression
-<2025-10-14 Tue 10:00 +1d>--<2025-10-28 Tue 12:00>
-<2025-10-14 Tue>--<2025-10-25 Sat>
-#+begin_task
-create the variables ~x~ and ~y~, and divide them into train and test, where train size = 80% and test size = 20%
-#+end_task
+here
 
-[[./test.org]]
+#(cltpt/base::make-block :let* `((my-full-title
+                                 ,(if (and 1 3)
+                                   (format nil "<h1> ~A - ~A </h1>" 4 5)
+                                   ""))))
+  here %my-full-title
+#(cltpt/base::block-end)
 
-#+begin_src python :session :results output
-  subset_train, subset_test = sklearn.model_selection.train_test_split(data_subset, test_size=0.2)
-  x_train, y_train = subset_train['size'], subset_train['price']
-  x_test, y_test = subset_test['size'], subset_test['price']
-  print("x_train", x_train.shape)
-  print("y_train", y_train.shape)
-  print("x_test", x_test.shape)
-  print("y_test", y_test.shape)
-#+end_src
-* DONE some task
-CLOSED: [2024-10-29 Tue 16:41:04]
-:PROPERTIES:
-:LAST_REPEAT: [2024-10-29 Tue 16:40:36]
-:END:
-- State "DONE"       from "TODO"       [2024-10-29 Tue 16:41:04]
-- State "CANCELED"   from "TODO"       [2024-10-29 Tue 16:40:36]
-- State "MISSED"     from "TODO"       [2024-10-15 Tue 19:46:43]
+huh
 
-| \(mymath\) | hello |
-| ~code~     | hey   |
+#(cltpt/base::make-block :loop `(thing ,(list "some" "thingy" 1 2 3))
+                         :let* `((my-full-title
+                                 ,(if (and 1 3)
+                                   (format nil "<h1> ~A - ~A </h1>" 4 5)
+                                   ""))))
+  here %my-full-title and %thing
+#(cltpt/base::block-end)
+
+end
+
+#(cltpt/base::make-block :loop `(thing ,(list "some" "thingy" 1 2 3))
+                         :let* `((my-full-title
+                                 ,(if (and 1 3)
+                                   (format nil "<h1> ~A - ~A </h1>" 4 5)
+                                   ""))))
+  here %my-full-title and %thing
+  #(cltpt/base::make-block :loop '(thing3 (thing "some2" "thing" 1 2 3))
+                           :let* '((thing4 "hi")
+                                   (thing2 (format nil "hello~A" thing3))))
+    thing2 is: %thing2
+    thing3 is: %thing3
+    thing4 is: %thing4
+  #(cltpt/base::block-end)
+#(cltpt/base::block-end)
+
+end
