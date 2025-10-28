@@ -29,10 +29,12 @@
                    (cltpt/html:*html*
                     "</~A>"))
                  type1))
-        (list :text (cltpt/base:text-object-contents obj)
-              :escape nil
-              :reparse t))))
+        (cltpt/base:rewrap-within-tags
+         obj
+         ""
+         ""))))
 
+;; TODO: conversion with :loop doesnt work for nested text-block's with :loop
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-block)
                                            backend)
   ;; use string on type to ensure its not a symbol
@@ -45,23 +47,26 @@
                (var-values (cadr loop-expr))
                (result
                  (loop for var-value in var-values
+                       for i from 1
                        for clone = (cltpt/base:text-object-clone obj)
+                       do (progn
+                            (setf (cltpt/base:text-object-property
+                                   clone
+                                   :not-to-loop)
+                                  t)
+                            (setf (cltpt/base:text-object-property clone :let*)
+                                  (list*
+                                   (list var-name var-value)
+                                   (cltpt/base:text-object-property
+                                    clone
+                                    :let*))))
                        collect (progn
-                                 (setf (cltpt/base:text-object-property
-                                        clone
-                                        :not-to-loop)
-                                       t)
-                                 (setf (cltpt/base:text-object-property clone :let*)
-                                       (list*
-                                        (list var-name var-value)
-                                        (cltpt/base:text-object-property
-                                         clone
-                                         :let*)))
-                                 ;; for now this only supports macros,
-                                 ;; TODO: inherit all text objects from the source
-                                 ;; format.
-                                 ;; TODO: currently inheriting :loop variables
-                                 ;; doesnt work for some reason.
+                                 ;; (setf (cltpt/base:text-object-parent clone)
+                                 ;;       (cltpt/base:text-object-parent obj))
+                                 ;; (cltpt/base::text-object-change-text
+                                 ;;  clone
+                                 ;;  (cltpt/base:text-object-text obj)
+                                 ;;  :propagate nil)
                                  (cltpt/base:convert-tree
                                   clone
                                   (getf cltpt/base:*convert-info* :src-fmt)
