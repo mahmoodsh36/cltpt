@@ -249,6 +249,7 @@ if SIGN is -1 this subtracts instead of adds."
         (:minute (setf ts (local-time:timestamp+ ts (* sign v) :minute)))
         (:sec    (setf ts (local-time:timestamp+ ts (* sign v) :sec)))
         (:day    (setf ts (local-time:timestamp+ ts (* sign v) :day)))
+        (:week   (setf ts (local-time:timestamp+ ts (* sign v 7) :day)))
         (:year   (setf ts (local-time:timestamp+ ts (* sign v) :year)))
         (otherwise (error "unsupported duration key: ~S" k))))
     ts))
