@@ -2,10 +2,12 @@
   (:use :cl)
   (:import-from :cltpt/agenda/time
    :time-range :make-time-range :time-range-begin :time-range-end)
+  (:import-from :cltpt/agenda/state
+   :state-name)
   (:export
    :task :make-task :task :agenda-tasks
 
-   :task-state :task-tags :task-title :task-description :task-records
+   :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
    :task-record-repeat :task-record-time
    :make-record-scheduled
@@ -89,6 +91,11 @@
          (time-end (and (typep time 'time-range) (time-range-end time)))
          (increment (when time-end
                       (local-time:timestamp-difference time-end time-begin))))
+    ;; remove any increments of value 0 because those are irrelevant and problematic
+    (setf repeat
+          (loop for (key value) on repeat by #'cddr
+                unless (zerop value)
+                  append (list key value)))
     (when repeat
       (let ((dates1 (cltpt/base:list-dates time-begin
                                            (time-range-end rng)
@@ -107,3 +114,45 @@
                                  (make-time-range :begin date1
                                                   :end date2)
                                  date1)))))))
+
+;; without this printing a node might cause an infinite loop
+(defmethod print-object ((obj task-record) stream)
+  (print-unreadable-object (obj stream :type t)
+    (format stream "-> ~A."
+            (cltpt/tree/outline:outline-text obj))))
+
+(defmethod cltpt/tree/outline:outline-text ((rec task-record))
+  (labels ((format-ts (ts)
+             (local-time:format-timestring
+              nil
+              ts
+              :format '((:hour 2 #\0)
+                        #\:
+                        (:min 2 #\0))))
+           (format-time (time)
+             (if (typep time 'time-range)
+                 (format nil "~A--~A"
+                         (format-ts (time-range-begin time))
+                         (format-ts (time-range-end time)))
+                 (format-ts time))))
+    (let ((task1 (task-record-task rec)))
+      (if (deadline rec)
+          (format nil
+                  "DEADLINE: ~A ~A"
+                  (state-name (task-state task1))
+                  (format-time (task-record-time rec))
+                  (task-title task1))
+          (if (start-task rec)
+              (format nil
+                      "START: (~A) ~A ~A"
+                      (state-name (task-state task1))
+                      (format-time (task-record-time rec))
+                      (task-title task1))
+              (format nil
+                      "~A (~A) ~A"
+                      (state-name (task-state task1))
+                      (format-time (task-record-time rec))
+                      (task-title task1)))))))
+
+(defmethod cltpt/tree:tree-children ((node task-record))
+  nil)
