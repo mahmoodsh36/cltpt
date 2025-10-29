@@ -194,48 +194,6 @@ the new agenda object will contain all the tasks found in the nodes of the roame
     (format stream "-> agenda-outline-node with ~A children."
             (length (cltpt/tree:tree-children obj)))))
 
-;; without this printing a node might cause an infinite loop
-(defmethod print-object ((obj task-record) stream)
-  (print-unreadable-object (obj stream :type t)
-    (format stream "-> ~A."
-            (cltpt/tree/outline:outline-text obj))))
-
-(defmethod cltpt/tree/outline:outline-text ((rec task-record))
-  (labels ((format-ts (ts)
-             (local-time:format-timestring
-              nil
-              ts
-              :format '((:hour 2 #\0)
-                        #\:
-                        (:min 2 #\0))))
-           (format-time (time)
-             (if (typep time 'time-range)
-                 (format nil "~A--~A"
-                         (format-ts (time-range-begin time))
-                         (format-ts (time-range-end time)))
-                 (format-ts time))))
-    (let ((task1 (task-record-task rec)))
-      (if (deadline rec)
-          (format nil
-                  "DEADLINE: ~A ~A"
-                  (state-name (task-state task1))
-                  (format-time (task-record-time rec))
-                  (task-title task1))
-          (if (start-task rec)
-              (format nil
-                      "START: (~A) ~A ~A"
-                      (state-name (task-state task1))
-                      (format-time (task-record-time rec))
-                      (task-title task1))
-              (format nil
-                      "~A (~A) ~A"
-                      (state-name (task-state task1))
-                      (format-time (task-record-time rec))
-                      (task-title task1)))))))
-
-(defmethod cltpt/tree:tree-children ((node task-record))
-  nil)
-
 (defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts)
   "build a forest representing the data of AGN for the given dates.
 

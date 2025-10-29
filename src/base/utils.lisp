@@ -259,6 +259,15 @@ if SIGN is -1 this subtracts instead of adds."
 
 - START-DATE and END-DATE should be local-time timestamp objects.
 - INTERVAL is a plist like (:day 1 :hour 12)."
+  ;; Validate interval to prevent infinite loops
+  (when (or (and (getf interval :day) (zerop (getf interval :day)))
+            (and (getf interval :hour) (zerop (getf interval :hour)))
+            (and (getf interval :minute) (zerop (getf interval :minute)))
+            (and (getf interval :second) (zerop (getf interval :second)))
+            (and (getf interval :week) (zerop (getf interval :week)))
+            (and (getf interval :month) (zerop (getf interval :month)))
+            (and (getf interval :year) (zerop (getf interval :year))))
+    (error "zero interval values are not allowed in list-dates: ~A" interval))
   (loop for current-date = start-date then (add-duration current-date interval)
         while (local-time:timestamp<= current-date end-date)
         collect current-date))
@@ -266,6 +275,15 @@ if SIGN is -1 this subtracts instead of adds."
 (defun list-date-pairs (start-date end-date interval)
   "generates a list of (current-date . next-date) cons pairs.
 the loop stops when NEXT-DATE would be after END-DATE."
+  ;; Validate interval to prevent infinite loops
+  (when (or (and (getf interval :day) (zerop (getf interval :day)))
+            (and (getf interval :hour) (zerop (getf interval :hour)))
+            (and (getf interval :minute) (zerop (getf interval :minute)))
+            (and (getf interval :second) (zerop (getf interval :second)))
+            (and (getf interval :week) (zerop (getf interval :week)))
+            (and (getf interval :month) (zerop (getf interval :month)))
+            (and (getf interval :year) (zerop (getf interval :year))))
+    (error "zero interval values are not allowed in list-date-pairs: ~A" interval))
   (loop for current-date = start-date then next-date
         for next-date = (add-duration current-date interval)
         while (local-time:timestamp<= next-date end-date)
