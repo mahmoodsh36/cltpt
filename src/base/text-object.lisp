@@ -195,9 +195,12 @@ taking care of children indicies would cause issues."
             (if (slot-boundp obj 'text-region)
                 (text-object-text-region obj)
                 nil)
-            (if (slot-boundp obj 'text)
-                (cltpt/base:str-prune (text-object-text obj) 15)
-                nil))))
+            (let ((ancestor (nearest-ancestor-with-text obj)))
+              (if (and ancestor
+                       (slot-boundp ancestor 'text)
+                       (slot-value ancestor 'text))
+                  (cltpt/base:str-prune (text-object-text obj) 15)
+                  nil)))))
 
 ;; this is actually the slowest way to traverse siblings
 ;; TODO: easy to optimize
@@ -331,7 +334,7 @@ taking care of children indicies would cause issues."
   ;; conversion even though it shouldnt be. i really need to investigate this.
   ;; it probably has to do with objects being reparsed/recreated during conversion.
   (when (and *cache-post-lexer-macro-evals* (text-object-property obj :eval-result))
-      (return-from eval-post-lexer-macro (text-object-property obj :eval-result)))
+    (return-from eval-post-lexer-macro (text-object-property obj :eval-result)))
   (let ((txt-to-eval (subseq (text-object-text obj) 1))
         (macro-eval-result)
         (*post-lexer-text-macro-dynamic-object* obj))

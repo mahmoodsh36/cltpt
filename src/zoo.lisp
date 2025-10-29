@@ -66,8 +66,7 @@
                                    ;; the var-value with a call to 'identity'
                                    ;; to prevent bind-and-eval from running
                                    ;; eval on var-value itself.
-                                   (list var-name
-                                         `(identity ,var-value))
+                                   (list var-name `,var-value)
                                    (cltpt/base:text-object-property
                                     clone
                                     :let*))))
