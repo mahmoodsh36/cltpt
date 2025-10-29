@@ -56,38 +56,10 @@
      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env)
    (org-mode-text-object-types)))
 
-(defun copy-rule (rule id &key type)
-  (if (cltpt/base:plistp rule)
-      (let ((copy (copy-tree rule)))
-        (setf (getf copy :id) id)
-        (when type
-          (setf (getf copy :type) type))
-        copy)
-      (if type
-          (list :pattern (copy-tree rule) :id id :type type)
-          (list :pattern (copy-tree rule) :id id))))
-
-(defun copy-modify-rule (rule modifications)
-  "copy a RULE, apply MODIFICATIONS to it.
-
-MODIFICATIONS is an alist of the form (id . new-rule) where id is the subrule
-to replace and new-rule is the rule to replace it with."
-  (let ((new-rule (copy-tree rule)))
-    (cltpt/tree:tree-map
-     new-rule
-     (lambda (subrule)
-       (when (cltpt/base:plistp subrule)
-         (loop for modification in modifications
-               for modification-id = (car modification)
-               for modification-rule = (cdr modification)
-               do (if (equal (getf subrule :id) modification-id)
-                      (setf (getf subrule :pattern) modification-rule))))))
-    new-rule))
-
 (defun org-mode-inline-text-object-rule ()
   (mapcar
    (lambda (subclass-name)
-     (copy-rule
+     (cltpt/combinator:copy-rule
       (cltpt/base:text-object-rule-from-subclass subclass-name)
       subclass-name))
    (org-mode-inline-text-object-types)))
@@ -101,6 +73,34 @@ to replace and new-rule is the rule to replace it with."
 (defvar *org-inline-text-objects-rule*
   '(eval
     (org-mode-inline-text-object-rule)))
+
+;; this is in order to try and reduce the work required to parse files
+;; when fetching metadata through roam.
+;; TODO: we dont really need most of these object types to be scanned for
+;; on their own, for example org-table shouldnt be scanned for by the roamer
+;; unless its in the results section of an org-src-block.
+;; for this reason this doesnt improve speed by much unfortunately.
+;; (defmethod cltpt/roam:text-format-roam-types ((tf (eql *org-mode*)))
+;;   "names of sub-classes of `text-object' that should be considered when parsing for roam."
+;;   (intersection
+;;    '(org-link
+;;      org-table
+;;      org-header
+;;      org-link
+;;      org-timestamp
+;;      org-src-block
+;;      org-export-block
+;;      org-block
+;;      org-prop-drawer
+;;      org-latex-env
+;;      org-drawer
+;;      org-latex-env
+;;      org-keyword
+;;      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
+;;      org-comment
+;;      cltpt/base::text-macro
+;;      cltpt/base::post-lexer-text-macro)
+;;    (cltpt/base:text-format-text-object-types *org-mode*)))
 
 ;; even though a property drawer can be considered just a drawer with a special treatment, we implement it as a distinct object from `org-drawer'
 (defvar *org-prop-drawer-rule*
@@ -172,7 +172,7 @@ to replace and new-rule is the rule to replace it with."
      (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
      (cltpt/combinator:any
       ;; TODO: we shouldnt be enabling text-macros by default, even for keywords.
-      ,(copy-rule
+      ,(cltpt/combinator:copy-rule
         cltpt/base::*post-lexer-text-macro-rule*
         'cltpt/base::post-lexer-text-macro)
       ;; capture an arbitrary sequence until an EOL (or EOF ofc)
@@ -194,14 +194,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       `(cltpt/combinator:consec
         (cltpt/combinator:separated-atleast-one
          ,(string #\newline)
-         ,(copy-rule *org-keyword-rule* 'org-keyword))
+         ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword))
         ,(string #\newline)
         ,rule)
       `(cltpt/combinator:any
         (cltpt/combinator:consec
          (cltpt/combinator:separated-atleast-one
           ,(string #\newline)
-          ,(copy-rule *org-keyword-rule* 'org-keyword))
+          ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword))
          ,(string #\newline)
          ,rule)
         ,rule)))
@@ -608,7 +608,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               (:pattern (cltpt/combinator:upcase-word-matcher)
                :id name)
               ": "
-              ,(copy-rule *org-timestamp-rule* 'timestamp
+              ,(cltpt/combinator:copy-rule *org-timestamp-rule* 'timestamp
                           :type 'org-timestamp))
              :id action-active)
             (:pattern
@@ -616,14 +616,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               (:pattern (cltpt/combinator:upcase-word-matcher)
                :id name)
               ": "
-              ,(copy-rule *org-timestamp-bracket-rule* 'timestamp))
+              ,(cltpt/combinator:copy-rule *org-timestamp-bracket-rule* 'timestamp))
              :id action-inactive)))
-          ,(copy-rule *org-timestamp-rule* 'todo-timestamp
+          ,(cltpt/combinator:copy-rule *org-timestamp-rule* 'todo-timestamp
                       :type 'org-timestamp)
           (cltpt/combinator:when-match-after
-           ,(copy-rule *org-list-rule* 'org-list)
+           ,(cltpt/combinator:copy-rule *org-list-rule* 'org-list)
            is-header-metadata-list)
-          ,(copy-rule *org-prop-drawer-rule* 'org-prop-drawer)))))
+          ,(cltpt/combinator:copy-rule *org-prop-drawer-rule* 'org-prop-drawer)))))
       :on-char #\*)))
 (defclass org-header (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -1409,11 +1409,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        |#
        (cltpt/combinator:any
         org-export-block
-        ,(copy-rule *org-list-rule* 'org-list)
+        ,(cltpt/combinator:copy-rule *org-list-rule* 'org-list)
         org-table
         org-block
         org-drawer
-        ,(copy-rule *org-link-rule* 'org-link)))
+        ,(cltpt/combinator:copy-rule *org-link-rule* 'org-link)))
       :id results-content))
     :id results))
 (defvar *org-src-block-no-kw-rule*
@@ -1450,14 +1450,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (cltpt/combinator:any
      ;; block with keywords and execution results
      (cltpt/combinator:consec
-      ,(copy-rule *org-keyword-rule* 'org-keyword)
+      ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword)
       ,*org-src-block-no-kw-rule*
       (cltpt/combinator:literal ,(string #\newline))
       (cltpt/combinator:literal ,(string #\newline))
       ,*org-babel-results-rule*)
      ;; block with keywords but no execution results
      (cltpt/combinator:consec
-      ,(copy-rule *org-keyword-rule* 'org-keyword)
+      ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword)
       ,*org-src-block-no-kw-rule*)
      ;; block with results but no keywords
      (cltpt/combinator:consec
@@ -1762,7 +1762,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   `(:pattern
     (cltpt/combinator:any
      (cltpt/combinator:consec
-      ,(copy-rule *org-keyword-rule* 'org-keyword)
+      ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword)
       ,*org-block-no-kw-rule*)
      ,*org-block-no-kw-rule*)
     :on-char #\#))
@@ -1789,10 +1789,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (end-match (car (cltpt/combinator:find-submatch-last match 'end))))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
     (setf (cltpt/base:text-object-property obj :contents-region)
-          (cltpt/base:make-region :begin (- (getf begin-match :end)
-                                            (getf begin-match :begin))
-                                  :end (- (getf end-match :begin)
-                                          (getf begin-match :begin))))
+          (cltpt/base:make-region
+           :begin (- (getf begin-match :end)
+                     (getf begin-match :begin))
+           :end (- (getf end-match :begin)
+                   (getf begin-match :begin))))
     ;; handle keywords
     (handle-block-keywords obj)
     (let ((block-title (org-block-keyword-value obj "title"))
@@ -1813,7 +1814,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;; an "export block" is very similar to an src-block, just some slight differences.
 (defvar *org-export-block-rule*
   `(:pattern
-    ,(copy-modify-rule
+    ,(cltpt/combinator:copy-modify-rule
       *org-src-block-no-kw-rule*
       '((open-tag . "#+begin_export")
         (end . "#+end_export")))
@@ -1864,7 +1865,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defvar *org-latex-env-rule*
   `(:pattern
     ,(rule-with-org-keywords
-      (copy-rule
+      (cltpt/combinator:copy-rule
        cltpt/latex:*latex-env-rule*
        ;; we cant use an id 'latex-env' because that will cause a child of type
        ;; cltpt/latex:latex-env to be matched. we use 'latex-env-1'

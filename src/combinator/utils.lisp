@@ -2,7 +2,7 @@
   (:use :cl)
   (:export
    :find-submatch :find-submatch-all :find-submatch-last
-   :match-text))
+   :match-text :copy-rule :copy-modify-rule))
 
 (in-package :cltpt/combinator/utils)
 
@@ -41,3 +41,36 @@
     (subseq (getf match :str)
             (getf match :begin)
             (getf match :end))))
+
+(defun plistp (list1)
+  "check whether LIST1 is a plist."
+  (and (consp list1)
+       (keywordp (car list1))))
+
+(defun copy-rule (rule id &key type)
+  (if (plistp rule)
+      (let ((copy (copy-tree rule)))
+        (setf (getf copy :id) id)
+        (when type
+          (setf (getf copy :type) type))
+        copy)
+      (if type
+          (list :pattern (copy-tree rule) :id id :type type)
+          (list :pattern (copy-tree rule) :id id))))
+
+(defun copy-modify-rule (rule modifications)
+  "copy a RULE, apply MODIFICATIONS to it.
+
+MODIFICATIONS is an alist of the form (id . new-rule) where id is the subrule
+to replace and new-rule is the rule to replace it with."
+  (let ((new-rule (copy-tree rule)))
+    (cltpt/tree:tree-map
+     new-rule
+     (lambda (subrule)
+       (when (plistp subrule)
+         (loop for modification in modifications
+               for modification-id = (car modification)
+               for modification-rule = (cdr modification)
+               do (if (equal (getf subrule :id) modification-id)
+                      (setf (getf subrule :pattern) modification-rule))))))
+    new-rule))
