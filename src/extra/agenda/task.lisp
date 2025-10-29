@@ -79,8 +79,9 @@
 (defmethod start-task ((rec record-scheduled))
   (task-record-time rec))
 
-(defmethod start-task ((rec task-record))
-  (task-record-time rec))
+;; only `record-scheduled' sets a 'start', atleast for now.
+(defmethod start-task ((rec t))
+  nil)
 
 (defmethod repeat-task ((rec task-record) (rng time-range))
   (let* ((time (task-record-time rec))
