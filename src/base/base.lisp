@@ -49,6 +49,7 @@
    :text-block :text-object-convert-options :text-object-contents-region
    :text-object-combinator-match :text-object-normalized-combinator-match
    :text-link :text-link-link :text-link-resolve
+   :make-block :block-end
 
    :link-resolve :text-link-link :link-desc :link-dest :link-type
    :*image-ext* :*video-ext*

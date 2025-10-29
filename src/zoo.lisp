@@ -46,7 +46,11 @@
         (not-to-loop (cltpt/base:text-object-property obj :not-to-loop)))
     (if (and loop-expr (not not-to-loop))
         (let* ((var-name (car loop-expr))
-               (var-values (cadr loop-expr))
+               (var-values
+                 (cltpt/base::eval-in-text-object-lexical-scope
+                  obj
+                  (lambda ()
+                    (eval (cadr loop-expr)))))
                (result
                  (loop for var-value in var-values
                        for i from 1
@@ -58,7 +62,12 @@
                                   t)
                             (setf (cltpt/base:text-object-property clone :let*)
                                   (list*
-                                   (list var-name var-value)
+                                   ;; TODO: this is a hack, that we're wrapping
+                                   ;; the var-value with a call to 'identity'
+                                   ;; to prevent bind-and-eval from running
+                                   ;; eval on var-value itself.
+                                   (list var-name
+                                         `(identity ,var-value))
                                    (cltpt/base:text-object-property
                                     clone
                                     :let*))))
