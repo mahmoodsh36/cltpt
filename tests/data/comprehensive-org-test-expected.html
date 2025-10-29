@@ -22,7 +22,7 @@
 </li>
 <li>Image link: <img src='image.png' />
 </li>
-<li>Email link: [[mailto:user@example.com][Send Email]]
+<li>Email link: <a href='user@example.com'>Send Email</a>
 </li>
 </ul>
 <h3>Lists</h3><h4>Unordered List</h4><ul>
@@ -63,8 +63,7 @@
 <li>Term 2 :: Description of term 2 with [[link][reference]]
 </li>
 </ul>
-<h3>Source Code Blocks</h3><h4>Python Example</h4><pre class='org-src' data-type='NIL' data-exports='both' data-results='output'><code>
-def fibonacci(n):
+<h3>Source Code Blocks</h3><h4>Python Example</h4><pre class='org-src' data-type='NIL' data-exports='both' data-results='output'><code>def fibonacci(n):
     if n &lt;= 1:
         return n
     return fibonacci(n-1) + fibonacci(n-2)
@@ -152,7 +151,7 @@ and demonstrates how org-mode handles quoted text.</div>
 <br>
 <h4>Include Files</h4>
 <br>
-<h4>Bibliography</h4>[[cite:author2024]]
+<h4>Bibliography</h4><a href='author2024'>author2024</a>
 <br>
 <h3>Target Section</h3>This is the target section referenced from the link above.
 <br>
