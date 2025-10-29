@@ -1,7 +1,8 @@
 (defpackage :cltpt/combinator
   (:use :cl)
   (:import-from :cltpt/combinator/utils
-   :find-submatch :find-submatch-all :find-submatch-last :match-text)
+   :find-submatch :find-submatch-all :find-submatch-last :match-text
+   :copy-rule :copy-modify-rule)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one
@@ -15,7 +16,7 @@
    :between-whitespace :when-match-after :flanked-by-whitespace
 
    :find-submatch :find-submatch-all :find-submatch-last :match-text
-   ))
+   :copy-rule :copy-modify-rule))
 
 (in-package :cltpt/combinator)
 

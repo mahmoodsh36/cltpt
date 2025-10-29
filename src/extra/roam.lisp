@@ -6,7 +6,7 @@
    :roamer-node-id-hashtable :get-node-by-id :convert-all
    :node-format :node-info-format-str :make-node :text-object-roam-data
    :roamer :*convert-roamer* :*roam-convert-data* :*roam-parse-data*
-   :current-roamer :node))
+   :current-roamer :node :text-format-roam-types))
 
 (in-package :cltpt/roam)
 
