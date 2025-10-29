@@ -58,10 +58,12 @@
          (result (convert-document fmt1 fmt2 doc)))
     (cltpt/file-utils:write-file dest-file result)))
 
-(defmethod parse-file ((fmt text-format) filepath)
+(defmethod parse-file ((fmt text-format) filepath &key text-object-types)
   "takes a FILEPATH and a `text-format' FMT, returns the parsed object tree."
   (let* ((text (cltpt/file-utils:read-file filepath))
-         (text-tree (parse fmt text)))
+         (text-tree (if text-object-types
+                        (parse fmt text :text-object-types text-object-types)
+                        (parse fmt text))))
     text-tree))
 
 (defun text-format-by-name (name)

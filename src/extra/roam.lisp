@@ -124,7 +124,10 @@ each rule is a plist that can contain the following params.
                               (getf file-rule :format))
                              (cltpt/base:text-format-from-alias
                               (cltpt/file-utils:file-ext file-rule))))
-                    (parsed (cltpt/base:parse-file fmt file)))
+                    (parsed (cltpt/base:parse-file
+                             fmt
+                             file
+                             :text-object-types (text-format-roam-types fmt))))
                (cltpt/base:map-text-object
                 parsed
                 (lambda (text-obj)
@@ -266,3 +269,7 @@ each rule is a plist that can contain the following params.
 (defun current-roamer ()
   (or (getf *roam-convert-data* :roamer)
       (getf *roam-parse-data* :roamer)))
+
+(defmethod text-format-roam-types ((tf cltpt/base:text-format))
+  "names of sub-classes of `text-object' that should be considered when parsing for roam."
+  (cltpt/base:text-format-text-object-types tf))

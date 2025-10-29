@@ -48,7 +48,7 @@
   node)
 
 (defmethod outline-text ((node t))
-  (cltpt/tree:tree-value node))
+  (type-of (cltpt/tree:tree-value node)))
 
 (defmethod could-expand ((node t))
   (should-expand node))

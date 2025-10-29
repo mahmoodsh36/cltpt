@@ -25,7 +25,8 @@
     (:lualatex . "lualatex -output-format=dvi"))
   "an alist mapping a compiler keyword to the actual command-line program to run.")
 
-(defvar *latex-compiler-key* :latex
+(defvar *latex-compiler-key*
+  :latex
   "the keyword identifying the LaTeX compiler to use. see `*latex-compiler-command-map*'.")
 
 ;; TODO: dvipng/imagemagick pipelines dont work correctly
