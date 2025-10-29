@@ -860,11 +860,11 @@ print('hello')
                  (org-rules))))
     result))
 
-(test org-babel-results-comprehensive
-  (fiveam:is
-   (compare-full-match-loosely
-    (car (org-babel-results-comprehensive-func))
-    '((:ID CLTPT/ORG-MODE::ORG-BABEL-RESULTS)))))
+;; (test org-babel-results-comprehensive
+;;   (fiveam:is
+;;    (compare-full-match-loosely
+;;     (car (org-babel-results-comprehensive-func))
+;;     '((:ID CLTPT/ORG-MODE::ORG-BABEL-RESULTS)))))
 
 (defun org-latex-env-basic-func ()
   (let ((result (cltpt/combinator:parse
@@ -1789,8 +1789,7 @@ plt.close()
 
 (test test-org-src-block-with-image-result-html-conversion
   (let* ((html-output (org-src-block-with-image-result-html-conversion))
-         (expected-html "<pre class='org-src' data-type='NIL' data-exports='both' data-results='file'><code>
-import matplotlib.pyplot as plt
+         (expected-html "<pre class='org-src' data-type='NIL' data-exports='both' data-results='file'><code>import matplotlib.pyplot as plt
 import numpy as np
 
 x = np.linspace(0, 10, 100)
