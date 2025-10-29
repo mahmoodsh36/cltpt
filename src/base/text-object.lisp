@@ -238,13 +238,10 @@ taking care of children indicies would cause issues."
   (:documentation "a text block."))
 
 (defun make-block (&rest kws &key &allow-other-keys)
-  (let* ((loop-expr (getf kws :loop))
-         (obj (make-instance 'text-block)))
+  ;; the :loop part is handled differently, we dont 'eval' it here.
+  (let* ((obj (make-instance 'text-block)))
     (loop for (key value) on kws by #'cddr
           do (setf (text-object-property obj key) value))
-    ;; we shouldnt be evalling this.
-    ;; (setf (text-object-property obj :loop)
-    ;;       (cons (car loop-expr) (eval (cadr loop-expr))))
     obj))
 
 (defun block-end ()
