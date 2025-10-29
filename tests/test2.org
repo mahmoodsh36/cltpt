@@ -1,3 +1,12 @@
+:PROPERTIES:
+:ID:       b94c1219-f8a3-44ac-b41b-81817e0c0f32
+:END:
+#+title: my doc
+#+image: %(get-latex-preview-svg-by-blk-id-1 "fig-graph-1")
+#+export_section: blog
+#+filetags: :cs:
+#+date: <2024-02-07 Wed 23:32:57>
+
 here
 
 #(cltpt/base::make-block :let* `((my-full-title
@@ -28,7 +37,7 @@ end
                                    ""))))
   here %my-full-title and %thing wo
   #(cltpt/base::make-block :loop '(thing3 (list thing "some2" "thing" 1 2 3))
-                           :let* '((thing4 "hi")
+                           :let* '((thing4 my-full-title)
                                    (thing2 "hey")))
     thing2 is: %thing2 .
     thing3 is: %thing3 .
