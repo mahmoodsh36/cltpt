@@ -2,7 +2,8 @@
   (:use :cl)
   (:export
    :tree-value :tree-children :tree-map :tree-find-all :tree-find :tree-walk
-   :is-subtree :tree-root :tree-parent :tree-show :node-depth :has-children))
+   :is-subtree :tree-root :tree-parent :tree-show :node-depth :has-children
+   :tree-find-if))
 
 (in-package :cltpt/tree)
 
@@ -125,13 +126,15 @@ ORDER can be :pre-order or :post-order (only applies to :dfs)."
 
 (defun tree-find-all (subtree item
                       &key
-                        (test #'equal) (key #'identity)
-                        (strategy :dfs) (order :pre-order))
+                        (test #'equal)
+                        (key #'identity)
+                        (strategy :dfs)
+                        (order :pre-order))
   "find all instances of ITEM in SUBTREE using a configurable traversal.
 
 STRATEGY can be :dfs or :bfs.
 ORDER applies to DFS and controls the order of items in the returned list."
-  (let ((results '()))
+  (let ((results))
     (tree-walk
      subtree
      (lambda (other-subtree)
@@ -140,6 +143,20 @@ ORDER applies to DFS and controls the order of items in the returned list."
      :strategy strategy
      :order order)
     (nreverse results)))
+
+(defun tree-find-if (subtree predicate &key (strategy :dfs) (order :pre-order))
+  "find the first node in SUBTREE satisfying PREDICATE.
+
+STRATEGY can be :dfs or :bfs.
+ORDER can be :pre-order or :post-order (only applies to :dfs)."
+  (tree-walk
+   subtree
+   (lambda (node)
+     (when (funcall predicate node)
+       (return-from tree-find-if node)))
+   :strategy strategy
+   :order order)
+  nil)
 
 (defun tree-root (subtree)
   "given a tree, return its root. this naturally takes logarithmic time."
