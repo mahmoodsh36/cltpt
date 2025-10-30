@@ -1154,7 +1154,7 @@ some math here
   (let ((table
           "| head1 | head2 | head3 |
 +------+-------+-------+
-|  foo |  bar  |  baz  |
+| foo  | bar   | baz   |
 | 123  | 456   | 789   |
 +------+-------+-------+
 | end  | row   | test  |"))
@@ -1165,18 +1165,54 @@ some math here
        ("123" "456" "789")
        ("end" "row" "test")))))
 
+(test test-parse-table
+  (fiveam:is (test-parse-table-func)))
+
 (defun test-parse-table-func-2 ()
   (let ((table "| head1 | head2 | head3 |
 +------+-------+-------+
-|  foo |  bar  |  baz  |
+| foo  | bar   | baz   |
 | 123  | 456   | 789   |
 +------+-------+-------+
 | end  | row   | test  |"
                ))
     (cltpt/org-mode::org-table-matcher nil table 0)))
 
-(test test-parse-table
-  (fiveam:is (test-parse-table-func)))
+(defun test-parse-table-custom-delimiters ()
+  "tests the table parser with custom delimiters (#, =, and *)."
+  (let ((cltpt/org-mode::*table-v-delimiter* #\#)
+        (cltpt/org-mode::*table-h-delimiter* #\=)
+        (cltpt/org-mode::*table-intersection-delimiter* #\*)
+        (table "# header A # header B # header C #
+#==========*==========*==========#
+#   row 1  # val 1    #  abc     #
+#   row 2  # val 2    #  def     #"))
+    (cltpt/org-mode::org-table-matcher nil table 0)))
+
+(defun test-parse-table-all-hash-delimiters ()
+  "tests the table parser where all delimiter types are the '#' character."
+  (let ((cltpt/org-mode::*table-v-delimiter* #\#)
+        (cltpt/org-mode::*table-h-delimiter* #\#)
+        (cltpt/org-mode::*table-intersection-delimiter* #\#)
+        (table "# Column 1 # Column 2 #
+# ######## # ######## #
+#   Data A #   Data B #
+#   Data C #   Data D #"))
+    (cltpt/org-mode::org-table-matcher nil table 0)))
+
+(defun test-reformat-table ()
+  "tests the reformatting functionality by parsing a misaligned table
+and then running reformat-table on the resulting parse tree."
+  (let* ((disoriented-table
+"|Name|Profession|Country|
+|---+---|---|
+|Ada Lovelace|Mathematician|England|
+|Grace Hopper|Computer Scientist|USA|
+|Alan Turing|Mathematician|England|
+")
+         (parse-tree (cltpt/org-mode::org-table-matcher nil disoriented-table 0)))
+    (when parse-tree
+      (cltpt/org-mode::reformat-table parse-tree))))
 
 (defun test-parse-any-func ()
   (cltpt/combinator:parse

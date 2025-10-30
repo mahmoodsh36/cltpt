@@ -1,5 +1,12 @@
 (in-package :cltpt/org-mode)
 
+(defparameter *table-v-delimiter* #\|
+  "the character for vertical cell delimiters.")
+(defparameter *table-h-delimiter* #\-
+  "the character for horizontal rule lines.")
+(defparameter *table-intersection-delimiter* #\+
+  "the character for intersections in horizontal rules.")
+
 (defun get-line-bounds (str pos)
   "returns (values line-start, line-end, next-line-start) for the line at pos."
   (when (>= pos (length str))
@@ -16,7 +23,7 @@
     (values actual-line-start line-end next-line-start)))
 
 (defun is-table-line-at-pos-p (str pos)
-  "checks if the line at pos starts with '|' or '+' after trimming whitespace."
+  "checks if the line at pos starts with a delimiter after trimming whitespace."
   (multiple-value-bind (line-start line-end) (get-line-bounds str pos)
     (let ((trimmed-start
             (position-if-not
@@ -27,21 +34,23 @@
              :end line-end)))
       (and trimmed-start
            (member (char str trimmed-start)
-                   '(#\| #\+))))))
+                   (list *table-v-delimiter* *table-intersection-delimiter*))))))
 
 (defun is-hrule-line-at-pos-p (str pos)
-  "checks if the line at pos is a horizontal rule (e.g., |---+---| or +---+)."
+  "checks if the line at pos is a horizontal rule."
   (multiple-value-bind (line-start line-end) (get-line-bounds str pos)
     (let ((trimmed-start
             (position-if-not (lambda (c) (member c '(#\space #\tab)))
                              str :start line-start :end line-end)))
       (and trimmed-start
-           ;; an hrule can start with '|' or '+'.
-           (member (char str trimmed-start) '(#\| #\+))
-           ;; and the rest of the line must only contain valid rule characters.
+           (member (char str trimmed-start)
+                   (list *table-v-delimiter* *table-intersection-delimiter*))
            (loop for i from (1+ trimmed-start) below line-end
                  for char = (char str i)
-                 always (member char '(#\space #\tab #\- #\+ #\|)))))))
+                 always (member char (list #\space #\tab
+                                           *table-h-delimiter*
+                                           *table-intersection-delimiter*
+                                           *table-v-delimiter*)))))))
 
 (defun find-content-bounds (str start end)
   "finds the start and end of non-whitespace content within the slice [start, end)."
@@ -62,10 +71,10 @@
            :from-end t)))
     (if content-start
         (values content-start (1+ content-end))
-        (values start start)))) ;; all whitespace, return zero-length slice
+        (values start start))))
 
 (defun parse-table-row (ctx str row-start-offset inline-rules)
-  "parses a single table row, creating nodes for cells and their content.
+  "parses a single table row, creating a structured tree for cells and their content.
 
 returns (values row-node, next-line-start-offset)."
   (multiple-value-bind (line-start line-end next-line-start)
@@ -76,40 +85,62 @@ returns (values row-node, next-line-start-offset)."
               str
               :start line-start
               :end line-end))
-           (cell-nodes)
-           (current-cell-start (1+ trimmed-line-start))) ;; start after the first '|'
-      (loop for pipe-pos = (position #\|
-                                     str
-                                     :start current-cell-start
-                                     :end line-end)
-            while pipe-pos
-            do
-               (multiple-value-bind (content-begin content-end)
-                   (find-content-bounds str current-cell-start pipe-pos)
-                 (let ((cell-children
-                         (when (and inline-rules (< content-begin content-end))
-                           (cltpt/combinator:scan-all-rules ctx
-                                                            str
-                                                            inline-rules
-                                                            content-begin
-                                                            content-end))))
-                   (let ((cell-parent-info (list :id 'table-cell
-                                                 :begin content-begin
-                                                 :end content-end
-                                                 :str str)))
-                     (push (cons cell-parent-info cell-children) cell-nodes))))
-               (setf current-cell-start (1+ pipe-pos)))
+           (row-children)
+           (current-pos trimmed-line-start))
+      (loop
+        (let ((delimiter-pos (position *table-v-delimiter* str
+                                       :start current-pos
+                                       :end line-end)))
+          (unless delimiter-pos (return))
+          (when (> delimiter-pos current-pos)
+            (let* ((cell-begin current-pos)
+                   (cell-end delimiter-pos)
+                   (cell-parent-info (list :id 'table-cell
+                                           :begin cell-begin
+                                           :end cell-end
+                                           :str str)))
+              (multiple-value-bind (content-begin content-end)
+                  (find-content-bounds str cell-begin cell-end)
+                (let* ((content-node
+                         ;; only create a content node if there is actual, non-whitespace text.
+                         (when (< content-begin content-end)
+                           (let* ((content-parent-info
+                                    (list :id 'table-cell-content
+                                          :begin content-begin
+                                          :end content-end
+                                          :str str))
+                                  (inline-children
+                                    (when inline-rules
+                                      (cltpt/combinator:scan-all-rules
+                                       ctx
+                                       str
+                                       inline-rules
+                                       content-begin
+                                       content-end))))
+                             (cons content-parent-info inline-children))))
+                       (cell-children (if content-node
+                                          (list content-node)
+                                          nil)))
+                  (push (cons cell-parent-info cell-children) row-children)))))
+          (let ((delimiter-node
+                  (list (list :id 'table-cell-delimiter
+                              :begin delimiter-pos
+                              :end (1+ delimiter-pos)
+                              :str str))))
+            (push delimiter-node row-children))
+          (setf current-pos (1+ delimiter-pos))))
       (let ((row-parent-info (list :id 'table-row
                                    :begin trimmed-line-start
                                    :end line-end
                                    :str str)))
-        (values (cons row-parent-info (nreverse cell-nodes))
+        (values (cons row-parent-info (nreverse row-children))
                 next-line-start)))))
 
 (defun org-table-matcher (ctx str pos &optional inline-rules)
   "parses an org-mode table starting at pos. returns (values match-node, new-pos)."
   (multiple-value-bind (first-line-start) (get-line-bounds str pos)
-    (unless (and (= pos first-line-start) (is-table-line-at-pos-p str pos))
+    (unless (and (= pos first-line-start)
+                 (is-table-line-at-pos-p str pos))
       (return-from org-table-matcher (values nil pos))))
   (let ((row-nodes)
         (current-pos pos)
@@ -117,20 +148,24 @@ returns (values row-node, next-line-start-offset)."
     (loop
       (when (>= current-pos (length str))
         (return))
-      (multiple-value-bind (line-start line-end next-start) (get-line-bounds str current-pos)
+      (multiple-value-bind
+            (line-start line-end next-start)
+          (get-line-bounds str current-pos)
         (unless (and (= current-pos line-start)
                      (is-table-line-at-pos-p str line-start))
           (return))
         (if (is-hrule-line-at-pos-p str line-start)
             (let* ((trimmed-start
-                     (position-if-not (lambda (c) (member c '(#\space #\tab)))
-                                      str
-                                      :start line-start
-                                      :end line-end))
-                   (hrule-parent-info (list :id 'table-hrule
-                                            :begin trimmed-start
-                                            :end line-end
-                                            :str str)))
+                     (position-if-not
+                      (lambda (c) (member c '(#\space #\tab)))
+                      str
+                      :start line-start
+                      :end line-end))
+                   (hrule-parent-info
+                     (list :id 'table-hrule
+                           :begin trimmed-start
+                           :end line-end
+                           :str str)))
               (push (cons hrule-parent-info nil) row-nodes))
             (multiple-value-bind (row-node)
                 (parse-table-row ctx str line-start inline-rules)
@@ -138,30 +173,37 @@ returns (values row-node, next-line-start-offset)."
         (setf current-pos next-start)
         (setf last-successful-pos current-pos)))
     (if row-nodes
-        (let ((table-parent-info (list :id 'org-table
-                                       :begin pos
-                                       :end last-successful-pos
-                                       :str str)))
+        (let ((table-parent-info
+                (list :id 'org-table
+                      :begin pos
+                      :end last-successful-pos
+                      :str str)))
           (values (cons table-parent-info (nreverse row-nodes))
                   last-successful-pos))
         (values nil pos))))
 
 (defun reformat-table (parse-tree)
   "takes a table parse tree and returns a new string with all columns
-
 neatly aligned based on the widest cell in each column."
-  ;; pass 1: check column widths
   (let ((col-widths (make-array 0 :adjustable t :fill-pointer t))
         (table-data))
+    ;; pass 1: check column widths
     (dolist (row-node (cdr parse-tree))
       (case (getf (car row-node) :id)
         ('table-row
-         (let ((current-row-cells))
-           (loop for cell-node in (cdr row-node)
+         (let ((current-row-cells)
+               (cell-nodes (remove-if-not
+                            (lambda (node) (eq (getf (car node) :id) 'table-cell))
+                            (cdr row-node))))
+           (loop for cell-node in cell-nodes
                  for col-idx from 0
                  do
-                    (let* ((cell-text
-                             (cltpt/combinator:match-text (car cell-node)))
+                    ;; look for the 'table-cell-content' child to get the text for width calculation.
+                    (let* ((content-node (car (cdr cell-node)))
+                           (cell-text (if content-node
+                                          (cltpt/combinator:match-text
+                                           (car content-node))
+                                          ""))
                            (cell-width (length cell-text)))
                       (when (>= col-idx (length col-widths))
                         (vector-push-extend 0 col-widths))
@@ -177,21 +219,25 @@ neatly aligned based on the widest cell in each column."
       (loop for row-data in table-data
             do
                (if (eq (car row-data) :separator)
-                   ;; this is a horizontal separator row
                    (progn
-                     (write-char #\| s)
+                     (write-char *table-v-delimiter* s)
                      (loop for width across col-widths
                            for is-first-col = t then nil
                            do
                               (unless is-first-col
-                                (write-char #\+ s))
-                              (dotimes (i (+ width 2)) (write-char #\- s)))
-                     (write-line "|" s))
-                   ;; this is a regular data row
+                                (write-char *table-intersection-delimiter* s))
+                              (dotimes (i (+ width 2))
+                                (write-char *table-h-delimiter* s)))
+                     (write-char *table-v-delimiter* s)
+                     (write-char #\newline s))
                    (progn
-                     (write-char #\| s)
+                     (write-char *table-v-delimiter* s)
                      (loop for cell-text in row-data
                            for col-idx from 0
                            do (let ((width (aref col-widths col-idx)))
-                                (format s " ~vA |" width cell-text)))
+                                (format s
+                                        " ~vA ~c"
+                                        width
+                                        cell-text
+                                        *table-v-delimiter*)))
                      (write-char #\newline s)))))))
