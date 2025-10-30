@@ -1036,12 +1036,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                     final-open-tag
                                     (cltpt/base:region-decf
                                      (cltpt/base:make-region
-                                      ;; we use 1- to get the space at the start
-                                      ;; of each cell. this prevents the handle-changed-regions
-                                      ;; function from thinking the change
-                                      ;; is part of a child when it shouldnt be
-                                      ;; we use another 1- to get a | replaced too.
-                                      :begin (1- (1- (getf (car cell-match) :begin)))
+                                      ;; we use 1- to get the | at the start
+                                      ;; replaced by handle-changed-regions
+                                      :begin (1- (getf (car cell-match) :begin))
                                       :end (getf (car cell-match) :begin))
                                      match-begin)))))
                          (when cell-close-tag
