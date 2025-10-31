@@ -1547,7 +1547,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   (cltpt/html:*html*
                    (if is-code
                        (format nil
-                               "<pre class='org-src' ~A><code>"
+                               "<div class='org-src' ~A><pre><code>"
                                props-str)
                        (format nil
                                "<div class='~A org-block' ~A>"
@@ -1563,7 +1563,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                 (cltpt/base:pcase backend
                   (cltpt/html:*html*
                    (if is-code
-                       "</code></pre>"
+                       "</code></pre></div>"
                        "</div>"))
                   (cltpt/latex:*latex*
                    (format nil
