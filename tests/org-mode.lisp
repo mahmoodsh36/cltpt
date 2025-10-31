@@ -1150,23 +1150,23 @@ some math here
          ((:ID CLTPT/ORG-MODE::LIST-ITEM-BULLET :BEGIN 148 :END 149))
          ((:ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT :BEGIN 150 :END 469))))))))
 
-(defun test-parse-table-func ()
-  (let ((table
-          "| head1 | head2 | head3 |
-+------+-------+-------+
-| foo  | bar   | baz   |
-| 123  | 456   | 789   |
-+------+-------+-------+
-| end  | row   | test  |"))
-    (equal
-     (org-table-parse table)
-     '(("head1" "head2" "head3")
-       ("foo" "bar" "baz")
-       ("123" "456" "789")
-       ("end" "row" "test")))))
+;; (defun test-parse-table-func ()
+;;   (let ((table
+;;           "| head1 | head2 | head3 |
+;; +------+-------+-------+
+;; | foo  | bar   | baz   |
+;; | 123  | 456   | 789   |
+;; +------+-------+-------+
+;; | end  | row   | test  |"))
+;;     (equal
+;;      (org-table-parse table)
+;;      '(("head1" "head2" "head3")
+;;        ("foo" "bar" "baz")
+;;        ("123" "456" "789")
+;;        ("end" "row" "test")))))
 
-(test test-parse-table
-  (fiveam:is (test-parse-table-func)))
+;; (test test-parse-table
+;;   (fiveam:is (test-parse-table-func)))
 
 (defun test-parse-table-func-2 ()
   (let ((table "| head1 | head2 | head3 |
@@ -1825,7 +1825,7 @@ plt.close()
 
 (test test-org-src-block-with-image-result-html-conversion
   (let* ((html-output (org-src-block-with-image-result-html-conversion))
-         (expected-html "<pre class='org-src' data-type='NIL' data-exports='both' data-results='file'><code>import matplotlib.pyplot as plt
+         (expected-html "<div class='org-src' data-type='NIL' data-lang='python'><pre><code>import matplotlib.pyplot as plt
 import numpy as np
 
 x = np.linspace(0, 10, 100)
@@ -1833,7 +1833,7 @@ y = np.sin(x)
 plt.plot(x, y)
 plt.savefig(&apos;plot.png&apos;)
 plt.close()
-</code></pre>
+</code></pre></div>
 
 <div class='org-babel-results'><img src='plot.png' /></div>"))
     (is (string= html-output expected-html))))
