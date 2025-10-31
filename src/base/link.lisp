@@ -13,11 +13,14 @@ target can be a filepath or a text-object. perhaps this isnt the best way
 to handle this but it should work. we should define exactly what a target is
 in the future."))
 
-;; a `link' type that resolves to a text object.
-;; (defstruct (link-text-obj (:include link))
-;;   ;; the filepath in which the destination text object resides.
-;;   ;; the destination `text-object'.
-;;   dest-text-obj)
+(defgeneric target-filepath (target)
+  (:documentation "given a target that was returned by `link-resolve', return the filepath associated with it (if any)."))
+
+(defmethod target-filepath ((target string))
+  target)
+
+(defmethod target-filepath ((target pathname))
+  (cltpt/file-utils:ensure-filepath-string resolved))
 
 (defmethod link-resolve ((link-type (eql 'file))
                          dest
@@ -28,21 +31,3 @@ in the future."))
                          dest
                          desc)
   nil)
-
-(defmethod link-resolve ((link-type (eql 'id))
-                         dest
-                         desc)
-  ;; should return a 'target' that includes a filepath and a position in the file
-  )
-
-;; (defmethod text-object-link ((text-obj text-object))
-;;   (let* ((link-type (cltpt/base:text-object-property obj :type))
-;;          (link-desc (cltpt/base:text-object-property obj :dest))
-;;          (link-dest (cltpt/base:text-object-property obj :desc)))
-;;     (when link-dest
-;;       (let ((l (link-create text-obj)))
-;;         (link-create text-obj
-;;                      (when link-type
-;;                        (intern link-type))
-;;                      link-dest
-;;                      link-desc)))))

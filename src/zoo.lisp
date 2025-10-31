@@ -168,13 +168,17 @@
             'link-desc))
          (desc-begin (getf (car desc-match) :begin))
          (desc-end (getf (car desc-match) :end))
-         (dest-filepath))
+         (dest-filepath (when dest
+                          (cltpt/base:target-filepath dest)))
+         (filepath-format-string
+           (getf cltpt/base:*convert-info* :static-filepath-format))
+         (new-filepath (if (and dest-filepath filepath-format-string)
+                           (cltpt/base:filepath-format
+                            dest-filepath
+                            filepath-format-string)
+                           dest-filepath))
+         (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*)))
     (when dest
-      (setf dest-filepath
-            (typecase resolved
-              (pathname (cltpt/file-utils:ensure-filepath-string resolved))
-              (cltpt/roam:node (cltpt/roam:node-file resolved))
-              (t dest)))
       ;; initialize the tags to the <a> tag, if its a video or an image,
       ;; it gets overwritten later.
       (setf open-tag
@@ -182,47 +186,37 @@
               (cltpt/html:*html*
                (format nil
                        "<a href='~A'>"
-                       dest-filepath))
+                       new-filepath))
               (cltpt/latex:*latex*
                (format nil
                        "\\href{~A}{"
-                       dest-filepath))))
+                       new-filepath))))
       (setf close-tag
             (cltpt/base:pcase backend
               (cltpt/html:*html* "</a>")
               (cltpt/latex:*latex* "}")))
       ;; TODO: copy the destination file to the destination dir
-      (when (cltpt/file-utils:file-has-extension-p
-             dest-filepath
-             (append cltpt/base:*image-ext* cltpt/base:*video-ext*))
-        ;; if its an image we need to "display" it in html.
-        (let ((new-path (cltpt/base:pcase backend
-                          (cltpt/html:*html*
-                           (if cltpt/html:*html-static-dir*
-                               (cltpt/file-utils:change-dir
-                                dest-filepath
-                                cltpt/html:*html-static-dir*)
-                               dest-filepath))
-                          (t dest-filepath))))
-          ;; we should check if its the same file, otherwise copy-file will break
-          (unless (string= dest-filepath new-path)
-            (when (uiop:probe-file* dest-filepath)
-              (uiop:copy-file dest-filepath new-path)))
-          (setf open-tag
-                (cltpt/base:pcase backend
-                  (cltpt/html:*html*
-                   (format nil
-                           "<img src='~A' />"
-                           dest-filepath))
-                  (cltpt/latex:*latex*
-                   (format nil
-                           "\\href{~A}{"
-                           dest-filepath))))
-          (setf close-tag
-                (cltpt/base:pcase backend
-                  (cltpt/html:*html* "")
-                  (cltpt/latex:*latex* "}")))
-          (setf final-desc "")))
+      (when (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
+        ;; we should check if its the same file, otherwise copy-file will break
+        (unless (string= dest-filepath new-filepath)
+          (when (uiop:probe-file* dest-filepath)
+            (uiop:copy-file dest-filepath new-filepath)))
+        ;; if its an image or video we need to "display" it in html.
+        (setf open-tag
+              (cltpt/base:pcase backend
+                (cltpt/html:*html*
+                 (format nil
+                         "<img src='~A' />"
+                         new-filepath))
+                (cltpt/latex:*latex*
+                 (format nil
+                         "\\href{~A}{"
+                         new-filepath))))
+        (setf close-tag
+              (cltpt/base:pcase backend
+                (cltpt/html:*html* "")
+                (cltpt/latex:*latex* "}")))
+        (setf final-desc ""))
       ;; when there's no description for the link the resulting text
       ;; would just be an html snippet with no need for escaping or recursing.
       (list :text (if desc-match

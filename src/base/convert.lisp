@@ -8,14 +8,6 @@
   nil
   "conversion info that may be useful to pass to downstream functions during conversion.")
 
-(defvar *image-ext*
-  (list "png" "webp" "svg" "jpg" "jpeg" "gif")
-  "a list holding the file extensions that should be recognized as image links.")
-
-(defvar *video-ext*
-  (list "mp4")
-  "a list holding the file extensions that should be recognized as video links.")
-
 (defun replace-chars (s replace-table)
   "return a new string where every character in S that is a key in REPLACE-TABLE is
 replaced by its associated string."
@@ -356,3 +348,21 @@ before calling `convert-tree' on the given DOC."
          :recurse t
          :reparse nil)
         (convert-tree doc src-fmt dest-fmt))))
+
+(defun convert-simple-format (format-str)
+  "this function can be used for \"formatting strings\" with lisp code."
+  (let* ((result (convert-tree
+                  (parse *simple-format* format-str)
+                  *simple-format*
+                  *simple-format*)))
+    result))
+
+(defun filepath-format (filepath format-str &optional additional-data)
+  "convert FORMAT-STR for FILEPATH, add ADDITIONAL-DATA to `cl-user::*file-info*'."
+  (let* ((cl-user::*file-info*
+           (list :file filepath
+                 :file-no-ext (cltpt/file-utils:path-without-extension filepath)
+                 :filename-no-ext (cltpt/file-utils:base-name-no-ext filepath)
+                 :filename (cltpt/file-utils:file-basename filepath)))
+         (result (convert-simple-format format-str)))
+    result))

@@ -52,6 +52,7 @@
                              (:file "state")
                              (:file "task")
                              (:file "agenda")))
+               ;; TODO: org-mode should not directly depend on roam/agenda.
                (:module "org-mode"
                 :pathname "src/format/org-mode"
                 :depends-on ("combinator" "file-utils" "base" "latex" "html")
