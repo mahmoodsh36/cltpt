@@ -403,12 +403,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-timestamp-bracket-rule*))
   (:documentation "a timestamp/date. e.g. [2023-12-28 Thu 18:30]."))
 
-;; (defclass org-todo-state-timestamp (cltpt/base:text-object)
-;;   ((cltpt/base::rule
-;;     :allocation :class
-;;     :initform ))
-;;   (:documentation "e.g. the timestamp in CLOSED: [2023-12-28 Thu 19:32:11]"))
-
 (defvar *org-list-rule*
   `(org-list-matcher
      ,*org-inline-text-objects-rule*))
@@ -1531,11 +1525,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        (let* ((all-keywords
                 (concatenate
                  'list
-                 `(,(cons "type" (cltpt/base:text-object-property obj :type)))
+                 `(,(cons "type" (cltpt/base:text-object-property obj :type))
+                   ,(cons "lang"
+                          (when (cltpt/combinator:find-submatch match 'lang)
+                            (cltpt/combinator:match-text
+                             (car
+                              (cltpt/combinator:find-submatch match 'lang))))))
                  (cltpt/base:text-object-property obj :keywords-alist)))
               (props
                 (loop for (key . value) in all-keywords
-                      for result = (unless (member key '("exports" "results"))
+                      for result = (unless (member key '("exports" "results")
+                                                   :test 'string=)
                                      (format nil
                                              "data-~A='~A'"
                                              key
