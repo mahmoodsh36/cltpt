@@ -360,9 +360,12 @@ before calling `convert-tree' on the given DOC."
 (defun filepath-format (filepath format-str &optional additional-data)
   "convert FORMAT-STR for FILEPATH, add ADDITIONAL-DATA to `cl-user::*file-info*'."
   (let* ((cl-user::*file-info*
-           (list :file filepath
-                 :file-no-ext (cltpt/file-utils:path-without-extension filepath)
-                 :filename-no-ext (cltpt/file-utils:base-name-no-ext filepath)
-                 :filename (cltpt/file-utils:file-basename filepath)))
+           (merge-plist
+            (list
+             :file filepath
+             :file-no-ext (cltpt/file-utils:path-without-extension filepath)
+             :filename-no-ext (cltpt/file-utils:base-name-no-ext filepath)
+             :filename (cltpt/file-utils:file-basename filepath))
+            additional-data))
          (result (convert-simple-format format-str)))
     result))
