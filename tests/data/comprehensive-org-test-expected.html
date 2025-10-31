@@ -63,25 +63,25 @@
 <li>Term 2 :: Description of term 2 with [[link][reference]]
 </li>
 </ul>
-<h3>Source Code Blocks</h3><h4>Python Example</h4><pre class='org-src' data-type='NIL' data-exports='both' data-results='output'><code>def fibonacci(n):
+<h3>Source Code Blocks</h3><h4>Python Example</h4><div class='org-src' data-type='NIL' data-lang='python'><pre><code>def fibonacci(n):
     if n &lt;= 1:
         return n
     return fibonacci(n-1) + fibonacci(n-2)
 
 print(fibonacci(10))
-</code></pre>
+</code></pre></div>
 
 <div class='org-babel-results'>55</div>
 <br>
-<h4>JavaScript Example</h4><pre class='org-src' data-type='NIL' data-tangle='script.js'><code>function greet(name) {
+<h4>JavaScript Example</h4><div class='org-src' data-type='NIL' data-lang='javascript' data-tangle='script.js'><pre><code>function greet(name) {
     console.log(`Hello, ${name}!`);
 }
 
-greet(&apos;World&apos;);</code></pre>
+greet(&apos;World&apos;);</code></pre></div>
 <br>
-<h4>LaTeX Example</h4><pre class='org-src' data-type='NIL' data-exports='results'><code>\begin{equation}
+<h4>LaTeX Example</h4><div class='org-src' data-type='NIL' data-lang='latex'><pre><code>\begin{equation}
 \int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
-\end{equation}</code></pre>
+\end{equation}</code></pre></div>
 <br>
 <h3>Mathematical Content</h3><h4>Inline Math</h4>The equation $E = mc^2$ is famous, and so is $\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$.
 <br>
@@ -117,11 +117,11 @@ greet(&apos;World&apos;);</code></pre>
 </ul>
 <h3>Tags and Properties</h3><h4>Task with Tags</h4><h4>Write comprehensive documentation</h4>
 <br>
-<h4>Review code changes</h4><h3>Blocks and Export</h3><h4>Quote Block</h4><div class='quote org-block' data-type='quote'>This is a blockquote that spans multiple lines
+<h4>Review code changes</h4><h3>Blocks and Export</h3><h4>Quote Block</h4><div class='quote org-block' data-type='quote' data-lang='NIL'>This is a blockquote that spans multiple lines
 <br>
 and demonstrates how org-mode handles quoted text.</div>
 <br>
-<h4>Verse Block</h4><div class='verse org-block' data-type='verse'>  Roses are red,
+<h4>Verse Block</h4><div class='verse org-block' data-type='verse' data-lang='NIL'>  Roses are red,
 <br>
   Violets are blue,
 <br>
@@ -129,7 +129,7 @@ and demonstrates how org-mode handles quoted text.</div>
 <br>
   And so are you.</div>
 <br>
-<h4>Center Block</h4><div class='center org-block' data-type='center'>This text is centered</div>
+<h4>Center Block</h4><div class='center org-block' data-type='center' data-lang='NIL'>This text is centered</div>
 <br>
 <h4>Export Blocks</h4>
 <div class="custom">
