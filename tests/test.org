@@ -6,7 +6,7 @@
 #+export_section: blog
 #+filetags: :cs:
 #+date: <2024-02-07 Wed 23:32:57>
-[[/home/mahmooz/data/images/scrots/Fri_Oct_31_12:38:51_AM_IST_2025.png]]
+
 [[/home/mahmooz/]]
 * DONE due task :here:there:noexport:
 wow whats up
