@@ -1,5 +1,5 @@
 (defpackage :cltpt/roam
-  (:use :cl :cltpt/base)
+  (:use :cl)
   (:export
    :from-files :roamer-rescan :roamer-nodes
    :node-id :node-title :node-desc :node-file :node-text-obj :node-file-rule
@@ -24,7 +24,7 @@
   nil
   "dynamically bound metadata to pass down from roamer to conversion functions of objects.
 at the very least has to include a `roamer' instance for conversion functions to make use of. e.g. for retrieval of node by id using `get-node-by-id'.
-form:
+form could be:
   `(:filepath-format nil
     :roamer nil
     :node nil)'")
@@ -80,7 +80,7 @@ each rule is a plist that can contain the following params.
         (file-rule-alist)
         ;; strings are just filepaths of individual files, nothing smart about it
         (file-rules-string (remove-if-not 'stringp file-rules))
-        (file-rules-plist (remove-if-not 'plistp file-rules)))
+        (file-rules-plist (remove-if-not 'cltpt/base:plistp file-rules)))
     (labels ((handle-file (filepath file-rule)
                (let ((ext (getf file-rule :ext)))
                  (if ext
@@ -119,7 +119,7 @@ each rule is a plist that can contain the following params.
          (*roam-parse-data*
            (list :roamer rmr)))
     (loop for (file . file-rule) in file-rule-alist
-          do (let* ((fmt (if (plistp file-rule)
+          do (let* ((fmt (if (cltpt/base:plistp file-rule)
                              (cltpt/base:text-format-by-name
                               (getf file-rule :format))
                              (cltpt/base:text-format-from-alias
@@ -156,7 +156,9 @@ each rule is a plist that can contain the following params.
 (defmethod convert-all ((rmr roamer)
                         (dest-format cltpt/base:text-format)
                         filepath-format
-                        &optional (convert-file-predicate (lambda (x) t)))
+                        &key
+                          static-filepath-format
+                          (convert-file-predicate (lambda (x) t)))
   (let ((files-done (make-hash-table :test 'equal)))
     (loop for node in (roamer-nodes rmr)
           do (let* ((in-file (node-file node))
@@ -166,7 +168,7 @@ each rule is a plist that can contain the following params.
                             :node node))
                     (is-done (gethash in-file files-done))
                     (out-file (node-info-format-str node filepath-format)))
-               (when (and (typep (node-text-obj node) 'document)
+               (when (and (typep (node-text-obj node) 'cltpt/base:document)
                           (not is-done)
                           (funcall convert-file-predicate in-file))
                  (when (getf cltpt:*debug* :roam)
@@ -174,7 +176,9 @@ each rule is a plist that can contain the following params.
                  (let ((cltpt/base:*convert-info*
                          (cltpt/base:merge-plist
                           cltpt/base:*convert-info*
-                          (list :filepath-format filepath-format))))
+                          (list
+                           :filepath-format filepath-format
+                           :static-filepath-format static-filepath-format))))
                    (cltpt/base:convert-file
                     (node-format node)
                     dest-format
@@ -190,28 +194,15 @@ each rule is a plist that can contain the following params.
          ;; that points to the root text object of the current `node' instead and
          ;; grab the title from there.
          ;; TODO: also this is slow anyway, takes log(n) time, easy to optimize tho.
-         (root-title (cltpt/base:text-object-property root :title)))
-    (cltpt/base:bind-and-eval
-     `((title ,(cltpt/roam:node-title node))
-       (root-title ,root-title)
-       (file ,(cltpt/roam:node-file node))
-       (id ,(cltpt/roam:node-id node))
-       (file-no-ext ,(cltpt/file-utils:path-without-extension
-                      (cltpt/roam:node-file node)))
-       (basename ,(cltpt/file-utils:base-name-no-ext (node-file node))))
-     (lambda ()
-       (let* ((result
-                (cltpt/base:convert-tree
-                 (cltpt/base:parse
-                  (cltpt/base:make-text-format "dummy")
-                  format-str
-                  :text-object-types (list 'cltpt/base:text-macro
-                                           'cltpt/base:post-lexer-text-macro))
-                 (cltpt/base:make-text-format "dummy")
-                 (cltpt/base:make-text-format "dummy")
-                 :text-object-types (list 'cltpt/base:text-macro
-                                          'cltpt/base:post-lexer-text-macro))))
-         result)))))
+         (root-title (cltpt/base:text-object-property root :title))
+         (data `(:title ,(node-title node)
+                 :root-title ,root-title
+                 :id ,(node-id node))))
+    (let* ((result (cltpt/base:filepath-format
+                    (node-file node)
+                    format-str
+                    data)))
+      result)))
 
 (defmethod link-resolve ((link-type (eql 'cltpt/base::id))
                          dest
@@ -221,6 +212,9 @@ each rule is a plist that can contain the following params.
            (when rmr
              (cltpt/roam:get-node-by-id rmr dest))))
     dest-node))
+
+(defmethod cltpt/base:target-filepath ((target node))
+  (node-file node))
 
 ;; (defmethod convert-link ((rmr roamer)
 ;;                          (src-node node)

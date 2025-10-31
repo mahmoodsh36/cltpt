@@ -10,8 +10,6 @@
    :today-timestamp :truncate-to-day :replace-all
    :find-cons-if
 
-   :region-incf :region-decf :region-clone :region-compress :region-compress-by
-
    :make-text-format :*simple-format*
    :text-format-text-object-types :text-format-by-name
    :convert-file :text-macro :post-lexer-text-macro
@@ -20,16 +18,16 @@
 
    :parse-file :parse :handle-changed-regions :handle-change
 
-   :convert-tree
+   :convert-tree :convert-document
    :*convert-escape-newlines*
    :*convert-info*
    :rewrap-within-tags
-   :convert-document
+   :convert-simple-format
+   :filepath-format
 
    :*author*
    :document :document-title :document-date
    :text-object
-   :region-end :region-begin :region-length
    :text-object-convert :text-object-children
    :map-text-object :map-text-object-with-pos-in-root
    :text-object-begin :text-object-end
@@ -39,9 +37,8 @@
    :text-object-properties
    :text-object-init
    :text-object-begin-in-root :text-object-end-in-root
-   :make-region
    :find-children-recursively :find-children :list-children-recursively
-   :child-at-pos :region-contains
+   :child-at-pos
    :text-object-rule-from-subclass
    :text-format-name :text-format-from-alias :text-format-document-type
    :text-object-clone :sort-text-objects :text-object-set-parent
@@ -51,9 +48,25 @@
    :text-link :text-link-link :text-link-resolve
    :make-block :block-end
 
-   :link-resolve :text-link-link :link-desc :link-dest :link-type
-   :*image-ext* :*video-ext*
+   :make-region :region-text :region-contains
+   :region-incf :region-decf :region-clone :region-compress :region-compress-by
+   :region-end :region-begin :region-length
 
-   :region-text))
+   :link-resolve :text-link-link :link-desc :link-dest :link-type
+   :target-filepath
+
+   :*image-ext* :*video-ext*))
 
 (in-package :cltpt/base)
+
+(defvar *image-ext*
+  (list "png" "webp" "svg" "jpg" "jpeg" "gif")
+  "a list holding the file extensions that should be recognized as image links.")
+
+(defvar *video-ext*
+  (list "mp4")
+  "a list holding the file extensions that should be recognized as video links.")
+
+(defvar cl-user::*file-info*
+  nil
+  "this is dynamically bound during conversion and used in `filepath-format-info' to handle the format string for static files.")
