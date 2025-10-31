@@ -216,49 +216,6 @@ each rule is a plist that can contain the following params.
 (defmethod cltpt/base:target-filepath ((target node))
   (node-file node))
 
-;; (defmethod convert-link ((rmr roamer)
-;;                          (src-node node)
-;;                          (link-obj cltpt/base:text-object)
-;;                          filepath-format
-;;                          backend)
-;;   "when converting links, we need to be aware of the roamer we're working with,
-;; in order to be able to get the destination of the link incase it is an id-link.
-;; this function handles an object that should have the properties of a link,
-;; which may include the destination, description and type."
-;;   ;; TODO: we must ensure that LINK-OBJ contains these properties. perhaps
-;;   ;; we need to write a class inheriting from `text-object' that is for links
-;;   ;; that has these properties as slots.
-;;   (let* ((desc (cltpt/base:text-object-property link-obj :desc))
-;;          (dest (cltpt/base:text-object-property link-obj :dest))
-;;          (type (cltpt/base:text-object-property link-obj :type)))
-;;     ;; type is a string originally, we convert it to a symbol.
-;;     (when type
-;;       (setf type (intern type)))
-;;     (if type
-;;         (let* ((link (resolve-link rmr src-node link-obj type dest))
-;;                (dest-node (when link (link-dest-node link)))
-;;                (dest-file (if dest-node
-;;                               (node-file dest-node)
-;;                               (when link (link-dest-file link)))))
-;;           (if dest-file
-;;               (progn
-;;                 ;; when its a node, the destination file needs to be determined
-;;                 ;; using filepath-format. if its just a static file, we dont
-;;                 ;; change the destination filepath here.
-;;                 (when dest-node
-;;                   (setf dest-file (node-info-format-str dest-node filepath-format)))
-;;                 (let ((new-obj (cltpt/base:text-object-clone link-obj))
-;;                       ;; set this dynamically to make the conversion function
-;;                       ;; not call this function again
-;;                       (*roam-convert-data*))
-;;                   (setf (cltpt/base:text-object-property new-obj :dest) dest-file)
-;;                   (cltpt/base:text-object-convert new-obj backend)))
-;;               (format nil "broken link: ~A:~A" type dest)))
-;;         ;; set this dynamically to make the conversion function
-;;         ;; not call this function again
-;;         (let ((*roam-convert-data*))
-;;           (cltpt/base:text-object-convert link-obj backend)))))
-
 ;; TODO: hacky function to get current dynamically bound roamer.
 (defun current-roamer ()
   (or (getf *roam-convert-data* :roamer)
