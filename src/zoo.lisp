@@ -126,11 +126,11 @@
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
                                            (fmt (eql cltpt/latex:*latex*)))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+  (let* ((match (cltpt/base:text-object-match obj))
          (keywords-alist (cltpt/org-mode::handle-parsed-org-keywords obj))
          (name (cltpt/base:alist-get keywords-alist "name"))
          (caption (cltpt/base:alist-get keywords-alist "caption"))
-         (latex-env-match (car (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1)))
+         (latex-env-match (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1))
          (latex-env-contents (cltpt/combinator:match-text latex-env-match)))
     ;; TODO: handle \caption and \label properly.
     (list :text latex-env-contents
@@ -140,11 +140,11 @@
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
                                            (fmt (eql cltpt/html:*html*)))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+  (let* ((match (cltpt/base:text-object-match obj))
          (keywords-alist (cltpt/org-mode::handle-parsed-org-keywords obj))
          (name (cltpt/base:alist-get keywords-alist "name"))
          (caption (cltpt/base:alist-get keywords-alist "caption"))
-         (latex-env-match (car (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1)))
+         (latex-env-match (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1))
          (latex-env-contents (cltpt/combinator:match-text latex-env-match)))
     ;; TODO: handle \caption and \label properly.
     (list :text (latex-fragment-to-html latex-env-contents nil)
@@ -164,10 +164,12 @@
          (resolved (cltpt/base:text-link-resolve obj))
          (desc-match
            (cltpt/combinator:find-submatch
-            (cltpt/base:text-object-normalized-combinator-match obj)
+            (cltpt/base:text-object-normalized-match obj)
             'link-desc))
-         (desc-begin (getf (car desc-match) :begin))
-         (desc-end (getf (car desc-match) :end))
+         (desc-begin (when desc-match
+                       (cltpt/combinator:match-begin desc-match)))
+         (desc-end (when desc-match
+                     (cltpt/combinator:match-end desc-match)))
          (dest-filepath (when dest
                           (cltpt/base:target-filepath dest)))
          (filepath-format-string

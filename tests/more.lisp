@@ -36,9 +36,22 @@
     (cltpt/tree:tree-show parsed)
     (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
 
+(defun plist-to-match (plist-tree)
+  "Convert a plist-based parse tree to match structs."
+  (when plist-tree
+    (let ((parent-info (car plist-tree))
+          (children (cdr plist-tree)))
+      (cltpt/combinator/match::make-match
+       :id (getf parent-info :id)
+       :begin (getf parent-info :begin)
+       :end (getf parent-info :end)
+       :str (getf parent-info :str)
+       :ctx nil
+       :children (mapcar #'plist-to-match children)))))
+
 (defun transformer-test-1-func ()
   (let* ((full-string "[[mylink1-2:here1][testmore1- 2]]")
-         (parsed
+         (parsed-plist
            `((:id org-link :begin 0 :end 33 :str ,full-string)
              ((:begin 0 :end 2 :str ,full-string))
              ((:id link-type :begin 2 :end 11 :str ,full-string))
@@ -47,6 +60,7 @@
              ((:begin 17 :end 19 :str ,full-string))
              ((:id link-desc :begin 19 :end 31 :str ,full-string))
              ((:begin 31 :end 33 :str ,full-string))))
+         (parsed (plist-to-match parsed-plist))
          (dest-rule
            '(cltpt/combinator:consec
              "\\ref{"
@@ -56,11 +70,12 @@
 
 (defun transformer-test-2-func ()
   (let* ((full-string "[[attachment:sliding]]")
-         (parsed
+         (parsed-plist
            `((:id org-link :begin 0 :end 22 :str ,full-string)
              ((:begin 0 :end 2 :str ,full-string))
              ((:id link-dest :begin 2 :end 20 :str ,full-string))
              ((:begin 20 :end 22 :str ,full-string))))
+         (parsed (plist-to-match parsed-plist))
          (dest-rule
            '(:pattern (cltpt/combinator:consec
                        "\\ref{"
@@ -96,7 +111,7 @@
     (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
 
 (defun test-combinator-number-1 ()
-  (cltpt/combinator:match-rule
+  (cltpt/combinator::apply-rule-normalized
    nil
    '(cltpt/combinator:natural-number-matcher)
    "2023"
@@ -105,7 +120,7 @@
 (test test-combinator-number-1
   (let ((result (test-combinator-number-1)))
     (fiveam:is (not (null result)))
-    (fiveam:is (= (getf (car result) :end) 4))))
+    (fiveam:is (= (cltpt/combinator/match::match-end result) 4))))
 
 (defun test-incremental-parsing-1 ()
   (let* ((text "- we have [[mylink]]
