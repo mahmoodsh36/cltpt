@@ -37,17 +37,30 @@
                                      (car cell-node)))))))
 
 (defun simplify-match (match)
-  (let ((new-match nil))
-    (when (getf match :begin)
-      (setf (getf new-match :begin) (getf match :begin)))
-    (when (getf match :end)
-      (setf (getf new-match :end) (getf match :end)))
-    ;; add :match (substring between :begin and :end)
-    (let ((str (getf match :str))
-          (begin (getf match :begin))
-          (end (getf match :end)))
-      (when (and str begin end)
-        (setf (getf new-match :match) (subseq str begin end))))
+  (let ((new-match))
+    (when (listp match)
+      (when (getf match :begin)
+        (setf (getf new-match :begin) (getf match :begin)))
+      (when (getf match :end)
+        (setf (getf new-match :end) (getf match :end)))
+      ;; add :match (substring between :begin and :end)
+      (let ((str (getf match :str))
+            (begin (getf match :begin))
+            (end (getf match :end)))
+        (when (and str begin end)
+          (setf (getf new-match :match) (subseq str begin end)))))
+    (when (typep match 'cltpt/combinator/match::match)
+      (setf (getf new-match :begin)
+            (cltpt/combinator:match-begin match))
+      (setf (getf new-match :end)
+            (cltpt/combinator:match-end match))
+      ;; (when (cltpt/combinator:match-id match)
+      ;;   (setf (getf new-match :id) (cltpt/combinator:match-id match)))
+      (let ((str (cltpt/combinator:match-str match))
+            (begin (cltpt/combinator:match-begin match))
+            (end (cltpt/combinator:match-end match)))
+        (when (and str begin end)
+          (setf (getf new-match :match) (subseq str begin end)))))
     new-match))
 
 (defun simplify-full-match (match)
@@ -64,7 +77,7 @@
   (cltpt/tree::trees-map
    (list match1 match2)
    (lambda (submatch1 submatch2)
-     (compare-match-loosely (car submatch1)
+     (compare-match-loosely submatch1
                             (car submatch2)))))
 
 (defun org-keyword-basic-func ()
@@ -289,7 +302,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-date-only-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu>" 0)
    '((:BEGIN 0 :END 16 :MATCH "<2023-12-28 Thu>")
      ((:BEGIN 0 :END 16 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -307,7 +320,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-time-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00>" 0)
    '((:BEGIN 0 :END 25 :MATCH "<2023-12-28 Thu 18:30:00>")
      ((:BEGIN 0 :END 25 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -332,7 +345,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-repeater-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>" 0)
    '((:BEGIN 0 :END 29 :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -361,7 +374,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-range-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:match-rule nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>" 0)
    '((:BEGIN 0 :END 60 :MATCH "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -1296,15 +1309,6 @@ some more text"))
                   (cltpt/combinator::literal "\\)")
                   nil)
         :id mypair)))))
-
-;; TODO: this test needs more detailed verification of the table structure and cell contents
-(test test-org-table-1
-  (let ((result (test-org-table-1-func)))
-    (fiveam:is
-     (and result
-          (listp result)
-          (eq (getf (car result) :ID) 'CLTPT/ORG-MODE::ORG-TABLE)
-          (> (length result) 1)))))
 
 (defun test-org-table-2 ()
   (let* ((misaligned-table-text

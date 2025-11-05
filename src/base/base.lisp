@@ -44,7 +44,7 @@
    :text-object-clone :sort-text-objects :text-object-set-parent
    :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
    :text-block :text-object-convert-options :text-object-contents-region
-   :text-object-combinator-match :text-object-normalized-combinator-match
+   :text-object-normalized-match :text-object-match
    :text-link :text-link-link :text-link-resolve
    :make-block :block-end
 

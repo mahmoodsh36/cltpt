@@ -166,9 +166,9 @@ this function now uses a random batch name internally and expects a list of
          ;; preamble precompilation is only supported for the :latex compiler.
          (fmt-path (when use-precomp-p (get-precompiled-preamble-path)))
          (compiler-command
-          (cdr (assoc *latex-compiler-key*
-                      *latex-compiler-command-map*
-                      :test 'equal))))
+           (cdr (assoc *latex-compiler-key*
+                       *latex-compiler-command-map*
+                       :test 'equal))))
     (unless compiler-command
       (error "unknown compiler key: ~S." *latex-compiler-key*))
     (when use-precomp-p

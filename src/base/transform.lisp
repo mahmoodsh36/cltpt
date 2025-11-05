@@ -10,12 +10,23 @@
 
 (defun find-node-by-id (parse-node target-id)
   (when parse-node
-    (let ((parent-info (car parse-node))
-          (children (cdr parse-node)))
-      (if (string= (getf parent-info :id) target-id)
-          parse-node
-          (loop for child in children
-                thereis (find-node-by-id child target-id))))))
+    (cond
+      ;; If it's a match struct, navigate it as a match
+      ((cltpt/combinator/match::match-p parse-node)
+       (if (and (cltpt/combinator/match::match-id parse-node)
+                (string= (cltpt/combinator/match::match-id parse-node) target-id))
+           parse-node
+           (loop for child in (cltpt/combinator/match::match-children parse-node)
+                 thereis (find-node-by-id child target-id))))
+      ;; If it's a cons (old plist format), handle it the old way
+      ((consp parse-node)
+       (let ((parent-info (car parse-node))
+             (children (cdr parse-node)))
+         (if (and parent-info (string= (getf parent-info :id) target-id))
+             parse-node
+             (loop for child in children
+                   thereis (find-node-by-id child target-id)))))
+      (t nil))))
 
 (defun generate-new-text-segment (context-node rule-for-new-text)
   (let ((rule-type (first rule-for-new-text)))
@@ -82,20 +93,34 @@
                               patterns
                               original-parse-result)))
            (when anchor-node
-             (list (list (getf (car anchor-node) :begin)
-                         (getf (car anchor-node) :end)
-                         (generate-text-from-patterns
-                          patterns
-                          original-parse-result))))))
+             (let ((node (if (cltpt/combinator/match::match-p anchor-node)
+                             anchor-node
+                             (car anchor-node))))
+               (list (list (if (cltpt/combinator/match::match-p node)
+                               (cltpt/combinator/match::match-begin node)
+                               (getf node :begin))
+                           (if (cltpt/combinator/match::match-p node)
+                               (cltpt/combinator/match::match-end node)
+                               (getf node :end))
+                           (generate-text-from-patterns
+                            patterns
+                            original-parse-result)))))))
         ((eq op :pattern)
          (let* ((target-sub-rule (second rule))
                 (id-value (fourth rule))
                 (context-node (find-node-by-id original-parse-result id-value)))
            (when context-node
-             (list (list (getf (car context-node) :begin)
-                         (getf (car context-node) :end)
-                         (generate-new-text-segment context-node
-                                                    target-sub-rule))))))
+             (let ((node (if (cltpt/combinator/match::match-p context-node)
+                             context-node
+                             (car context-node))))
+               (list (list (if (cltpt/combinator/match::match-p node)
+                               (cltpt/combinator/match::match-begin node)
+                               (getf node :begin))
+                           (if (cltpt/combinator/match::match-p node)
+                               (cltpt/combinator/match::match-end node)
+                               (getf node :end))
+                           (generate-new-text-segment context-node
+                                                      target-sub-rule)))))))
         (t (warn "ignoring rule with unknown operator: ~S" rule) nil)))))
 
 (defun apply-replacements (original-string replacements)
@@ -142,7 +167,9 @@
            ;; and id is the ID to find in parsed-data-source.
            (let ((found-node (find-node-by-id parsed-data-source id)))
              (if found-node
-                 (cltpt/combinator:match-text (car found-node))
+                 (if (cltpt/combinator/match::match-p found-node)
+                     (cltpt/combinator:match-text found-node)
+                     (cltpt/combinator:match-text found-node))
                  (progn
                    (warn "id '~S' not found in parse data for reconstruction."
                          id)

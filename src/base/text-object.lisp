@@ -28,6 +28,10 @@
     :initarg :text-region
     :accessor text-object-text-region
     :documentation "the bounds of the text corresponding to the object in its parent's text.")
+   (match
+    :initarg :match
+    :accessor text-object-match
+    :documentation "the instance of `cltpt/combinator:match' that was found before the object was constructed.")
    (rule
     :accessor text-object-rule
     :allocation :class
@@ -165,9 +169,9 @@ taking care of children indicies would cause issues."
 ;; a new sequence for every object, this is both slow and memory-consuming
 (defmethod text-object-init ((text-obj text-object) str1 match)
   (setf (text-object-text-region text-obj)
-        (make-region :begin (getf (car match) :begin)
-                     :end (getf (car match) :end)))
-  (setf (text-object-property text-obj :combinator-match) match))
+        (make-region :begin (cltpt/combinator:match-begin match)
+                     :end (cltpt/combinator:match-end match)))
+  (setf (text-object-match text-obj) match))
 
 (defmethod text-object-adjust-to-parent ((child text-object) (parent text-object))
   (region-decf (text-object-text-region child)
@@ -672,24 +676,19 @@ contents region is further compressed by COMPRESS-REGION if provided."
                                (cons inner-region escape-region-options)
                                inner-region)))))
 
-(defmethod text-object-combinator-match ((text-obj text-object))
-  (text-object-property text-obj :combinator-match))
-
 (defun normalize-match-positions (match)
-  (let ((new-match (copy-tree match))
-        (pos (getf (car match) :begin)))
+  (let ((new-match (cltpt/combinator:match-clone match))
+        (pos (cltpt/combinator:match-begin match)))
     (cltpt/tree:tree-walk
      new-match
      (lambda (submatch)
-       (when (plistp (car submatch))
-         (decf (getf (car submatch) :begin) pos)
-         (decf (getf (car submatch) :end) pos))))
+       (decf (cltpt/combinator:match-begin submatch) pos)
+       (decf (cltpt/combinator:match-end submatch) pos)))
     new-match))
 
 ;; TODO: optimize, this runs linearly on each call.
-(defmethod text-object-normalized-combinator-match ((text-obj text-object))
-  (normalize-match-positions
-   (text-object-property text-obj :combinator-match)))
+(defmethod text-object-normalized-match ((text-obj text-object))
+  (normalize-match-positions (text-object-match text-obj)))
 
 (defclass text-link (text-object)
   ((link
@@ -699,12 +698,9 @@ contents region is further compressed by COMPRESS-REGION if provided."
   (:documentation "base text-object for links."))
 
 (defmethod cltpt/base:text-object-init :after ((obj text-link) str1 match)
-  (let* ((link-type-match
-           (car (cltpt/combinator:find-submatch match 'link-type)))
-         (link-dest-match
-           (car (cltpt/combinator:find-submatch match 'link-dest)))
-         (link-desc-match
-           (car (cltpt/combinator:find-submatch match 'link-desc)))
+  (let* ((link-type-match (cltpt/combinator:find-submatch match 'link-type))
+         (link-dest-match (cltpt/combinator:find-submatch match 'link-dest))
+         (link-desc-match (cltpt/combinator:find-submatch match 'link-desc))
          (type-str (string-upcase (cltpt/combinator:match-text link-type-match))))
     (setf (text-link-link obj)
           (make-link :type (when type-str (intern type-str :cltpt/base))

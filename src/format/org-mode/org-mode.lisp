@@ -152,8 +152,8 @@
         do (let ((key (cltpt/combinator:find-submatch submatch 'drawer-key))
                  (val (cltpt/combinator:find-submatch submatch 'drawer-value)))
              (org-prop-drawer-set obj
-                             (cltpt/combinator:match-text (car key))
-                             (cltpt/combinator:match-text (car val))))))
+                             (cltpt/combinator:match-text key)
+                             (cltpt/combinator:match-text val)))))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
 ;; TODO: properly convert drawers. drawers can include any elements but headers.
@@ -207,11 +207,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
         ,rule)))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-keyword))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-         (value-match (car (cltpt/combinator:find-submatch match 'value)))
-         (keyword-match (car (cltpt/combinator:find-submatch match 'keyword)))
+  (let* ((match (cltpt/base:text-object-match obj))
+         (value-match (cltpt/combinator:find-submatch match 'value))
+         (keyword-match (cltpt/combinator:find-submatch match 'keyword))
          (value (cltpt/combinator:match-text value-match))
-         (child (car (cltpt/base:text-object-children obj))))
+         (child (first (cltpt/base:text-object-children obj))))
     (unless value
       (when (typep child 'cltpt/base::post-lexer-text-macro)
         ;; if we get here, then the value is meant to be the evaluation result
@@ -340,28 +340,28 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defun org-timestamp-match-to-time (match)
   (let* ((day (parse-integer
                (cltpt/combinator:match-text
-                (car (cltpt/combinator:find-submatch match 'day)))
+                (cltpt/combinator:find-submatch match 'day))
                :junk-allowed t))
          (second-str (cltpt/combinator:match-text
-                      (car (cltpt/combinator:find-submatch match 'second))))
+                      (cltpt/combinator:find-submatch match 'second)))
          (second (when second-str (parse-integer second-str :junk-allowed t)))
          (year (parse-integer
                 (cltpt/combinator:match-text
-                 (car (cltpt/combinator:find-submatch match 'year)))
+                 (cltpt/combinator:find-submatch match 'year))
                 :junk-allowed t))
          (month (parse-integer
                  (cltpt/combinator:match-text
-                  (car (cltpt/combinator:find-submatch match 'month)))
+                  (cltpt/combinator:find-submatch match 'month))
                  :junk-allowed t))
          (hour-str (cltpt/combinator:match-text
-                    (car (cltpt/combinator:find-submatch match 'hour))))
+                    (cltpt/combinator:find-submatch match 'hour)))
          (hour (when hour-str
                  (parse-integer hour-str :junk-allowed t)))
          (minute-str (cltpt/combinator:match-text
-                      (car (cltpt/combinator:find-submatch match 'minute))))
+                      (cltpt/combinator:find-submatch match 'minute)))
          (minute (when minute-str
                    (parse-integer minute-str :junk-allowed t)))
-         (weekday (car (cltpt/combinator:find-submatch match 'weekday))))
+         (weekday (cltpt/combinator:find-submatch match 'weekday)))
     (local-time:encode-timestamp 0
                                  (or second 0)
                                  (or minute 0)
@@ -429,7 +429,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (cltpt/base:text-object-init
      new-obj
      list-text
-     (cltpt/base:text-object-property obj :combinator-match))
+     (cltpt/base:text-object-match obj))
     (cltpt/base::text-object-force-set-text new-obj list-text)
     ;; set children of new-obj to those of obj without any nested org-lists
     ;; otherwise things wont work properly (because nested org-lists get converted)
@@ -465,9 +465,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (uiop:string-prefix-p
    "State"
    (cltpt/combinator:match-text
-    (car (cltpt/combinator:find-submatch
-          list-match
-          'list-item-content)))))
+    (cltpt/combinator:find-submatch
+     list-match
+     'list-item-content))))
 
 ;; TODO: we may want to match tags-rule only if its before a newline
 ;; (let ((tags-rule
@@ -626,20 +626,21 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (:documentation "org-mode header."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-header) str1 match)
-  (let* ((stars (car (cltpt/combinator:find-submatch match 'stars)))
-         (title (car (cltpt/combinator:find-submatch match 'title))))
+  (let* ((stars (cltpt/combinator:find-submatch match 'stars))
+         (title (cltpt/combinator:find-submatch match 'title)))
     (setf (cltpt/base:text-object-property obj :level)
           (length (cltpt/combinator:match-text stars)))
     (setf (cltpt/base:text-object-property obj :title)
           (cltpt/combinator:match-text title))
     (setf (cltpt/base:text-object-property obj :tags)
           (loop for match in (cltpt/combinator:find-submatch-all match 'tag)
-                collect (cltpt/combinator:match-text (car match))))
+                collect (cltpt/combinator:match-text match)))
     ;; :initial-match-length will contain the length of the string that was matched
     ;; for the header's metadata (including title, tags, org-agenda metadata etc).
     ;; it is later used to detect where the contents of the headers actually start.
     (setf (cltpt/base:text-object-property obj :initial-match-length)
-          (- (getf (car match) :end) (getf (car match) :begin)))))
+          (- (cltpt/combinator:match-end match)
+             (cltpt/combinator:match-begin match)))))
 
 (defun get-repeat-interval (repeat-num repeat-word)
   (let ((repeat-num (parse-integer repeat-num :junk-allowed t)))
@@ -654,10 +655,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defun repeat-interval-from-timestamp-match (ts-match)
   (let ((repeat-num
           (cltpt/combinator:match-text
-           (car (cltpt/combinator:find-submatch ts-match 'repeat-num))))
+           (cltpt/combinator:find-submatch ts-match 'repeat-num)))
         (repeat-word
           (cltpt/combinator:match-text
-           (car (cltpt/combinator:find-submatch ts-match 'repeat-word)))))
+           (cltpt/combinator:find-submatch ts-match 'repeat-word))))
     (when (and repeat-num repeat-word)
       (get-repeat-interval repeat-num repeat-word))))
 
@@ -683,12 +684,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     record))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-         (title-match (car (cltpt/combinator:find-submatch match 'title)))
+  (let* ((match (cltpt/base:text-object-match obj))
+         (title-match (cltpt/combinator:find-submatch match 'title))
          (header-id)
          (task-records)
          (todo-keyword-match
-           (car (cltpt/combinator:find-submatch match 'todo-keyword)))
+           (cltpt/combinator:find-submatch match 'todo-keyword))
          (timestamp-matches
            (cltpt/combinator:find-submatch-all match 'todo-timestamp))
          (action-active-matches
@@ -713,7 +714,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (loop for action-match in action-active-matches
           do (let ((action-name
                      (cltpt/combinator:match-text
-                      (car (cltpt/combinator:find-submatch action-match 'name))))
+                      (cltpt/combinator:find-submatch action-match 'name)))
                    (action-timestamp
                      (cltpt/combinator:find-submatch action-match 'timestamp)))
                (cond
@@ -762,10 +763,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
         (list :text "" :reparse t)
         (let* ((obj-text (cltpt/base:text-object-text obj))
                (changes)
-               (match (cltpt/base:text-object-property obj :combinator-match))
-               (title-match (car (cltpt/combinator:find-submatch match 'title)))
-               (match-begin (getf (car match) :begin))
-               (match-end (getf (car match) :end))
+               (match (cltpt/base:text-object-match obj))
+               (title-match (cltpt/combinator:find-submatch match 'title))
+               (match-begin (cltpt/combinator:match-begin match))
+               (match-end (cltpt/combinator:match-end match))
                (close-tag
                  (cltpt/base:pcase backend
                    (cltpt/html:*html*
@@ -787,12 +788,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                             (cltpt/base:str-dupe
                              "sub"
                              (cltpt/base:text-object-property obj :level))))))
-               (postfix-begin (- (getf title-match :end) match-begin))
+               (postfix-begin (- (cltpt/combinator:match-end title-match)
+                                 match-begin))
                ;; use 1+ to account for the extra newline at the end which
                ;; we want removed
                (postfix-end (min (1+ (- match-end match-begin))
                                  (length obj-text)))
-               (prefix-end (- (getf title-match :begin) match-begin))
+               (prefix-end (- (cltpt/combinator:match-begin title-match)
+                              match-begin))
                ;; the "old postfix" region is the region containing the
                ;; tags, and the metadata after the tags+newline
                (old-postfix-region
@@ -907,8 +910,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (:documentation "org-mode inline code (surrounded by tildes)."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-inline-code) str1 match)
-  (setf (cltpt/base:text-object-property obj :is-inline)
-        t))
+  (setf (cltpt/base:text-object-property obj :is-inline) t))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-inline-code))
   (compress-contents-region-by-one obj))
@@ -950,21 +952,22 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;; TODO: this uses nconc all the time which causes squared complexity
 (defmethod cltpt/base:text-object-convert ((obj org-table)
                                            (backend cltpt/base:text-format))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+  (let* ((match (cltpt/base:text-object-match obj))
          (changes)
-         (match-begin (getf (car match) :begin))
+         (match-begin (cltpt/combinator:match-begin match))
          (escape-regions)
          (open-tag
            (cltpt/base:pcase backend
              (cltpt/html:*html* "<table>")
              (cltpt/latex:*latex*
-              (let* ((first-row-match (cltpt/combinator:find-submatch
-                                       match
-                                       'table-row))
+              (let* ((first-row-match
+                       (cltpt/combinator:find-submatch
+                        match
+                        'table-row))
                      (num-cols
                        (length
                         (cltpt/combinator:find-submatch-all
-                         match
+                         first-row-match
                          'table-cell))))
                 (format nil
                         "\\begin{tabular} { |~{~a~^|~}| } \\hline~%"
@@ -995,9 +998,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                        :begin 0
                        :end 0))))
     ;; handle table cells
-    (loop for row-match in (cdr match)
+    (loop for row-match in (cltpt/combinator:match-children match)
           for is-first-row = t then nil
-          do (case (getf (car row-match) :id)
+          do (case (cltpt/combinator:match-id row-match)
                ('table-row
                 (let ((final-open-tag
                         (cltpt/base:concat
@@ -1009,8 +1012,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                          (list (cons final-open-tag
                                      (cltpt/base:region-decf
                                       (cltpt/base:make-region
-                                       :begin (getf (car row-match) :begin)
-                                       :end (getf (car row-match) :begin))
+                                       :begin (cltpt/combinator:match-begin
+                                               row-match)
+                                       :end (cltpt/combinator:match-begin
+                                             row-match))
                                       match-begin)))))
                 (loop for cell-match
                         in (cltpt/combinator:find-submatch-all
@@ -1032,8 +1037,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                      (cltpt/base:make-region
                                       ;; we use 1- to get the | at the start
                                       ;; replaced by handle-changed-regions
-                                      :begin (1- (getf (car cell-match) :begin))
-                                      :end (getf (car cell-match) :begin))
+                                      :begin (1- (cltpt/combinator:match-begin cell-match))
+                                      :end (cltpt/combinator:match-begin cell-match))
                                      match-begin)))))
                          (when cell-close-tag
                            (nconc
@@ -1042,24 +1047,24 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                              (cons cell-close-tag
                                    (cltpt/base:region-decf
                                     (cltpt/base:make-region
-                                     :begin (getf (car cell-match) :end)
-                                     :end (getf (car cell-match) :end))
+                                     :begin (cltpt/combinator:match-end cell-match)
+                                     :end (cltpt/combinator:match-end cell-match))
                                     match-begin))))))
                 (nconc changes
                        (list (cons row-close-tag
                                    (cltpt/base:region-decf
                                     (cltpt/base:make-region
                                      ;; we add 1- to get the | at the end of the row
-                                     :begin (1- (getf (car row-match) :end))
-                                     :end (getf (car row-match) :end))
+                                     :begin (1- (cltpt/combinator:match-end row-match))
+                                     :end (cltpt/combinator:match-end row-match))
                                     match-begin)))))
                ('table-hrule
                 (nconc changes
                        (list (cons ""
                                    (cltpt/base:region-decf
                                     (cltpt/base:make-region
-                                     :begin (getf (car row-match) :begin)
-                                     :end (getf (car row-match) :end))
+                                     :begin (cltpt/combinator:match-begin row-match)
+                                     :end (cltpt/combinator:match-end row-match))
                                     match-begin)))))))
     ;; ending tag
     (nconc changes
@@ -1108,7 +1113,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (doc-id)
          (doc-date)
          (doc-tags)
-         (first-child (car (cltpt/base:text-object-children obj)))
+         (first-child (first (cltpt/base:text-object-children obj)))
          (first-child-is-drawer (typep first-child 'org-prop-drawer)))
     ;; detect id and title of document, either through property drawer at the top
     ;; or using keywords
@@ -1466,14 +1471,15 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (:documentation "org-mode src block."))
 
 (defun init-org-src-block (obj match)
-  (let* ((begin-match (car (cltpt/combinator:find-submatch match 'begin)))
-         (end-match (car (cltpt/combinator:find-submatch match 'end)))
+  (let* ((begin-match (cltpt/combinator:find-submatch match 'begin))
+         (end-match (cltpt/combinator:find-submatch match 'end))
          (keywords-match (cltpt/combinator:find-submatch match 'keywords)))
     (setf (cltpt/base:text-object-property obj :contents-region)
-          (cltpt/base:make-region :begin (- (getf begin-match :end)
-                                            (getf begin-match :begin))
-                                  :end (- (getf end-match :begin)
-                                          (getf begin-match :begin))))
+          (cltpt/base:make-region
+           :begin (- (cltpt/combinator:match-end begin-match)
+                     (cltpt/combinator:match-begin begin-match))
+           :end (- (cltpt/combinator:match-begin end-match)
+                   (cltpt/combinator:match-begin begin-match))))
     (handle-block-keywords obj)))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
@@ -1489,9 +1495,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                           (string= exports-keyword "both")))
          (export-results (or (string= exports-keyword "results")
                              (string= exports-keyword "both")))
-         (match (cltpt/base:text-object-property
-                 obj
-                 :combinator-match))
+         (match (cltpt/base:text-object-match obj))
          ;; TODO: code-end-match is really just block-end-match, should be renamed
          ;; when its a regular block, we want to find the last end delimiter
          ;; in this match because there could be nested blocks that have
@@ -1500,16 +1504,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          ;; wanna catch the delimiters inside the results regions (if any)
          (code-end-match
            (if is-code
-               (cltpt/combinator:find-submatch
-                match
-                'end)
-               (cltpt/combinator:find-submatch-last
-                match
-                'end)))
-         (results-match
-           (cltpt/combinator:find-submatch
-            match
-            'results)))
+               (cltpt/combinator:find-submatch match 'end)
+               (cltpt/combinator:find-submatch-last match 'end)))
+         (results-match (cltpt/combinator:find-submatch match 'results)))
     ;; export "both" by default, if :exports wasnt provided.
     ;; TODO: this shouldnt be the default behavior. we should have it customizable.
     (when (and is-code (not exports-keyword))
@@ -1529,8 +1526,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    ,(cons "lang"
                           (when (cltpt/combinator:find-submatch match 'lang)
                             (cltpt/combinator:match-text
-                             (car
-                              (cltpt/combinator:find-submatch match 'lang))))))
+                             (cltpt/combinator:find-submatch match 'lang)))))
                  (cltpt/base:text-object-property obj :keywords-alist)))
               (props
                 (loop for (key . value) in all-keywords
@@ -1606,14 +1602,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      'results-content))
                   (results-text)
                   (results-begin
-                    (- (getf (car results-match) :begin)
-                       (getf (car match) :begin)))
+                    (- (cltpt/combinator:match-begin results-match)
+                       (cltpt/combinator:match-begin match)))
                   (results-end
-                    (- (getf (car results-match) :end)
-                       (getf (car match) :begin)))
+                    (- (cltpt/combinator:match-end results-match)
+                       (cltpt/combinator:match-begin match)))
                   (results-content-begin
-                    (- (getf (car results-content-match) :begin)
-                       (getf (car match) :begin)))
+                    (- (cltpt/combinator:match-begin results-content-match)
+                       (cltpt/combinator:match-begin match)))
                   ;; code-*-tag-region is for the regions related
                   ;; to the code block /before/ the incremental changes.
                   (code-open-tag-region
@@ -1627,8 +1623,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      :begin (cltpt/base:region-end
                              (cltpt/base:text-object-contents-region
                               obj))
-                     :end (- (getf (car code-end-match) :end)
-                             (getf (car match) :begin))))
+                     :end (- (cltpt/combinator:match-end code-end-match)
+                             (cltpt/combinator:match-begin match))))
                   ;; those regions are also /before/ incremental changes
                   (results-content-region
                     (cltpt/base:make-region
@@ -1647,10 +1643,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                       (cltpt/base:str-join
                        (mapcar
                         (lambda (raw-line-match)
-                          (subseq
-                           (cltpt/combinator:match-text
-                            (car raw-line-match))
-                           2))
+                          (subseq (cltpt/combinator:match-text raw-line-match)
+                                  2))
                         match-raw-lines)
                        (string #\newline)))))
              ;; both regions of results and code need escaping.
@@ -1707,14 +1701,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                        (list :escape-newlines nil)))))))))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
+  (let* ((match (cltpt/base:text-object-match obj))
          (entries
            (cltpt/combinator:find-submatch-all
             (cltpt/combinator:find-submatch match 'keywords)
             'keywords-entry)))
     (loop for entry in entries
-          for kw-match = (car (cltpt/combinator:find-submatch entry 'keyword))
-          for val-match = (car (cltpt/combinator:find-submatch entry 'value))
+          for kw-match = (cltpt/combinator:find-submatch entry 'keyword)
+          for val-match = (cltpt/combinator:find-submatch entry 'value)
           for kw = (cltpt/combinator:match-text kw-match)
           for val = (cltpt/combinator:match-text val-match)
           do (push (cons kw val) (cltpt/base:text-object-property obj :keywords-alist)))))
@@ -1777,20 +1771,20 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-init :after ((obj org-block) str1 match)
   ;; grab the "type" of the block, set content boundaries, need to grab keywords
-  (let* ((begin-type-match (car (cltpt/combinator:find-submatch match 'begin-type)))
+  (let* ((begin-type-match (cltpt/combinator:find-submatch match 'begin-type))
          (begin-type (cltpt/combinator:match-text begin-type-match))
-         (begin-match (car (cltpt/combinator:find-submatch match 'begin)))
+         (begin-match (cltpt/combinator:find-submatch match 'begin))
          ;; we look for the last instance of 'end because otherwise
          ;; we might capture the 'end of another block nested
          ;; within this one
-         (end-match (car (cltpt/combinator:find-submatch-last match 'end))))
+         (end-match (cltpt/combinator:find-submatch-last match 'end)))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
     (setf (cltpt/base:text-object-property obj :contents-region)
           (cltpt/base:make-region
-           :begin (- (getf begin-match :end)
-                     (getf begin-match :begin))
-           :end (- (getf end-match :begin)
-                   (getf begin-match :begin))))
+           :begin (- (cltpt/combinator:match-end begin-match)
+                     (cltpt/combinator:match-begin begin-match))
+           :end (- (cltpt/combinator:match-begin end-match)
+                   (cltpt/combinator:match-begin begin-match))))
     ;; handle keywords
     (handle-block-keywords obj)
     (let ((block-title (org-block-keyword-value obj "title"))
@@ -1828,8 +1822,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-convert ((obj org-export-block)
                                            (backend cltpt/base:text-format))
-  (let* ((match (cltpt/base:text-object-property obj :combinator-match))
-         (lang-match (car (cltpt/combinator:find-submatch match 'lang)))
+  (let* ((match (cltpt/base:text-object-match obj))
+         (lang-match (cltpt/combinator:find-submatch match 'lang))
          (lang (cltpt/combinator:match-text lang-match)))
     ;; we only export if the destination matches the lang set by the export block
     (if (string= (cltpt/base:text-format-name backend) lang)
@@ -1891,18 +1885,18 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 according to INCLUDE-TAGS we decide whether the region should enclose the tags themselves or not."
   ;; we're using 'open-tag here which may not precisely equal 'cltpt/latex::open-tag
   ;; but it is fine since find-submatch uses 'string=
-  (let* ((begin-match (car (cltpt/combinator:find-submatch match 'open-tag)))
-         (end-match (car (cltpt/combinator:find-submatch-last match 'close-tag)))
-         (absolute-begin (getf (car match) :begin)))
+  (let* ((begin-match (cltpt/combinator:find-submatch match 'open-tag))
+         (end-match (cltpt/combinator:find-submatch-last match 'close-tag))
+         (absolute-begin (cltpt/combinator:match-begin match)))
     (if include-tags
         (cltpt/base:make-region
-         :begin (- (getf begin-match :begin) absolute-begin)
-         :end (- (getf end-match :end) absolute-begin))
+         :begin (- (cltpt/combinator:match-begin begin-match) absolute-begin)
+         :end (- (cltpt/combinator:match-end end-match) absolute-begin))
         (cltpt/base:make-region
-         :begin (- (getf begin-match :end)
-                   (getf begin-match :begin))
-         :end (- (getf end-match :begin)
-                 (getf begin-match :begin))))))
+         :begin (- (cltpt/combinator:match-end begin-match)
+                   (cltpt/combinator:match-begin begin-match))
+         :end (- (cltpt/combinator:match-begin end-match)
+                 (cltpt/combinator:match-begin begin-match))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-latex-env) str1 match)
   (setf (cltpt/base:text-object-property obj :contents-region)
