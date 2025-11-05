@@ -18,17 +18,15 @@ the function passes the state between recursive calls by returning two values:
 2. the updated list of all text-objects found in the entire process so far.
    this value is the 'state' that is passed through every recursive call to ensure
    no created objects are lost."
-  (let* ((main-match (car match))
-         (main-match-rule (getf main-match :rule))
+  (let* ((main-match-rule (cltpt/combinator:match-rule match))
          (main-match-type (or (getf main-match-rule :type)
-                              (getf main-match :id)))
-         (rest (cdr match))
+                              (cltpt/combinator:match-id match)))
          (is-new-object t)
          ;; this list will be built backwards for efficiency.
          (reversed-child-results)
          (current-objects existing-objects))
     ;; collect child objects in reverse order
-    (loop for child in rest
+    (loop for child in (cltpt/combinator:match-children match)
           do (multiple-value-bind (obj updated-objects)
                  (handle-match str1
                                child
@@ -45,8 +43,8 @@ the function passes the state between recursive calls by returning two values:
     (let ((child-results (nreverse reversed-child-results)))
       (if (member main-match-type text-object-types)
           ;; this match corresponds to a text-object we need to create.
-          (let* ((match-begin (getf main-match :begin))
-                 (match-end (getf main-match :end))
+          (let* ((match-begin (cltpt/combinator:match-begin match))
+                 (match-end (cltpt/combinator:match-end match))
                  (new-text-object (make-instance main-match-type))
                  (is-lexer-macro (is-text-macro main-match-type)))
             (if is-lexer-macro

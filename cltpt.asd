@@ -17,7 +17,7 @@
                (:module "combinator"
                 :pathname "src/combinator"
                 :depends-on ("tree")
-                :components ((:file "utils")
+                :components ((:file "match")
                              (:file "combinator")))
                (:module "base"
                 :pathname "src/base/"
