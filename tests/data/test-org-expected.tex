@@ -56,7 +56,7 @@ the \textit{links}:\\\begin{itemize}
 \item markdown link:                ()[]
 
 \end{itemize}
-are equivalent, they point to the same object which is the next 'definition' block.\\the specific functionality or syntax (like the org-mode link syntax above) can be enabled or\\disabled as desired by the user. the parser is completely customizable and extensible,\\we provide a default mode that parses \textit{most} of org-mode's syntax but it need not be used.\\i personally plan on reducing my usage of org-mode syntax elements and use the "text-macro"\\syntax above because it is a much more powerful alternative.\\\#(cltpt/base::b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))\\output: %(concatenate 'string "value: [\href{" myvar1 "}{" myvar1 "}]").\\\#(cltpt/base::/b)\\to transclude some block (possibly from another file ofcourse):\\\#(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))\\here is \textbf{some important text}, but also more \textbf{important text}.\\also \textbf{more}. but more*\\some \verb{inline code} here.\\some \textit{italicized text} here, and some \verb{code} here.\\tables\\\begin{tabular} { |l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l|l| } \hline
+are equivalent, they point to the same object which is the next 'definition' block.\\the specific functionality or syntax (like the org-mode link syntax above) can be enabled or\\disabled as desired by the user. the parser is completely customizable and extensible,\\we provide a default mode that parses \textit{most} of org-mode's syntax but it need not be used.\\i personally plan on reducing my usage of org-mode syntax elements and use the "text-macro"\\syntax above because it is a much more powerful alternative.\\\#(cltpt/base::b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))\\output: %(concatenate 'string "value: [\href{" myvar1 "}{" myvar1 "}]").\\\#(cltpt/base::/b)\\to transclude some block (possibly from another file ofcourse):\\\#(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))\\here is \textbf{some important text}, but also more \textbf{important text}.\\also \textbf{more}. but more*\\some \verb{inline code} here.\\some \textit{italicized text} here, and some \verb{code} here.\\tables\\\begin{tabular} { |l|l| } \hline
  code                             & math                  
 
 \hline\\ \verb{layer-x\textbackslash{}9*1*0}                  & \(I^\ell\)            
@@ -68,7 +68,7 @@ are equivalent, they point to the same object which is the next 'definition' blo
 \hline\\ \verb{activation-function-derivative} & \(\phi'\)             
 \hline\\ \verb{propped-deltas}                 & \(\Delta I^{\ell+1}\) 
 \hline\\ \verb{learning-rate}                  & \(\alpha\)            
-\hline\end{tabular}\\\begin{tabular} { |l|l|l|l|l|l|l|l|l|l|l|l|l|l|l| } \hline
+\hline\end{tabular}\\\begin{tabular} { |l|l|l| } \hline
  head1   & head2 & head3 
 
 \hline\\ foo     &       & baz   
