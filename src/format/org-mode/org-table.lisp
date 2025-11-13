@@ -47,7 +47,8 @@
                    (list *table-v-delimiter* *table-intersection-delimiter*))
            (loop for i from (1+ trimmed-start) below line-end
                  for char = (char str i)
-                 always (member char (list #\space #\tab
+                 always (member char (list #\space
+                                           #\tab
                                            *table-h-delimiter*
                                            *table-intersection-delimiter*
                                            *table-v-delimiter*)))))))
@@ -74,9 +75,7 @@
         (values start start))))
 
 (defun parse-table-row (ctx str row-start-offset inline-rules)
-  "parses a single table row, creating a structured tree for cells and their content.
-
-returns (values row-node, next-line-start-offset)."
+  "parses a single table row, creating a structured tree for cells and their content."
   (multiple-value-bind (line-start line-end next-line-start)
       (get-line-bounds str row-start-offset)
     (let* ((trimmed-line-start
@@ -91,39 +90,32 @@ returns (values row-node, next-line-start-offset)."
         (let ((delimiter-pos (position *table-v-delimiter* str
                                        :start current-pos
                                        :end line-end)))
-          (unless delimiter-pos (return))
+          (unless delimiter-pos (return)) ;; exit when no more '|' are found
           (when (> delimiter-pos current-pos)
             (let* ((cell-begin current-pos)
                    (cell-end delimiter-pos))
               (multiple-value-bind (content-begin content-end)
                   (find-content-bounds str cell-begin cell-end)
                 (let* ((content-node
-                         ;; only create a content node if there is actual, non-whitespace text.
                          (when (< content-begin content-end)
                            (let* ((inline-children
                                     (when inline-rules
                                       (cltpt/combinator:scan-all-rules
-                                       ctx
-                                       str
-                                       inline-rules
-                                       content-begin
-                                       content-end)))
+                                       ctx str inline-rules content-begin content-end)))
                                   (cell-content-match (cltpt/combinator:make-match
                                                        :id 'table-cell-content
-                                                       :begin content-begin
-                                                       :end content-end
-                                                       :str str
-                                                       :children inline-children)))
+                                                       :begin content-begin :end content-end
+                                                       :str str :children inline-children)))
+                             (dolist (child inline-children)
+                               (setf (cltpt/combinator/match:match-parent child) cell-content-match))
                              cell-content-match)))
-                       (cell-children (if content-node
-                                          (list content-node)
-                                          nil))
+                       (cell-children (if content-node (list content-node) nil))
                        (cell-match (cltpt/combinator:make-match
                                     :id 'table-cell
-                                    :begin cell-begin
-                                    :end cell-end
-                                    :str str
-                                    :children cell-children)))
+                                    :begin cell-begin :end cell-end
+                                    :str str :children cell-children)))
+                  (when content-node
+                    (setf (cltpt/combinator/match:match-parent content-node) cell-match))
                   (push cell-match row-children)))))
           (let ((delimiter-node (cltpt/combinator:make-match
                                  :id 'table-cell-delimiter
@@ -132,12 +124,42 @@ returns (values row-node, next-line-start-offset)."
                                  :str str)))
             (push delimiter-node row-children))
           (setf current-pos (1+ delimiter-pos))))
-      (let ((row-match (cltpt/combinator:make-match
-                        :id 'table-row
-                        :begin trimmed-line-start
-                        :end line-end
-                        :str str
-                        :children (nreverse row-children))))
+      ;; after the loop, check for a final cell after the last delimiter
+      (multiple-value-bind (content-begin content-end)
+          (find-content-bounds str current-pos line-end)
+        (when (< content-begin content-end)
+          ;; there is content here, so create one last cell.
+          (let* ((cell-begin current-pos)
+                 (cell-end line-end)
+                 (content-node
+                   (let* ((inline-children
+                            (when inline-rules
+                              (cltpt/combinator:scan-all-rules
+                               ctx str inline-rules content-begin content-end)))
+                          (cell-content-match (cltpt/combinator:make-match
+                                               :id 'table-cell-content
+                                               :begin content-begin :end content-end
+                                               :str str :children inline-children)))
+                     (dolist (child inline-children)
+                       (setf (cltpt/combinator/match:match-parent child) cell-content-match))
+                     cell-content-match))
+                 (cell-children (if content-node (list content-node) nil))
+                 (cell-match (cltpt/combinator:make-match
+                              :id 'table-cell
+                              :begin cell-begin :end cell-end
+                              :str str :children cell-children)))
+            (when content-node
+              (setf (cltpt/combinator/match:match-parent content-node) cell-match))
+            (push cell-match row-children))))
+      (let* ((reversed-children (nreverse row-children))
+             (row-match (cltpt/combinator:make-match
+                         :id 'table-row
+                         :begin trimmed-line-start
+                         :end line-end
+                         :str str
+                         :children reversed-children)))
+        (dolist (child reversed-children)
+          (setf (cltpt/combinator/match:match-parent child) row-match))
         (values row-match next-line-start)))))
 
 (defun org-table-matcher (ctx str pos &optional inline-rules)
@@ -177,33 +199,36 @@ returns (values row-node, next-line-start-offset)."
         (setf current-pos next-start)
         (setf last-successful-pos current-pos)))
     (if row-nodes
-        (let ((table-match (cltpt/combinator:make-match
-                            :id 'org-table
-                            :begin pos
-                            :end last-successful-pos
-                            :str str
-                            :children (nreverse row-nodes))))
+        (let* ((reversed-nodes (nreverse row-nodes))
+               (table-match (cltpt/combinator:make-match
+                             :id 'org-table
+                             :begin pos
+                             :end last-successful-pos
+                             :str str
+                             :children reversed-nodes)))
+          ;; ---- FIX: Set parent on all children of the table ----
+          (dolist (child reversed-nodes)
+            (setf (cltpt/combinator/match:match-parent child) table-match))
           (values table-match last-successful-pos))
         (values nil pos))))
 
 (defun reformat-table (parse-tree)
   "takes a table parse tree and returns a new string with all columns
-neatly aligned based on the widest cell in each column."
+neatly aligned. ADDS missing cells to ragged rows."
   (let ((col-widths (make-array 0 :adjustable t :fill-pointer t))
         (table-data))
-    ;; pass 1: check column widths
+    ;; pass 1: check column widths and collect data
     (dolist (row-node (cltpt/combinator/match:match-children parse-tree))
       (case (cltpt/combinator/match:match-id row-node)
         ('table-row
-         (let ((current-row-cells)
+         (let ((current-row-cells) ;; this list will be built in reverse
                (cell-nodes (remove-if-not
                             (lambda (node)
-                              (eq (cltpt/combinator/match::match-id node) 'table-cell))
-                            (cltpt/combinator/match::match-children row-node))))
+                              (eq (cltpt/combinator/match:match-id node) 'table-cell))
+                            (cltpt/combinator/match:match-children row-node))))
            (loop for cell-node in cell-nodes
                  for col-idx from 0
                  do
-                    ;; look for the 'table-cell-content' child to get the text for width calculation.
                     (let* ((content-node (car (cltpt/combinator/match:match-children cell-node)))
                            (cell-text (if content-node
                                           (cltpt/combinator:match-text content-node)
@@ -214,15 +239,120 @@ neatly aligned based on the widest cell in each column."
                       (setf (aref col-widths col-idx)
                             (max (aref col-widths col-idx) cell-width))
                       (push cell-text current-row-cells)))
-           (push (nreverse current-row-cells) table-data)))
+           (push (reverse current-row-cells) table-data)))
         ('table-hrule
          (push '(:separator) table-data))))
+    ;; the list of rows is in reverse order, so fix it.
     (setf table-data (nreverse table-data))
+    ;; pass 2: build the formatted string
+    (let ((num-columns (length col-widths)))
+      (with-output-to-string (s)
+        (loop for row-data in table-data
+              do
+                 (if (eq (car row-data) :separator)
+                     (progn
+                       (write-char *table-v-delimiter* s)
+                       (loop for width across col-widths
+                             for is-first-col = t then nil
+                             do
+                                (unless is-first-col
+                                  (write-char *table-intersection-delimiter* s))
+                                (dotimes (i (+ width 2))
+                                  (write-char *table-h-delimiter* s)))
+                       (write-char *table-v-delimiter* s)
+                       (write-char #\newline s))
+                     (progn
+                       (write-char *table-v-delimiter* s)
+                       (loop for col-idx from 0 below num-columns
+                             do (let ((width (aref col-widths col-idx)))
+                                  ;; get the cell text for the current column, or "" if missing.
+                                  (format s " ~vA ~c"
+                                          width
+                                          (or (nth col-idx row-data) "")
+                                          *table-v-delimiter*)))
+                       (write-char #\newline s))))))))
+
+(defun get-cell-coordinates (cell-match)
+  "takes a table-cell match and returns its (column . row) coordinates.
+both column and row are 0-indexed."
+  (let* ((row-node (cltpt/combinator/match:match-parent cell-match))
+         (table-node (cltpt/combinator/match:match-parent row-node))
+         (row-idx
+           (loop for child in (cltpt/combinator/match:match-children table-node)
+                 for i from 0
+                 when (eq (cltpt/combinator/match:match-id child) 'table-row)
+                   count child into row-count
+                 when (eq child row-node)
+                   return (1- row-count)))
+         (col-idx
+           (loop for child in (cltpt/combinator/match:match-children row-node)
+                 for i from 0
+                 when (eq (cltpt/combinator/match:match-id child) 'table-cell)
+                   count child into cell-count
+                 when (eq child cell-match)
+                   return (1- cell-count))))
+    (cons col-idx row-idx)))
+
+(defun get-cell-at-coordinates (table-match coordinates)
+  "takes an org-table match and a cons of (column . row) and returns the
+cell at that location. both column and row are 0-indexed."
+  (let* ((row-nodes (remove-if-not
+                     (lambda (node)
+                       (eq (cltpt/combinator/match:match-id node) 'table-row))
+                     (cltpt/combinator/match:match-children table-match)))
+         (target-row (nth (cdr coordinates) row-nodes)))
+    (when target-row
+      (let* ((cell-nodes (remove-if-not
+                          (lambda (node)
+                            (eq (cltpt/combinator/match:match-id node) 'table-cell))
+                          (cltpt/combinator/match:match-children target-row))))
+        (nth (car coordinates) cell-nodes)))))
+
+(defun table-match-to-nested-list (table-match &optional (include-hrules-p t))
+  "takes an org-table match and returns a nested list representing the
+table's data. if include-hrules-p is non-nil (the default), horizontal
+rules are represented by the keyword :hrule."
+  (let ((table-data))
+    (dolist (row-node (cltpt/combinator/match:match-children table-match))
+      (case (cltpt/combinator/match:match-id row-node)
+        ('table-row
+         (let ((current-row-cells)
+               (cell-nodes (remove-if-not
+                            (lambda (node)
+                              (eq (cltpt/combinator/match:match-id node) 'table-cell))
+                            (cltpt/combinator/match:match-children row-node))))
+           (dolist (cell-node cell-nodes)
+             (let* ((content-node (first (cltpt/combinator/match:match-children cell-node)))
+                    (cell-text (if content-node
+                                   (cltpt/combinator:match-text content-node)
+                                   "")))
+               (push cell-text current-row-cells)))
+           (push (nreverse current-row-cells) table-data)))
+        ('table-hrule
+         (when include-hrules-p
+           (push :hrule table-data)))))
+    (nreverse table-data)))
+
+(defun nested-list-to-table-string (table-data)
+  "takes a nested list (as generated by table-match-to-nested-list)
+and returns a formatted org-mode table string."
+  (let ((col-widths (make-array 0 :adjustable t :fill-pointer t)))
+    ;; pass 1: calculate column widths
+    (dolist (row-data table-data)
+      (when (listp row-data) ;; ignore :hrule markers
+        (loop for cell-text in row-data
+              for col-idx from 0
+              do
+                 (let ((cell-width (length cell-text)))
+                   (when (>= col-idx (length col-widths))
+                     (vector-push-extend 0 col-widths))
+                   (setf (aref col-widths col-idx)
+                         (max (aref col-widths col-idx) cell-width))))))
     ;; pass 2: build the formatted string
     (with-output-to-string (s)
       (loop for row-data in table-data
             do
-               (if (eq (car row-data) :separator)
+               (if (eq row-data :hrule)
                    (progn
                      (write-char *table-v-delimiter* s)
                      (loop for width across col-widths
@@ -230,18 +360,55 @@ neatly aligned based on the widest cell in each column."
                            do
                               (unless is-first-col
                                 (write-char *table-intersection-delimiter* s))
-                              (dotimes (i (+ width 2))
+                              (dotimes (i (+ width 2)) ;; +2 for padding
                                 (write-char *table-h-delimiter* s)))
                      (write-char *table-v-delimiter* s)
                      (write-char #\newline s))
+                   ;; it's a data row
                    (progn
                      (write-char *table-v-delimiter* s)
                      (loop for cell-text in row-data
                            for col-idx from 0
                            do (let ((width (aref col-widths col-idx)))
-                                (format s
-                                        " ~vA ~c"
-                                        width
-                                        cell-text
-                                        *table-v-delimiter*)))
+                                (format s " ~vA ~c"
+                                        width cell-text *table-v-delimiter*)))
                      (write-char #\newline s)))))))
+
+(defun get-table-height (table-match)
+  "takes an org-table match and returns its height (number of data rows)."
+  (count-if (lambda (node)
+              (eq (cltpt/combinator/match:match-id node) 'table-row))
+            (cltpt/combinator/match:match-children table-match)))
+
+(defun get-table-width (table-match)
+  "takes an org-table match and returns its width (number of columns)."
+  (let ((first-row (find-if (lambda (node)
+                              (eq (cltpt/combinator/match:match-id node) 'table-row))
+                            (cltpt/combinator/match:match-children table-match))))
+    (if first-row
+        (count-if (lambda (node)
+                    (eq (cltpt/combinator/match:match-id node) 'table-cell))
+                  (cltpt/combinator/match:match-children first-row))
+        0)))
+
+(defun get-next-data-cell-coords (table-match coords)
+  "takes a table-match and a coordinate pair (column . row). returns the
+coordinates of the next data cell, or nil if at the end of the table.
+handles wrapping to the next line automatically."
+  (let ((width (get-table-width table-match))
+        (height (get-table-height table-match))
+        (current-x (car coords))
+        (current-y (cdr coords)))
+    (when (or (= width 0) (= height 0))
+      (return-from get-next-data-cell-coords nil))
+    ;; calculate the next linear position
+    (let ((next-x (1+ current-x))
+          (next-y current-y))
+      ;; handle wrapping to the next row
+      (when (>= next-x width)
+        (setf next-x 0)
+        (setf next-y (1+ next-y)))
+      ;; check if we are past the end of the table
+      (if (>= next-y height)
+          nil ; we've iterated past the last cell
+          (cons next-x next-y)))))
