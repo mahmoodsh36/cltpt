@@ -10,7 +10,7 @@
   (let ((filepath
           ;; "/home/mahmooz/brain/notes/1707069432.org"
           ;; "/home/mahmooz/brain/notes/1684594232.org"
-          "tests/test2.org"
+          "tests/test.org"
           )
         (cltpt/org-mode:*org-enable-macros* t))
     (cltpt/zoo:init)

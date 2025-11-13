@@ -63,6 +63,9 @@ the '\\' and processes the char normally (replace or emit)."
                            (text-object-types
                             (text-format-text-object-types fmt-src)
                             text-object-types-supplied))
+  (when (getf cltpt:*debug* :convert)
+    (format t "DEBUG: converting object ~A~%" text-obj)
+    (cltpt/tree:tree-show text-obj))
   (let* ((result (text-object-convert text-obj fmt-dest))
          (result-is-string (typep result 'string))
          (result-text
@@ -98,9 +101,6 @@ the '\\' and processes the char normally (replace or emit)."
                                    :begin 0
                                    :end (region-length
                                          (text-object-text-region text-obj)))))))))
-    (when (getf cltpt:*debug* :convert)
-      (format t "DEBUG: converting object ~A~%" text-obj)
-      (cltpt/tree:tree-show text-obj))
     (when (getf cltpt:*debug* :convert)
       (format t "DEBUG: before incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
@@ -333,6 +333,22 @@ before calling `convert-tree' on the given DOC."
                              :dest-fmt dest-fmt
                              :src-fmt src-fmt)))
         (template (text-format-conversion-template dest-fmt)))
+    ;; process escape sequences by applying them as incremental changes to the document
+    (let* ((escapes (text-document-escapes doc)))
+      (when escapes
+        (let* ((changes
+                 (loop for escape in escapes
+                       collect (cons (getf (cltpt/combinator/match::match-props escape) :replace)
+                                     (make-region :begin (cltpt/combinator:match-begin escape)
+                                                  :end (cltpt/combinator:match-end escape))))))
+          ;; sort changes by region begin position to ensure correct offset calculations in handle-changed-regions
+          ;; (setf changes (sort changes #'< :key (lambda (x) (region-begin (cdr x)))))
+          (handle-changed-regions doc
+                                  src-fmt
+                                  changes
+                                  nil
+                                  :only-simple-changes t
+                                  :propagate t))))
     ;; here we've bound :text-obj in *convert-info* so that
     ;; we can access it from within the template.
     (if template
@@ -347,7 +363,7 @@ before calling `convert-tree' on the given DOC."
          :escape nil
          :recurse t
          :reparse nil)
-        (convert-tree doc src-fmt dest-fmt))))
+        (convert-tree new-doc src-fmt dest-fmt))))
 
 (defun convert-simple-format (format-str)
   "this function can be used for \"formatting strings\" with lisp code."

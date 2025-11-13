@@ -7,17 +7,117 @@
 
 \begin{document}
 
-\\\href{/home/mahmooz/}{/home/mahmooz/}\\\subsubsection{another due task}\\\subsubsection{header my secondary header}\\test text1\\\subsubsubsection{do something else}\\\subsubsubsection{send the professor a mail}\\hey latex: \(x\)\\some \href{here1}{testmore1- 2} text\\\href{sliding.gif}{}\\\href{sliding}{sliding}\\comment here\\\textbackslash{}\#+begin\_comment\\this is a comment 2\\\textbackslash{}\#+end\_comment\\some *text*\\text *\\some \textasciitilde{}text\textasciitilde{}\\text \textasciitilde{}\\latex here\\\[ x = \sqrt{x^2} \]\\code here\\\begin{lstlisting}  import requests
+
+\\
+\href{/home/mahmooz/}{/home/mahmooz/}
+\\
+\subsubsection{another due task}
+\\
+\subsubsection{header my secondary header}
+\\
+test text1
+\\
+\subsubsubsection{do something else}
+\\
+\subsubsubsection{send the professor a mail}
+\\
+hey latex: \(x\)
+\\
+some \href{here1}{testmore1- 2} text
+\\
+\href{sliding.gif}{}
+\\
+\href{sliding}{sliding}
+\\
+comment here
+\\
+\#+begin\_comment
+\\
+this is a comment 2
+\\
+\textbackslash{}\#+end\_comment
+\\
+some *text*
+\\
+text *
+\\
+some \textasciitilde{}text\textasciitilde{}
+\\
+text \textasciitilde{}
+\\
+latex here
+\\
+\[ x = \sqrt{x^2} \]
+\\
+code here
+\\
+\begin{lstlisting}  import requests
   print('whatever')
   print('whatever2')
 \end{lstlisting}
 
-\begin{lstlisting}whatever\\whatever2\\\textbackslash{}(11\textbackslash{})\\wow\end{lstlisting}\\\begin{lstlisting}  do nothing
+\begin{lstlisting}whatever
+\\
+whatever2
+\\
+\textbackslash{}(11\textbackslash{})
+\\
+wow\end{lstlisting}
+\\
+\begin{lstlisting}  do nothing
 \end{lstlisting}
 
-\begin{lstlisting}\href{~/brain/out/jyBtMrE.svg}{}\end{lstlisting}\\\begin{dummy}
+\begin{lstlisting}\href{~/brain/out/jyBtMrE.svg}{}\end{lstlisting}
+\\
+\begin{dummy}
   this is a test
-\end{dummy}\\\\escaped macro here: \textbackslash{}\#(format nil "test\textasciitilde{}A" 1)\\\#(cltpt/base::make-block :type 'definition)\\my first block\\\#(cltpt/base::block-end)\\\#(cltpt/base::make-block :type 'theorem :let '((a "some text")))\\  my first block\\  %a\\  \#(cltpt/base::make-block :type 'subtheorem\\               :let* '((b " that will be included on export")))\\    %(concatenate 'string a b)\\  \#(cltpt/base::block-end)\\\#(cltpt/base::block-end)\\\\add 1 to get %(+ (cltpt/base::prev-obj-eval) 1), add 10 to get %(+ (cltpt/base::prev-obj-eval) 10)\\\#(cltpt/base::blk :type 'theorem\\        :let '((prev-num (prev))\\               (next-num (parse-integer (car (text-list-items (next 'text-list)))))\\               (new-num (+ prev-num next-num))))\\then add the first number from the next list to get %new-num\\multiply that by 5 to get %(* new-num 5). anything is possible! this is only a simple example\\\#(cltpt/base::/blk)\\\begin{itemize}
+\end{dummy}
+\\
+
+\\
+escaped macro here: \textbackslash{}\#(format nil "test\textasciitilde{}A" 1)
+\\
+\#(cltpt/base::make-block :type 'definition)
+\\
+my first block
+\\
+\#(cltpt/base::block-end)
+\\
+\#(cltpt/base::make-block :type 'theorem :let '((a "some text")))
+\\
+  my first block
+\\
+  %a
+\\
+  \#(cltpt/base::make-block :type 'subtheorem
+\\
+               :let* '((b " that will be included on export")))
+\\
+    %(concatenate 'string a b)
+\\
+  \#(cltpt/base::block-end)
+\\
+\#(cltpt/base::block-end)
+\\
+
+\\
+add 1 to get %(+ (cltpt/base::prev-obj-eval) 1), add 10 to get %(+ (cltpt/base::prev-obj-eval) 10)
+\\
+\#(cltpt/base::blk :type 'theorem
+\\
+        :let '((prev-num (prev))
+\\
+               (next-num (parse-integer (car (text-list-items (next 'text-list)))))
+\\
+               (new-num (+ prev-num next-num))))
+\\
+then add the first number from the next list to get %new-num
+\\
+multiply that by 5 to get %(* new-num 5). anything is possible! this is only a simple example
+\\
+\#(cltpt/base::/blk)
+\\
+\begin{itemize}
 \item 45 \href{mylink}{mylink}
 
 \item 45 \(mathhh\)
@@ -27,7 +127,9 @@
 \item 10
 
 \end{itemize}
-hi\\\begin{itemize}
+hi
+\\
+\begin{itemize}
 \item we have \(x=y\)
 \begin{enumerate}
 \renewcommand{\labelenumii}{\alph{enumii.}}
@@ -48,7 +150,9 @@ hi\\\begin{itemize}
 \item item three
 
 \end{itemize}
-the \textit{links}:\\\begin{itemize}
+the \textit{links}:
+\\
+\begin{itemize}
 \item org-mode link:                [[block1][next block]]
 
 \item link using our "text macros": #(ref :id "block1" :text "next block")
@@ -56,27 +160,67 @@ the \textit{links}:\\\begin{itemize}
 \item markdown link:                ()[]
 
 \end{itemize}
-are equivalent, they point to the same object which is the next 'definition' block.\\the specific functionality or syntax (like the org-mode link syntax above) can be enabled or\\disabled as desired by the user. the parser is completely customizable and extensible,\\we provide a default mode that parses \textit{most} of org-mode's syntax but it need not be used.\\i personally plan on reducing my usage of org-mode syntax elements and use the "text-macro"\\syntax above because it is a much more powerful alternative.\\\#(cltpt/base::b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))\\output: %(concatenate 'string "value: [\href{" myvar1 "}{" myvar1 "}]").\\\#(cltpt/base::/b)\\to transclude some block (possibly from another file ofcourse):\\\#(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))\\here is \textbf{some important text}, but also more \textbf{important text}.\\also \textbf{more}. but more*\\some \verb{inline code} here.\\some \textit{italicized text} here, and some \verb{code} here.\\tables\\\begin{tabular} { |l|l| } \hline
+are equivalent, they point to the same object which is the next 'definition' block.
+\\
+the specific functionality or syntax (like the org-mode link syntax above) can be enabled or
+\\
+disabled as desired by the user. the parser is completely customizable and extensible,
+\\
+we provide a default mode that parses \textit{most} of org-mode's syntax but it need not be used.
+\\
+i personally plan on reducing my usage of org-mode syntax elements and use the "text-macro"
+\\
+syntax above because it is a much more powerful alternative.
+\\
+\#(cltpt/base::b :type 'definition :name "block1" :let '((myvar1 ")my(-(test)")))
+\\
+output: %(concatenate 'string "value: [\href{" myvar1 "}{" myvar1 "}]").
+\\
+\#(cltpt/base::/b)
+\\
+to transclude some block (possibly from another file ofcourse):
+\\
+\#(transclude :name "block1" :rebind '((myvar1 "somevaluehere")))
+\\
+here is \textbf{some important text}, but also more \textbf{important text}.
+\\
+also \textbf{more}. but more*
+\\
+some \verb{inline code} here.
+\\
+some \textit{italicized text} here, and some \verb{code} here.
+\\
+tables
+\\
+\begin{tabular} { |l|l| } \hline
  code                             & math                  
 
-\hline\\ \verb{layer-x\textbackslash{}9*1*0}                  & \(I^\ell\)            
-\hline\\ \verb{layer-y}                        & \(\hat Y^\ell\)       
-\hline\\ \verb{layer-y-unactivated}            & \(S^\ell\)            
-\hline\\ \verb{s-deltas}                       & \(\Delta S^\ell\)     
-\hline\\ \verb{x-deltas}                       & \(I^\ell\)            
-\hline\\ \verb{activation-function}            & \(\phi\)              
-\hline\\ \verb{activation-function-derivative} & \(\phi'\)             
-\hline\\ \verb{propped-deltas}                 & \(\Delta I^{\ell+1}\) 
-\hline\\ \verb{learning-rate}                  & \(\alpha\)            
-\hline\end{tabular}\\\begin{tabular} { |l|l|l| } \hline
+\\ \hline \verb{layer-x\textbackslash{}9*1*0}                  & \(I^\ell\)            
+\\ \hline \verb{layer-y}                        & \(\hat Y^\ell\)       
+\\ \hline \verb{layer-y-unactivated}            & \(S^\ell\)            
+\\ \hline \verb{s-deltas}                       & \(\Delta S^\ell\)     
+\\ \hline \verb{x-deltas}                       & \(I^\ell\)            
+\\ \hline \verb{activation-function}            & \(\phi\)              
+\\ \hline \verb{activation-function-derivative} & \(\phi'\)             
+\\ \hline \verb{propped-deltas}                 & \(\Delta I^{\ell+1}\) 
+\\ \hline \verb{learning-rate}                  & \(\alpha\)            
+\\ \hline\end{tabular}
+\\
+\begin{tabular} { |l|l|l| } \hline
  head1   & head2 & head3 
 
-\hline\\ foo     &       & baz   
-\hline\\ 123     & 456   & 789   
-\hline\\ \(x=y\) &       &       
+\\ \hline foo     &       & baz   
+\\ \hline 123     & 456   & 789   
+\\ \hline \(x=y\) &       &       
 
-\hline\\ end     & row   & test  
-\hline\end{tabular}\\\( more math \)\\\\\begin{lstlisting}  import matplotlib
+\\ \hline end     & row   & test  
+\\ \hline\end{tabular}
+\\
+\( more math \)
+\\
+
+\\
+\begin{lstlisting}  import matplotlib
   matplotlib.use('Agg')
   import matplotlib.pyplot as plt
   import matplotlib.patches as patches
@@ -204,4 +348,6 @@ are equivalent, they point to the same object which is the next 'definition' blo
   return filepath
 \end{lstlisting}
 
-\begin{lstlisting}\href{/home/mahmooz/brain/out/WRB4q2d.svg}{}\end{lstlisting}\\test more\end{document}
+\begin{lstlisting}\href{/home/mahmooz/brain/out/WRB4q2d.svg}{}\end{lstlisting}
+\\
+test more\end{document}

@@ -47,7 +47,7 @@
     (if (and loop-expr (not not-to-loop))
         (let* ((var-name (car loop-expr))
                (var-values
-                 (cltpt/base::eval-in-text-object-lexical-scope
+                 (cltpt/base:eval-in-text-object-lexical-scope
                   obj
                   (lambda ()
                     (eval (cadr loop-expr)))))

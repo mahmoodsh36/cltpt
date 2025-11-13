@@ -59,9 +59,34 @@
       (let ((str (cltpt/combinator:match-str match))
             (begin (cltpt/combinator:match-begin match))
             (end (cltpt/combinator:match-end match)))
-        (when (and str begin end)
-          (setf (getf new-match :match) (subseq str begin end)))))
-    new-match))
+        (setf (getf new-match :match) (subseq str begin end))))))
+
+(defun string=+diff (actual expected &optional (test-name "String comparison"))
+  "Compare two strings and show diff if they are not equal, returning T if equal."
+  (if (string= actual expected)
+      t
+      (progn
+        (format t "~%~a: FAILED - Strings do not match~%" test-name)
+        ;; Create temporary files for diff using a simple approach
+        (let ((expected-file (format nil "/tmp/cltpt-expected-~a-tmp" (get-universal-time)))
+              (actual-file (format nil "/tmp/cltpt-actual-~a-tmp" (get-universal-time))))
+          ;; Write expected and actual strings to temporary files
+          (with-open-file (stream expected-file :direction :output :if-exists :supersede)
+            (write-string expected stream))
+          (with-open-file (stream actual-file :direction :output :if-exists :supersede)
+            (write-string actual stream))
+
+          ;; Run diff command
+          (format t "~%~%Diff output:~%")
+          (uiop:run-program (format nil "diff -u ~a ~a" expected-file actual-file)
+                           :output *standard-output* :error-output *error-output* :ignore-error-status t)
+
+          ;; Clean up temporary files
+          (uiop:delete-file-if-exists (pathname expected-file))
+          (uiop:delete-file-if-exists (pathname actual-file))
+
+          (format t "~%~%")
+          nil))))
 
 (defun simplify-full-match (match)
   (labels ((my-simplify (m)
@@ -1877,7 +1902,8 @@ plt.close()
 (test test-org-html-conversion
   (multiple-value-bind (actual-output expected-output)
       (test-org-html-conversion-func)
-    (is (string= actual-output expected-output)
+    (is (string=+diff actual-output expected-output
+                     "HTML conversion of test.org should match expected output")
         "HTML conversion of test.org should match expected output")))
 
 (defun test-org-latex-conversion-func ()
@@ -1891,7 +1917,8 @@ plt.close()
 (test test-org-latex-conversion
   (multiple-value-bind (actual-output expected-output)
       (test-org-latex-conversion-func)
-    (is (string= actual-output expected-output)
+    (is (string=+diff actual-output expected-output
+                     "LaTeX conversion of test.org should match expected output")
         "LaTeX conversion of test.org should match expected output")))
 
 (defun test-comprehensive-org-document-func ()
