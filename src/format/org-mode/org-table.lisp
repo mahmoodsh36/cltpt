@@ -45,10 +45,11 @@
       (and trimmed-start
            (member (char str trimmed-start)
                    (list *table-v-delimiter* *table-intersection-delimiter*))
+           ;; the line must contain at least one h-delimiter
+           (find *table-h-delimiter* str :start line-start :end line-end)
            (loop for i from (1+ trimmed-start) below line-end
                  for char = (char str i)
-                 always (member char (list #\space
-                                           #\tab
+                 always (member char (list #\space #\tab
                                            *table-h-delimiter*
                                            *table-intersection-delimiter*
                                            *table-v-delimiter*)))))))

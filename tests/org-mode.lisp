@@ -2305,6 +2305,7 @@ list, modifying the list, and converting back to a string."
   (let* ((table-string "| head1 | head2 | head3 |
 |-------+-------+-------|
 | foo   | bar   | baz   |
+|||
 | 123   | 1
 hi")
          (table-match (cltpt/org-mode::org-table-matcher nil table-string 0)))
