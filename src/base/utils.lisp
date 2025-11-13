@@ -259,7 +259,7 @@ if SIGN is -1 this subtracts instead of adds."
 
 - START-DATE and END-DATE should be local-time timestamp objects.
 - INTERVAL is a plist like (:day 1 :hour 12)."
-  ;; Validate interval to prevent infinite loops
+  ;; validate interval to prevent infinite loops
   (when (or (and (getf interval :day) (zerop (getf interval :day)))
             (and (getf interval :hour) (zerop (getf interval :hour)))
             (and (getf interval :minute) (zerop (getf interval :minute)))
@@ -275,7 +275,7 @@ if SIGN is -1 this subtracts instead of adds."
 (defun list-date-pairs (start-date end-date interval)
   "generates a list of (current-date . next-date) cons pairs.
 the loop stops when NEXT-DATE would be after END-DATE."
-  ;; Validate interval to prevent infinite loops
+  ;; validate interval to prevent infinite loops
   (when (or (and (getf interval :day) (zerop (getf interval :day)))
             (and (getf interval :hour) (zerop (getf interval :hour)))
             (and (getf interval :minute) (zerop (getf interval :minute)))

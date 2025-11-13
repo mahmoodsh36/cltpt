@@ -206,17 +206,18 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          ,rule)
         ,rule)))
 
-(defmethod cltpt/base:text-object-finalize ((obj org-keyword))
+(defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
   (let* ((match (cltpt/base:text-object-match obj))
          (value-match (cltpt/combinator:find-submatch match 'value))
          (keyword-match (cltpt/combinator:find-submatch match 'keyword))
          (value (cltpt/combinator:match-text value-match))
          (child (first (cltpt/base:text-object-children obj))))
-    (unless value
-      (when (typep child 'cltpt/base::post-lexer-text-macro)
-        ;; if we get here, then the value is meant to be the evaluation result
-        ;; of the post-lexer text macro.
-        (setf value (cltpt/base::eval-post-lexer-macro child))))
+    ;; the following would only work if this was the text-object-finalize function
+    ;; (unless value
+    ;;   (when (typep child 'cltpt/base::post-lexer-text-macro)
+    ;;     ;; if we get here, then the value is meant to be the evaluation result
+    ;;     ;; of the post-lexer text macro.
+    ;;     (setf value (cltpt/base::eval-post-lexer-macro child))))
     (setf (cltpt/base:text-object-property obj :value)
           value)
     (setf (cltpt/base:text-object-property obj :keyword)
@@ -634,13 +635,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           (cltpt/combinator:match-text title))
     (setf (cltpt/base:text-object-property obj :tags)
           (loop for match in (cltpt/combinator:find-submatch-all match 'tag)
-                collect (cltpt/combinator:match-text match)))
-    ;; :initial-match-length will contain the length of the string that was matched
-    ;; for the header's metadata (including title, tags, org-agenda metadata etc).
-    ;; it is later used to detect where the contents of the headers actually start.
-    (setf (cltpt/base:text-object-property obj :initial-match-length)
-          (- (cltpt/combinator:match-end match)
-             (cltpt/combinator:match-begin match)))))
+                collect (cltpt/combinator:match-text match)))))
 
 (defun get-repeat-interval (repeat-num repeat-word)
   (let ((repeat-num (parse-integer repeat-num :junk-allowed t)))
@@ -713,7 +708,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                             )))))
     (loop for action-match in action-active-matches
           do (let ((action-name
-                     (cltpt/combinator:match-text
+                     (cltpt/base:text-object-match-text
+                      obj
                       (cltpt/combinator:find-submatch action-match 'name)))
                    (action-timestamp
                      (cltpt/combinator:find-submatch action-match 'timestamp)))
@@ -901,7 +897,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
      (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
      (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
      nil nil nil)
-    :escapable #\~
+    ;; :escapable #\~
     :on-char #\~))
 (defclass org-inline-code (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -975,7 +971,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (close-tag
            (cltpt/base:pcase backend
              (cltpt/html:*html* "</table>")
-             (cltpt/latex:*latex* "\\hline\\end{tabular}")))
+             (cltpt/latex:*latex* "\\\\ \\hline\\end{tabular}")))
          ;; if separators are defined, they should be used along with
          ;; open/close tags. so the behavior may differ from one format
          ;; to another.
@@ -990,7 +986,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          (cell-separator (cltpt/base:pcase backend
                            (cltpt/latex:*latex* "&")))
          (row-separator (cltpt/base:pcase backend
-                          (cltpt/latex:*latex* "\\hline\\\\"))))
+                          (cltpt/latex:*latex* "\\\\ \\hline"))))
     ;; opening tag
     (setf changes
           (list (cons open-tag
@@ -1176,13 +1172,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                        last-header
                                        :level))))
                      ;; the contents of the header needs to start where the metadata
-                     ;; and the title text end.
-                     (setf (cltpt/base:text-object-property child :contents-region)
-                           (cltpt/base:make-region
-                            :begin (cltpt/base:text-object-property
-                                    child
-                                    :initial-match-length)
-                            :end nil))
+                     ;; and the title text end (i.e., at the end of the initial match).
+                     (setf (cltpt/base:text-object-property child :contents-region-spec)
+                           (list :begin-submatch :self
+                                 :begin-side :end))
                      (push child header-stack))
                    ;; if this object not a header, and we have a last header, just
                    ;; set this as a child of this last header.
@@ -1252,7 +1245,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   nil
                   nil
                   nil))
-                :escapable #\*
+                ;; :escapable #\*
                 :on-char #\*)))
   (:documentation "org-mode emphasized text (surrounded by asterisks)."))
 
@@ -1264,15 +1257,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;; it is called in finalization methods and those are called when
 ;; handling incremental changes.
 (defun compress-contents-region-by-one (obj)
-  (setf (cltpt/base:text-object-property obj :contents-region)
-        (cltpt/base:make-region
-         :begin 0
-         :end (cltpt/base:region-length
-               (cltpt/base:text-object-text-region obj))))
-  (cltpt/base:region-compress
-   (cltpt/base:text-object-property obj :contents-region)
-   1
-   1))
+  ;; Set contents region to span the entire object text, compressed by 1 on each side
+  (setf (cltpt/base:text-object-property obj :contents-region-spec)
+        (list :compress 1)))
 
 (defmethod cltpt/base:text-object-finalize ((obj org-emph))
   (compress-contents-region-by-one obj))
@@ -1470,20 +1457,16 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-src-block-rule*))
   (:documentation "org-mode src block."))
 
-(defun init-org-src-block (obj match)
-  (let* ((begin-match (cltpt/combinator:find-submatch match 'begin))
-         (end-match (cltpt/combinator:find-submatch match 'end))
-         (keywords-match (cltpt/combinator:find-submatch match 'keywords)))
-    (setf (cltpt/base:text-object-property obj :contents-region)
-          (cltpt/base:make-region
-           :begin (- (cltpt/combinator:match-end begin-match)
-                     (cltpt/combinator:match-begin begin-match))
-           :end (- (cltpt/combinator:match-begin end-match)
-                   (cltpt/combinator:match-begin begin-match))))
-    (handle-block-keywords obj)))
+(defun init-org-src-block (obj)
+  (setf (cltpt/base:text-object-property obj :contents-region-spec)
+        (list :begin-submatch 'begin
+              :begin-side :end
+              :end-submatch 'end
+              :end-side :start))
+  (handle-block-keywords obj))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
-  (init-org-src-block obj match))
+  (init-org-src-block obj))
 
 ;; TODO: handle verbatim blocks such as #+begin_example.
 (defmethod convert-block ((obj cltpt/base:text-object)
@@ -1495,6 +1478,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                           (string= exports-keyword "both")))
          (export-results (or (string= exports-keyword "results")
                              (string= exports-keyword "both")))
+         (text (cltpt/base:text-object-text obj))
          (match (cltpt/base:text-object-match obj))
          ;; TODO: code-end-match is really just block-end-match, should be renamed
          ;; when its a regular block, we want to find the last end delimiter
@@ -1525,7 +1509,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                  `(,(cons "type" (cltpt/base:text-object-property obj :type))
                    ,(cons "lang"
                           (when (cltpt/combinator:find-submatch match 'lang)
-                            (cltpt/combinator:match-text
+                            (cltpt/base:text-object-match-text
+                             obj
                              (cltpt/combinator:find-submatch match 'lang)))))
                  (cltpt/base:text-object-property obj :keywords-alist)))
               (props
@@ -1643,7 +1628,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                       (cltpt/base:str-join
                        (mapcar
                         (lambda (raw-line-match)
-                          (subseq (cltpt/combinator:match-text raw-line-match)
+                          (subseq (cltpt/base:text-object-match-text obj raw-line-match)
                                   2))
                         match-raw-lines)
                        (string #\newline)))))
@@ -1685,7 +1670,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
              (push (cons code-close-tag code-close-tag-region) changes)
              (push (cons code-open-tag code-open-tag-region) changes)))
          (if changes
-             (list :text (cltpt/base:text-object-text obj)
+             (list :text text
                    :changes changes
                    :recurse t
                    :escape-regions escape-regions
@@ -1772,19 +1757,16 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-init :after ((obj org-block) str1 match)
   ;; grab the "type" of the block, set content boundaries, need to grab keywords
   (let* ((begin-type-match (cltpt/combinator:find-submatch match 'begin-type))
-         (begin-type (cltpt/combinator:match-text begin-type-match))
-         (begin-match (cltpt/combinator:find-submatch match 'begin))
-         ;; we look for the last instance of 'end because otherwise
-         ;; we might capture the 'end of another block nested
-         ;; within this one
-         (end-match (cltpt/combinator:find-submatch-last match 'end)))
+         (begin-type (cltpt/combinator:match-text begin-type-match)))
     (setf (cltpt/base:text-object-property obj :type) begin-type)
-    (setf (cltpt/base:text-object-property obj :contents-region)
-          (cltpt/base:make-region
-           :begin (- (cltpt/combinator:match-end begin-match)
-                     (cltpt/combinator:match-begin begin-match))
-           :end (- (cltpt/combinator:match-begin end-match)
-                   (cltpt/combinator:match-begin begin-match))))
+    ;; we look for the last instance of 'end because otherwise
+    ;; we might capture the 'end of another block nested within this one
+    (setf (cltpt/base:text-object-property obj :contents-region-spec)
+          (list :begin-submatch 'begin
+                :begin-side :end
+                :end-submatch 'end
+                :end-side :start
+                :find-last-end t))
     ;; handle keywords
     (handle-block-keywords obj)
     (let ((block-title (org-block-keyword-value obj "title"))
@@ -1818,13 +1800,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (:documentation "org-mode export block."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-export-block) str1 match)
-  (init-org-src-block obj match))
+  (init-org-src-block obj))
 
 (defmethod cltpt/base:text-object-convert ((obj org-export-block)
                                            (backend cltpt/base:text-format))
   (let* ((match (cltpt/base:text-object-match obj))
          (lang-match (cltpt/combinator:find-submatch match 'lang))
-         (lang (cltpt/combinator:match-text lang-match)))
+         (lang (cltpt/base:text-object-match-text obj lang-match)))
     ;; we only export if the destination matches the lang set by the export block
     (if (string= (cltpt/base:text-format-name backend) lang)
         (list :text (cltpt/base:text-object-contents obj)
@@ -1899,5 +1881,12 @@ according to INCLUDE-TAGS we decide whether the region should enclose the tags t
                  (cltpt/combinator:match-begin begin-match))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-latex-env) str1 match)
-  (setf (cltpt/base:text-object-property obj :contents-region)
-        (region-in-tags match t)))
+  (declare (ignore str1 match))
+  ;; region-in-tags with include-tags=t means we want the entire region from
+  ;; the beginning of open-tag to the end of close-tag
+  (setf (cltpt/base:text-object-property obj :contents-region-spec)
+        (list :begin-submatch 'open-tag
+              :begin-side :start
+              :end-submatch 'close-tag
+              :end-side :end
+              :find-last-end t)))

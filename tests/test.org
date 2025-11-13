@@ -76,11 +76,12 @@ interesting
 here
 test math
 
+# in the following text removing the space before the "2[ex]" snippet causes issues with escaping because it thinks we're trying to escape starting a display math env
 \[
 \det\left[\begin{array}{cc}
 a_2 & b_2 \\
 a_3 & b_3
-\end{array}\right] \\[2ex]
+\end{array}\right] \\ [2ex]
 \det\left[\begin{array}{cc}
 a_1 & b_1 \\
 a_2 & b_2

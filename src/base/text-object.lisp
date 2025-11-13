@@ -119,6 +119,70 @@ set correctly."
                (obj-str (region-text rel-region str)))
           obj-str))))
 
+;; TODO: this can be heavily optimized by directly modifying the nearest parent with text
+;; slot set instead of modifying the text at every node in the path to the root.
+;; TODO: this doesnt handle text that only "paritally" contained in an object (i.e. some of the
+;; text is in another text-object or is part of no text-object at all)
+(defmethod text-object-modify-region ((obj text-object)
+                                      new-text
+                                      region
+                                      &key
+                                        (propagate t))
+  (with-slots (parent) obj
+    (let* ((text (text-object-text obj))
+           (updated-object-text (concatenate 'string
+                                             (subseq text
+                                                     0
+                                                     (region-begin region))
+                                             new-text
+                                             (subseq text
+                                                     (region-end region)))))
+      (if propagate
+          (let* ((diff (- (length updated-object-text) (length text)))
+                 (original-region (region-clone (text-object-text-region obj))))
+            ;; adjust this child's region accordingly
+            (incf (region-end (text-object-text-region obj)) diff)
+            ;; modify :contents-region if its there
+            (let ((contents-region (text-object-property obj :contents-region)))
+              (when contents-region
+                (incf (region-end contents-region) diff)))
+            ;; modify children boundaries accordingly
+            ;; TODO: this can be easily optimized too. usage of 'relative-child-region' is
+            ;; redundant.
+            (mapcar
+             (lambda (child)
+               (unless (eq child obj)
+                 ;; we have to normalize the region to the child's own coordinate system
+                 (let ((rel-region (relative-child-region obj child)))
+                   (if (< (region-begin region) (region-begin rel-region))
+                       (region-incf (text-object-text-region child) diff)
+                       (when (<= (region-end region) (region-end rel-region))
+                         (incf (region-end (text-object-text-region child))
+                               diff))))))
+             (text-object-children obj))
+            ;; if we've reached the root we just set the text proeprty, otherwise we propagate
+            (if parent
+                (let ((idx (position obj (text-object-children parent))))
+                  ;; modify next siblings boundaries accordingly
+                  (loop for sibling in (subseq (text-object-children (text-object-parent obj))
+                                               (1+ idx))
+                        do (region-incf (text-object-text-region sibling) diff))
+                  ;; propagate changes to parents too.
+                  (text-object-modify-region parent
+                                             updated-object-text
+                                             original-region
+                                             :propagate t
+                                             ))
+                (progn
+                  (setf (slot-value obj 'text) updated-object-text)
+                  (setf (text-object-text-region obj)
+                        (make-region :begin 0
+                                     :end (length updated-object-text))))))
+          (text-object-force-set-text obj updated-object-text))
+      updated-object-text)))
+
+;; TODO: this doesnt correctly handle cases where some object in the tree has the 'text' slot set.
+;; perhaps in such a case we should be updating the text slot.
 (defmethod text-object-change-text ((obj text-object)
                                     new-text
                                     &key (propagate t))
@@ -126,27 +190,14 @@ set correctly."
 
 this function doesnt propagate the changes to the children, so using it without
 taking care of children indicies would cause issues."
-  (if propagate
-      (let* ((ancestor (nearest-ancestor-with-text obj))
-             (orig-str (slot-value ancestor 'text))
-             (rel-region (relative-child-region ancestor obj))
-             (new-ancestor-text
-               (concatenate 'string
-                            (subseq orig-str 0 (region-begin rel-region))
-                            new-text
-                            (subseq orig-str (region-end rel-region)))))
-        ;; set the text in the ancestor accordingly, then update the boundaries
-        ;; of both the root and this child.
-        (setf (slot-value ancestor 'text) new-ancestor-text)
-        (setf (region-end (text-object-text-region ancestor))
-              (length new-ancestor-text))
-        (setf (region-end (text-object-text-region obj))
-              (+ (length new-text)
-                 (region-begin (text-object-text-region obj)))))
-      (text-object-force-set-text obj new-text)))
+  (text-object-modify-region obj
+                             new-text
+                             (make-region :begin 0
+                                          :end (region-length (text-object-text-region obj)))
+                             :propagate propagate))
 
 (defmethod (setf text-object-text) (new-text (obj text-object))
-  (text-object-change-text obj new-text))
+  (text-object-change-text obj new-text :propagate nil))
 
 (defmethod text-object-force-set-text ((text-obj text-object) new-text)
   "set text slot without propagating changes upwards in the tree."
@@ -203,7 +254,7 @@ taking care of children indicies would cause issues."
               (if (and ancestor
                        (slot-boundp ancestor 'text)
                        (slot-value ancestor 'text))
-                  (cltpt/base:str-prune (text-object-text obj) 15)
+                  (str-prune (text-object-text obj) 15)
                   nil)))))
 
 ;; this is actually the slowest way to traverse siblings
@@ -229,7 +280,10 @@ taking care of children indicies would cause issues."
   nil)
 
 (defclass document (text-object)
-  ()
+  ((escapes
+    :accessor text-document-escapes
+    :initform nil
+    :documentation "escape sequences detected during parsing."))
   (:documentation "top-level text element."))
 
 (defmethod document-title ((obj document))
@@ -276,16 +330,78 @@ taking care of children indicies would cause issues."
   "return the children of the text-obj, sorted by starting point."
   (sort-text-objects (text-object-children obj)))
 
+(defun compute-region-from-spec (text-obj spec)
+  "compute a region from a contents-region-spec and the object's match.
+SPEC is a plist with keys:
+:begin-submatch - submatch name for begin position (optional, use :self for main match)
+:begin-side     - :start or :end (which side of the submatch to use)
+:end-submatch   - submatch name for end position (optional, use :self for main match)
+:end-side       - :start or :end
+:compress       - amount to compress the region (optional)
+:find-last-end  - if t, use find-submatch-last for end-submatch"
+  ;; guard against unbound match slot - return default region
+  (let* ((match (if (slot-boundp text-obj 'match)
+                    (text-object-match text-obj)
+                    nil)))
+    (unless match
+      (return-from compute-region-from-spec
+        (let ((region (make-region :begin 0
+                                   :end (region-length (text-object-text-region text-obj)))))
+          (if (getf spec :compress)
+              (region-compress region (getf spec :compress) (getf spec :compress))
+              region))))
+    (let* ((match-begin (cltpt/combinator:match-begin match))
+           (begin-submatch-name (getf spec :begin-submatch))
+           (begin-side (getf spec :begin-side :end))
+           (end-submatch-name (getf spec :end-submatch))
+           (end-side (getf spec :end-side :start))
+           (compress (getf spec :compress))
+           (find-last-end (getf spec :find-last-end))
+           (begin-submatch (cond
+                            ((eq begin-submatch-name :self) match)
+                            (begin-submatch-name
+                             (cltpt/combinator:find-submatch match begin-submatch-name))
+                            (t nil)))
+           (end-submatch (cond
+                          ((eq end-submatch-name :self) match)
+                          (end-submatch-name
+                           (if find-last-end
+                               (cltpt/combinator:find-submatch-last match end-submatch-name)
+                               (cltpt/combinator:find-submatch match end-submatch-name)))
+                          (t nil)))
+           (begin-pos (if begin-submatch
+                          (- (if (eq begin-side :end)
+                                 (cltpt/combinator:match-end begin-submatch)
+                                 (cltpt/combinator:match-begin begin-submatch))
+                             match-begin)
+                          0))
+           (end-pos (if end-submatch
+                        (- (if (eq end-side :end)
+                               (cltpt/combinator:match-end end-submatch)
+                               (cltpt/combinator:match-begin end-submatch))
+                           match-begin)
+                        (region-length (text-object-text-region text-obj))))
+           (region (make-region :begin begin-pos :end end-pos)))
+      (if compress
+          (region-compress region compress compress)
+          region))))
+
 (defmethod text-object-contents-begin ((text-obj text-object))
-  (if (text-object-property text-obj :contents-region)
-      (region-begin (text-object-property text-obj :contents-region))
-      0))
+  (let ((spec (text-object-property text-obj :contents-region-spec)))
+    (if spec
+        (region-begin (compute-region-from-spec text-obj spec))
+        (if (text-object-property text-obj :contents-region)
+            (region-begin (text-object-property text-obj :contents-region))
+            0))))
 
 (defmethod text-object-contents-end ((text-obj text-object))
-  (if (text-object-property text-obj :contents-region)
-      (or (region-end (text-object-property text-obj :contents-region))
-          (length (text-object-text text-obj)))
-      (length (text-object-text text-obj))))
+  (let ((spec (text-object-property text-obj :contents-region-spec)))
+    (if spec
+        (region-end (compute-region-from-spec text-obj spec))
+        (if (text-object-property text-obj :contents-region)
+            (or (region-end (text-object-property text-obj :contents-region))
+                (length (text-object-text text-obj)))
+            (length (text-object-text text-obj))))))
 
 (defmethod text-object-contents-region ((text-obj text-object))
   (make-region :begin (text-object-contents-begin text-obj)
@@ -506,8 +622,9 @@ taking care of children indicies would cause issues."
   "lists all nested children text objects of TEXT-OBJ. including the object itself."
   (let ((results))
     (labels ((handle (obj)
-               (push obj results)))
-      (cltpt/base:map-text-object text-obj #'handle))
+               (unless (eq obj text-obj)
+                 (push obj results))))
+      (map-text-object text-obj #'handle))
     results))
 
 (defmethod child-at-pos ((text-obj text-object) pos)
@@ -572,7 +689,7 @@ and grabbing each position of each object through its ascendants in the tree."
   (let ((old-parent (text-object-parent child)))
     ;; insert it at the right location, keeping the list of children sorted.
     (setf (text-object-children parent)
-           (cltpt/base:sorted-insert
+           (sorted-insert
             (text-object-children parent)
             child
             :key 'text-object-begin-in-root))
@@ -601,10 +718,10 @@ and grabbing each position of each object through its ascendants in the tree."
       (setf (region-end (text-object-text-region obj)) new-pos)
       ;; update the cached text by re-slicing it from the parent's text
       ;; using the newly updated region.
-      (setf (text-object-text obj)
-            (subseq (text-object-text parent)
-                    (text-object-begin obj)
-                    (text-object-end obj)))
+      ;; (setf (text-object-text obj)
+      ;;       (subseq (text-object-text parent)
+      ;;               (text-object-begin obj)
+      ;;               (text-object-end obj)))
       ;; find any sibling objects that are now encompassed by the new, larger region.
       (let ((siblings-to-move
               (loop for sibling in (text-object-children parent)
@@ -697,7 +814,7 @@ contents region is further compressed by COMPRESS-REGION if provided."
     :documentation "the link object of the text-link."))
   (:documentation "base text-object for links."))
 
-(defmethod cltpt/base:text-object-init :after ((obj text-link) str1 match)
+(defmethod text-object-init :after ((obj text-link) str1 match)
   (let* ((link-type-match (cltpt/combinator:find-submatch match 'link-type))
          (link-dest-match (cltpt/combinator:find-submatch match 'link-dest))
          (link-desc-match (cltpt/combinator:find-submatch match 'link-desc))
@@ -706,12 +823,32 @@ contents region is further compressed by COMPRESS-REGION if provided."
           (make-link :type (when type-str (intern type-str :cltpt/base))
                      :desc (cltpt/combinator:match-text link-desc-match)
                      :dest (cltpt/combinator:match-text link-dest-match)))
-    (setf (cltpt/base:text-object-property obj :is-inline) t)))
+    (setf (text-object-property obj :is-inline) t)))
 
 (defmethod text-link-resolve ((obj text-link))
   (let* ((link (text-link-link obj))
          (type (or (link-type link) 'file))
          (dest (link-dest link))
          (desc (link-desc link))
-         (resolved (cltpt/base:link-resolve type dest desc)))
+         (resolved (link-resolve type dest desc)))
     resolved))
+
+;; this is useful because running match-str on matches will not return the correct string
+;; during conversion after incremental changes have been applied to matches/text-objects
+(defun text-object-match-text (obj-or-str match)
+  "get text from MATCH relative to text object OBJ or string STR."
+  (when match
+    (let ((full-text (if (typep obj-or-str 'text-object)
+                         (text-object-text (text-object-root obj-or-str))
+                         obj-or-str)))
+      (region-text
+       (make-region
+        :begin (cltpt/combinator:match-begin match)
+        :end (cltpt/combinator:match-end match))
+       full-text))))
+
+;; (defgeneric text-object-post-changes (text-obj)
+;;   (:documentation "function ran after applying changes to a text-object."))
+
+;; (defmethod cltpt/base:text-object-post-changes ((obj text-object))
+;;   )

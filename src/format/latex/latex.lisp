@@ -44,12 +44,12 @@
   "`text-format' instance of the latex format.")
 
 (defvar *latex-escape-table*
-  '((#\& . "\\&")
+  `((#\& . "\\&")
     (#\~ . "\\textasciitilde{}")
     (#\\ . "\\textbackslash{}")
     (#\_ . "\\_")
     (#\# . "\\#")
-    (#\newline . "\\\\")))
+    (#\newline . ,(format nil "~%\\\\~%"))))
 
 (defmethod cltpt/base:text-format-escape ((fmt (eql *latex*))
                                           text
