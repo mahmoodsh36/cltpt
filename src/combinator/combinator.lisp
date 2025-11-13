@@ -2,7 +2,8 @@
   (:use :cl)
   (:import-from :cltpt/combinator/match
    :match-id :match-begin :match-end :match-ctx :match-children :match-str
-   :make-match :match-clone :match-rule
+   :make-match :match-clone :match-rule :match-parent
+   :match-set-children-parent
    :find-submatch :find-submatch-last :find-submatch-all)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
@@ -17,10 +18,11 @@
    :apply-rule-normalized
 
    :match-id :match-begin :match-end :match-ctx :match-children :match-str
-   :make-match :match-clone :match-rule
+   :make-match :match-clone :match-rule :match-parent
+   :match-set-children-parent
    :find-submatch :find-submatch-last :find-submatch-all
 
-   :find-submatch :find-submatch-all :find-submatch-last :match-text
+   :match-text
    :copy-rule :copy-modify-rule))
 
 (in-package :cltpt/combinator)
@@ -41,6 +43,8 @@
   rules
   ;; we hash rules by id, so we can grab them quickly during matching
   rule-hash)
+
+(defvar *escaped*)
 
 (defun match-text (match)
   (when match
@@ -132,11 +136,12 @@ to replace and new-rule is the rule to replace it with."
         for match = (apply-rule-normalized ctx one str pos)
         do (when match
              (return-from any
-               (make-match :begin (match-begin match)
-                           :end (match-end match)
-                           :str str
-                           :ctx ctx
-                           :children (list match))))))
+               (match-set-children-parent
+                (make-match :begin (match-begin match)
+                            :end (match-end match)
+                            :str str
+                            :ctx ctx
+                            :children (list match)))))))
 
 (defun literal (ctx str pos substr)
   "match a literal string."
@@ -226,11 +231,12 @@ to replace and new-rule is the rule to replace it with."
                    (setf pos (match-end match))
                    (push match matches))
                  (return-from consec nil)))
-    (make-match :begin start
-                :end pos
-                :str str
-                :ctx ctx
-                :children (nreverse matches))))
+    (match-set-children-parent
+     (make-match :begin start
+                 :end pos
+                 :str str
+                 :ctx ctx
+                 :children (nreverse matches)))))
 
 (defun consec-atleast-one (ctx str pos &rest all)
   "match a consecutive set of rules, atleast the first has to be present.
@@ -250,11 +256,12 @@ the consecutive matches up to that point."
                    (push match matches))
                  (return)))
     (when matches
-      (make-match :begin start
-                  :end pos
-                  :str str
-                  :ctx ctx
-                  :children (nreverse matches)))))
+      (match-set-children-parent
+       (make-match :begin start
+                   :end pos
+                   :str str
+                   :ctx ctx
+                   :children (nreverse matches))))))
 
 ;; a consecutive set of matchers, separated by a specific matcher. atleast one
 (defun separated-atleast-one (ctx str pos sep-matcher matcher)
@@ -281,11 +288,12 @@ the consecutive matches up to that point."
            (push match matches))
          (setf first nil))
     (when matches
-      (make-match :begin start
-                  :end pos
-                  :str str
-                  :ctx ctx
-                  :children (nreverse matches)))))
+      (match-set-children-parent
+       (make-match :begin start
+                   :end pos
+                   :str str
+                   :ctx ctx
+                   :children (nreverse matches))))))
 
 (defun atleast-one (ctx str pos matcher)
   "match the rule MATCHER atleast once."
@@ -303,11 +311,12 @@ the consecutive matches up to that point."
                    (push match matches))
                  (return)))
     (when matches
-      (make-match :begin start
-                  :end pos
-                  :str str
-                  :ctx ctx
-                  :children (nreverse matches)))))
+      (match-set-children-parent
+       (make-match :begin start
+                   :end pos
+                   :str str
+                   :ctx ctx
+                   :children (nreverse matches))))))
 
 (defun atleast-one-discard (ctx str pos matcher)
   "like `atleast-one', but doesnt collect submatches. better performance."
@@ -399,14 +408,15 @@ before the final closing rule is found."
                                        content-start-pos
                                        content-end-pos)
                        nil))
-                 (match (make-match
-                         :begin pos
-                         :end overall-end-pos
-                         :str str
-                         :ctx ctx
-                         :children (append (list opening-match)
-                                           content-matches
-                                           (list final-closing-match))))
+                 (match (match-set-children-parent
+                         (make-match
+                          :begin pos
+                          :end overall-end-pos
+                          :str str
+                          :ctx ctx
+                          :children (append (list opening-match)
+                                            content-matches
+                                            (list final-closing-match)))))
                  (children-nodes ))
             (when pair-id
               (setf (match-id match) pair-id))
@@ -569,6 +579,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
 (defun scan-all-rules (ctx str rules &optional (start-idx 0) (end-idx (length str)))
   "iterate through STR, apply each matcher of RULES repeatedly at each position."
   (let* ((events)
+         (*escaped*)
          (i start-idx)
          (rule-hash (hash-rules rules))
          ;; hash rules by :on-char to speed up iteration, we only call hashed
@@ -594,7 +605,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                        do (handle-rule rule)
                        finally (unless matched
                                  (incf i))))))
-    (nreverse events)))
+    (values (nreverse events) (nreverse *escaped*))))
 
 (defun parse (str rules)
   (scan-all-rules nil str rules 0 (length str)))
@@ -617,7 +628,20 @@ if not escaped, it attempts to match the given 'rule'.
 an optional escape-char can be provided, defaulting to backslash."
   ;; check if the current position is escaped by an odd number of escape chars.
   (if (is-preceded-by-odd-escape-p ctx str pos escape-char)
-      nil
+      (when (apply-rule ctx rule str pos)
+        ;; TODO: isnt this hacky? it only makes sense tho :(
+        (progn
+          (let ((last-escaped (car *escaped*)))
+            (unless (and last-escaped (equal (match-begin last-escaped) (1- pos)))
+              (push (make-match :begin (1- pos)
+                                :end (1+ pos)
+                                :props (list :replace (string (char str pos)))
+                                :str str
+                                :ctx ctx
+                                :id 'escape
+                                :children nil)
+                    *escaped*)))
+          nil))
       (apply-rule ctx rule str pos)))
 
 (defun at-line-start-p (ctx str pos)
@@ -756,11 +780,12 @@ but if they don't match, parsing continues without them."
                         (setf pos (match-end match))
                         (push match matches))
                       (return-from consec-with-optional nil))))))
-    (make-match :begin start
-                :end pos
-                :str str
-                :ctx ctx
-                :children (nreverse matches))))
+    (match-set-children-parent
+     (make-match :begin start
+                 :end pos
+                 :str str
+                 :ctx ctx
+                 :children (nreverse matches)))))
 
 (defun between-whitespace (ctx str pos rule)
   "a combinator that uses when-match to match a RULE only if the match

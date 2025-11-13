@@ -2,7 +2,7 @@
   (:use :cl)
   (:export
    :flatten :tree-find :pcase :plistp
-   :bind-and-eval :bind-and-eval*
+   :bind-and-eval :bind-and-eval* :eval-in-text-object-lexical-scope
    :compress-consec :str-join :concat :str-prune :str-split :str-dupe
    :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :replace-substr
@@ -47,6 +47,7 @@
    :text-object-normalized-match :text-object-match
    :text-link :text-link-link :text-link-resolve
    :make-block :block-end
+   :text-object-match-text :text-object-root
 
    :make-region :region-text :region-contains
    :region-incf :region-decf :region-clone :region-compress :region-compress-by

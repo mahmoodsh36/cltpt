@@ -3,7 +3,7 @@
   (:export
    :tree-value :tree-children :tree-map :tree-find-all :tree-find :tree-walk
    :is-subtree :tree-root :tree-parent :tree-show :node-depth :has-children
-   :tree-find-if))
+   :tree-find-if :is-descendant :is-ascendant))
 
 (in-package :cltpt/tree)
 
@@ -218,3 +218,14 @@ determined by `is-subtree'."
                                (trees-map child-group func)
                                child-group))))
       (cons (apply func trees) children-result))))
+
+(defun is-descendant (node ancestor)
+  "check if NODE is a descendant of ANCESTOR (including being the same node)."
+  (cond
+    ((eq node ancestor) t)
+    ((null node) nil)
+    (t (is-descendant (tree-parent node) ancestor))))
+
+(defun is-ascendant (node descendant)
+  "check if NODE is an ascendant of DESCENDANT (including being the same node)."
+  (is-descendant descendant node))

@@ -147,36 +147,37 @@ the function passes the state between recursive calls by returning two values:
            (remove-if-not
             'identity
             (loop for type1 in text-object-types
-                  collect (text-object-rule-from-subclass type1))))
-         (matches (cltpt/combinator:parse str1 data)))
-    (loop for m in matches
-          do (multiple-value-bind (top-level-result updated-objects)
-                 (handle-match str1
-                               m
-                               all-objects
-                               text-object-types)
-               (setf all-objects updated-objects)))
-    ;; here we build the text object forest (collection of trees) properly
-    (let ((top-level
-            (reverse
-             (remove-if
-              (lambda (item) (text-object-parent item))
-              all-objects)))
-          (doc (or doc
-                   (make-instance (text-format-document-type format)
-                                  :text str1))))
-      (setf (text-object-text-region doc)
-            (make-region :begin 0 :end (length str1)))
-      (setf (slot-value doc 'text) str1)
-      (mapc
-       (lambda (entry)
-         (text-object-set-parent entry doc)
-         (text-object-adjust-to-parent entry doc))
-       top-level)
-      (setf (text-object-children doc) top-level)
-      ;; we need to finalize only after the top-level doc object has been set as parent
-      (finalize-doc doc)
-      doc)))
+                  collect (text-object-rule-from-subclass type1)))))
+    (multiple-value-bind (matches escaped) (cltpt/combinator:parse str1 data)
+      (loop for m in matches
+            do (multiple-value-bind (top-level-result updated-objects)
+                   (handle-match str1
+                                 m
+                                 all-objects
+                                 text-object-types)
+                 (setf all-objects updated-objects)))
+      ;; here we build the text object forest (collection of trees) properly
+      (let ((top-level
+              (reverse
+               (remove-if
+                (lambda (item) (text-object-parent item))
+                all-objects)))
+            (doc (or doc
+                     (make-instance (text-format-document-type format)
+                                    :text str1))))
+        (setf (text-object-text-region doc)
+              (make-region :begin 0 :end (length str1)))
+        (setf (slot-value doc 'text) str1)
+        (mapc
+         (lambda (entry)
+           (text-object-set-parent entry doc)
+           (text-object-adjust-to-parent entry doc))
+         top-level)
+        (setf (text-object-children doc) top-level)
+        ;; we need to finalize only after the top-level doc object has been set as parent
+        (finalize-doc doc)
+        (setf (slot-value doc 'escapes) escaped)
+        doc))))
 
 (defun finalize-doc (doc)
   (loop for child in (text-object-children doc)
@@ -191,8 +192,7 @@ the function passes the state between recursive calls by returning two values:
                    (or
                     (find-child-enclosing-region
                      child
-                     (let ((new-region
-                             (region-clone (text-object-text-region child))))
+                     (let ((new-region (region-clone r)))
                        (region-decf new-region
                                     (region-begin (text-object-text-region child)))
                        new-region))
@@ -232,17 +232,17 @@ returns the elements newly inserted into the tree."
                     (parent (text-object-parent child))
                     (child-text (text-object-text child))
                     (rel-child-region (relative-child-region obj child))
-                    (child-region (region-clone (text-object-text-region child)))
-                    (new-child-text
-                      (concatenate 'string
-                                   (subseq child-text
-                                           0
-                                           (- (region-begin region)
-                                              (region-begin rel-child-region)))
-                                   new-str
-                                   (subseq child-text
-                                           (- (region-end region)
-                                              (region-begin rel-child-region)))))
+                    (child-region (region-decf (region-clone region)
+                                               (region-begin rel-child-region)))
+                    (region-in-root
+                      (region-incf (region-clone region)
+                                   (region-begin (relative-child-region (text-object-root obj)
+                                                                        obj))))
+                    (new-child-text (text-object-modify-region
+                                     child
+                                     new-str
+                                     child-region
+                                     :propagate propagate))
                     (child-idx
                       (when parent
                         (position
@@ -257,18 +257,62 @@ returns the elements newly inserted into the tree."
                (when (getf cltpt:*debug* :convert)
                  (format t
                          "DEBUG: replaced '~A' with '~A'~%"
-                         (subseq child-text
-                                 (- (region-begin region)
-                                    (region-begin rel-child-region))
-                                 (- (region-end region)
-                                    (region-begin rel-child-region)))
+                         (region-text child-region child-text)
                          new-str)
                  (format t
                          "DEBUG: text changed from '~A' to '~A'~%"
                          child-text
                          new-child-text))
-               ;; adjust the text of the object accordingly using `text-object-change-text' which handles it correctly
-               (text-object-change-text child new-child-text :propagate propagate)
+               ;; TODO: optimize this, it iterates through the tree for each change which
+               ;; is very very inefficient.
+               ;; TODO: this is very hacky.. we shouldnt be modifying match trees like that..
+               (when propagate
+                 ;; TODO: we can reduce matches-to-update to only matches past the root of the
+                 ;; "current" one.
+                 ;; note that we cant just use the matches of the children of the root because
+                 ;; of re-structuring that happens after parsing, such as extending header regions
+                 ;; in org-document finalization.
+                 ;; TODO: this is pretty slow, probably worse than O(n^2log(n)) because of
+                 ;; member-checking. if we take into account the whole thing it could be closer
+                 ;; to O(n^3log(n)).
+                 (let ((matches-to-update
+                         (let ((all))
+                           (map-text-object
+                            (text-object-root obj)
+                            (lambda (other-object)
+                              ;; we only push the match if its a root match (no parent).
+                              (when (slot-boundp other-object 'match)
+                                (let ((other-match (text-object-match other-object)))
+                                  (when (not (member other-match
+                                                     all
+                                                     :test #'cltpt/tree:is-descendant))
+                                    (push other-match all))))))
+                           all)))
+                   (loop for match-root in matches-to-update
+                         do (when (getf cltpt:*debug* :convert)
+                              (format t "match tree before:~%")
+                              (cltpt/tree:tree-show match-root))
+                         do (cltpt/tree:tree-map
+                             match-root
+                             (lambda (subtree)
+                               ;; if the modified region is before the beginning of the match,
+                               ;; we update both :begin and :end of the match, otherwise we
+                               ;; only modify :end.
+                               (if (< (region-begin region-in-root)
+                                      (cltpt/combinator:match-begin subtree))
+                                   (progn
+                                     (incf (cltpt/combinator:match-begin subtree)
+                                           change-in-region-length)
+                                     (incf (cltpt/combinator:match-end subtree)
+                                           change-in-region-length))
+                                   (when (<= (region-end region-in-root)
+                                             (cltpt/combinator:match-end subtree))
+                                     (incf (cltpt/combinator:match-end subtree)
+                                           change-in-region-length)))))
+                         do (when (getf cltpt:*debug* :convert)
+                              (format t "match tree after:~%")
+                              (cltpt/tree:tree-show match-root))
+                         )))
                ;; adjust offset accordingly for next children/regions
                (incf offset change-in-region-length)
                (if reparse
@@ -356,21 +400,19 @@ returns the elements newly inserted into the tree."
                                             parent))))))
                    ;; if we arent reparsing we need to adjust the regions of the
                    ;; children of the object accordingly.
-                   (loop for node in (text-object-children child)
-                         for node-begin = (region-begin
-                                           (relative-child-region obj node))
-                         do (when (>= node-begin (region-begin region))
-                              (region-incf (text-object-text-region node)
-                                           change-in-region-length))))
-               ;; we need to change the positions of the next siblings in the tree
-               ;; according to the change in their sibling
-               (when propagate
-                 (when next-siblings
-                   (loop for sibling in next-siblings
-                         do (region-incf (text-object-text-region sibling)
-                                         change-in-region-length))))
+                   ;; if we are meant to propagate the 'text-object-modify-region' function
+                   ;; will take care of this.
+                   (unless propagate
+                     (loop for node in (text-object-children child)
+                           for node-begin = (region-begin
+                                             (relative-child-region obj node))
+                           do (when (>= node-begin (region-begin region))
+                                (region-incf (text-object-text-region node)
+                                             change-in-region-length)))))
                ;; we need to finalize after changes.
-               (finalize-doc child)))
+               ;; or maybe we shouldnt?
+               ;; (finalize-doc child)
+               ))
     (nreverse new-elements)))
 
 ;; this is used for incremental parsing. it takes a position at which the

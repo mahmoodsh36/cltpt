@@ -2,13 +2,27 @@
   (:use :cl)
   (:export
    :match-id :match-begin :match-end :match-ctx :match-children :match-str
-   :make-match :match-clone :match-rule
+   :make-match :match-clone :match-rule :match-parent
+   :match-set-children-parent
    :find-submatch :find-submatch-last :find-submatch-all))
 
 (in-package :cltpt/combinator/match)
 
-(defstruct match
+(defstruct (match (:print-function
+                    (lambda (struct stream depth)
+                      (declare (ignore depth))
+                      (format stream "#<MATCH ~A [~A:~A]~@[ id:~A~]>"
+                              (if (match-str struct)
+                                  (subseq (match-str struct)
+                                          (match-begin struct)
+                                          (min (match-end struct)
+                                               (+ (match-begin struct) 20)))
+                                  "")
+                              (match-begin struct)
+                              (match-end struct)
+                              (match-id struct)))))
   children
+  parent
   str
   begin
   end
@@ -16,6 +30,13 @@
   id
   props
   rule)
+
+(defun match-set-children-parent (match)
+  "set the parent field of all children to point to MATCH."
+  (when (match-children match)
+    (dolist (child (match-children match))
+      (setf (match-parent child) match)))
+  match)
 
 (defun find-submatch (match submatch-id &optional (test 'string=))
   "from a combinator-returned MATCH, find a sub-match by its SUBMATCH-ID."
@@ -54,10 +75,14 @@
    :str (copy-seq (match-str match))
    :ctx (match-ctx match)
    :id (match-id match)
+   :parent nil
    :children (mapcar 'match-clone (match-children match))))
 
 (defmethod cltpt/tree:tree-children ((subtree match))
   (match-children subtree))
+
+(defmethod cltpt/tree:tree-parent ((subtree match))
+  (match-parent subtree))
 
 (defmethod cltpt/tree:tree-value ((subtree match))
   subtree)
