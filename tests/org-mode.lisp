@@ -2321,8 +2321,7 @@ hi")
 |-------+-------+-------|
 | foo   | bar   | baz   |
 |       |       |       |
-| 123   | 1     |       |
-"
+| 123   | 1     |       |"
                          ))
     (fiveam:is (string= result
                         expected-result))))
