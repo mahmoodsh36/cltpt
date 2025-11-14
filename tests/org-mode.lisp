@@ -2312,7 +2312,20 @@ hi")
     (when table-match
       (format t "--- original partial table ---~%~A~%~%" table-string)
       (let ((reformatted-string (cltpt/org-mode::reformat-table table-match)))
-        (format t "--- reformatted and completed table ---~%~A" reformatted-string)))))
+        (format t "--- reformatted and completed table ---~%~A" reformatted-string)
+        reformatted-string))))
+
+(test test-reformat-partial-table
+  (let ((result (test-reformat-partial-table))
+        (expected-result "| head1 | head2 | head3 |
+|-------+-------+-------|
+| foo   | bar   | baz   |
+|       |       |       |
+| 123   | 1     |       |
+"
+                         ))
+    (fiveam:is (string= result
+                        expected-result))))
 
 (defun run-org-mode-tests ()
   "Run all org-mode rules tests."
