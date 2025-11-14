@@ -207,7 +207,6 @@
                              :end last-successful-pos
                              :str str
                              :children reversed-nodes)))
-          ;; ---- FIX: Set parent on all children of the table ----
           (dolist (child reversed-nodes)
             (setf (cltpt/combinator/match:match-parent child) table-match))
           (values table-match last-successful-pos))
