@@ -75,7 +75,7 @@ returns (values item-node, pos-after-item)."
              (bullet-end (+ bullet-begin (length marker)))
              (content-segments)
              (current-scan-pos next-line-start)
-             (end-of-content-lines next-line-start))
+             (end-of-content-text line-end))
         (push (cltpt/combinator:make-match
                :id 'list-item-bullet
                :begin bullet-begin
@@ -103,12 +103,12 @@ returns (values item-node, pos-after-item)."
                         (push (cons extra-line-content-start next-l-end)
                               content-segments)))
                     (setf current-scan-pos next-l-next)
-                    (setf end-of-content-lines next-l-next))
+                    (setf end-of-content-text next-l-end))
                   (return)))))
         (setf content-segments (nreverse content-segments))
         (let* ((children-of-content)
                (pos-after-children current-scan-pos)
-               (final-end-pos 0) ;; calculated later
+               (end-of-children 0) ;; calculated later
                (content-node-begin
                  (if content-segments
                      (caar content-segments)
@@ -122,7 +122,8 @@ returns (values item-node, pos-after-item)."
                                   (1+ item-indent))
               (when child-list-match
                 (push child-list-match children-of-content)
-                (setf pos-after-children pos-after-child))))
+                (setf pos-after-children pos-after-child)
+                (setf end-of-children (cltpt/combinator:match-end child-list-match)))))
           (when inline-rules
             (dolist (segment content-segments)
               (let ((matches-in-segment
@@ -136,28 +137,26 @@ returns (values item-node, pos-after-item)."
                   (setf children-of-content
                         (nconc children-of-content
                                matches-in-segment))))))
-          ;; calculate the final end position for the *entire item* first.
-          (setf final-end-pos (max end-of-content-lines pos-after-children))
-          ;; now create the content node, using this correct, encompassing end position.
-          ;; the content node's range now correctly includes its text AND its children's ranges.
-          (push (cltpt/combinator:make-match
-                 :id 'list-item-content
-                 :begin content-node-begin
-                 :end final-end-pos
-                 :str str
-                 :children (sort children-of-content
-                                 #'<
-                                 :key (lambda (n)
-                                        (cltpt/combinator:match-begin n))))
-                children-of-item)
-          (let* ((match (cltpt/combinator:make-match
-                         :id 'list-item
-                         :begin item-start-pos
-                         :end final-end-pos
-                         :str str
-                         :props (list :indent item-indent)
-                         :children (nreverse children-of-item))))
-            (values match final-end-pos)))))))
+          (let* ((final-match-end (max end-of-content-text end-of-children))
+                 (final-next-pos (max current-scan-pos pos-after-children)))
+            (push (cltpt/combinator:make-match
+                   :id 'list-item-content
+                   :begin content-node-begin
+                   :end final-match-end
+                   :str str
+                   :children (sort children-of-content
+                                   #'<
+                                   :key (lambda (n)
+                                          (cltpt/combinator:match-begin n))))
+                  children-of-item)
+            (let* ((match (cltpt/combinator:make-match
+                           :id 'list-item
+                           :begin item-start-pos
+                           :end final-match-end
+                           :str str
+                           :props (list :indent item-indent)
+                           :children (nreverse children-of-item))))
+              (values match final-next-pos))))))))
 
 (defun parse-list-items-at-indent (ctx str initial-pos expected-indent inline-rules)
   "parses a sequence of sibling list items.
@@ -218,7 +217,7 @@ returns (values match-node, new-pos)."
             (let ((match (cltpt/combinator:make-match
                           :id 'org-list
                           :begin pos
-                          :end final-pos-after-list
+                          :end (cltpt/combinator:match-end (car (last top-level-item-nodes)))
                           :str str
                           :children top-level-item-nodes
                           :props (list :indent initial-indent))))
