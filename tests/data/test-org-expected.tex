@@ -119,14 +119,12 @@ multiply that by 5 to get %(* new-num 5). anything is possible! this is only a s
 \\
 \begin{itemize}
 \item 45 \href{mylink}{mylink}
-
 \item 45 \(mathhh\)
-
 \item 50
-
 \item 10
-
 \end{itemize}
+
+\\
 hi
 \\
 \begin{itemize}
@@ -138,28 +136,25 @@ hi
 \begin{enumerate}
 \renewcommand{\labelenumiii}{\arabic{enumiii.}}
 \item test1
-
 \item test2
-
 \end{enumerate}
 
 \item nested item two
-
 \end{enumerate}
 
 \item item three
-
 \end{itemize}
+
+\\
 the \textit{links}:
 \\
 \begin{itemize}
 \item org-mode link:                [[block1][next block]]
-
 \item link using our "text macros": #(ref :id "block1" :text "next block")
-
 \item markdown link:                ()[]
-
 \end{itemize}
+
+\\
 are equivalent, they point to the same object which is the next 'definition' block.
 \\
 the specific functionality or syntax (like the org-mode link syntax above) can be enabled or
@@ -348,4 +343,5 @@ tables
 
 \begin{lstlisting}\href{/home/mahmooz/brain/out/WRB4q2d.svg}{}\end{lstlisting}
 \\
-test more\end{document}
+test more
+\end{document}
