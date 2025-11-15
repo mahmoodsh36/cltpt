@@ -1114,14 +1114,11 @@ some math here
 <li>nested item one
       more nested text
 <ol type=\"1\">
-<li>test1
-</li>
-<li>test2
-</li>
+<li>test1</li>
+<li>test2</li>
 </ol>
 </li>
-<li>nested item two
-</li>
+<li>nested item two</li>
 </ol>
 </li>
 <li>item three</li>
