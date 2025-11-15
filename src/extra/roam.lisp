@@ -197,24 +197,37 @@ each rule is a plist that can contain the following params.
          (root-title (cltpt/base:text-object-property root :title))
          (data `(:title ,(node-title node)
                  :root-title ,root-title
-                 :id ,(node-id node))))
-    (let* ((result (cltpt/base:filepath-format
-                    (node-file node)
-                    format-str
-                    data)))
-      result)))
+                 :id ,(node-id node)))
+         (result (cltpt/base:filepath-format
+                  (node-file node)
+                  format-str
+                  data)))
+    result))
 
-(defmethod link-resolve ((link-type (eql 'cltpt/base::id))
-                         dest
-                         desc)
-  (let* ((rmr (getf cltpt/roam:*roam-convert-data* :roamer))
+(defun resolve-id-link (dest desc)
+  (let* ((rmr (current-roamer))
          (dest-node
            (when rmr
              (cltpt/roam:get-node-by-id rmr dest))))
     dest-node))
 
+(defmethod cltpt/base:link-resolve ((link-type (eql 'cltpt/base::id))
+                                    dest
+                                    desc)
+  (resolve-id-link dest desc))
+
+(defmethod cltpt/base:link-resolve ((link-type (eql 'cltpt/base::blk))
+                                    dest
+                                    desc)
+  (resolve-id-link dest desc))
+
+(defmethod cltpt/base:link-resolve ((link-type (eql 'cltpt/base::denote))
+                                    dest
+                                    desc)
+  (resolve-id-link dest desc))
+
 (defmethod cltpt/base:target-filepath ((target node))
-  (node-file node))
+  (node-file target))
 
 ;; TODO: hacky function to get current dynamically bound roamer.
 (defun current-roamer ()
