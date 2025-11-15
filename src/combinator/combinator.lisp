@@ -507,31 +507,28 @@ before the final closing rule is found."
 
 (defun lisp-sexp (ctx str pos)
   "reads a single lisp S-expression from the current position."
-  (let ((lisp-form)
-        (read-error)
-        (chars-consumed 0)
-        (form-str))
-    (when (and (< pos (length str))
-               ;; dont read it if it starts with space (default behavior by `read')
-               (not (whitespace-p (char str pos))))
-      (with-input-from-string (s str :start pos)
-        (handler-case
-            (setf lisp-form (read s))
-          (error (c)
-            (setf read-error c)))
-        (unless read-error
-          (setf chars-consumed (file-position s))
-          (when (> chars-consumed 0)
-            ;; TODO: no need to run subseq here or even assign "form-str"
-            (setf form-str (subseq str pos (+ pos chars-consumed)))))))
-    (if (and form-str (> chars-consumed 0))
-        (make-match :begin pos
-                    :end (+ pos (length form-str))
-                    :str str
-                    :ctx ctx
-                    :id 'lisp-form-content
-                    :children nil)
-        nil)))
+  (when (or (>= pos (length str)) (whitespace-p (char str pos)))
+    (return-from lisp-sexp nil))
+  (let ((chars-consumed
+          (handler-case
+              (with-input-from-string (s str :start pos)
+                (read s)
+                (file-position s))
+            (error ()
+              0))))
+    ;; only proceed if the read was successful and consumed characters.
+    (when (> chars-consumed 0)
+      ;; find the index of the last non-whitespace character in the consumed block.
+      (let ((last-char-pos (position-if-not #'whitespace-p str
+                                            :end (+ pos chars-consumed)
+                                            :from-end t)))
+        (when last-char-pos
+          (make-match :begin pos
+                      :end (1+ last-char-pos)
+                      :str str
+                      :ctx ctx
+                      :id 'lisp-form-content
+                      :children nil))))))
 
 (defun apply-rule (ctx rule str pos)
   "returns a 'raw' match: a number (length) for simple successful matches,

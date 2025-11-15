@@ -1404,6 +1404,18 @@ some more text"))
          (input-string "#(format t \"hello)(\\\" there\")"))
     (cltpt/combinator::parse input-string rules)))
 
+(defun test-sharp-lisp-2-func ()
+  (let* ((rules
+           '((:pattern
+              (cltpt/combinator::consec
+               (cltpt/combinator::literal "#")
+               (:pattern (cltpt/combinator::lisp-sexp)
+                :id lisp-code))
+              :id sharp-lisp-block)))
+         (input-string "#(format t \"hello\")
+"))
+    (cltpt/combinator::parse input-string rules)))
+
 (test test-sharp-lisp-1
   (fiveam:is
    (compare-full-match-loosely
