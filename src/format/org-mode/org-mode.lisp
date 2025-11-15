@@ -228,6 +228,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (let* ((kw (cltpt/base:text-object-property obj :keyword))
          (value (cltpt/base:text-object-property obj :value))
          (final-result))
+    ;; TODO: adapt to changes
     ;; handle transclusions
     ;; (when (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
     ;;   (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
@@ -868,7 +869,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defvar *web-link-rule*
   `(:pattern
     (cltpt/combinator:consec
-     "https://"
+     (cltpt/combinator:any
+      "https://"
+      "http://")
      (cltpt/combinator:all-but-whitespace))
     :on-char #\h))
 (defclass web-link (cltpt/base:text-object)
