@@ -127,7 +127,8 @@ set correctly."
                                       new-text
                                       region
                                       &key
-                                        (propagate t))
+                                        (propagate t)
+                                        (propagate-to-children t))
   (with-slots (parent) obj
     (let* ((text (text-object-text obj))
            (updated-object-text (concatenate 'string
@@ -149,17 +150,20 @@ set correctly."
             ;; modify children boundaries accordingly
             ;; TODO: this can be easily optimized too. usage of 'relative-child-region' is
             ;; redundant.
-            (mapcar
-             (lambda (child)
-               (unless (eq child obj)
-                 ;; we have to normalize the region to the child's own coordinate system
-                 (let ((rel-region (relative-child-region obj child)))
-                   (if (< (region-begin region) (region-begin rel-region))
-                       (region-incf (text-object-text-region child) diff)
-                       (when (<= (region-end region) (region-end rel-region))
-                         (incf (region-end (text-object-text-region child))
-                               diff))))))
-             (text-object-children obj))
+            ;; note: we dont want every parent to propagate to children because we would
+            ;; get doubled effects.
+            (when propagate-to-children
+              (mapcar
+               (lambda (child)
+                 (unless (eq child obj)
+                   ;; we have to normalize the region to the child's own coordinate system
+                   (let ((rel-region (relative-child-region obj child)))
+                     (if (< (region-begin region) (region-begin rel-region))
+                         (region-incf (text-object-text-region child) diff)
+                         (when (<= (region-end region) (region-end rel-region))
+                           (incf (region-end (text-object-text-region child))
+                                 diff))))))
+               (text-object-children obj)))
             ;; if we've reached the root we just set the text proeprty, otherwise we propagate
             (if parent
                 (let ((idx (position obj (text-object-children parent))))
@@ -172,7 +176,7 @@ set correctly."
                                              updated-object-text
                                              original-region
                                              :propagate t
-                                             ))
+                                             :propagate-to-children nil))
                 (progn
                   (setf (slot-value obj 'text) updated-object-text)
                   (setf (text-object-text-region obj)
@@ -358,17 +362,17 @@ SPEC is a plist with keys:
            (compress (getf spec :compress))
            (find-last-end (getf spec :find-last-end))
            (begin-submatch (cond
-                            ((eq begin-submatch-name :self) match)
-                            (begin-submatch-name
-                             (cltpt/combinator:find-submatch match begin-submatch-name))
-                            (t nil)))
+                             ((eq begin-submatch-name :self) match)
+                             (begin-submatch-name
+                              (cltpt/combinator:find-submatch match begin-submatch-name))
+                             (t nil)))
            (end-submatch (cond
-                          ((eq end-submatch-name :self) match)
-                          (end-submatch-name
-                           (if find-last-end
-                               (cltpt/combinator:find-submatch-last match end-submatch-name)
-                               (cltpt/combinator:find-submatch match end-submatch-name)))
-                          (t nil)))
+                           ((eq end-submatch-name :self) match)
+                           (end-submatch-name
+                            (if find-last-end
+                                (cltpt/combinator:find-submatch-last match end-submatch-name)
+                                (cltpt/combinator:find-submatch match end-submatch-name)))
+                           (t nil)))
            (begin-pos (if begin-submatch
                           (- (if (eq begin-side :end)
                                  (cltpt/combinator:match-end begin-submatch)
