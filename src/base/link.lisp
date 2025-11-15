@@ -20,7 +20,7 @@ in the future."))
   target)
 
 (defmethod target-filepath ((target pathname))
-  (cltpt/file-utils:ensure-filepath-string resolved))
+  (cltpt/file-utils:ensure-filepath-string target))
 
 (defmethod link-resolve ((link-type (eql 'file))
                          dest
