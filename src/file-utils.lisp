@@ -34,13 +34,16 @@
     (namestring (merge-pathnames name (pathname path)))))
 
 (defun change-dir (path new-dir)
-  "change the directory of PATH to NEW-DIR."
-  (let ((file-part (make-pathname :name (pathname-name path)
-                                  :type (pathname-type path)
-                                  :version (pathname-version path)))
-        (dir-part (make-pathname :name nil :type nil :version nil
-                                 :defaults new-dir)))
-    (uiop:unix-namestring (uiop:merge-pathnames* file-part dir-part))))
+  "return PATH but with its directory replaced by NEW-DIR."
+  (let* ((p (uiop:ensure-pathname path :want-existing nil))
+         (dir (uiop:ensure-directory-pathname new-dir))
+         ;; extract just the file part of PATH
+         (file-part (make-pathname
+                     :name (pathname-name p)
+                     :type (pathname-type p)
+                     :version (pathname-version p))))
+    (uiop:native-namestring
+     (uiop:merge-pathnames* file-part dir))))
 
 (defun path-without-extension (path)
   (let* ((pathname (pathname path))
