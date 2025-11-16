@@ -14,7 +14,7 @@
    :all-but-whitespace :handle-rule-string :all-upto
    :all-upto-included :succeeded-by :all-upto-without
    :context-rules :consec-with-optional :compile-rule-string
-   :between-whitespace :when-match-after :flanked-by-whitespace
+   :between-whitespace :when-match-after :flanked-by-whitespace :flanked-by-whitespace-or-punctuation
    :apply-rule-normalized
 
    :match-id :match-begin :match-end :match-ctx :match-children :match-str
@@ -110,6 +110,29 @@ to replace and new-rule is the rule to replace it with."
 (defun whitespace-p (char)
   "Predicate to check if a character is whitespace (space, newline, or tab)."
   (member char '(#\space #\newline #\tab)))
+
+(defun is-punctuation-p (char)
+  "predicate to check if a character is punctuation."
+  (member char
+          '(#\. #\, #\; #\:
+            #\! #\?
+            #\" #\' #\`
+            #\( #\)
+            #\[ #\]
+            #\{ #\}
+            #\< #\>
+            #\/ #\\
+            #\|
+            #\@
+            #\#
+            #\$
+            #\%
+            #\^
+            #\&
+            #\*
+            #\- #\_
+            #\+ #\=
+            #\~)))
 
 (defmethod context-rule-by-id ((ctx context) rule-id)
   (gethash rule-id (context-rule-hash ctx)))
@@ -811,7 +834,7 @@ succeeded by whitespace or a string boundary. the flanking whitespace is not con
       (flet ((is-preceded-by-whitespace-p (p)
                (or (zerop p)
                    (whitespace-p (char str (1- p)))))
-             (is-succeeded-by-whitespace-p (p)
+            (is-succeeded-by-whitespace-p (p)
                (or (>= p (length str))
                    (whitespace-p (char str p)))))
         (let* ((start-pos (match-begin match))
@@ -819,6 +842,26 @@ succeeded by whitespace or a string boundary. the flanking whitespace is not con
           ;; succeed if EITHER the preceding OR succeeding check is true
           (when (or (is-preceded-by-whitespace-p start-pos)
                     (is-succeeded-by-whitespace-p end-pos))
+            match))))))
+
+(defun flanked-by-whitespace-or-punctuation (ctx str pos rule)
+  "a combinator that matches a RULE only if it is either preceded OR
+succeeded by whitespace, punctuation, or a string boundary. the flanking characters are not consumed."
+  (let ((match (apply-rule-normalized ctx rule str pos)))
+    (when match
+      (flet ((is-preceded-by-whitespace-or-punctuation-p (p)
+               (or (zerop p)
+                   (whitespace-p (char str (1- p)))
+                   (is-punctuation-p (char str (1- p)))))
+             (is-succeeded-by-whitespace-or-punctuation-p (p)
+               (or (>= p (length str))
+                   (whitespace-p (char str p))
+                   (is-punctuation-p (char str p)))))
+        (let* ((start-pos (match-begin match))
+               (end-pos (match-end match)))
+          ;; return a match if either the preceding OR succeeding check is true
+          (when (or (is-preceded-by-whitespace-or-punctuation-p start-pos)
+                    (is-succeeded-by-whitespace-or-punctuation-p end-pos))
             match))))))
 
 (defun when-match-after (ctx str pos rule condition-fn)

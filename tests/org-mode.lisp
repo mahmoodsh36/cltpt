@@ -2335,6 +2335,37 @@ hi")
     (fiveam:is (string= result
                         expected-result))))
 
+(defun test-flanked-by-whitespace-or-punctuation-func ()
+  (let ((test-rule `(:pattern (cltpt/combinator:flanked-by-whitespace-or-punctuation
+                                   (:pattern (cltpt/combinator:literal "test") :id test-word)))))
+    (cltpt/combinator:parse " hello test world" (list test-rule))))
+
+(test test-flanked-by-whitespace-or-punctuation
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (test-flanked-by-whitespace-or-punctuation-func))
+    '((:BEGIN 6 :END 10 :MATCH "test")))))
+
+(defun test-flanked-by-whitespace-or-punctuation-punctuation-func ()
+  (let ((test-rule `(:pattern (cltpt/combinator:flanked-by-whitespace-or-punctuation
+                                   (:pattern (cltpt/combinator:literal "test") :id test-word)))))
+    (cltpt/combinator:parse "hello,test,world" (list test-rule))))
+
+(test test-flanked-by-whitespace-or-punctuation-punctuation
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (test-flanked-by-whitespace-or-punctuation-punctuation-func))
+    '((:BEGIN 6 :END 10 :MATCH "test")))))
+
+(defun test-flanked-by-whitespace-or-punctuation-no-match-func ()
+  (let ((test-rule `(:pattern (cltpt/combinator:flanked-by-whitespace-or-punctuation
+                                   (:pattern (cltpt/combinator:literal "test") :id test-word)))))
+    (cltpt/combinator:parse "atestb" (list test-rule))))
+
+(test test-flanked-by-whitespace-or-punctuation-no-match
+  (fiveam:is
+   (null (test-flanked-by-whitespace-or-punctuation-no-match-func))))
+
 (defun run-org-mode-tests ()
   "Run all org-mode rules tests."
   (format t "~&running org-mode tests...~%")
