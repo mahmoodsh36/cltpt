@@ -5,7 +5,7 @@
    :file-has-extension-p
    :change-extension :change-dir :path-without-extension
    :file-basename :base-name-no-ext
-   :write-file :read-file :join-paths :join-paths-list :walk-dir
+   :write-file :read-file :join-paths :join-paths-list :walk-dir :as-dir-path
    :delete-files-by-glob :ensure-filepath-pathname :ensure-filepath-string))
 
 (in-package :cltpt/file-utils)
@@ -142,3 +142,12 @@ uses UIOP's directory* for glob expansion (supports * and **)."
   (if (typep fp 'string)
       fp
       (pathname fp)))
+
+(defun as-dir-path (path)
+  "ensure PATH is a directory path ending with the appropriate directory separator."
+  (let* ((path-str (ensure-filepath-string path))
+         (sep (uiop:directory-separator-for-host)))
+    (if (and (> (length path-str) 0) 
+             (char= (char path-str (1- (length path-str))) sep))
+        path-str
+        (concatenate 'string path-str (string sep)))))
