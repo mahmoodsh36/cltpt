@@ -40,9 +40,17 @@
 
    :text-object-task
 
+   :*agenda-time-format*
+
    :cycle :state-by-name))
 
 (in-package :cltpt/agenda)
+
+(defvar *agenda-time-format*
+  '((:hour 2 #\0)
+    #\:
+    (:min 2 #\0))
+  "time format displayed in agenda trees.")
 
 (defvar *agenda-seqs*
   (list
@@ -261,3 +269,34 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                                                :end-ts end-ts)))
       (write-sequence (cltpt/tree/outline:render-forest agenda-forest) out)
       out)))
+
+(defmethod cltpt/tree/outline:outline-text ((rec task-record))
+  (labels ((format-ts (ts)
+             (local-time:format-timestring
+              nil
+              ts
+              :format *agenda-time-format*))
+           (format-time (time)
+             (if (typep time 'time-range)
+                 (format nil "~A--~A"
+                         (format-ts (time-range-begin time))
+                         (format-ts (time-range-end time)))
+                 (format-ts time))))
+    (let ((task1 (task-record-task rec)))
+      (if (deadline rec)
+          (format nil
+                  "DEADLINE: ~A ~A"
+                  (state-name (task-state task1))
+                  (format-time (task-record-time rec))
+                  (task-title task1))
+          (if (start-task rec)
+              (format nil
+                      "START: (~A) ~A ~A"
+                      (state-name (task-state task1))
+                      (format-time (task-record-time rec))
+                      (task-title task1))
+              (format nil
+                      "~A (~A) ~A"
+                      (state-name (task-state task1))
+                      (format-time (task-record-time rec))
+                      (task-title task1)))))))
