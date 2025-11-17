@@ -29,7 +29,8 @@
    :task-record-repeat :task-record-time
 
    :from-roamer :task-node :tasks-between
-   :make-time-range :make-record-scheduled :make-record-deadline
+   :make-time-range :time-range-begin :time-range-end :time-range
+   :make-record-scheduled :make-record-deadline
    :make-record-timestamp :make-record-deadline :render-agenda
    :build-agenda-forest :agenda-outline-node :agenda-outline-node-expansion-state
 
@@ -37,6 +38,8 @@
    :state-desc-name :state-desc-is-terminal
    :make-state-desc :make-state-sequence-desc
    :state-sequence-desc :state-sequence-desc-state-descs :cycle
+
+   :repeat-task :deadline :start-task
 
    :text-object-task
 
