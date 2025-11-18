@@ -65,7 +65,8 @@
                    :is-terminal nil)
                   (make-state-desc
                    :name 'done
-                   :is-terminal t)))))
+                   :is-terminal t))))
+  "list of state-sequence definitions that are used to determine agenda state changing behavior.")
 
 ;; this grabs a state by its name, its not very smart and it cant tell the
 ;; difference between two states of the same name from different sequences.
