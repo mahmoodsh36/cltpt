@@ -81,25 +81,27 @@ the filename is based on a hash of the preamble source, ensuring that changes to
 the preamble automatically invalidate the old compiled format."
   (let* ((preamble-hash (cltpt/base::md5-str (get-preamble-source-string)))
          (fmt-name (concatenate 'string "preamble-" preamble-hash ".fmt")))
-    (merge-pathnames fmt-name *latex-previews-tmp-directory*)))
+    (cltpt/file-utils:join-paths *latex-previews-tmp-directory* fmt-name)))
 
 (defun ensure-cached-format (format-path)
   "ensures the cached preamble format file exists at FORMAT-PATH. if not, generates it."
   (unless (probe-file format-path)
     (let* ((preamble-base-name (pathname-name format-path))
            (preamble-tex-file
-             (merge-pathnames
-              (concatenate 'string preamble-base-name ".tex")
-              *latex-previews-tmp-directory*))
+             (cltpt/file-utils:join-paths
+              *latex-previews-tmp-directory*
+              (concatenate 'string preamble-base-name ".tex")))
            ;; NOTE: convert to absolute paths for uiop:run-program.
            ;; the :directory option and file arguments must be absolute paths to work correctly
            ;; when *latex-previews-tmp-directory* is a relative path.
-           (abs-tmp-dir (uiop:ensure-absolute-pathname
-                         *latex-previews-tmp-directory*
-                         *default-pathname-defaults*))
-           (abs-tex-file (uiop:ensure-absolute-pathname
-                          preamble-tex-file
+           (abs-tmp-dir (cltpt/file-utils:ensure-filepath-string
+                         (uiop:ensure-absolute-pathname
+                          *latex-previews-tmp-directory*
                           *default-pathname-defaults*)))
+           (abs-tex-file (cltpt/file-utils:ensure-filepath-string
+                          (uiop:ensure-absolute-pathname
+                           preamble-tex-file
+                           *default-pathname-defaults*))))
       (cltpt/file-utils:write-file
        preamble-tex-file
        (format nil "~A\\dump~%" (get-preamble-source-string)))
@@ -138,9 +140,9 @@ the preamble automatically invalidate the old compiled format."
 
 (defun cleanup-temp-files (base-name &optional (intermediate-ext ".dvi"))
   (dolist (ext (list ".tex" ".aux" ".log" ".bcf" ".run.xml" intermediate-ext))
-    (let ((path (merge-pathnames
-                 (concatenate 'string base-name ext)
-                 *latex-previews-tmp-directory*)))
+    (let ((path (cltpt/file-utils:join-paths
+                 *latex-previews-tmp-directory*
+                 (concatenate 'string base-name ext))))
       (when (probe-file path) (delete-file path)))))
 
 ;; snippets-count is relevant because imagemagick outputs filepaths that may be
@@ -148,13 +150,13 @@ the preamble automatically invalidate the old compiled format."
 (defun find-generated-file (base-name page-num output-ext tmp-dir pipeline-name snippets-count)
   (cond
     ((and (equal pipeline-name :imagemagick) (= 1 snippets-count))
-     (merge-pathnames
-      (format nil "~A.~A" base-name output-ext)
-      tmp-dir))
+     (cltpt/file-utils:join-paths
+      tmp-dir
+      (format nil "~A.~A" base-name output-ext)))
     (t
-     (merge-pathnames
-      (format nil "~A-~9,'0d.~A" base-name page-num output-ext)
-      tmp-dir))))
+     (cltpt/file-utils:join-paths
+      tmp-dir
+      (format nil "~A-~9,'0d.~A" base-name page-num output-ext)))))
 
 (defun run-compilation-pipeline (snippets-to-compile pipeline-config density transparent)
   "compiles a batch of snippets and renames the output to match their final hashes.
@@ -169,17 +171,18 @@ this function now uses a random batch name internally and expects a list of
          ;; 1. merge-pathnames with relative paths can cause path doubling issues
          ;; 2. some operations need reliable absolute paths to work correctly
          ;; the relative/absolute nature is preserved in return values from generate-previews-for-latex
-         (abs-tmp-dir (uiop:ensure-absolute-pathname
-                       tmp-dir
-                       *default-pathname-defaults*))
+         (abs-tmp-dir (cltpt/file-utils:ensure-filepath-string
+                       (uiop:ensure-absolute-pathname
+                        tmp-dir
+                        *default-pathname-defaults*)))
          (intermediate-ext (getf pipeline-config :image-input-type))
-         (tex-file (merge-pathnames
-                    (concatenate 'string batch-base-name ".tex")
-                    abs-tmp-dir))
+         (tex-file (cltpt/file-utils:join-paths
+                    abs-tmp-dir
+                    (concatenate 'string batch-base-name ".tex")))
          (intermediate-file
-           (merge-pathnames
-            (concatenate 'string batch-base-name "." intermediate-ext)
-            abs-tmp-dir))
+           (cltpt/file-utils:join-paths
+            abs-tmp-dir
+            (concatenate 'string batch-base-name "." intermediate-ext)))
          ;; preamble precompilation is only supported for the :latex compiler.
          (fmt-path (when use-precomp-p (get-precompiled-preamble-path)))
          (compiler-command
@@ -222,7 +225,7 @@ this function now uses a random batch name internally and expects a list of
                       (getf pipeline-config :transparent-image-converter))
                  (getf pipeline-config :transparent-image-converter)
                  (getf pipeline-config :image-converter)))
-           (output-basename (merge-pathnames batch-base-name abs-tmp-dir))
+           (output-basename (cltpt/file-utils:join-paths abs-tmp-dir batch-base-name))
            (substitutions `(("%D" . ,(format nil "~A" density))
                             ("%f" . ,(uiop:native-namestring intermediate-file))
                             ("%B" . ,(uiop:native-namestring output-basename))))
@@ -247,13 +250,13 @@ this function now uses a random batch name internally and expects a list of
                                abs-tmp-dir
                                pipeline-name
                                (length snippets-to-compile))
-          for hashed-file = (merge-pathnames
+          for hashed-file = (cltpt/file-utils:join-paths
+                             abs-tmp-dir
                              (concatenate 'string
                                           *preview-filename-prefix*
                                           hash
                                           "."
-                                          output-ext)
-                             abs-tmp-dir)
+                                          output-ext))
           do (when (probe-file numbered-file)
                (rename-file numbered-file hashed-file)))
     ;; we dont want to always claean up those temp files, especially not .log files.
@@ -276,12 +279,14 @@ returns an association list of (hash . string-file-path)."
   ;; *latex-previews-tmp-directory* is for intermediate compilation files (.tex, .aux, .dvi, .log)
   ;; *latex-previews-cache-directory* is for final hash-named cached images (.svg, .png)
   ;; the workflow is: compile in tmp → convert to images in tmp → copy to cache → return cache paths
-  (let* ((abs-tmp-dir (uiop:ensure-absolute-pathname
-                       *latex-previews-tmp-directory*
-                       *default-pathname-defaults*))
-         (abs-cache-dir (uiop:ensure-absolute-pathname
-                         *latex-previews-cache-directory*
-                         *default-pathname-defaults*))
+  (let* ((abs-tmp-dir (cltpt/file-utils:ensure-filepath-string
+                       (uiop:ensure-absolute-pathname
+                        *latex-previews-tmp-directory*
+                        *default-pathname-defaults*)))
+         (abs-cache-dir (cltpt/file-utils:ensure-filepath-string
+                         (uiop:ensure-absolute-pathname
+                          *latex-previews-cache-directory*
+                          *default-pathname-defaults*)))
          (pipeline-config (cdr (assoc pipeline *latex-preview-pipelines*)))
          (output-ext (getf pipeline-config :image-output-type))
          (cnt 0)
@@ -309,9 +314,9 @@ returns an association list of (hash . string-file-path)."
                                    snippet-text)))
                (file-ext (concatenate 'string "." output-ext))
                (cached-file
-                 (merge-pathnames
-                  (concatenate 'string *preview-filename-prefix* hash file-ext)
-                  abs-cache-dir)))
+                 (cltpt/file-utils:join-paths
+                  abs-cache-dir
+                  (concatenate 'string *preview-filename-prefix* hash file-ext))))
           (push (cons hash snippet-text) all-snippets-with-hashes)
           (unless (and (not recompile) (probe-file cached-file))
             (push (cons hash snippet-text) missing-snippets))))
@@ -328,13 +333,13 @@ returns an association list of (hash . string-file-path)."
           (let* ((hash (car snippet-cons))
                  (file-ext (concatenate 'string "." output-ext))
                  (tmp-file
-                   (merge-pathnames
-                    (concatenate 'string *preview-filename-prefix* hash file-ext)
-                    abs-tmp-dir))
+                   (cltpt/file-utils:join-paths
+                    abs-tmp-dir
+                    (concatenate 'string *preview-filename-prefix* hash file-ext)))
                  (cached-file
-                   (merge-pathnames
-                    (concatenate 'string *preview-filename-prefix* hash file-ext)
-                    abs-cache-dir)))
+                   (cltpt/file-utils:join-paths
+                    abs-cache-dir
+                    (concatenate 'string *preview-filename-prefix* hash file-ext))))
             (when (probe-file tmp-file)
               (uiop:copy-file tmp-file cached-file)
               ;; (delete-file tmp-file)
@@ -349,10 +354,5 @@ returns an association list of (hash . string-file-path)."
                                        hash
                                        file-ext)))
            (cons hash
-                 ;; if cache directory is relative, construct relative path; otherwise use merge-pathnames
-                 (if (uiop:relative-pathname-p *latex-previews-cache-directory*)
-                     (uiop:unix-namestring
-                      (uiop:merge-pathnames* filename *latex-previews-cache-directory*))
-                     (uiop:unix-namestring
-                      (merge-pathnames filename *latex-previews-cache-directory*))))))
+                 (cltpt/file-utils:join-paths *latex-previews-cache-directory* filename))))
        all-snippets-with-hashes))))
