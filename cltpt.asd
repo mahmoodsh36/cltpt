@@ -31,11 +31,14 @@
                              (:file "parser")
                              (:file "transform")
                              (:file "convert")))
+               (:module "latex-previews"
+                :pathname "src/extra/"
+                :depends-on ("base" "file-utils")
+                :components ((:file "latex-previews")))
                (:module "latex"
                 :pathname "src/format/latex/"
                 :depends-on ("base" "combinator" "file-utils")
                 :components ((:file "latex")
-                             (:file "latex-previews")
                              (:file "utils")))
                (:module "html"
                 :pathname "src/format/html/"
@@ -55,7 +58,7 @@
                ;; TODO: org-mode should not directly depend on roam/agenda.
                (:module "org-mode"
                 :pathname "src/format/org-mode"
-                :depends-on ("combinator" "file-utils" "base" "latex" "html")
+                :depends-on ("combinator" "file-utils" "base" "latex" "html" "latex-previews")
                 :components ((:file "org-mode")
                              (:file "org-list")
                              (:file "org-table")))
@@ -69,7 +72,7 @@
                 :components ((:file "commandline")))
                (:module "tests"
                 :pathname "tests/"
-                :depends-on ("base" "org-mode")
+                :depends-on ("base" "org-mode" "latex-previews")
                 :components ((:file "more")
                              (:file "org-mode")
                              (:file "manual")))))
