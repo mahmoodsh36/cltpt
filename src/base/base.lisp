@@ -5,10 +5,9 @@
    :bind-and-eval :bind-and-eval* :eval-in-text-object-lexical-scope
    :compress-consec :str-join :concat :str-prune :str-split :str-dupe
    :alist-get :subseq* :sorted-insert :last-atom
-   :merge-plist :replace-substr
-   :add-duration :list-dates :list-date-pairs
+   :merge-plist :replace-substr :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day :replace-all :md5-str
-   :find-cons-if
+   :find-cons-if :tautology
 
    :make-text-format :*simple-format*
    :text-format-text-object-types :text-format-by-name

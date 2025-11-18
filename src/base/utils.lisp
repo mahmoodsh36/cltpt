@@ -316,3 +316,7 @@ the loop stops when NEXT-DATE would be after END-DATE."
   (with-output-to-string (out)
     (loop for i from 0 upto count
           do (write-sequence str out))))
+
+(defun tautology (&rest args)
+  "function that always returns T."
+  t)
