@@ -1228,7 +1228,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                  (typep obj 'cltpt/latex:display-math)
                  (typep obj 'cltpt/latex:latex-env))
          (push (cltpt/base:text-object-contents obj) mylist))))
-    (cltpt/latex:generate-previews-for-latex mylist)))
+    (cltpt/latex-previews:generate-previews-for-latex mylist)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-document)
                                            (backend cltpt/base:text-format))

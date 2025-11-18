@@ -107,7 +107,7 @@
 
 (defun test-latex-preview-2 ()
   (let ((cltpt/latex::*latex-compiler-key* :latex))
-    (cltpt/latex::generate-previews-for-latex
+    (cltpt/latex-previews::generate-previews-for-latex
      (list "\\(x=\\somebrokencommand123\\)"))))
 
 (defun roam-convert-test-1 ()
