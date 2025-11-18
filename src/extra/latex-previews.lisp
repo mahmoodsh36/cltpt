@@ -1,6 +1,25 @@
-(in-package :cltpt/latex)
+(defpackage :cltpt/latex-previews
+  (:use :cl)
+  (:export
+   :*latex-previews-tmp-directory*
+   :*latex-previews-cache-directory*
+   :*latex-compiler-command-map*
+   :*latex-compiler-key*
+   :*latex-preview-pipelines*
+   :*latex-preview-pipeline-key*
+   :*preview-filename-prefix*
+   :*latex-preview-preamble*
+   :get-preamble-source-string
+   :get-precompiled-preamble-path
+   :ensure-cached-format
+   :clear-all
+   :format-command
+   :cleanup-temp-files
+   :find-generated-file
+   :run-compilation-pipeline
+   :generate-previews-for-latex))
 
-;; TODO: turn this into an independent submodule
+(in-package :cltpt/latex-previews)
 
 (defun get-cltpt-subdirectory (name)
   "creates and returns a subdirectory within the system's temporary directory."
@@ -79,7 +98,7 @@
   "constructs the full path to the precompiled preamble .fmt file.
 the filename is based on a hash of the preamble source, ensuring that changes to
 the preamble automatically invalidate the old compiled format."
-  (let* ((preamble-hash (cltpt/base::md5-str (get-preamble-source-string)))
+  (let* ((preamble-hash (cltpt/base:md5-str (get-preamble-source-string)))
          (fmt-name (concatenate 'string "preamble-" preamble-hash ".fmt")))
     (cltpt/file-utils:join-paths *latex-previews-tmp-directory* fmt-name)))
 
@@ -301,13 +320,13 @@ returns an association list of (hash . string-file-path)."
                    pipeline-config
                    density
                    transparent
-                   (cltpt/base::md5-str (get-preamble-source-string)))))
+                   (cltpt/base:md5-str (get-preamble-source-string)))))
     (unless pipeline-config (error "unknown preview pipeline: ~A" pipeline))
     ;; checking the cache
     (let ((missing-snippets)
           (all-snippets-with-hashes))
       (dolist (snippet-text snippets)
-        (let* ((hash (cltpt/base::md5-str
+        (let* ((hash (cltpt/base:md5-str
                       (concatenate 'string
                                    settings-string
                                    ";snippet="

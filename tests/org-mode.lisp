@@ -2370,11 +2370,11 @@ hi")
   "Run all org-mode rules tests."
   (format t "~&running org-mode tests...~%")
   ;; set up relative paths for latex previews so tests work across different systems
-  (setf cltpt/latex::*latex-previews-tmp-directory* "cltpt-latex-previews/tmp/")
-  (setf cltpt/latex::*latex-previews-cache-directory* "cltpt-latex-previews/cache/")
+  (setf cltpt/latex-previews::*latex-previews-tmp-directory* "cltpt-latex-previews/tmp/")
+  (setf cltpt/latex-previews::*latex-previews-cache-directory* "cltpt-latex-previews/cache/")
   ;; ensure directories exist
-  (ensure-directories-exist cltpt/latex::*latex-previews-tmp-directory*)
-  (ensure-directories-exist cltpt/latex::*latex-previews-cache-directory*)
+  (ensure-directories-exist cltpt/latex-previews::*latex-previews-tmp-directory*)
+  (ensure-directories-exist cltpt/latex-previews::*latex-previews-cache-directory*)
   (let ((results (run! 'org-mode-suite)))
     (unless results
       (explain! results))))

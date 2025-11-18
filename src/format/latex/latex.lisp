@@ -4,10 +4,8 @@
    :*latex* :display-math
    :inline-math :*inline-math-rule* :display-math :*display-math-rule*
    :latex-env :*latex-env-rule*
-   :*latex-preview-preamble*
-   :*latex-compiler-key* :*latex-previews-cache-directory*
-   :generate-previews-for-latex :init :*latex-preview-pipeline-key*
-   :*latex-code-env*))
+   :*latex-code-env*
+   :init))
 
 (in-package :cltpt/latex)
 
