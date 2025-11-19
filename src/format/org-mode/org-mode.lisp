@@ -1476,7 +1476,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod convert-block ((obj cltpt/base:text-object)
                           (backend cltpt/base:text-format)
                           block-type
-                          is-code)
+                          is-code
+                          &optional is-verbatim)
   (let* ((exports-keyword (org-block-keyword-value obj "exports"))
          (export-code (or (string= exports-keyword "code")
                           (string= exports-keyword "both")))
@@ -1528,35 +1529,46 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                              value))
                       when result collect result))
               (props-str (cltpt/base:str-join props " "))
-              (code-open-tag
-                (cltpt/base:pcase backend
-                  (cltpt/html:*html*
-                   (if is-code
+               (code-open-tag
+                 (cltpt/base:pcase backend
+                   (cltpt/html:*html*
+                    (cond
+                      (is-code
                        (format nil
                                "<div class='org-src' ~A><pre><code>"
-                               props-str)
+                               props-str))
+                      (is-verbatim
+                       (format nil
+                               "<div class='org-example' ~A><pre>"
+                               props-str))
+                      (t
                        (format nil
                                "<div class='~A org-block' ~A>"
                                block-type
-                               props-str)))
-                  (cltpt/latex:*latex*
-                   (format nil
-                           "\\begin{~A}"
-                           (if is-code
-                               cltpt/latex:*latex-code-env*
-                               block-type)))))
-              (code-close-tag
-                (cltpt/base:pcase backend
-                  (cltpt/html:*html*
-                   (if is-code
-                       "</code></pre></div>"
-                       "</div>"))
-                  (cltpt/latex:*latex*
-                   (format nil
-                           "\\end{~A}"
-                           (if is-code
-                               cltpt/latex:*latex-code-env*
-                               block-type)))))
+                               props-str))))
+                   (cltpt/latex:*latex*
+                    (cond
+                      (is-code
+                       (format nil "\\begin{~A}" cltpt/latex:*latex-code-env*))
+                      (is-verbatim
+                       "\\begin{verbatim}")
+                      (t
+                       (format nil "\\begin{~A}" block-type))))))
+               (code-close-tag
+                 (cltpt/base:pcase backend
+                   (cltpt/html:*html*
+                    (cond
+                      (is-code "</code></pre></div>")
+                      (is-verbatim "</pre></div>")
+                      (t "</div>")))
+                   (cltpt/latex:*latex*
+                    (cond
+                      (is-code
+                       (format nil "\\end{~A}" cltpt/latex:*latex-code-env*))
+                      (is-verbatim
+                       "\\end{verbatim}")
+                      (t
+                       (format nil "\\end{~A}" block-type))))))
               (changes)
               (results-open-tag
                 (cltpt/base:pcase backend
@@ -1687,7 +1699,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               code-close-tag
               :escape t
               :compress-region (cltpt/base:make-region :begin 1 :end 1)
-              :escape-region-options (when is-code
+              :escape-region-options (when (or is-code is-verbatim)
                                        (list :escape-newlines nil)))))))))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object))
@@ -1740,7 +1752,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-convert ((obj org-example-block)
                                            (backend cltpt/base:text-format))
-  (convert-block obj backend "example" nil))
+  (convert-block obj backend "example" nil t))
 
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair
