@@ -1,8 +1,8 @@
 (defpackage :cltpt/org-mode
   (:use :cl)
-  (:export :org-list-matcher :org-header :org-list
-   :*org-mode* :org-mode-text-object-types
-   :org-block :init :*org-enable-macros*))
+  (:export
+   :org-list-matcher :*org-mode* :org-mode-text-object-types :init :*org-enable-macros*
+   :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block))
 
 (in-package :cltpt/org-mode)
 
