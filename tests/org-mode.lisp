@@ -1863,7 +1863,7 @@ plt.close()
 
 (test test-org-src-block-with-image-result-html-conversion
   (let* ((html-output (org-src-block-with-image-result-html-conversion))
-         (expected-html "<div class='org-src' data-type='NIL' data-lang='python'><pre><code>import matplotlib.pyplot as plt
+         (expected-html "<div class='org-src' data-lang='python'><pre><code>import matplotlib.pyplot as plt
 import numpy as np
 
 x = np.linspace(0, 10, 100)
