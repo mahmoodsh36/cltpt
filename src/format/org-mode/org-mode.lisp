@@ -2,7 +2,7 @@
   (:use :cl)
   (:export
    :org-list-matcher :*org-mode* :org-mode-text-object-types :init :*org-enable-macros*
-   :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block))
+   :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block :org-example-block))
 
 (in-package :cltpt/org-mode)
 
@@ -21,6 +21,7 @@
            org-link
            org-timestamp
            org-src-block
+           org-example-block
            org-export-block
            org-block
            org-prop-drawer
@@ -1516,10 +1517,11 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                              obj
                              (cltpt/combinator:find-submatch match 'lang)))))
                  (cltpt/base:text-object-property obj :keywords-alist)))
-              (props
+                (props
                 (loop for (key . value) in all-keywords
-                      for result = (unless (member key '("exports" "results")
-                                                   :test 'string=)
+                      for result = (unless (or (member key '("exports" "results")
+                                                       :test 'string=)
+                                               (null value))
                                      (format nil
                                              "data-~A='~A'"
                                              key
@@ -1705,6 +1707,41 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                            (backend cltpt/base:text-format))
   (convert-block obj backend nil t))
 
+(defvar *org-example-block-rule*
+  `(:pattern
+    (cltpt/combinator:pair
+     (cltpt/combinator:unescaped
+      (:pattern
+       (cltpt/combinator:any
+        (cltpt/combinator:consec
+         (:pattern
+          (cltpt/combinator:literal-casein "#+begin_example")
+          :id open-tag)
+         (cltpt/combinator:literal " ")
+         ,*keywords-rule*)
+        (:pattern
+         (cltpt/combinator:literal-casein "#+begin_example")
+         :id open-tag))
+       :id begin))
+     (cltpt/combinator:unescaped
+      (:pattern (cltpt/combinator:literal-casein "#+end_example")
+       :id end))
+     nil)
+    :id org-example-block
+    :on-char #\#))
+(defclass org-example-block (cltpt/base:text-object)
+  ((cltpt/base::rule
+    :allocation :class
+    :initform *org-example-block-rule*))
+  (:documentation "org-mode example block."))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-example-block) str1 match)
+  (init-org-src-block obj))
+
+(defmethod cltpt/base:text-object-convert ((obj org-example-block)
+                                           (backend cltpt/base:text-format))
+  (convert-block obj backend "example" nil))
+
 (defvar *org-block-no-kw-rule*
   `(cltpt/combinator:pair
     (cltpt/combinator:unescaped
@@ -1713,15 +1750,19 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
        (cltpt/combinator:consec
         (cltpt/combinator::unsucceeded-by
          (cltpt/combinator:literal-casein "#+begin_")
-         (cltpt/combinator:literal-casein "src"))
+         (cltpt/combinator:any
+          (cltpt/combinator:literal-casein "src")
+          (cltpt/combinator:literal-casein "example")))
         (:pattern (cltpt/combinator:symbol-matcher)
          :id begin-type)
         (cltpt/combinator:literal " ")
         ,*keywords-rule*)
        (cltpt/combinator:consec
         (cltpt/combinator::unsucceeded-by
-        (cltpt/combinator:literal-casein "#+begin_")
-        (cltpt/combinator:literal-casein "src"))
+         (cltpt/combinator:literal-casein "#+begin_")
+         (cltpt/combinator:any
+          (cltpt/combinator:literal-casein "src")
+          (cltpt/combinator:literal-casein "example")))
         (:pattern (cltpt/combinator:symbol-matcher)
          :id begin-type)))
       :id begin))
@@ -1730,7 +1771,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       (cltpt/combinator:consec
        (cltpt/combinator::unsucceeded-by
         (cltpt/combinator:literal-casein "#+end_")
-        (cltpt/combinator:literal-casein "src"))
+        (cltpt/combinator:any
+         (cltpt/combinator:literal-casein "src")
+         (cltpt/combinator:literal-casein "example")))
        (:pattern (cltpt/combinator:symbol-matcher)
         :id end-type))
       :id end))
