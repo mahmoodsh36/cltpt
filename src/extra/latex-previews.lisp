@@ -113,14 +113,8 @@ the preamble automatically invalidate the old compiled format."
            ;; NOTE: convert to absolute paths for uiop:run-program.
            ;; the :directory option and file arguments must be absolute paths to work correctly
            ;; when *latex-previews-tmp-directory* is a relative path.
-           (abs-tmp-dir (cltpt/file-utils:ensure-filepath-string
-                         (uiop:ensure-absolute-pathname
-                          *latex-previews-tmp-directory*
-                          *default-pathname-defaults*)))
-           (abs-tex-file (cltpt/file-utils:ensure-filepath-string
-                          (uiop:ensure-absolute-pathname
-                           preamble-tex-file
-                           *default-pathname-defaults*))))
+           (abs-tmp-dir (cltpt/file-utils:ensure-absolute *latex-previews-tmp-directory*))
+           (abs-tex-file (cltpt/file-utils:ensure-absolute preamble-tex-file)))
       (cltpt/file-utils:write-file
        preamble-tex-file
        (format nil "~A\\dump~%" (get-preamble-source-string)))
@@ -190,10 +184,7 @@ this function now uses a random batch name internally and expects a list of
          ;; 1. merge-pathnames with relative paths can cause path doubling issues
          ;; 2. some operations need reliable absolute paths to work correctly
          ;; the relative/absolute nature is preserved in return values from generate-previews-for-latex
-         (abs-tmp-dir (cltpt/file-utils:ensure-filepath-string
-                       (uiop:ensure-absolute-pathname
-                        tmp-dir
-                        *default-pathname-defaults*)))
+         (abs-tmp-dir (cltpt/file-utils:ensure-absolute tmp-dir))
          (intermediate-ext (getf pipeline-config :image-input-type))
          (tex-file (cltpt/file-utils:join-paths
                     abs-tmp-dir
@@ -298,14 +289,8 @@ returns an association list of (hash . string-file-path)."
   ;; *latex-previews-tmp-directory* is for intermediate compilation files (.tex, .aux, .dvi, .log)
   ;; *latex-previews-cache-directory* is for final hash-named cached images (.svg, .png)
   ;; the workflow is: compile in tmp → convert to images in tmp → copy to cache → return cache paths
-  (let* ((abs-tmp-dir (cltpt/file-utils:ensure-filepath-string
-                       (uiop:ensure-absolute-pathname
-                        *latex-previews-tmp-directory*
-                        *default-pathname-defaults*)))
-         (abs-cache-dir (cltpt/file-utils:ensure-filepath-string
-                         (uiop:ensure-absolute-pathname
-                          *latex-previews-cache-directory*
-                          *default-pathname-defaults*)))
+  (let* ((abs-tmp-dir (cltpt/file-utils:ensure-absolute *latex-previews-tmp-directory*))
+         (abs-cache-dir (cltpt/file-utils:ensure-absolute *latex-previews-cache-directory*))
          (pipeline-config (cdr (assoc pipeline *latex-preview-pipelines*)))
          (output-ext (getf pipeline-config :image-output-type))
          (cnt 0)
