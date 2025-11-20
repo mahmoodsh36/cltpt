@@ -213,7 +213,14 @@
         ;; we should check if its the same file, otherwise copy-file will break
         (unless (string= dest-filepath new-filepath)
           (when (uiop:probe-file* dest-filepath)
-            (uiop:copy-file dest-filepath new-filepath)))
+            (let ((copy-dest
+                    (if (getf cltpt/base:*convert-info* :dest-dir)
+                        (cltpt/file-utils:join-paths
+                         (getf cltpt/base:*convert-info* :dest-dir)
+                         new-filepath)
+                        new-filepath)))
+              (ensure-directories-exist copy-dest)
+              (uiop:copy-file dest-filepath copy-dest))))
         ;; if its an image or video we need to "display" it in html.
         (setf open-tag
               (cltpt/base:pcase backend
