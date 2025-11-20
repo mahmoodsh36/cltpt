@@ -211,18 +211,20 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (let* ((match (cltpt/base:text-object-match obj))
          (value-match (cltpt/combinator:find-submatch match 'value))
          (keyword-match (cltpt/combinator:find-submatch match 'keyword))
-         (value (cltpt/combinator:match-text value-match))
-         (child (first (cltpt/base:text-object-children obj))))
-    ;; the following would only work if this was the text-object-finalize function
-    ;; (unless value
-    ;;   (when (typep child 'cltpt/base::post-lexer-text-macro)
-    ;;     ;; if we get here, then the value is meant to be the evaluation result
-    ;;     ;; of the post-lexer text macro.
-    ;;     (setf value (cltpt/base::eval-post-lexer-macro child))))
-    (setf (cltpt/base:text-object-property obj :value)
-          value)
+         (value (cltpt/combinator:match-text value-match)))
+    (setf (cltpt/base:text-object-property obj :value) value)
     (setf (cltpt/base:text-object-property obj :keyword)
           (cltpt/combinator:match-text keyword-match))))
+
+(defmethod cltpt/base:text-object-finalize :after ((obj org-keyword))
+  (let* ((value (cltpt/base:text-object-property obj :value))
+         (child (first (cltpt/base:text-object-children obj))))
+    (unless value
+      (when (typep child 'cltpt/base:post-lexer-text-macro)
+        ;; if we get here, then the value is meant to be the evaluation result
+        ;; of the post-lexer text macro.
+        (setf (cltpt/base:text-object-property obj :value)
+              (cltpt/base::eval-post-lexer-macro child))))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-keyword)
                                            (backend cltpt/base:text-format))

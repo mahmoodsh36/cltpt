@@ -80,6 +80,7 @@
          (file-rules (clingon:getopt cmd :rules))
          (filepath-format (clingon:getopt cmd :filepath-format))
          (static-filepath-format (clingon:getopt cmd :static-filepath-format))
+         (dest-dir (clingon:getopt cmd :dest-dir))
          (roamer (if file-rules
                      (roamer-from-file-rules file-rules)
                      (cltpt/roam:from-files files))))
@@ -87,6 +88,7 @@
       (cltpt/roam:convert-all roamer
                               dest-format
                               filepath-format
+                              :dest-dir dest-dir
                               :static-filepath-format static-filepath-format))))
 
 (defun convert-command ()
@@ -134,7 +136,13 @@
     :short-name #\c
     :description "the output file name format for \"static\" files."
     :long-name "static-filepath-format"
-    :key :static-filepath-format)))
+    :key :static-filepath-format)
+   (clingon:make-option
+    :string
+    :short-name #\g
+    :description "the directory to write the converted files to."
+    :long-name "dest-dir"
+    :key :dest-dir)))
 
 (defun roam-handler (cmd)
   "the handler for the `roam' command"
