@@ -153,6 +153,22 @@
           :escape nil
           :remove-newlines-after t)))
 
+(defmethod convert-target-filepath ((target string))
+  (let* ((static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*))
+         (resolved (cltpt/base:text-link-resolve obj))
+         (dest-filepath (when resolved
+                          (cltpt/base:target-filepath resolved)))
+         (filepath-format-string
+           (when (and dest-filepath
+                      (cltpt/file-utils:file-has-extension-p
+                       dest-filepath
+                       static-ext))
+             (getf cltpt/base:*convert-info* :static-filepath-format)))
+         (new-filepath (if (and dest-filepath filepath-format-string)
+                           (cltpt/base:filepath-format dest-filepath filepath-format-string)
+                           dest-filepath)))
+    new-filepath))
+
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-link)
                                            (backend cltpt/base:text-format))
   (let* ((link (cltpt/base:text-link-link obj))
@@ -170,17 +186,12 @@
                        (cltpt/combinator:match-begin desc-match)))
          (desc-end (when desc-match
                      (cltpt/combinator:match-end desc-match)))
-         (dest-filepath (when dest
-                          (cltpt/base:target-filepath dest)))
-         (filepath-format-string
-           (getf cltpt/base:*convert-info* :static-filepath-format))
-         (new-filepath (if (and dest-filepath filepath-format-string)
-                           (cltpt/base:filepath-format
-                            dest-filepath
-                            filepath-format-string)
-                           dest-filepath))
+         (dest-filepath (when resolved
+                          (cltpt/base:target-filepath resolved)))
+         (new-filepath (when resolved
+                          (cltpt/base:convert-target-filepath resolved)))
          (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*)))
-    (when dest
+    (when dest-filepath
       ;; initialize the tags to the <a> tag, if its a video or an image,
       ;; it gets overwritten later.
       (setf open-tag
