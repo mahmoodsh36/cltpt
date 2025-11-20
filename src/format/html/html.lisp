@@ -1,12 +1,12 @@
 (defpackage :cltpt/html
-  (:use :cl :cltpt/base :cltpt/latex)
-  (:export :*html* :*html-static-route* :*html-static-dir*
-           :*html-template* :init :*html-export-latex-method*))
+  (:use :cl)
+  (:export
+   :*html* :*html-static-route* :*html-template* :init :*html-export-latex-method*))
 
 (in-package :cltpt/html)
 
 (defvar *html*
-  (make-text-format "html")
+  (cltpt/base:make-text-format "html")
   "the instance of `cltpt/base:text-object' for the html format.")
 
 (defun init ()
@@ -31,10 +31,6 @@
 if nil, the paths will be absolute, otherwise, they will be join with the given
 directory path.")
 
-(defvar *html-static-dir*
-  nil
-  "the static path to which the static files for html will be copied.")
-
 (defvar *html-template*
   "<!DOCTYPE html>
 <html>
@@ -52,10 +48,7 @@ directory path.")
   "a template for html conversion.")
 
 (defvar *html-escape-table*
-  '((#\newline . "
-<br>
-"
-     )
+  `((#\newline . ,(format nil "~%<br>~%"))
     (#\< . "&lt;")
     (#\> . "&gt;")
     (#\" . "&quot;")
