@@ -17,7 +17,9 @@ in the future."))
   (:documentation "given a target that was returned by `link-resolve', return the filepath associated with it (if any)."))
 
 (defgeneric convert-target-filepath (target)
-  (:documentation "given a target that was returned by `link-resolve', return the filepath associated with it (if any)."))
+  (:documentation "given a target that was returned by `link-resolve', return the filepath associated with it (if any).
+
+this function should always return a relative path that will be appended to :dest-dir during conversion."))
 
 (defmethod target-filepath ((target string))
   target)
