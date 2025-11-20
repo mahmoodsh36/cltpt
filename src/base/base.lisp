@@ -53,7 +53,7 @@
    :region-end :region-begin :region-length
 
    :link-resolve :text-link-link :link-desc :link-dest :link-type
-   :target-filepath
+   :target-filepath :convert-target-filepath
 
    :*image-ext* :*video-ext*))
 

@@ -16,11 +16,17 @@ in the future."))
 (defgeneric target-filepath (target)
   (:documentation "given a target that was returned by `link-resolve', return the filepath associated with it (if any)."))
 
+(defgeneric convert-target-filepath (target)
+  (:documentation "given a target that was returned by `link-resolve', return the filepath associated with it (if any)."))
+
 (defmethod target-filepath ((target string))
   target)
 
 (defmethod target-filepath ((target pathname))
   (cltpt/file-utils:ensure-filepath-string target))
+
+(defmethod convert-target-filepath ((target t))
+  (target-filepath target))
 
 (defmethod link-resolve ((link-type (eql 'file))
                          dest

@@ -229,6 +229,19 @@ each rule is a plist that can contain the following params.
 (defmethod cltpt/base:target-filepath ((target node))
   (node-file target))
 
+(defmethod cltpt/base:convert-target-filepath ((target node))
+  (let* ((root (cltpt/tree:tree-root (node-text-obj target)))
+         (dest-filepath (cltpt/base:target-filepath target))
+         (root-title (cltpt/base:text-object-property root :title))
+         (data `(:title ,(node-title target)
+                 :root-title ,root-title
+                 :id ,(node-id target)))
+         (filepath-format-string (getf cltpt/base:*convert-info* :filepath-format))
+         (new-filepath (if (and dest-filepath filepath-format-string)
+                           (cltpt/base:filepath-format dest-filepath filepath-format-string data)
+                           dest-filepath)))
+    new-filepath))
+
 ;; TODO: hacky function to get current dynamically bound roamer.
 (defun current-roamer ()
   (or (getf *roam-convert-data* :roamer)
