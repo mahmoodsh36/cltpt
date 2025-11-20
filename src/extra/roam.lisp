@@ -157,6 +157,7 @@ each rule is a plist that can contain the following params.
                         (dest-format cltpt/base:text-format)
                         filepath-format
                         &key
+                          dest-dir
                           static-filepath-format
                           (convert-file-predicate (lambda (x) t)))
   (let ((files-done (make-hash-table :test 'equal)))
@@ -168,6 +169,8 @@ each rule is a plist that can contain the following params.
                             :node node))
                     (is-done (gethash in-file files-done))
                     (out-file (node-info-format-str node filepath-format)))
+               (when dest-dir
+                 (setf out-file (cltpt/file-utils:join-paths dest-dir out-file)))
                (when (and (typep (node-text-obj node) 'cltpt/base:document)
                           (not is-done)
                           (funcall convert-file-predicate in-file))
@@ -178,7 +181,8 @@ each rule is a plist that can contain the following params.
                           cltpt/base:*convert-info*
                           (list
                            :filepath-format filepath-format
-                           :static-filepath-format static-filepath-format))))
+                           :static-filepath-format static-filepath-format
+                           :dest-dir dest-dir))))
                    (cltpt/base:convert-file
                     (node-format node)
                     dest-format
