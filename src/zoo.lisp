@@ -153,17 +153,13 @@
           :escape nil
           :remove-newlines-after t)))
 
-(defmethod convert-target-filepath ((target string))
+(defmethod cltpt/base:convert-target-filepath ((target pathname))
+  (cltpt/base:convert-target-filepath (cltpt/file-utils:ensure-filepath-string target)))
+
+(defmethod cltpt/base:convert-target-filepath ((target string))
   (let* ((static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*))
-         (resolved (cltpt/base:text-link-resolve obj))
-         (dest-filepath (when resolved
-                          (cltpt/base:target-filepath resolved)))
-         (filepath-format-string
-           (when (and dest-filepath
-                      (cltpt/file-utils:file-has-extension-p
-                       dest-filepath
-                       static-ext))
-             (getf cltpt/base:*convert-info* :static-filepath-format)))
+         (dest-filepath (cltpt/base:target-filepath target))
+         (filepath-format-string (getf cltpt/base:*convert-info* :static-filepath-format))
          (new-filepath (if (and dest-filepath filepath-format-string)
                            (cltpt/base:filepath-format dest-filepath filepath-format-string)
                            dest-filepath)))
@@ -188,8 +184,20 @@
                      (cltpt/combinator:match-end desc-match)))
          (dest-filepath (when resolved
                           (cltpt/base:target-filepath resolved)))
-         (new-filepath (when resolved
-                          (cltpt/base:convert-target-filepath resolved)))
+         (new-filepath
+           (when resolved
+             (if (getf cltpt/base:*convert-info* :dest-dir)
+                 (cltpt/file-utils:join-paths (getf cltpt/base:*convert-info* :dest-dir)
+                                              (cltpt/base:convert-target-filepath resolved))
+                 (cltpt/base:convert-target-filepath resolved))))
+         (inserted-filepath
+           (when new-filepath
+             (if (eq backend cltpt/html:*html*)
+                 ;; if its html we should respect *html-static-route*
+                 (cltpt/file-utils:join-paths
+                  cltpt/html:*html-static-route*
+                  (cltpt/file-utils:file-basename new-filepath))
+                 (cltpt/file-utils:file-basename new-filepath))))
          (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*)))
     (when dest-filepath
       ;; initialize the tags to the <a> tag, if its a video or an image,
@@ -199,11 +207,11 @@
               (cltpt/html:*html*
                (format nil
                        "<a href='~A'>"
-                       new-filepath))
+                       inserted-filepath))
               (cltpt/latex:*latex*
                (format nil
                        "\\href{~A}{"
-                       new-filepath))))
+                       inserted-filepath))))
       (setf close-tag
             (cltpt/base:pcase backend
               (cltpt/html:*html* "</a>")
@@ -213,25 +221,19 @@
         ;; we should check if its the same file, otherwise copy-file will break
         (unless (string= dest-filepath new-filepath)
           (when (uiop:probe-file* dest-filepath)
-            (let ((copy-dest
-                    (if (getf cltpt/base:*convert-info* :dest-dir)
-                        (cltpt/file-utils:join-paths
-                         (getf cltpt/base:*convert-info* :dest-dir)
-                         new-filepath)
-                        new-filepath)))
-              (ensure-directories-exist copy-dest)
-              (uiop:copy-file dest-filepath copy-dest))))
+            (ensure-directories-exist new-filepath)
+            (uiop:copy-file dest-filepath new-filepath)))
         ;; if its an image or video we need to "display" it in html.
         (setf open-tag
               (cltpt/base:pcase backend
                 (cltpt/html:*html*
                  (format nil
                          "<img src='~A' />"
-                         new-filepath))
+                         inserted-filepath))
                 (cltpt/latex:*latex*
                  (format nil
                          "\\href{~A}{"
-                         new-filepath))))
+                         inserted-filepath))))
         (setf close-tag
               (cltpt/base:pcase backend
                 (cltpt/html:*html* "")
