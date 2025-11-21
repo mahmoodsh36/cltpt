@@ -191,14 +191,14 @@
                                               (cltpt/base:convert-target-filepath resolved))
                  (cltpt/base:convert-target-filepath resolved))))
          (inserted-filepath
-           (or new-filepath
-             (if (and (eq backend cltpt/html:*html*) cltpt/html:*html-static-route*)
-                 ;; if its html we should respect *html-static-route*
-                 (cltpt/file-utils:join-paths
-                  cltpt/html:*html-static-route*
-                  (cltpt/file-utils:file-basename new-filepath))
-                 (cltpt/file-utils:file-basename new-filepath))
-             dest-filepath))
+           (or (when new-filepath
+                 (if (and (eq backend cltpt/html:*html*) cltpt/html:*html-static-route*)
+                     ;; if its html we should respect *html-static-route*
+                     (cltpt/file-utils:join-paths
+                      cltpt/html:*html-static-route*
+                      (cltpt/file-utils:file-basename new-filepath))
+                     (cltpt/file-utils:file-basename new-filepath)))
+               dest-filepath))
          (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*)))
     (when dest-filepath
       ;; initialize the tags to the <a> tag, if its a video or an image,
