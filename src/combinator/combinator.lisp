@@ -3,7 +3,7 @@
   (:import-from :cltpt/combinator/match
    :match-id :match-begin :match-end :match-ctx :match-children :match-str
    :make-match :match-clone :match-rule :match-parent
-   :match-set-children-parent
+   :match-set-children-parent :match-props :match
    :find-submatch :find-submatch-last :find-submatch-all)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
@@ -19,7 +19,7 @@
 
    :match-id :match-begin :match-end :match-ctx :match-children :match-str
    :make-match :match-clone :match-rule :match-parent
-   :match-set-children-parent
+   :match-set-children-parent :match-props :match
    :find-submatch :find-submatch-last :find-submatch-all
 
    :match-text

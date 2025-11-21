@@ -2366,6 +2366,38 @@ hi")
   (fiveam:is
    (null (test-flanked-by-whitespace-or-punctuation-no-match-func))))
 
+(defun run-org-list-extensive-test ()
+  (let* ((messy (concatenate 'string
+                             "-   Item 1   " (string #\newline)
+                             "     Line 1 Continuation" (string #\newline)
+                             "     Line 2 Continuation" (string #\newline)
+                             "- Item 2"))
+         (match (cltpt/org-mode:org-list-matcher nil messy 0))
+         (clean (reformat-list match)))
+    (format t "~A~%" messy)
+    (format t "~A~%" clean)))
+
+(defun check-list-indexing ()
+  (let* ((text (concatenate 'string
+                            "- chapter 1" (string #\newline)
+                            "- chapter 2" (string #\newline)
+                            "  - section 2.a" (string #\newline)
+                            "  - section 2.b" (string #\newline)
+                            "    - subsection 2.b.1" (string #\newline)
+                            "    - subsection 2.b.2 <-- we want this one" (string #\newline)
+                            "- chapter 3"))
+         (match (cltpt/org-mode:org-list-matcher nil text 0)))
+    (let* ((target-string "subsection 2.b.2")
+           (pos (search target-string text)))
+      (format t "target text: \"~a\"~%" target-string)
+      (format t "found at character position: ~a~%" pos)
+      (let ((indices (cltpt/org-mode::get-list-item-indices match pos)))
+        (format t "identified indices: ~a~%" indices)
+        (let ((node (cltpt/org-mode::get-item-at-indices match indices)))
+          (when node
+              (let ((content (cltpt/org-mode::get-list-item-text node)))
+                (format t "content of retrieved node: \"~a\"~%" content))))))))
+
 (defun run-org-mode-tests ()
   "Run all org-mode rules tests."
   (format t "~&running org-mode tests...~%")
