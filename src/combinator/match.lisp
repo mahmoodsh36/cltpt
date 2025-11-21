@@ -3,7 +3,7 @@
   (:export
    :match-id :match-begin :match-end :match-ctx :match-children :match-str
    :make-match :match-clone :match-rule :match-parent
-   :match-set-children-parent
+   :match-set-children-parent :match-props :match
    :find-submatch :find-submatch-last :find-submatch-all))
 
 (in-package :cltpt/combinator/match)
