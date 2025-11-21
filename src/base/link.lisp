@@ -35,7 +35,8 @@ this function should always return a relative path that will be appended to :des
                          desc)
   (uiop:parse-unix-namestring dest))
 
+;; default to 'file functionality
 (defmethod link-resolve ((link-type symbol)
                          dest
                          desc)
-  nil)
+  (link-resolve 'file dest desc))
