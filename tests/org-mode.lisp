@@ -2164,7 +2164,7 @@ This exactly matches the actual parsed tree structure."
 
 (defun org-combinator-test-1 ()
   (time
-   (let ((files (uiop:directory-files "/home/mahmooz/brain/notes/"
+   (let ((files (uiop:directory-files "/Volumes/main/brain/notes/"
                                       "*.org")))
      (loop for file in files
            for i from 0
@@ -2177,7 +2177,7 @@ This exactly matches the actual parsed tree structure."
 
 (defun org-combinator-test-2 ()
   (time
-   (let ((files (uiop:directory-files "/home/mahmooz/brain/notes/"
+   (let ((files (uiop:directory-files "/Volumes/main/brain/notes/"
                                       "*.org")))
      (loop for file in files
            for i from 0
@@ -2337,7 +2337,8 @@ hi")
 
 (defun test-flanked-by-whitespace-or-punctuation-func ()
   (let ((test-rule `(:pattern (cltpt/combinator:flanked-by-whitespace-or-punctuation
-                                   (:pattern (cltpt/combinator:literal "test") :id test-word)))))
+                               (:pattern (cltpt/combinator:literal "test")
+                                :id test-word)))))
     (cltpt/combinator:parse " hello test world" (list test-rule))))
 
 (test test-flanked-by-whitespace-or-punctuation
@@ -2348,7 +2349,8 @@ hi")
 
 (defun test-flanked-by-whitespace-or-punctuation-punctuation-func ()
   (let ((test-rule `(:pattern (cltpt/combinator:flanked-by-whitespace-or-punctuation
-                                   (:pattern (cltpt/combinator:literal "test") :id test-word)))))
+                               (:pattern (cltpt/combinator:literal "test")
+                                :id test-word)))))
     (cltpt/combinator:parse "hello,test,world" (list test-rule))))
 
 (test test-flanked-by-whitespace-or-punctuation-punctuation
@@ -2359,7 +2361,8 @@ hi")
 
 (defun test-flanked-by-whitespace-or-punctuation-no-match-func ()
   (let ((test-rule `(:pattern (cltpt/combinator:flanked-by-whitespace-or-punctuation
-                                   (:pattern (cltpt/combinator:literal "test") :id test-word)))))
+                               (:pattern (cltpt/combinator:literal "test")
+                                :id test-word)))))
     (cltpt/combinator:parse "atestb" (list test-rule))))
 
 (test test-flanked-by-whitespace-or-punctuation-no-match
