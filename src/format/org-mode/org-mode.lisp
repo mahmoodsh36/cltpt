@@ -1113,6 +1113,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-finalize ((obj org-document))
   (let* ((doc-title)
          (doc-id)
+         (doc-desc)
          (doc-date)
          (doc-tags)
          (first-child (first (cltpt/base:text-object-children obj)))
@@ -1125,16 +1126,19 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           (handle-parsed-org-keywords obj))
     (setf doc-title
           (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
-                     "title"))
+                                "title"))
+    (setf doc-desc
+          (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
+                                "description"))
     ;; denote-style identifier
     (setf doc-id
           (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
-                     "identifier"))
+                                "identifier"))
     (setf doc-date
           (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
-                     "date"))
+                                "date"))
     (let ((tags-str (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
-                               "filetags")))
+                                          "filetags")))
       ;; avoid first and last ':', split by ':' to get tags
       (setf doc-tags (cltpt/base:str-split (cltpt/base:subseq* tags-str 1 -1) ":")))
     ;; set metadata in the object itself
@@ -1142,12 +1146,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (setf (cltpt/base:text-object-property obj :tags) doc-tags)
     (setf (cltpt/base:text-object-property obj :id) doc-id)
     (setf (cltpt/base:text-object-property obj :date) doc-date)
+    (setf (cltpt/base:text-object-property obj :desc) doc-desc)
     ;; initialize roam data
     (setf (cltpt/base:text-object-property obj :roam-node)
           (cltpt/roam:make-node
            :id doc-id
            :title doc-title
-           :desc nil
+           :desc doc-desc
            :text-obj obj))
     (let ((header-stack))
       (loop for child in (cltpt/base:text-object-children obj)
