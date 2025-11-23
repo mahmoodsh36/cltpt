@@ -202,7 +202,6 @@
                      (cltpt/file-utils:file-basename new-filepath)))
                dest-filepath))
          (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*)))
-    (format t "hey123 - ~A - ~A - ~A~%" inserted-filepath new-filepath dest-filepath)
     (when dest-filepath
       ;; initialize the tags to the <a> tag, if its a video or an image,
       ;; it gets overwritten later.
