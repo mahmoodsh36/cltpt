@@ -190,6 +190,8 @@
                  (cltpt/file-utils:join-paths (getf cltpt/base:*convert-info* :dest-dir)
                                               (cltpt/base:convert-target-filepath resolved))
                  (cltpt/base:convert-target-filepath resolved))))
+         ;; TODO/FIXME: this will not work when dest-filepath is a directory path that ends with
+         ;; a forward slash.
          (inserted-filepath
            (or (when new-filepath
                  (if (and (eq backend cltpt/html:*html*) cltpt/html:*html-static-route*)
@@ -200,6 +202,7 @@
                      (cltpt/file-utils:file-basename new-filepath)))
                dest-filepath))
          (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*)))
+    (format t "hey123 - ~A - ~A - ~A~%" inserted-filepath new-filepath dest-filepath)
     (when dest-filepath
       ;; initialize the tags to the <a> tag, if its a video or an image,
       ;; it gets overwritten later.
