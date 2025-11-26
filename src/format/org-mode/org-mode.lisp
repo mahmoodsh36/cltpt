@@ -2,7 +2,8 @@
   (:use :cl)
   (:export
    :org-list-matcher :*org-mode* :org-mode-text-object-types :init :*org-enable-macros*
-   :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block :org-example-block))
+   :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
+   :org-example-block))
 
 (in-package :cltpt/org-mode)
 

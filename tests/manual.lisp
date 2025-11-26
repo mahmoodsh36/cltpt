@@ -135,3 +135,10 @@
       rmr
       (cltpt/base:text-format-by-name "html")
       "/tmp/out-%(identity title).html"))))
+
+(defun test-babel-eval ()
+  (cltpt/babel::babel-eval
+   'cltpt/babel::python
+   "print('hi1')
+print('hi2')"
+   ))
