@@ -2,7 +2,7 @@
   :description "cltpt - common lisp text processing tools, is a set of tools for working with different text formats."
   :version "0.1"
   :author "Mahmood Sheikh <mahmod.m2015@gmail.com>"
-  :depends-on ("uiop" "ironclad" "fiveam" "local-time" "clingon")
+  :depends-on ("uiop" "ironclad" "fiveam" "local-time" "clingon" "bordeaux-threads")
   :components ((:file "cltpt")
                (:module "file-utils"
                 :pathname "src/"
@@ -70,6 +70,11 @@
                 :pathname "src/extra"
                 :depends-on ("base" "file-utils" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
+               (:module "babel"
+                :pathname "src/babel"
+                :depends-on ("tree")
+                :components ((:file "babel")
+                             (:file "python")))
                (:module "tests"
                 :pathname "tests/"
                 :depends-on ("base" "org-mode" "latex-previews")
