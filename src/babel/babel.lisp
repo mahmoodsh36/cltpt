@@ -1,6 +1,6 @@
 (defpackage :cltpt/babel
   (:use :cl)
-  (:export :init))
+  (:export :babel-eval))
 
 (in-package :cltpt/babel)
 
@@ -25,9 +25,9 @@ possible examples for TYPE are: list, string, dictionary."))
 (defmethod babel-lexical-wrap ((lang (eql 'python))
                                code
                                assignments)
-  (with-output-to-string out
+  (with-output-to-string (out)
     (loop for (name . value) in assignments
-          (format out "~A = ~A~%" name value))
+          do (format out "~A = ~A~%" name value))
     (write-string code out)))
 
 (defmethod babel-decode (lang

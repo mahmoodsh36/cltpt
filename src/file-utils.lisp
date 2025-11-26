@@ -6,7 +6,8 @@
    :change-extension :change-dir :path-without-extension
    :file-basename :base-name-no-ext
    :write-file :read-file :join-paths :join-paths-list :walk-dir :as-dir-path
-   :delete-files-by-glob :ensure-filepath-pathname :ensure-filepath-string :ensure-absolute))
+   :delete-files-by-glob :ensure-filepath-pathname :ensure-filepath-string :ensure-absolute
+   :temp-file))
 
 (in-package :cltpt/file-utils)
 
@@ -161,3 +162,20 @@ uses UIOP's directory* for glob expansion (supports * and **)."
    (uiop:ensure-absolute-pathname
     path
     (uiop:ensure-directory-pathname *default-pathname-defaults*))))
+
+(defun random-string (&optional (length 12))
+  (let ((chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"))
+    (coerce
+     (loop repeat length
+           collect (elt chars (random (length chars))))
+     'string)))
+
+(defun temp-file (&optional (prefix "cltpt") postfix)
+  (let* ((dir (uiop:temporary-directory))
+         (rand (random-string 12))
+         (name (if postfix
+                   (format nil "~A-~A.~A" prefix rand postfix)
+                   (format nil "~A-~A" prefix rand))))
+    (cltpt/file-utils:join-paths
+     (cltpt/file-utils:ensure-filepath-string dir)
+     name)))
