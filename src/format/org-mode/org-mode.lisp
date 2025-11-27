@@ -154,8 +154,8 @@
         do (let ((key (cltpt/combinator:find-submatch submatch 'drawer-key))
                  (val (cltpt/combinator:find-submatch submatch 'drawer-value)))
              (org-prop-drawer-set obj
-                             (cltpt/combinator:match-text key)
-                             (cltpt/combinator:match-text val)))))
+                                  (cltpt/combinator:match-text key)
+                                  (cltpt/combinator:match-text val)))))
 
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
 ;; TODO: properly convert drawers. drawers can include any elements but headers.
@@ -232,7 +232,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (let* ((kw (cltpt/base:text-object-property obj :keyword))
          (value (cltpt/base:text-object-property obj :value))
          (final-result))
-    ;; TODO: adapt to changes
+    ;; TODO: adapt transclusion functionality to changes
     ;; handle transclusions
     ;; (when (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
     ;;   (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
@@ -411,7 +411,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defvar *org-list-rule*
   `(org-list-matcher
-     ,*org-inline-text-objects-rule*))
+    ,*org-inline-text-objects-rule*))
 (defclass org-list (cltpt/base:text-object)
   ((cltpt/base::rule
     :allocation :class
@@ -904,7 +904,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
      (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
      (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
      nil nil nil)
-    ;; :escapable #\~
     :on-char #\~))
 (defclass org-inline-code (cltpt/base:text-object)
   ((cltpt/base::rule
@@ -1241,6 +1240,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-convert ((obj org-document)
                                            (backend cltpt/base:text-format))
+  ;; by ensuring the previews are generated before conversion we avoid having
+  ;; to compile every preview individually later on.
+  (when (eq backend cltpt/html:*html*)
+    (ensure-latex-previews-generated obj))
   (list :text (cltpt/base:text-object-text obj)
         :escape t
         :reparse nil
@@ -1257,7 +1260,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   nil
                   nil
                   nil))
-                ;; :escapable #\*
                 :on-char #\*)))
   (:documentation "org-mode emphasized text (surrounded by asterisks)."))
 
@@ -1269,7 +1271,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 ;; it is called in finalization methods and those are called when
 ;; handling incremental changes.
 (defun compress-contents-region-by-one (obj)
-  ;; Set contents region to span the entire object text, compressed by 1 on each side
+  ;; set contents region to span the entire object text, compressed by 1 on each side
   (setf (cltpt/base:text-object-property obj :contents-region-spec)
         (list :compress 1)))
 
@@ -1526,7 +1528,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                              obj
                              (cltpt/combinator:find-submatch match 'lang)))))
                  (cltpt/base:text-object-property obj :keywords-alist)))
-                (props
+              (props
                 (loop for (key . value) in all-keywords
                       for result = (unless (or (member key '("exports" "results")
                                                        :test 'string=)
@@ -1537,46 +1539,46 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                              value))
                       when result collect result))
               (props-str (cltpt/base:str-join props " "))
-               (code-open-tag
-                 (cltpt/base:pcase backend
-                   (cltpt/html:*html*
-                    (cond
-                      (is-code
-                       (format nil
-                               "<div class='org-src' ~A><pre><code>"
-                               props-str))
-                      (is-verbatim
-                       (format nil
-                               "<div class='org-example' ~A><pre>"
-                               props-str))
-                      (t
-                       (format nil
-                               "<div class='~A org-block' ~A>"
-                               block-type
-                               props-str))))
-                   (cltpt/latex:*latex*
-                    (cond
-                      (is-code
-                       (format nil "\\begin{~A}" cltpt/latex:*latex-code-env*))
-                      (is-verbatim
-                       "\\begin{verbatim}")
-                      (t
-                       (format nil "\\begin{~A}" block-type))))))
-               (code-close-tag
-                 (cltpt/base:pcase backend
-                   (cltpt/html:*html*
-                    (cond
-                      (is-code "</code></pre></div>")
-                      (is-verbatim "</pre></div>")
-                      (t "</div>")))
-                   (cltpt/latex:*latex*
-                    (cond
-                      (is-code
-                       (format nil "\\end{~A}" cltpt/latex:*latex-code-env*))
-                      (is-verbatim
-                       "\\end{verbatim}")
-                      (t
-                       (format nil "\\end{~A}" block-type))))))
+              (code-open-tag
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html*
+                   (cond
+                     (is-code
+                      (format nil
+                              "<div class='org-src' ~A><pre><code>"
+                              props-str))
+                     (is-verbatim
+                      (format nil
+                              "<div class='org-example' ~A><pre>"
+                              props-str))
+                     (t
+                      (format nil
+                              "<div class='~A org-block' ~A>"
+                              block-type
+                              props-str))))
+                  (cltpt/latex:*latex*
+                   (cond
+                     (is-code
+                      (format nil "\\begin{~A}" cltpt/latex:*latex-code-env*))
+                     (is-verbatim
+                      "\\begin{verbatim}")
+                     (t
+                      (format nil "\\begin{~A}" block-type))))))
+              (code-close-tag
+                (cltpt/base:pcase backend
+                  (cltpt/html:*html*
+                   (cond
+                     (is-code "</code></pre></div>")
+                     (is-verbatim "</pre></div>")
+                     (t "</div>")))
+                  (cltpt/latex:*latex*
+                   (cond
+                     (is-code
+                      (format nil "\\end{~A}" cltpt/latex:*latex-code-env*))
+                     (is-verbatim
+                      "\\end{verbatim}")
+                     (t
+                      (format nil "\\end{~A}" block-type))))))
               (changes)
               (results-open-tag
                 (cltpt/base:pcase backend
@@ -1926,25 +1928,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                 :title nil
                                 :desc nil
                                 :text-obj obj))))
-
-(defun region-in-tags (match &optional include-tags)
-  "takes a combinator match, returns a `region' that should contain the contents between the begin/end tags, like the indicies for the region enclosing \\begin{tag}..\\end{tag} for latex environments.
-
-according to INCLUDE-TAGS we decide whether the region should enclose the tags themselves or not."
-  ;; we're using 'open-tag here which may not precisely equal 'cltpt/latex::open-tag
-  ;; but it is fine since find-submatch uses 'string=
-  (let* ((begin-match (cltpt/combinator:find-submatch match 'open-tag))
-         (end-match (cltpt/combinator:find-submatch-last match 'close-tag))
-         (absolute-begin (cltpt/combinator:match-begin match)))
-    (if include-tags
-        (cltpt/base:make-region
-         :begin (- (cltpt/combinator:match-begin begin-match) absolute-begin)
-         :end (- (cltpt/combinator:match-end end-match) absolute-begin))
-        (cltpt/base:make-region
-         :begin (- (cltpt/combinator:match-end begin-match)
-                   (cltpt/combinator:match-begin begin-match))
-         :end (- (cltpt/combinator:match-begin end-match)
-                 (cltpt/combinator:match-begin begin-match))))))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-latex-env) str1 match)
   (declare (ignore str1 match))
