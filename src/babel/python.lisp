@@ -12,51 +12,6 @@
   "cltpt_babel"
   "the name of the python interpreter to use")
 
-(defun ensure-min-indent (input-string &optional (min-indent 4))
-  "ensures every line has at least MIN-INDENT spaces at the start."
-  (with-output-to-string (out)
-    (with-input-from-string (in input-string)
-      (loop for line = (read-line in nil nil)
-            while line
-            do (let* ((existing-spaces
-                        ;; count leading spaces
-                        (or (position-if-not (lambda (c) (char= c #\space)) line)
-                            (length line)))
-                      (needed-spaces
-                        (max 0 (- min-indent existing-spaces))))
-                 ;; add padding if existing < min-indent
-                 (dotimes (i needed-spaces)
-                   (write-char #\space out))
-                 ;; write the line (includes its original spaces)
-                 (write-string line out)
-                 (terpri out))))))
-
-(defun unindent (input-string)
-  "calculates indentation of the first line and removes that amount from all lines."
-  (with-output-to-string (out)
-    (with-input-from-string (in input-string)
-      (let ((first-line (read-line in nil nil)))
-        (when first-line
-          (let ((indent-amount
-                  ;; calculate the indentation level of the first line
-                  (or (position-if-not (lambda (c) (char= c #\space)) first-line)
-                      (length first-line))))
-            (flet ((print-trimmed (line)
-                     (let* ((len (length line))
-                            ;; count actual spaces in this specific line
-                            (current-indent (or (position-if-not (lambda (c) (char= c #\space)) line)
-                                                len))
-                            ;; determine how many chars to actually cut.
-                            ;; we cut the requested amount, unless the line has fewer spaces
-                            ;; than that.
-                            (cut-point (min indent-amount current-indent)))
-                       (write-string (subseq line cut-point) out)
-                       (terpri out))))
-              (print-trimmed first-line)
-              (loop for line = (read-line in nil nil)
-                    while line
-                    do (print-trimmed line)))))))))
-
 (defmethod babel-eval ((lang (eql 'python)) code)
   (let ((output-stream *standard-output*))
     (bt:make-thread
@@ -67,7 +22,8 @@
            (with-open-file (f temp-file :direction :output :if-exists :supersede)
              (format f "def ~A():~%~A~%~%~A()"
                      *python-main-func-name*
-                     (ensure-min-indent (unindent code) 4)
+                     code
+                     (ensure-min-indent code 4)
                      *python-main-func-name*))
            ;; run the interpreter on the file we wrote
            (let* ((process (uiop:launch-program (list *python-interpreter* temp-file)

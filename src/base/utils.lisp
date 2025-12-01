@@ -3,12 +3,6 @@
 (defun last-atom (seq)
   (car (last seq)))
 
-(defun md5-str (s)
-  (ironclad:byte-array-to-hex-string
-   (ironclad:digest-sequence
-    :md5
-    (sb-ext:string-to-octets s :external-format :utf-8))))
-
 ;; this is a temporary workaround because `find-class' is really slow..
 (defparameter *class-map* (make-hash-table))
 (defun find-class-faster (class-sym)
@@ -111,13 +105,6 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
   "grab value by KEY from ALIST (compare using `equal')."
   (cdr (assoc key alist :test 'equal)))
 
-(defun str-join (string-list separator)
-  "joins a list of strings with a SEPARATOR in between each element."
-  (with-output-to-string (stream)
-    (loop for (str . rest) on string-list
-          do (write-string str stream)
-          when rest do (write-string separator stream))))
-
 (defun seq-type (seq)
   "get the type of a sequence (`type-of' is unreliable). this returns one of 3 values, so its not completely general as the types are hardcoded"
   (typecase seq
@@ -140,33 +127,6 @@ the type of sequence to return is determined by the first sequences in the list 
   #(1 2 3 10)"
   (apply #'concatenate
          (list* (or type (seq-type (first seqs))) seqs)))
-
-(defun str-prune (string max-length &optional (omission "..."))
-  "truncates a string to a maximum length, appending an omission string.
-
-args:
-  string: the input string to prune.
-  max-length: the maximum desired length of the resulting string.
-  omission: the string to append if truncation occurs (defaults to \"...\").
-
-returns the pruned string, or the original string if it's short enough."
-  (let ((string-length (length string))
-        (omission-length (length omission)))
-    ;; if the original string is already short enough, return it as is.
-    (if (<= string-length max-length)
-        string
-        ;; check if the max-length is even long enough for the omission.
-        ;; if not, truncate the omission string itself to fit.
-        (if (< max-length omission-length)
-            (subseq omission 0 max-length)
-            ;; otherwise, concatenate the start of the string with the omission.
-            (concatenate 'string
-                         (subseq string 0 (- max-length omission-length))
-                         omission)))))
-
-(defun str-split (str sep)
-  "split STR by the seperator SEP. simply calls `uiop:split-string'."
-  (uiop:split-string str :separator sep))
 
 (defun subseq* (sequence start &optional end)
   "a version of `subseq` that handles negative indices.
@@ -296,26 +256,6 @@ the loop stops when NEXT-DATE would be after END-DATE."
 
 (defun today-timestamp ()
   (truncate-to-day (local-time:today)))
-
-(defun replace-all (string part replacement &key (test #'string=))
-  "returns a new string in which all occurrences of PART are replaced with REPLACEMENT."
-  (with-output-to-string (out)
-    (loop with part-length = (length part)
-          for old-pos = 0 then (+ pos part-length)
-          for pos = (search part string
-                            :start2 old-pos
-                            :test test)
-          do (write-string string out
-                           :start old-pos
-                           :end (or pos (length string)))
-          when pos do (write-string replacement out)
-            while pos)))
-
-(defun str-dupe (str count)
-  "return STR concatenated COUNT times."
-  (with-output-to-string (out)
-    (loop for i from 0 upto count
-          do (write-sequence str out))))
 
 (defun tautology (&rest args)
   "function that always returns T."
