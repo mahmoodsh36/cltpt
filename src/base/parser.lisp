@@ -184,22 +184,6 @@ the function passes the state between recursive calls by returning two values:
         do (finalize-doc child))
   (text-object-finalize doc))
 
-(defmethod find-child-enclosing-region ((obj text-object) (r region))
-  (loop for child in (text-object-children obj)
-        do (when (region-encloses (text-object-text-region child) r)
-             (return-from find-child-enclosing-region
-               (if (text-object-children child)
-                   (or
-                    (find-child-enclosing-region
-                     child
-                     (let ((new-region (region-clone r)))
-                       (region-decf new-region
-                                    (region-begin (text-object-text-region child)))
-                       new-region))
-                    child)
-                   child))))
-  obj)
-
 ;; this is used for incremental parsing, it is a destructive operation.
 ;; currently the method is to reparse the parent that contains the region where
 ;; the change happened. it can probably be made more efficient with heuristics.
@@ -364,11 +348,13 @@ returns the elements newly inserted into the tree."
                           (new-objects))
                      (unless reparse-all
                        (loop for m in new-result
-                             do (handle-match
-                                 new-ancestor-text
-                                 m
-                                 new-objects
-                                 (text-format-text-object-types format)))
+                             do (multiple-value-bind (new-obj updated-objects)
+                                    (handle-match
+                                     new-ancestor-text
+                                     m
+                                     new-objects
+                                     (text-format-text-object-types format))
+                                  (setf new-objects updated-objects)))
                        (setf new-objects
                              (nreverse
                               (remove-if
@@ -382,9 +368,11 @@ returns the elements newly inserted into the tree."
                          (only-simple-changes
                           (setf (text-object-children child) new-objects))
                          ((and parent prev-sibling-cons)
-                          (progn
-                            (setf (cdr prev-sibling-cons) new-objects)
-                            (setf (cdr (last new-objects)) next-siblings)))
+                          (if new-objects
+                              (progn
+                                (setf (cdr prev-sibling-cons) new-objects)
+                                (setf (cdr (last new-objects)) next-siblings))
+                              (setf (cdr prev-sibling-cons) next-siblings)))
                          (parent
                           (setf (text-object-children (text-object-parent child))
                                 (concatenate 'list

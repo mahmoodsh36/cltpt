@@ -98,7 +98,7 @@
   "constructs the full path to the precompiled preamble .fmt file.
 the filename is based on a hash of the preamble source, ensuring that changes to
 the preamble automatically invalidate the old compiled format."
-  (let* ((preamble-hash (cltpt/base:md5-str (get-preamble-source-string)))
+  (let* ((preamble-hash (cltpt/str-utils:md5-str (get-preamble-source-string)))
          (fmt-name (concatenate 'string "preamble-" preamble-hash ".fmt")))
     (cltpt/file-utils:join-paths *latex-previews-tmp-directory* fmt-name)))
 
@@ -149,7 +149,7 @@ the preamble automatically invalidate the old compiled format."
 (defun format-command (template-string substitutions)
   (let ((result template-string))
     (dolist (sub substitutions result)
-      (setf result (cltpt/base:replace-all result (car sub) (cdr sub))))))
+      (setf result (replace-all result (car sub) (cdr sub))))))
 
 (defun cleanup-temp-files (base-name &optional (intermediate-ext ".dvi"))
   (dolist (ext (list ".tex" ".aux" ".log" ".bcf" ".run.xml" intermediate-ext))
@@ -305,13 +305,13 @@ returns an association list of (hash . string-file-path)."
                    pipeline-config
                    density
                    transparent
-                   (cltpt/base:md5-str (get-preamble-source-string)))))
+                   (cltpt/str-utils:md5-str (get-preamble-source-string)))))
     (unless pipeline-config (error "unknown preview pipeline: ~A" pipeline))
     ;; checking the cache
     (let ((missing-snippets)
           (all-snippets-with-hashes))
       (dolist (snippet-text snippets)
-        (let* ((hash (cltpt/base:md5-str
+        (let* ((hash (cltpt/str-utils:md5-str
                       (concatenate 'string
                                    settings-string
                                    ";snippet="
