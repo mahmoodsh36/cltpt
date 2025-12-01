@@ -164,14 +164,14 @@
          (obj-text (cltpt/base:text-object-text obj)))
     (format t "num of children before: ~A~%" (length (cltpt/base:text-object-children doc)))
     ;; (cltpt/base::handle-change obj (list 'cltpt/latex::inline-math) 2 "\\(new math here\\)")
-     (cltpt/base:handle-changed-regions
-      doc
-       (cltpt/base:make-text-format "dummy")
-       (list
-       (cons
-        "\\(some\\) \\(math here\\)"
-        (cltpt/base:make-region :begin 0 :end 21)))
-      t)
+    (cltpt/base:handle-changed-regions
+     doc
+     (cltpt/base:make-text-format "dummy")
+     (list
+      (cons
+       "\\(some\\) \\(math here\\)"
+       (cltpt/base:make-region :begin 0 :end 21)))
+     t)
     (format t
             "   === old ===~%~A~%   === new ===~%~A~%"
             obj-text
@@ -185,10 +185,10 @@
                (cltpt/base:make-text-format "dummy")
                text
                :text-object-types (list 'cltpt/latex::inline-math)))
+         (initial-children-count (length (cltpt/base:text-object-children doc)))
          (obj (car (cltpt/base:text-object-children doc)))
          (obj-text (cltpt/base:text-object-text obj)))
-    (format t "num of children before: ~A~%"
-            (length (cltpt/base:text-object-children doc)))
+    (format t "num of children before: ~A~%" initial-children-count)
     (cltpt/base:handle-changed-regions
      doc
      cltpt/org-mode:*org-mode*
@@ -209,13 +209,20 @@
         (cltpt/base:make-region :begin 14 :end 14)
         (length "start "))))
      t)
-    (format t "num of children after: ~A~%"
-            (length (cltpt/base:text-object-children doc)))
-    (format t
-            "   === old ===~%~A~%   === new ===~%~A~%"
-            obj-text
-            (cltpt/base:text-object-text obj))
-    (format t "updated doc: ~A~%" (cltpt/base:text-object-text doc))))
+    (let ((final-children-count (length (cltpt/base:text-object-children doc))))
+      (format t "num of children after: ~A~%" final-children-count)
+      (format t
+              "   === old ===~%~A~%   === new ===~%~A~%"
+              obj-text
+              (cltpt/base:text-object-text obj))
+      (format t "updated doc: ~A~%" (cltpt/base:text-object-text doc))
+      (values initial-children-count final-children-count))))
+
+(test test-incremental-parsing-3
+  (multiple-value-bind (initial-children-count final-children-count)
+      (test-incremental-parsing-3)
+    (fiveam:is (= final-children-count 2)
+               "document should have 2 children after the operation")))
 
 (defparameter *test-forest*
   (list (cons '(:text "projects" :expanded t)
