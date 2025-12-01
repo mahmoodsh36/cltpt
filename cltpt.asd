@@ -7,6 +7,9 @@
                (:module "file-utils"
                 :pathname "src/"
                 :components ((:file "file-utils")))
+               (:module "str-utils"
+                :pathname "src/"
+                :components ((:file "str-utils")))
                (:module "tree"
                 :pathname "src/tree"
                 :components ((:file "tree")))
@@ -21,7 +24,7 @@
                              (:file "combinator")))
                (:module "base"
                 :pathname "src/base/"
-                :depends-on ("combinator" "file-utils")
+                :depends-on ("combinator" "file-utils" "str-utils")
                 :components ((:file "base")
                              (:file "utils")
                              (:file "region")
@@ -33,7 +36,7 @@
                              (:file "convert")))
                (:module "latex-previews"
                 :pathname "src/extra/"
-                :depends-on ("base" "file-utils")
+                :depends-on ("base" "file-utils" "str-utils")
                 :components ((:file "latex-previews")))
                (:module "latex"
                 :pathname "src/format/latex/"
@@ -58,7 +61,7 @@
                ;; TODO: org-mode should not directly depend on roam/agenda.
                (:module "org-mode"
                 :pathname "src/format/org-mode"
-                :depends-on ("combinator" "file-utils" "base" "latex" "html" "latex-previews")
+                :depends-on ("combinator" "file-utils" "base" "latex" "html" "latex-previews" "str-utils")
                 :components ((:file "org-mode")
                              (:file "org-list")
                              (:file "org-table")))

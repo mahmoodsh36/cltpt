@@ -786,7 +786,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                    (cltpt/latex:*latex*
                     (format nil
                             "\\~Asection{"
-                            (cltpt/base:str-dupe
+                            (cltpt/str-utils:str-dupe
                              "sub"
                              (cltpt/base:text-object-property obj :level))))))
                (postfix-begin (- (cltpt/combinator:match-end title-match)
@@ -1140,7 +1140,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (let ((tags-str (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                                           "filetags")))
       ;; avoid first and last ':', split by ':' to get tags
-      (setf doc-tags (cltpt/base:str-split (cltpt/base:subseq* tags-str 1 -1) ":")))
+      (setf doc-tags (cltpt/str-utils:str-split (cltpt/base:subseq* tags-str 1 -1) ":")))
     ;; set metadata in the object itself
     (setf (cltpt/base:text-object-property obj :title) doc-title)
     (setf (cltpt/base:text-object-property obj :tags) doc-tags)
@@ -1538,7 +1538,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                              key
                                              value))
                       when result collect result))
-              (props-str (cltpt/base:str-join props " "))
+              (props-str (cltpt/str-utils:str-join props " "))
               (code-open-tag
                 (cltpt/base:pcase backend
                   (cltpt/html:*html*
@@ -1652,7 +1652,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                      :end (cltpt/base:region-begin code-close-tag-region)))
                   (raw-results
                     (when match-raw-lines
-                      (cltpt/base:str-join
+                      (cltpt/str-utils:str-join
                        (mapcar
                         (lambda (raw-line-match)
                           (subseq (cltpt/base:text-object-match-text obj raw-line-match)
@@ -1711,6 +1711,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               :compress-region (cltpt/base:make-region :begin 1 :end 1)
               :escape-region-options (when (or is-code is-verbatim)
                                        (list :escape-newlines nil)))))))))
+
+(defmethod org-src-block-code ((obj org-src-block))
+  (let ((code (cltpt/base:text-object-contents obj)))
+    (unindent code)))
+
+(defmethod run-block ((obj org-src-block))
+  (let ((code (org-src-block-code obj)))
+    ))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object))
   (let* ((match (cltpt/base:text-object-match obj))

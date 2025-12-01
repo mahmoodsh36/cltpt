@@ -26,9 +26,14 @@
        (>= pos (region-begin r))))
 
 (defmethod region-encloses ((r region) (r2 region))
-  "returns whether region R encloses region R2."
-  (and (< (region-begin r2) (region-end r))
-       (>= (region-begin r2) (region-begin r))))
+  "returns whether region R encloses region R2 (non-strict)."
+  (and (>= (region-begin r2) (region-begin r))
+       (<= (region-end r2) (region-end r))))
+
+(defmethod region-encloses-strict ((r region) (r2 region))
+  "returns whether region R strictly encloses region R2."
+  (and (> (region-begin r2) (region-begin r))
+       (< (region-end r2) (region-end r))))
 
 (defmethod region-length ((r region))
   (with-slots (begin end) r

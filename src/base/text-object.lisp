@@ -258,7 +258,7 @@ taking care of children indicies would cause issues."
               (if (and ancestor
                        (slot-boundp ancestor 'text)
                        (slot-value ancestor 'text))
-                  (str-prune (text-object-text obj) 15)
+                  (cltpt/str-utils:str-prune (text-object-text obj) 15)
                   nil)))))
 
 ;; this is actually the slowest way to traverse siblings
@@ -856,3 +856,35 @@ contents region is further compressed by COMPRESS-REGION if provided."
 
 ;; (defmethod cltpt/base:text-object-post-changes ((obj text-object))
 ;;   )
+
+(defmethod find-child-enclosing-region ((obj text-object) (r region))
+  (loop for child in (text-object-children obj)
+        do (when (region-encloses (text-object-text-region child) r)
+             (return-from find-child-enclosing-region
+               (if (text-object-children child)
+                   (or
+                    (find-child-enclosing-region
+                     child
+                     (let ((new-region (region-clone r)))
+                       (region-decf new-region
+                                    (region-begin (text-object-text-region child)))
+                       new-region))
+                    child)
+                   child))))
+  obj)
+
+(defmethod find-child-enclosing-region-strict ((obj text-object) (r region))
+  (loop for child in (text-object-children obj)
+        do (when (region-encloses-strict (text-object-text-region child) r)
+             (return-from find-child-enclosing-region-strict
+               (if (text-object-children child)
+                   (or
+                    (find-child-enclosing-region-strict
+                     child
+                     (let ((new-region (region-clone r)))
+                       (region-decf new-region
+                                    (region-begin (text-object-text-region child)))
+                       new-region))
+                    child)
+                   child))))
+  obj)

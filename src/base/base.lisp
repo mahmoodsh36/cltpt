@@ -3,10 +3,10 @@
   (:export
    :flatten :tree-find :pcase :plistp
    :bind-and-eval :bind-and-eval* :eval-in-text-object-lexical-scope
-   :compress-consec :str-join :concat :str-prune :str-split :str-dupe
+   :compress-consec :concat
    :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :replace-substr :add-duration :list-dates :list-date-pairs
-   :today-timestamp :truncate-to-day :replace-all :md5-str
+   :today-timestamp :truncate-to-day
    :find-cons-if :tautology
 
    :make-text-format :*simple-format*

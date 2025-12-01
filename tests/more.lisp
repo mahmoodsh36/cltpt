@@ -224,6 +224,39 @@
     (fiveam:is (= final-children-count 2)
                "document should have 2 children after the operation")))
 
+(defun test-incremental-parsing-4 ()
+  (let* ((text "** header test
+some1 \\(math\\) here."
+               )
+         (doc (cltpt/base:parse cltpt/org-mode:*org-mode* text))
+         (obj (car (cltpt/base:text-object-children doc)))
+         (initial-children-count (length (cltpt/base:text-object-children obj)))
+         (obj-text (cltpt/base:text-object-text obj)))
+    (format t "num of children before: ~A~%" initial-children-count)
+    (cltpt/base:handle-changed-regions
+     doc
+     cltpt/org-mode:*org-mode*
+     (list
+      (cons
+       "\\(some2 math\\) "
+       (cltpt/base:make-region :begin 3 :end 3))
+      (cons
+       "\\(some more math\\) "
+       (cltpt/base:make-region :begin 15 :end 15))
+      (cons
+       "changed math"
+       (cltpt/base:make-region :begin 23 :end 27)))
+     t)
+    (setf obj (car (cltpt/base:text-object-children doc)))
+    (let ((final-children-count (length (cltpt/base:text-object-children obj))))
+      ;; should be 2 (or 3 if matching in header title is to be properly implemented later)
+      (format t "num of children after: ~A~%" final-children-count)
+      (format t
+              "   === old ===~%~A~%   === new ===~%~A~%"
+              obj-text
+              (cltpt/base:text-object-text doc))
+      (values initial-children-count final-children-count))))
+
 (defparameter *test-forest*
   (list (cons '(:text "projects" :expanded t)
               (list (cons '(:text "lisp" :expanded t)
