@@ -8,7 +8,7 @@
 ;; receives a match result, returns a text object
 ;; if MATCH has :rule that has :type, or if MATCH has :id, that refers to a `text-object', result will be a `text-object',
 ;; otherwise it will be a list that may contain many instances of `text-object'
-(defun handle-match (str1 match existing-objects text-object-types)
+(defun handle-match (input match existing-objects text-object-types)
   "recursively processes a match from the parser, creating text-objects.
 
 the function passes the state between recursive calls by returning two values:
@@ -28,7 +28,7 @@ the function passes the state between recursive calls by returning two values:
     ;; collect child objects in reverse order
     (loop for child in (cltpt/combinator:match-children match)
           do (multiple-value-bind (obj updated-objects)
-                 (handle-match str1
+                 (handle-match input
                                child
                                current-objects
                                text-object-types)
@@ -48,7 +48,7 @@ the function passes the state between recursive calls by returning two values:
                  (new-text-object (make-instance main-match-type))
                  (is-lexer-macro (is-text-macro main-match-type)))
             (if is-lexer-macro
-              (let ((match-text (subseq str1 match-begin match-end))
+              (let ((match-text (subseq input match-begin match-end))
                     (macro-eval-result))
                 ;; we always read macro strings in :cl-user package
                 ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
@@ -99,7 +99,7 @@ the function passes the state between recursive calls by returning two values:
                                :end match-end))
                         (setf (slot-value opening-macro 'text)
                               (region-text (text-object-text-region opening-macro)
-                                           str1))
+                                           input))
                         (setf (text-object-property opening-macro :open-macro)
                               nil)
                         (loop for item in intermediate-objects
@@ -116,9 +116,9 @@ the function passes the state between recursive calls by returning two values:
                               t)
                         (setf (text-object-property new-text-object :eval-result)
                               macro-eval-result)
-                        (text-object-init new-text-object str1 match)))))
+                        (text-object-init new-text-object input match)))))
               (progn
-                (text-object-init new-text-object str1 match)
+                (text-object-init new-text-object input match)
                 new-text-object))
             ;; assign the correctly-ordered children to the parent.
             ;; since `text-object-set-parent` uses `push`, this will create a reversed list.
@@ -136,8 +136,11 @@ the function passes the state between recursive calls by returning two values:
           ;; the ancestor to process.
           (values child-results current-objects)))))
 
+;; TODO: this currently doesnt work incrementally with streams. it only works with fixed strings.
+;; make it work with streams like the combinator. doing this might be tricky because it would make
+;; backtracking costy as we would have to modify the document as we progress.
 (defmethod parse ((format text-format)
-                  str1
+                  input
                   &key
                     (text-object-types (text-format-text-object-types format))
                     doc)
@@ -148,23 +151,26 @@ the function passes the state between recursive calls by returning two values:
             'identity
             (loop for type1 in text-object-types
                   collect (text-object-rule-from-subclass type1)))))
-    (multiple-value-bind (matches escaped) (cltpt/combinator:parse str1 data)
+    (multiple-value-bind (matches escaped) (cltpt/combinator:parse input data)
       (loop for m in matches
             do (multiple-value-bind (top-level-result updated-objects)
-                   (handle-match str1
+                   (handle-match input
                                  m
                                  all-objects
                                  text-object-types)
                  (setf all-objects updated-objects)))
-      ;; here we build the text object forest (collection of trees) properly
-      (let ((top-level
-              (reverse
-               (remove-if
-                (lambda (item) (text-object-parent item))
-                all-objects)))
-            (doc (or doc
-                     (make-instance (text-format-document-type format)
-                                    :text str1))))
+      ;; here we build the text object forest (collection of trees) properly.
+      ;; once we are done parsing with the combinator we can safely turn it into a string,
+      ;; this ofcourse doesnt work incrementally.
+      (let* ((str1 (coerce input 'string))
+             (top-level
+               (reverse
+                (remove-if
+                 (lambda (item) (text-object-parent item))
+                 all-objects)))
+             (doc (or doc
+                      (make-instance (text-format-document-type format)
+                                     :text str1))))
         (setf (text-object-text-region doc)
               (make-region :begin 0 :end (length str1)))
         (setf (slot-value doc 'text) str1)

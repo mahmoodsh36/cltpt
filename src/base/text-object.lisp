@@ -219,9 +219,7 @@ taking care of children indicies would cause issues."
   "default convert options function."
   (list :remove-newline-after (not (text-object-property obj :is-inline))))
 
-;; default init function will just set the text slot of the object
-;; we are currently using `subseq' to extract the region from the text and store
-;; a new sequence for every object, this is both slow and memory-consuming
+;; default init function will just set a few slots in the object
 (defmethod text-object-init ((text-obj text-object) str1 match)
   (setf (text-object-text-region text-obj)
         (make-region :begin (cltpt/combinator:match-begin match)
@@ -410,14 +408,6 @@ SPEC is a plist with keys:
 (defmethod text-object-contents-region ((text-obj text-object))
   (make-region :begin (text-object-contents-begin text-obj)
                :end (text-object-contents-end text-obj)))
-
-;; (defmethod text-object-contents ((obj text-object))
-;;   (let ((ancestor (nearest-ancestor-with-text obj))
-;;         (orig-str (slot-value ancestor 'text))
-;;         (contents-region (region-compress-by
-;;                           (region-clone (relative-child-region ancestor obj))
-;;                           (text-object-contents-region obj))))
-;;     (region-text orig-str contents-region)))
 
 (defmethod text-object-contents ((obj text-object))
   (region-text (text-object-contents-region obj)
@@ -822,11 +812,11 @@ contents region is further compressed by COMPRESS-REGION if provided."
   (let* ((link-type-match (cltpt/combinator:find-submatch match 'link-type))
          (link-dest-match (cltpt/combinator:find-submatch match 'link-dest))
          (link-desc-match (cltpt/combinator:find-submatch match 'link-desc))
-         (type-str (string-upcase (cltpt/combinator:match-text link-type-match))))
+         (type-str (string-upcase (cltpt/combinator:match-text str1 link-type-match))))
     (setf (text-link-link obj)
           (make-link :type (when type-str (intern type-str :cltpt/base))
-                     :desc (cltpt/combinator:match-text link-desc-match)
-                     :dest (cltpt/combinator:match-text link-dest-match)))
+                     :desc (cltpt/combinator:match-text str1 link-desc-match)
+                     :dest (cltpt/combinator:match-text str1 link-dest-match)))
     (setf (text-object-property obj :is-inline) t)))
 
 (defmethod text-link-resolve ((obj text-link))
@@ -837,8 +827,6 @@ contents region is further compressed by COMPRESS-REGION if provided."
          (resolved (link-resolve type dest desc)))
     resolved))
 
-;; this is useful because running match-str on matches will not return the correct string
-;; during conversion after incremental changes have been applied to matches/text-objects
 (defun text-object-match-text (obj-or-str match)
   "get text from MATCH relative to text object OBJ or string STR."
   (when match
@@ -850,12 +838,6 @@ contents region is further compressed by COMPRESS-REGION if provided."
         :begin (cltpt/combinator:match-begin match)
         :end (cltpt/combinator:match-end match))
        full-text))))
-
-;; (defgeneric text-object-post-changes (text-obj)
-;;   (:documentation "function ran after applying changes to a text-object."))
-
-;; (defmethod cltpt/base:text-object-post-changes ((obj text-object))
-;;   )
 
 (defmethod find-child-enclosing-region ((obj text-object) (r region))
   (loop for child in (text-object-children obj)

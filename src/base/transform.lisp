@@ -147,7 +147,7 @@
           (collect-replacements transformation-rule original-parse-result)))
     (apply-replacements original-string replacements)))
 
-(defun reconstruct-string-from-rule (rule parsed-data-source)
+(defun reconstruct-string-from-rule (rule parsed-data-source original-str)
   "constructs a new string from a rule, using a parse tree as a data source."
   (cond
     ((stringp rule)
@@ -162,14 +162,14 @@
                           cltpt/combinator:pair
                           cltpt/combinator:literal)))
            ;; if its a compound rule we need to recurse
-           (reconstruct-string-from-rule inner-rule parsed-data-source)
+           (reconstruct-string-from-rule inner-rule parsed-data-source original-str)
            ;; else, inner-rule is a simple type descriptor (e.g. symbol-matcher)
            ;; and id is the ID to find in parsed-data-source.
            (let ((found-node (find-node-by-id parsed-data-source id)))
              (if found-node
                  (if (cltpt/combinator/match::match-p found-node)
-                     (cltpt/combinator:match-text found-node)
-                     (cltpt/combinator:match-text found-node))
+                     (cltpt/combinator:match-text original-str found-node)
+                     (cltpt/combinator:match-text original-str found-node))
                  (progn
                    (warn "id '~S' not found in parse data for reconstruction."
                          id)
@@ -188,7 +188,8 @@
             (loop for sub-rule in (rest rule)
                   collect (reconstruct-string-from-rule
                            sub-rule
-                           parsed-data-source))))
+                           parsed-data-source
+                           original-str))))
     (t
      (warn "ignoring unknown rule component in reconstruction: ~S" rule)
      "")))
