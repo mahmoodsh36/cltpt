@@ -21,6 +21,7 @@
                 :pathname "src/combinator"
                 :depends-on ("tree")
                 :components ((:file "match")
+                             (:file "reader")
                              (:file "combinator")))
                (:module "base"
                 :pathname "src/base/"

@@ -356,8 +356,8 @@ before calling `convert-tree' on the given DOC."
          (parse
           *simple-format*
           template
-          :text-object-types (list 'cltpt/base:text-macro
-                                   'cltpt/base:post-lexer-text-macro))
+          :text-object-types (list 'text-macro
+                                   'post-lexer-text-macro))
          src-fmt
          dest-fmt
          :escape nil

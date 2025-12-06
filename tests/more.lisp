@@ -45,7 +45,6 @@
        :id (getf parent-info :id)
        :begin (getf parent-info :begin)
        :end (getf parent-info :end)
-       :str (getf parent-info :str)
        :ctx nil
        :children (mapcar #'plist-to-match children)))))
 
@@ -66,7 +65,7 @@
              "\\ref{"
              (:pattern (cltpt/combinator:symbol-matcher) :id link-dest)
              "}")))
-    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
+    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed full-string)))
 
 (defun transformer-test-2-func ()
   (let* ((full-string "[[attachment:sliding]]")
@@ -83,7 +82,7 @@
                         :id link-dest)
                        "}")
              :id latex-link)))
-    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
+    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed full-string)))
 
 (test transformer-test-2
   (fiveam:is
@@ -111,15 +110,14 @@
     (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
 
 (defun test-combinator-number-1 ()
-  (cltpt/combinator::apply-rule-normalized
+  (cltpt/combinator:apply-rule-normalized
    nil
    '(cltpt/combinator:natural-number-matcher)
-   "2023"
+   (cltpt/reader:reader-from-string "2023")
    0))
 
 (test test-combinator-number-1
   (let ((result (test-combinator-number-1)))
-    (fiveam:is (not (null result)))
     (fiveam:is (= (cltpt/combinator/match::match-end result) 4))))
 
 (defun test-incremental-parsing-1 ()
