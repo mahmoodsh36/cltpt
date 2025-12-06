@@ -13,7 +13,7 @@
 ;; this module implements a "buffered" reader for streams, it allows us to work with streams
 ;; as sequences and somewhat like we would work with strings.
 
-(defconstant +default-initial-size+ (1024 * 8)
+(defconstant +default-initial-size+ (* 1024 8)
   "the starting size of the buffer.")
 
 (defconstant +default-growth-factor+ 2.0
