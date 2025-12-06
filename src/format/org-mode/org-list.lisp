@@ -1,24 +1,50 @@
 (in-package :cltpt/org-mode)
 
+;; (defun get-line-bounds (reader pos)
+;;   "returns (values line-start, line-end, next-line-start) for the line at pos."
+;;   (when (cltpt/reader:is-after-eof reader pos)
+;;     (return-from get-line-bounds
+;;       (values (cltpt/reader:reader-buffer-fill reader)
+;;               (cltpt/reader:reader-buffer-fill reader)
+;;               (cltpt/reader:reader-buffer-fill reader))))
+;;   ;; find previous newline by iterating backwards (can't use :from-end with reader)
+;;   (let* ((line-start (or (loop for i from (1- pos) downto 0
+;;                                when (char= (cltpt/reader:reader-char reader i) #\newline)
+;;                                  return i)
+;;                          -1))
+;;          (actual-line-start (1+ line-start))
+;;          (line-end (or (position #\newline reader :start pos)
+;;                        (cltpt/reader:reader-buffer-fill reader)))
+;;          (next-line-start (if (< line-end (cltpt/reader:reader-buffer-fill reader))
+;;                               (1+ line-end)
+;;                               line-end)))
+;;     (values actual-line-start line-end next-line-start)))
+
+;; this version is much faster than the one above.
 (defun get-line-bounds (reader pos)
   "returns (values line-start, line-end, next-line-start) for the line at pos."
-  (when (cltpt/reader:is-after-eof reader pos)
-    (return-from get-line-bounds
-      (values (cltpt/reader:current-length reader)
-              (cltpt/reader:current-length reader)
-              (cltpt/reader:current-length reader))))
-  ;; Find previous newline by iterating backwards (can't use :from-end with reader)
-  (let* ((line-start (or (loop for i from (1- pos) downto 0
-                               when (char= (elt reader i) #\newline)
-                                 return i)
-                         -1))
-         (actual-line-start (1+ line-start))
-         (line-end (or (position #\newline reader :start actual-line-start)
-                       (cltpt/reader:current-length reader)))
-         (next-line-start (if (< line-end (cltpt/reader:current-length reader))
-                              (1+ line-end)
-                              line-end)))
-    (values actual-line-start line-end next-line-start)))
+  (let* ((buf (cltpt/reader:reader-buffer reader))
+         (buf-len (fill-pointer buf)))
+    ;; check EOF using cached buffer length
+    (when (>= pos buf-len)
+      (when (cltpt/reader:reader-eof-reached reader)
+        (return-from get-line-bounds (values buf-len buf-len buf-len)))
+      (when (cltpt/reader:is-after-eof reader pos)
+        (let ((new-len (fill-pointer buf)))
+          (return-from get-line-bounds (values new-len new-len new-len)))))
+    ;; find previous newline by direct buffer access
+    (let* ((line-start (or (loop for i fixnum from (1- pos) downto 0
+                                 when (char= (char buf i) #\newline)
+                                   return i)
+                           -1))
+           (actual-line-start (the fixnum (1+ line-start)))
+           (line-end (or (position #\newline buf :start actual-line-start)
+                         (fill-pointer buf)))
+           (cur-len (fill-pointer buf))
+           (next-line-start (if (< line-end cur-len)
+                                (1+ line-end)
+                                line-end)))
+      (values actual-line-start line-end next-line-start))))
 
 (defun count-leading-spaces (reader start end)
   (loop for i from start below end

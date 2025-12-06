@@ -7,9 +7,8 @@
    :find-submatch :find-submatch-last :find-submatch-all)
   (:import-from
    :cltpt/reader
-   :reader-next-char :reader-char :reader-string= :reader-string-equal
-   :is-before-eof :is-after-eof :make-reader :is-le-eof :reader-from-string
-   :reader-from-input)
+   :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
+   :is-le-eof :reader-from-string :reader-from-input)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one :symbol-matcher :scan-all-rules :any :all-but
@@ -607,20 +606,15 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
   "construct a hash table by :on-char of the list of plists RULES."
   (let ((hash (make-hash-table :test 'equal)))
     (loop for rule in rules
-          do (when (and (consp rule) (keywordp (car rule)) (getf rule :on-char))
-               (push rule (gethash (getf rule :on-char) hash))))
+          do (when (and (consp rule) (keywordp (car rule)))
+               (let ((on-char (getf rule :on-char)))
+                 (when on-char
+                   (push rule (gethash on-char hash))))))
     hash))
 
 (defun scan-all-rules (ctx input rules &optional (start-idx 0) end-idx)
   "iterate through STR, apply each matcher of RULES repeatedly at each position."
-  (let* ((reader (cond
-                   ((streamp input)
-                    (make-reader input))
-                   ((stringp input)
-                    (make-reader (make-string-input-stream input)))
-                   ((typep input 'cltpt/reader::reader)
-                    input)
-                   (t (error "scan-all-rules: invalid input type ~A" (type-of input)))))
+  (let* ((reader (reader-from-input input))
          (events)
          (*escaped*)
          (i start-idx)
@@ -662,7 +656,7 @@ contiguous escape-char characters."
       nil
       (let ((i (1- pos))
             (escape-count 0))
-        (loop while (and (>= i 0) (char= (reader-char reader i) escape-char))
+        (loop while (and (>= i 0) (char= (elt reader i) escape-char))
               do (incf escape-count)
                  (decf i))
         (oddp escape-count))))
