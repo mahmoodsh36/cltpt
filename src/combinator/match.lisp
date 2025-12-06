@@ -1,7 +1,7 @@
 (defpackage :cltpt/combinator/match
   (:use :cl)
   (:export
-   :match-id :match-begin :match-end :match-ctx :match-children :match-str
+   :match-id :match-begin :match-end :match-ctx :match-children
    :make-match :match-clone :match-rule :match-parent
    :match-set-children-parent :match-props :match
    :find-submatch :find-submatch-last :find-submatch-all))
@@ -11,19 +11,12 @@
 (defstruct (match (:print-function
                     (lambda (struct stream depth)
                       (declare (ignore depth))
-                      (format stream "#<MATCH ~A [~A:~A]~@[ id:~A~]>"
-                              (if (match-str struct)
-                                  (subseq (match-str struct)
-                                          (match-begin struct)
-                                          (min (match-end struct)
-                                               (+ (match-begin struct) 20)))
-                                  "")
+                      (format stream "#<MATCH [~A:~A]~@[ id:~A~]>"
                               (match-begin struct)
                               (match-end struct)
                               (match-id struct)))))
   children
   parent
-  str
   begin
   end
   ctx
@@ -72,7 +65,6 @@
   (make-match
    :begin (match-begin match)
    :end (match-end match)
-   :str (copy-seq (match-str match))
    :ctx (match-ctx match)
    :id (match-id match)
    :parent nil

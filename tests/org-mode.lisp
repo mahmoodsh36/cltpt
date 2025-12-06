@@ -28,12 +28,14 @@
 
 (defun org-table-parse (table-text)
   "parse an org-mode table and return a list of rows, each row being a list of cell values."
-  (let ((parsed (cltpt/org-mode::org-table-matcher nil table-text 0)))
+  (let* ((reader (cltpt/reader:reader-from-string table-text))
+         (parsed (cltpt/org-mode::org-table-matcher nil reader 0)))
     (when parsed
       (loop for row-node in (cdr parsed)
             when (eq (getf (car row-node) :ID) 'CLTPT/ORG-MODE::TABLE-ROW)
               collect (loop for cell-node in (cdr row-node)
                             collect (cltpt/combinator:match-text
+                                     reader
                                      (car cell-node)))))))
 
 (defun simplify-match (match)
@@ -56,10 +58,10 @@
             (cltpt/combinator:match-end match))
       ;; (when (cltpt/combinator:match-id match)
       ;;   (setf (getf new-match :id) (cltpt/combinator:match-id match)))
-      (let ((str (cltpt/combinator:match-str match))
-            (begin (cltpt/combinator:match-begin match))
-            (end (cltpt/combinator:match-end match)))
-        (setf (getf new-match :match) (subseq str begin end))))))
+      ;; (let ((begin (cltpt/combinator:match-begin match))
+      ;;       (end (cltpt/combinator:match-end match)))
+      ;;   (setf (getf new-match :match) (subseq str begin end)))
+      )))
 
 (defun string=+diff (actual expected &optional (test-name "String comparison"))
   "Compare two strings and show diff if they are not equal, returning T if equal."
@@ -327,7 +329,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-date-only-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu>") 0)
    '((:BEGIN 0 :END 16 :MATCH "<2023-12-28 Thu>")
      ((:BEGIN 0 :END 16 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -345,7 +347,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-time-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00>") 0)
    '((:BEGIN 0 :END 25 :MATCH "<2023-12-28 Thu 18:30:00>")
      ((:BEGIN 0 :END 25 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -370,7 +372,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-repeater-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>") 0)
    '((:BEGIN 0 :END 29 :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -399,7 +401,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-range-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>" 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>") 0)
    '((:BEGIN 0 :END 60 :MATCH "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -995,7 +997,7 @@ some math here
 - item three"))
     (cltpt/org-mode::org-list-matcher
      nil
-     text
+     (cltpt/reader:reader-from-string text)
      0
      '((:pattern (cltpt/combinator::pair
                   (cltpt/combinator::literal "\\(")
@@ -1035,7 +1037,7 @@ some math here
 - item three"))
     (cltpt/org-mode::org-list-matcher
      nil
-     text
+     (cltpt/reader:reader-from-string text)
      0
      '((:pattern (cltpt/combinator::literal "item") :id item-keyword)
        (:pattern (cltpt/combinator::literal "nested") :id nested-keyword)
@@ -1099,8 +1101,9 @@ some math here
       2. test2
    b. nested item two
 - item three")
-         (parsed-list (cltpt/org-mode::org-list-matcher nil text 0))
-         (html-output (cltpt/org-mode::to-html-list parsed-list)))
+         (reader (cltpt/reader:reader-from-string text))
+         (parsed-list (cltpt/org-mode::org-list-matcher nil reader 0))
+         (html-output (cltpt/org-mode::to-html-list reader parsed-list)))
     ;; (format t "html output: ~S~%" html-output)
     html-output))
 
@@ -1134,8 +1137,9 @@ some math here
       2. test2
    b. nested item two
 - item three")
-         (parsed-list (cltpt/org-mode::org-list-matcher nil text 0))
-         (latex-output (cltpt/org-mode::to-latex-list parsed-list)))
+         (reader (cltpt/reader:reader-from-string text))
+         (parsed-list (cltpt/org-mode::org-list-matcher nil reader 0))
+         (latex-output (cltpt/org-mode::to-latex-list reader parsed-list)))
     latex-output))
 
 (test org-list-test-4
@@ -1168,7 +1172,7 @@ some math here
   \\end{gather*}"))
     (cltpt/org-mode::org-list-matcher
      nil
-     text
+     (cltpt/reader:reader-from-string text)
      0
      (cltpt/org-mode::org-mode-inline-text-object-rule))))
 
@@ -1211,7 +1215,7 @@ some math here
 +------+-------+-------+
 | end  | row   | test  |"
                ))
-    (cltpt/org-mode::org-table-matcher nil table 0)))
+    (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string table) 0)))
 
 (defun test-parse-table-custom-delimiters ()
   "tests the table parser with custom delimiters (#, =, and *)."
@@ -1222,7 +1226,7 @@ some math here
 #==========*==========*==========#
 #   row 1  # val 1    #  abc     #
 #   row 2  # val 2    #  def     #"))
-    (cltpt/org-mode::org-table-matcher nil table 0)))
+    (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string table) 0)))
 
 (defun test-parse-table-all-hash-delimiters ()
   "tests the table parser where all delimiter types are the '#' character."
@@ -1233,7 +1237,7 @@ some math here
 # ######## # ######## #
 #   Data A #   Data B #
 #   Data C #   Data D #"))
-    (cltpt/org-mode::org-table-matcher nil table 0)))
+    (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string table) 0)))
 
 (defun test-reformat-table ()
   "tests the reformatting functionality by parsing a misaligned table
@@ -1245,9 +1249,10 @@ and then running reformat-table on the resulting parse tree."
 |Grace Hopper|Computer Scientist|USA|
 |Alan Turing|Mathematician|England|
 ")
-         (parse-tree (cltpt/org-mode::org-table-matcher nil disoriented-table 0)))
+         (reader (cltpt/reader:reader-from-string disoriented-table))
+         (parse-tree (cltpt/org-mode::org-table-matcher nil reader 0)))
     (when parse-tree
-      (cltpt/org-mode::reformat-table parse-tree))))
+      (cltpt/org-mode::reformat-table reader parse-tree))))
 
 (defun test-parse-any-func ()
   (cltpt/combinator:parse
@@ -1340,9 +1345,10 @@ some more text"))
 |  bob |30 |
 |      |    |
 | charlie| 9 |")
-         (parse-tree (cltpt/org-mode::org-table-matcher nil misaligned-table-text 0)))
+         (reader (cltpt/reader:reader-from-string misaligned-table-text))
+         (parse-tree (cltpt/org-mode::org-table-matcher nil reader 0)))
     (when parse-tree
-      (let ((formatted-table-text (cltpt/org-mode::reformat-table parse-tree)))
+      (let ((formatted-table-text (cltpt/org-mode::reformat-table reader parse-tree)))
         formatted-table-text))))
 
 (defun test-org-table-2-func ()
@@ -1353,9 +1359,10 @@ some more text"))
 |  bob |30 |
 |      |    |
 | charlie| 9 |")
-         (parse-tree (cltpt/org-mode::org-table-matcher nil misaligned-table-text 0)))
+         (reader (cltpt/reader:reader-from-string misaligned-table-text))
+         (parse-tree (cltpt/org-mode::org-table-matcher nil reader 0)))
     (when parse-tree
-      (cltpt/org-mode::reformat-table parse-tree))))
+      (cltpt/org-mode::reformat-table reader parse-tree))))
 
 (test test-org-table-2
   (let ((result (test-org-table-2-func)))
@@ -2199,14 +2206,14 @@ get-cell-at-coordinates."
 | alice     |  30 | engineer    |
 | bob       |  25 | designer    |
 | charlie   |  35 | programmer  |")
-         (table-match (cltpt/org-mode::org-table-matcher nil table-string 0)))
+         (table-match (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string table-string) 0)))
     (format t "--- testing get-cell-at-coordinates ---~%")
     (let* ((coords (cons 1 2)) ; column 1, row 2 (0-indexed) -> "designer"
            (target-cell (cltpt/org-mode::get-cell-at-coordinates table-match coords)))
       (format t "requesting cell at coordinates: ~A~%" coords)
       (if target-cell
           (let* ((content-node (first (cltpt/combinator/match:match-children target-cell)))
-                 (cell-text (cltpt/combinator:match-text content-node)))
+                 (cell-text (cltpt/combinator:match-text table-string content-node)))
             (format t "found cell: ~A~%" target-cell)
             (format t "cell content: \"~A\"~%~%" cell-text)
             (format t "--- testing get-cell-coordinates ---~%")
@@ -2223,27 +2230,31 @@ get-cell-at-coordinates."
 |---------+-----+------------|
 | alice   | 30  | engineer   |
 | bob     | 25  | designer   |")
+         (original-reader (cltpt/reader:reader-from-string original-table-string))
          (coords (cons 1 2))) ;; we want bob's age
     (format t "--- analyzing original table ---~%")
     (multiple-value-bind (original-table-match end-pos)
-        (cltpt/org-mode::org-table-matcher nil original-table-string 0)
+        (cltpt/org-mode::org-table-matcher nil original-reader 0)
       (declare (ignore end-pos))
       (let* ((original-cell (cltpt/org-mode::get-cell-at-coordinates original-table-match coords))
              (cell-text (cltpt/combinator:match-text
+                         original-reader
                          (first (cltpt/combinator:match-children original-cell)))))
         (format t "original table string:~%~a~%" original-table-string)
         (format t "cell at ~A has content: \"~A\"~%~%" coords cell-text))
       (format t "--- analyzing reformatted table ---~%")
-      (let ((new-table-string (cltpt/org-mode::reformat-table original-table-match)))
+      (let ((new-table-string (cltpt/org-mode::reformat-table original-reader original-table-match)))
         ;; re-parse the new string
-        (multiple-value-bind (reformatted-table-match new-end-pos)
-            (cltpt/org-mode::org-table-matcher nil new-table-string 0)
-          (let* ((reformatted-cell (cltpt/org-mode::get-cell-at-coordinates
-                                    reformatted-table-match coords))
-                 (cell-text (cltpt/combinator:match-text
-                             (first (cltpt/combinator/match:match-children reformatted-cell)))))
-            (format t "reformatted table string:~%~a" new-table-string)
-            (format t "cell at ~A now has content: \"~A\"~%" coords cell-text)))))))
+        (let ((new-reader (cltpt/reader:reader-from-string new-table-string)))
+          (multiple-value-bind (reformatted-table-match new-end-pos)
+              (cltpt/org-mode::org-table-matcher nil new-reader 0)
+            (let* ((reformatted-cell (cltpt/org-mode::get-cell-at-coordinates
+                                      reformatted-table-match coords))
+                   (cell-text (cltpt/combinator:match-text
+                               new-reader
+                               (first (cltpt/combinator/match:match-children reformatted-cell)))))
+              (format t "reformatted table string:~%~a" new-table-string)
+              (format t "cell at ~A now has content: \"~A\"~%" coords cell-text))))))))
 
 (defun test-data-conversion-cycle ()
   "demonstrates the full cycle of parsing a table, converting to a
@@ -2253,7 +2264,7 @@ list, modifying the list, and converting back to a string."
 |---------+-----------|
 | frodo   | hobbit    |
 | gandalf | maiar     |")
-         (table-match (cltpt/org-mode::org-table-matcher nil table-string 0)))
+         (table-match (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string table-string) 0)))
     (format t "--- 1. original table string ---~%~A~%~%" table-string)
     ;; --- 2. convert match to nested list ---
     (let ((nested-data (cltpt/org-mode::table-match-to-nested-list table-match)))
@@ -2267,7 +2278,7 @@ list, modifying the list, and converting back to a string."
       (let ((new-table-string (cltpt/org-mode::nested-list-to-table-string nested-data)))
         (format t "--- 4. converted back to string ---~%~A~%" new-table-string)
         ;; --- 5. parse the new string to get its match object ---
-        (let ((new-table-match (cltpt/org-mode::org-table-matcher nil new-table-string 0)))
+        (let ((new-table-match (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string new-table-string) 0)))
           (format t "--- 5. new string is parsable ---~%")
           (format t "resulting match object: ~A~%" new-table-match))))))
 
@@ -2277,7 +2288,7 @@ list, modifying the list, and converting back to a string."
 |-------+----------|
 | alice | leader   |
 | bob   | follower |")
-         (table-match (cltpt/org-mode::org-table-matcher nil table-string 0)))
+         (table-match (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string table-string) 0)))
     (let ((nested-data-with-hrules (cltpt/org-mode::table-match-to-nested-list table-match)))
       (format t "~S~%" nested-data-with-hrules))
     (let ((nested-data-without-hrules
@@ -2294,7 +2305,7 @@ list, modifying the list, and converting back to a string."
 |-----------+-----------+-----------|
 | A1        | B1        | C1        |
 | A2        | B2        | C2        |")
-         (table-match (cltpt/org-mode::org-table-matcher nil table-string 0)))
+         (table-match (cltpt/org-mode::org-table-matcher nil (cltpt/reader:reader-from-string table-string) 0)))
     (let ((height (cltpt/org-mode::get-table-height table-match))
           (width (cltpt/org-mode::get-table-width table-match)))
       (format t "height: ~A~%" height)
@@ -2317,10 +2328,11 @@ list, modifying the list, and converting back to a string."
 |||
 | 123   | 1
 hi")
-         (table-match (cltpt/org-mode::org-table-matcher nil table-string 0)))
+         (reader (cltpt/reader:reader-from-string table-string))
+         (table-match (cltpt/org-mode::org-table-matcher nil reader 0)))
     (when table-match
       (format t "--- original partial table ---~%~A~%~%" table-string)
-      (let ((reformatted-string (cltpt/org-mode::reformat-table table-match)))
+      (let ((reformatted-string (cltpt/org-mode::reformat-table reader table-match)))
         (format t "--- reformatted and completed table ---~%~A" reformatted-string)
         reformatted-string))))
 
@@ -2375,7 +2387,7 @@ hi")
                              "     Line 1 Continuation" (string #\newline)
                              "     Line 2 Continuation" (string #\newline)
                              "- Item 2"))
-         (match (cltpt/org-mode:org-list-matcher nil messy 0))
+         (match (cltpt/org-mode:org-list-matcher nil (cltpt/reader:reader-from-string messy) 0))
          (clean (reformat-list match)))
     (format t "~A~%" messy)
     (format t "~A~%" clean)))
@@ -2389,7 +2401,7 @@ hi")
                             "    - subsection 2.b.1" (string #\newline)
                             "    - subsection 2.b.2 <-- we want this one" (string #\newline)
                             "- chapter 3"))
-         (match (cltpt/org-mode:org-list-matcher nil text 0)))
+         (match (cltpt/org-mode:org-list-matcher nil (cltpt/reader:reader-from-string text) 0)))
     (let* ((target-string "subsection 2.b.2")
            (pos (search target-string text)))
       (format t "target text: \"~a\"~%" target-string)
