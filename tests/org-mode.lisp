@@ -2198,6 +2198,19 @@ This exactly matches the actual parsed tree structure."
                 ;; (format t "done ~A ~A~%" i file)
                 )))))
 
+(defun org-combinator-test-3 ()
+  (time
+   (let ((files (uiop:directory-files "/Volumes/main/brain/notes/"
+                                      "*.org")))
+     (loop for file in files
+           ;; for i from 0
+           do (with-open-file (stream file)
+                (let ((tree (cltpt/combinator:parse
+                             stream
+                             (org-rules))))
+                  ;; (format t "done ~A ~A~%" i file)
+                  ))))))
+
 (defun test-coordinate-functions ()
   "an example demonstrating the use of get-cell-coordinates and
 get-cell-at-coordinates."

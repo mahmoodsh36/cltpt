@@ -1,10 +1,9 @@
 (defpackage :cltpt/reader
   (:use :cl)
   (:export
-   :reader-next-char :reader-char :reader-string= :reader-string-equal
-   :is-before-eof :is-after-eof :make-reader :reader-buffer :reader-stream
-   :reader-start-position :reader :reader-input-stream :stream-index :reader-cursor
-   :is-le-eof :reader-from-string :current-length :reader-from-input))
+   :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
+   :reader-buffer :reader-stream :reader-start-position :reader :reader-input-stream :stream-index
+   :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached))
 
 (in-package :cltpt/reader)
 
@@ -29,10 +28,6 @@
                           :adjustable t
                           :fill-pointer 0)
     :accessor reader-buffer)
-   (cursor
-    :initform 0
-    :accessor reader-cursor
-    :documentation "current read position within the buffer.")
    (start-position
     :initform nil
     :accessor reader-start-position
@@ -62,6 +57,9 @@
           (ignore-errors (file-position stream)))
     r))
 
+(defmethod reader-buffer-fill ((reader reader))
+  (fill-pointer (reader-buffer reader)))
+
 (defun reader-from-string (str)
   (cltpt/reader:make-reader (make-string-input-stream str)))
 
@@ -76,53 +74,48 @@
      input)
     (t (error "invalid input type ~A" (type-of input)))))
 
-(defun reader-next-char (reader)
-  "reads the next character. returns NIL if if there is none.
-
-if the character is not in the buffer, it extends the buffer and appends new data from the stream."
-  ;; the cursor is inside the cache range so we just return the char from there.
-  (when (< (reader-cursor reader) (fill-pointer (reader-buffer reader)))
-    (let ((char (char (reader-buffer reader) (reader-cursor reader))))
-      (incf (reader-cursor reader))
-      (return-from reader-next-char char)))
+(defun reader-ensure-fill-upto (reader target-pos)
+  "fill the buffer up to TARGET-POS (or EOF). blocks until TARGET-POS is available.
+reads all available data, not just up to target, to minimize I/O calls.
+returns T if target position is available, NIL if EOF reached before target."
   (let ((buf (reader-buffer reader)))
-    ;; if the buffer is physically full, we must resize it to make room at the end.
-    (when (= (fill-pointer buf) (array-dimension buf 0))
-      (let* ((old-len (array-dimension buf 0))
-             (new-len (ceiling (* old-len (reader-growth-factor reader)))))
-        (adjust-array buf new-len :element-type 'character)))
-    (let* ((stream (reader-stream reader))
-           ;; blocking read to get the 1 char we actually need
-           (first-char (read-char stream nil :eof)))
-      (if (eq first-char :eof)
-          (progn
-            (setf (reader-eof-reached reader) t)
-            nil)
-          (progn
-            (vector-push first-char buf)
-            ;; get whatever else is ready
-            (loop while (and (< (fill-pointer buf) (array-dimension buf 0))
-                             (listen stream))
-                  ;; TODO: fix this, it is inefficient to read one char at a time.
-                  do (let ((c (read-char stream nil :eof)))
-                       (cond
-                         ((eq c :eof)
-                          (return))
-                         (t
-                          (vector-push c buf)))))
-            ;; return the character we wanted and increment the cursor
-            (incf (reader-cursor reader))
-            first-char)))))
+    ;; already have enough?
+    (when (< target-pos (fill-pointer buf))
+      (return-from reader-ensure-fill-upto t))
+    ;; EOF already reached?
+    (when (reader-eof-reached reader)
+      (return-from reader-ensure-fill-upto nil))
+    ;; need to read more, so just read all available data
+    (let ((stream (reader-stream reader)))
+      (loop
+        ;; ensure we have the capacity
+        (let* ((current-fill (fill-pointer buf))
+               (capacity (array-dimension buf 0)))
+          (when (<= capacity target-pos)
+            (let ((new-len (max (1+ target-pos)
+                                (ceiling (* capacity (reader-growth-factor reader))))))
+              (adjust-array buf new-len :element-type 'character)
+              (setf capacity new-len)))
+          ;; read as much as we can
+          (let ((read-end capacity))
+            (setf (fill-pointer buf) capacity)
+            (let ((new-fill (read-sequence buf stream :start current-fill :end read-end)))
+              (setf (fill-pointer buf) new-fill)
+              (cond
+                ;; EOF - no more data
+                ((= new-fill current-fill)
+                 (setf (reader-eof-reached reader) t)
+                 (return-from reader-ensure-fill-upto (< target-pos new-fill)))
+                ;; got some data - check if we have enough
+                ((< target-pos new-fill)
+                 (return-from reader-ensure-fill-upto t))
+                ;; need more, continue loop
+                (t nil)))))))))
 
 (defun reader-char (reader idx)
   "read character at a specific position. returns NIL if it is beyond EOF."
-  ;; fill the buffer up to the index we need.
-  (loop while (<= (reader-cursor reader) idx)
-        ;; TODO: fix this, it is inefficient to read one char at a time.
-        do (let ((char (reader-next-char reader)))
-             (unless char
-               (return-from reader-char nil))))
-  (aref (reader-buffer reader) idx))
+  (when (reader-ensure-fill-upto reader idx)
+    (aref (reader-buffer reader) idx)))
 
 (defun is-before-eof (reader idx)
   "return whether IDX is strictly before EOF."
@@ -245,6 +238,3 @@ errors if the stream has not been fully consumed yet."
       (initial-element
        (fill result initial-element)))
     result))
-
-(defmethod current-length ((reader reader))
-  (fill-pointer (reader-buffer reader)))
