@@ -48,78 +48,78 @@ the function passes the state between recursive calls by returning two values:
                  (new-text-object (make-instance main-match-type))
                  (is-lexer-macro (is-text-macro main-match-type)))
             (if is-lexer-macro
-              (let ((match-text (subseq input match-begin match-end))
-                    (macro-eval-result))
-                ;; we always read macro strings in :cl-user package
-                ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
-                ;; skip first char (`*text-macro-char*')
-                (handler-case
-                    (eval
-                     (let ((*package* (find-package :cl-user)))
-                       (read-from-string (subseq match-text 1))))
-                  (error (c)
-                    (when (getf cltpt:*debug* :parse)
-                      (format t
-                              "error while evaluating macro ~A: ~A.~%"
-                              match-text
-                              c))
-                    (setf macro-eval-result 'broken))
-                  (:no-error (result1)
-                    (when (getf cltpt:*debug* :parse)
-                      (format t "evaluated macro ~A: ~A~%" match-text result1))
-                    (setf macro-eval-result result1)
-                    (if (typep result1 'text-object)
-                        (setf new-text-object result1)
-                        (setf new-text-object (make-instance 'text-object)))))
-                (when (equal macro-eval-result 'broken)
-                  (setf new-text-object (make-instance 'text-object)))
-                (let ((opening-macro)
-                      (intermediate-objects))
-                  (loop for entry in current-objects
-                        do (if (and (text-object-property entry :open-macro)
-                                    (text-object-ends-by entry macro-eval-result))
-                               (progn
-                                 (setf opening-macro entry)
-                                 (return))
-                               (push entry intermediate-objects)))
-                  (if opening-macro
-                      (progn
-                        (setf (text-object-property opening-macro :contents-region)
-                              (make-region
-                               :begin (region-length
-                                       (text-object-text-region opening-macro))
-                               :end (- match-begin
-                                       (region-begin
-                                        (text-object-text-region
-                                         opening-macro)))))
-                        (setf (text-object-text-region opening-macro)
-                              (make-region
-                               :begin (region-begin
-                                       (text-object-text-region opening-macro))
-                               :end match-end))
-                        (setf (slot-value opening-macro 'text)
-                              (region-text (text-object-text-region opening-macro)
-                                           input))
-                        (setf (text-object-property opening-macro :open-macro)
-                              nil)
-                        (loop for item in intermediate-objects
-                              do (unless (text-object-parent item)
-                                   (text-object-set-parent item opening-macro)
-                                   (text-object-adjust-to-parent
-                                    item
-                                    opening-macro)))
-                        (setf (text-object-children opening-macro)
-                              (nreverse (text-object-children opening-macro)))
-                        (setf is-new-object nil))
-                      (progn
-                        (setf (text-object-property new-text-object :open-macro)
-                              t)
-                        (setf (text-object-property new-text-object :eval-result)
-                              macro-eval-result)
-                        (text-object-init new-text-object input match)))))
-              (progn
-                (text-object-init new-text-object input match)
-                new-text-object))
+                (let ((match-text (subseq input match-begin match-end))
+                      (macro-eval-result))
+                  ;; we always read macro strings in :cl-user package
+                  ;; TODO: this takes it for granted that the sequence for text-macro is 1-char. perhaps it should be arbitrary.
+                  ;; skip first char (`*text-macro-char*')
+                  (handler-case
+                      (eval
+                       (let ((*package* (find-package :cl-user)))
+                         (read-from-string (subseq match-text 1))))
+                    (error (c)
+                      (when (getf cltpt:*debug* :parse)
+                        (format t
+                                "error while evaluating macro ~A: ~A.~%"
+                                match-text
+                                c))
+                      (setf macro-eval-result 'broken))
+                    (:no-error (result1)
+                      (when (getf cltpt:*debug* :parse)
+                        (format t "evaluated macro ~A: ~A~%" match-text result1))
+                      (setf macro-eval-result result1)
+                      (if (typep result1 'text-object)
+                          (setf new-text-object result1)
+                          (setf new-text-object (make-instance 'text-object)))))
+                  (when (equal macro-eval-result 'broken)
+                    (setf new-text-object (make-instance 'text-object)))
+                  (let ((opening-macro)
+                        (intermediate-objects))
+                    (loop for entry in current-objects
+                          do (if (and (text-object-property entry :open-macro)
+                                      (text-object-ends-by entry macro-eval-result))
+                                 (progn
+                                   (setf opening-macro entry)
+                                   (return))
+                                 (push entry intermediate-objects)))
+                    (if opening-macro
+                        (progn
+                          (setf (text-object-property opening-macro :contents-region)
+                                (make-region
+                                 :begin (region-length
+                                         (text-object-text-region opening-macro))
+                                 :end (- match-begin
+                                         (region-begin
+                                          (text-object-text-region
+                                           opening-macro)))))
+                          (setf (text-object-text-region opening-macro)
+                                (make-region
+                                 :begin (region-begin
+                                         (text-object-text-region opening-macro))
+                                 :end match-end))
+                          (setf (slot-value opening-macro 'text)
+                                (region-text (text-object-text-region opening-macro)
+                                             input))
+                          (setf (text-object-property opening-macro :open-macro)
+                                nil)
+                          (loop for item in intermediate-objects
+                                do (unless (text-object-parent item)
+                                     (text-object-set-parent item opening-macro)
+                                     (text-object-adjust-to-parent
+                                      item
+                                      opening-macro)))
+                          (setf (text-object-children opening-macro)
+                                (nreverse (text-object-children opening-macro)))
+                          (setf is-new-object nil))
+                        (progn
+                          (setf (text-object-property new-text-object :open-macro)
+                                t)
+                          (setf (text-object-property new-text-object :eval-result)
+                                macro-eval-result)
+                          (text-object-init new-text-object input match)))))
+                (progn
+                  (text-object-init new-text-object input match)
+                  new-text-object))
             ;; assign the correctly-ordered children to the parent.
             ;; since `text-object-set-parent` uses `push`, this will create a reversed list.
             (loop for item in child-results
@@ -127,8 +127,8 @@ the function passes the state between recursive calls by returning two values:
                      (text-object-adjust-to-parent item new-text-object))
             ;; reverse the parent's children list to restore the correct order.
             (when (slot-exists-p new-text-object 'children)
-               (setf (text-object-children new-text-object)
-                     (nreverse (text-object-children new-text-object))))
+              (setf (text-object-children new-text-object)
+                    (nreverse (text-object-children new-text-object))))
             (if is-new-object
                 (values new-text-object (cons new-text-object current-objects))
                 (values nil current-objects)))
