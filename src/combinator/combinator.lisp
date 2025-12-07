@@ -388,9 +388,9 @@ before the final closing rule is found."
       (let* ((open-end-pos (match-end opening-match))
              (current-search-pos open-end-pos)
              (nesting-level 1)
-             (content-start-pos open-end-pos)
              (final-closing-match)
-             (content-end-pos -1))
+             ;; collect content matches as we go
+             (content-matches))
         (loop while (is-before-eof reader current-search-pos)
               do
                  ;; if multiline is not allowed and we are at the base nesting level,
@@ -410,7 +410,6 @@ before the final closing rule is found."
                          (setf current-search-pos (match-end potential-close))
                          (when (= nesting-level 0)
                            (setf final-closing-match potential-close)
-                           (setf content-end-pos (match-begin potential-close))
                            (return)))
                        (let ((potential-open
                                (apply-rule-normalized ctx
@@ -422,24 +421,28 @@ before the final closing rule is found."
                                (incf nesting-level)
                                (setf current-search-pos
                                      (match-end potential-open)))
-                             (incf current-search-pos))))))
+                             ;; try to match content rules at base nesting level
+                             (let ((matched-content nil))
+                               (when (and rules-for-content (= nesting-level 1))
+                                 (loop for rule in rules-for-content
+                                       until matched-content
+                                       do (let ((match-result (apply-rule ctx rule reader current-search-pos)))
+                                            (when match-result
+                                              (let ((normalized (normalize-match match-result ctx rule current-search-pos)))
+                                                (setf current-search-pos (match-end normalized))
+                                                (push normalized content-matches)
+                                                (setf matched-content t))))))
+                               (unless matched-content
+                                 (incf current-search-pos))))))))
         (when (and final-closing-match (= nesting-level 0))
           (let* ((overall-end-pos (match-end final-closing-match))
-                 (content-matches
-                   (if (> content-end-pos content-start-pos)
-                       (scan-all-rules ctx
-                                       reader
-                                       rules-for-content
-                                       content-start-pos
-                                       content-end-pos)
-                       nil))
                  (match (match-set-children-parent
                          (make-match
                           :begin pos
                           :end overall-end-pos
                           :ctx ctx
                           :children (append (list opening-match)
-                                            content-matches
+                                            (nreverse content-matches)
                                             (list final-closing-match))))))
             (when pair-id
               (setf (match-id match) pair-id))
