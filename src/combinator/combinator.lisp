@@ -659,7 +659,7 @@ contiguous escape-char characters."
       nil
       (let ((i (1- pos))
             (escape-count 0))
-        (loop while (and (>= i 0) (char= (elt reader i) escape-char))
+        (loop while (and (>= i 0) (char= (reader-char reader i) escape-char))
               do (incf escape-count)
                  (decf i))
         (oddp escape-count))))
