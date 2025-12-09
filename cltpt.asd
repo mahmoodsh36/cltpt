@@ -22,7 +22,8 @@
                 :depends-on ("tree")
                 :components ((:file "match")
                              (:file "reader")
-                             (:file "combinator")))
+                             (:file "combinator")
+                             (:file "transform")))
                (:module "base"
                 :pathname "src/base/"
                 :depends-on ("combinator" "file-utils" "str-utils")
@@ -33,7 +34,6 @@
                              (:file "link")
                              (:file "text-format")
                              (:file "parser")
-                             (:file "transform")
                              (:file "convert")))
                (:module "latex-previews"
                 :pathname "src/extra/"

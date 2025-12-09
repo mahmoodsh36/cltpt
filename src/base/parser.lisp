@@ -19,7 +19,8 @@ the function passes the state between recursive calls by returning two values:
    this value is the 'state' that is passed through every recursive call to ensure
    no created objects are lost."
   (let* ((main-match-rule (cltpt/combinator:match-rule match))
-         (main-match-type (or (getf main-match-rule :type)
+         (main-match-type (or (and (cltpt/base:plistp main-match-rule)
+                                   (getf main-match-rule :type))
                               (cltpt/combinator:match-id match)))
          (is-new-object t)
          ;; this list will be built backwards for efficiency.
