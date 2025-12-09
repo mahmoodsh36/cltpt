@@ -1,4 +1,7 @@
-(in-package :cltpt/tests)
+(defpackage :cltpt/tests/manual
+  (:use :cl))
+
+(in-package :cltpt/tests/manual)
 
 ;; tests that are meant to be run (and whose output observed) manually
 

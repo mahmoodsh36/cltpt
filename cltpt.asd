@@ -82,6 +82,14 @@
                (:module "tests"
                 :pathname "tests/"
                 :depends-on ("base" "org-mode" "latex-previews")
-                :components ((:file "more")
+                :components ((:file "utils")
+                             (:file "main")
+                             (:file "combinator")
+                             (:file "transform")
+                             (:file "convert")
+                             (:file "incremental")
+                             (:file "outline")
+                             (:file "org-table")
+                             (:file "org-list")
                              (:file "org-mode")
                              (:file "manual")))))
