@@ -2426,6 +2426,29 @@ hi")
               (let ((content (cltpt/org-mode::get-list-item-text node)))
                 (format t "content of retrieved node: \"~a\"~%" content))))))))
 
+(defun transformer-test-4-func ()
+  (let* ((full-string "[[attachment:sliding]]")
+         (reader (cltpt/reader:reader-from-string full-string))
+         (parsed (cltpt/combinator:parse
+                  full-string
+                  '((:pattern
+                     (cltpt/combinator:consec
+                      "[["
+                      (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
+                      ":"
+                      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+                      "]]")
+                     :id link)))))
+    (cltpt/transform:transform
+     reader
+     (car parsed)
+     '((link . (:pattern (cltpt/combinator:separated-atleast-one ",") :id link-dest))))))
+
+(test transformer-test-4
+  (fiveam:is
+   (string= (transformer-test-4-func)
+            "[[,attachment,:,sliding,]]")))
+
 (defun run-org-mode-tests ()
   "Run all org-mode rules tests."
   (format t "~&running org-mode tests...~%")

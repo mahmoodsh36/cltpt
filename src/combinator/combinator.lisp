@@ -41,6 +41,7 @@
 ;; 5. some rules may only want to attempt matching in very specific cases, such as the beginning of a line, ending of a line. currently we support the heuristic of :on-char, and it speeds things up because it reduces the number of matchers executed at each point in the string, but we can add other heuristics too (perhaps an :after-char which for example could be used for ':after-char #\newline').
 ;; 6. no need to store :str for every match (also :ctx isnt needed to be stored in matches at all).
 ;; 7. the usage of this code is currently done on buffers after they have been loaded from the files, which results in the buffer being processed atleast twice. a better approach would be to process the string while its being loaded into memory.
+;; 8. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
 
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
@@ -149,6 +150,7 @@ to replace and new-rule is the rule to replace it with."
       (make-match :begin pos
                   :end (+ pos match)
                   :ctx ctx
+                  :rule rule
                   :children nil)
       match))
 
@@ -596,13 +598,14 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                    pos)))
             (when sub-pattern-match
               (setf (match-id sub-pattern-match) (getf rule :id))
-              (setf (match-rule sub-pattern-match) rule)
               sub-pattern-match))))
        ((stringp rule)
         (apply-rule ctx (list 'literal rule) reader pos))
        (t (error "invalid rule: ~A" rule))))
     (when result
-      (normalize-match result ctx rule pos))))
+      (setf result (normalize-match result ctx rule pos))
+      (setf (match-rule result) rule)
+      result)))
 
 ;; the hash table thing is a heuristic that makes things slightly faster
 (defun hash-rules (rules)

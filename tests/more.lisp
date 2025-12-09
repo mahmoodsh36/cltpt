@@ -50,6 +50,7 @@
 
 (defun transformer-test-1-func ()
   (let* ((full-string "[[mylink1-2:here1][testmore1- 2]]")
+         (reader (cltpt/reader:reader-from-string full-string))
          (parsed-plist
            `((:id org-link :begin 0 :end 33 :str ,full-string)
              ((:begin 0 :end 2 :str ,full-string))
@@ -65,10 +66,11 @@
              "\\ref{"
              (:pattern (cltpt/combinator:symbol-matcher) :id link-dest)
              "}")))
-    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed full-string)))
+    (cltpt/transform:reconstruct reader parsed dest-rule)))
 
 (defun transformer-test-2-func ()
   (let* ((full-string "[[attachment:sliding]]")
+         (reader (cltpt/reader:reader-from-string full-string))
          (parsed-plist
            `((:id org-link :begin 0 :end 22 :str ,full-string)
              ((:begin 0 :end 2 :str ,full-string))
@@ -82,7 +84,7 @@
                         :id link-dest)
                        "}")
              :id latex-link)))
-    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed full-string)))
+    (cltpt/transform:reconstruct reader parsed dest-rule)))
 
 (test transformer-test-2
   (fiveam:is
@@ -96,6 +98,7 @@
 
 (defun transformer-test-3-func ()
   (let* ((str "[[id:myid][desc]]")
+         (reader (cltpt/reader:reader-from-string str))
          (parsed (cltpt/combinator:parse
                   str
                   cltpt/org-mode::*org-link-rule*))
@@ -107,7 +110,7 @@
                :id link-dest)
               "}")
              :id latex-link)))
-    (cltpt/transformer:reconstruct-string-from-rule dest-rule parsed)))
+    (cltpt/transform:reconstruct reader (car parsed) dest-rule)))
 
 (defun test-combinator-number-1 ()
   (cltpt/combinator:apply-rule-normalized
