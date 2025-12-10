@@ -1,10 +1,12 @@
 (defpackage :cltpt/tests/utils
   (:use :cl)
-  (:export #:simplify-match
-           #:compare-match-loosely
-           #:compare-full-match-loosely
-           #:plist-to-match
-           #:string=+diff))
+  (:export :simplify-match
+           :compare-match-loosely
+           :compare-full-match-loosely
+           :plist-to-match
+           :string=+diff
+           :org-rules
+           :rules-from-symbols))
 
 (in-package :cltpt/tests/utils)
 
@@ -72,3 +74,17 @@
           (uiop:delete-file-if-exists (pathname actual-file))
           (format t "~%~%")
           nil))))
+
+(defun org-rules ()
+  (remove-if-not
+   'identity
+   (loop
+     for type1
+       in (cltpt/base:text-format-text-object-types cltpt/org-mode:*org-mode*)
+     collect (cltpt/base:text-object-rule-from-subclass type1))))
+
+(defun rules-from-symbols (syms)
+  (remove-if-not
+   'identity
+   (loop for sym in syms
+         collect (cltpt/base:text-object-rule-from-subclass sym))))
