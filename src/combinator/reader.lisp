@@ -3,7 +3,8 @@
   (:export
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
    :reader-buffer :reader-stream :reader-start-position :reader :reader-input-stream :stream-index
-   :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached))
+   :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached
+   :reader-fully-consume))
 
 (in-package :cltpt/reader)
 
@@ -111,6 +112,12 @@ returns T if target position is available, NIL if EOF reached before target."
                  (return-from reader-ensure-fill-upto t))
                 ;; need more, continue loop
                 (t nil)))))))))
+
+(defmethod reader-fully-consume ((reader reader))
+  "forces the reader to fully consume the underlying stream until EOF.
+blocks until the stream is fully consumed."
+  (loop until (reader-eof-reached reader)
+        do (reader-ensure-fill-upto reader (fill-pointer (reader-buffer reader)))))
 
 (defun reader-char (reader idx)
   "read character at a specific position. returns NIL if it is beyond EOF."

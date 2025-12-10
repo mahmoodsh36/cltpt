@@ -3,6 +3,9 @@
   (:import-from :cltpt/tests
                 :plist-to-match
                 :compare-full-match-loosely)
+  (:import-from :cltpt/tests/utils
+                :org-rules
+                :rules-from-symbols)
   (:export #:run-combinator-tests))
 
 (in-package :cltpt/tests/combinator)

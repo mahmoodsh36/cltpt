@@ -140,8 +140,14 @@
       "/tmp/out-%(identity title).html"))))
 
 (defun test-babel-eval ()
-  (cltpt/babel::babel-eval
-   'cltpt/babel::python
-   "print('hi1')
+  (multiple-value-bind (stdout-reader stderr-reader)
+      (cltpt/babel::babel-eval
+       'cltpt/babel::python
+       "print('hi1')
 print('hi2')"
-   ))
+       )
+    (format t "got ~A~%" stdout-reader)
+    (cltpt/reader:reader-fully-consume stdout-reader)
+    (cltpt/reader:reader-fully-consume stderr-reader)
+    (format t "got error: ~A~%" (coerce stderr-reader 'string))
+    (format t "got output: ~A~%" (coerce stdout-reader 'string))))

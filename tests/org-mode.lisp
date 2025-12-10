@@ -1,10 +1,13 @@
 (defpackage :cltpt/tests/org-mode
   (:use :cl :it.bese.fiveam)
   (:import-from :cltpt/tests
-                #:simplify-match
-                #:compare-match-loosely
-                #:compare-full-match-loosely
-                #:string=+diff))
+                :simplify-match
+                :compare-match-loosely
+                :compare-full-match-loosely
+                :string=+diff)
+  (:import-from :cltpt/tests/utils
+                :org-rules
+                :rules-from-symbols))
 
 (in-package :cltpt/tests/org-mode)
 
@@ -13,20 +16,6 @@
   :in cltpt/tests::cltpt-suite)
 
 (in-suite org-mode-suite)
-
-(defun org-rules ()
-  (remove-if-not
-   'identity
-   (loop
-     for type1
-       in (cltpt/base:text-format-text-object-types cltpt/org-mode:*org-mode*)
-     collect (cltpt/base:text-object-rule-from-subclass type1))))
-
-(defun rules-from-symbols (syms)
-  (remove-if-not
-   'identity
-   (loop for sym in syms
-         collect (cltpt/base:text-object-rule-from-subclass sym))))
 
 (defun make-dummy-context ()
   (let ((rules (org-rules)))
