@@ -3,9 +3,17 @@
   (:export
    :md5-str :str-join :str-prune :str-split :str-dupe
    :replace-all
+   :replace-substr
    :unindent :ensure-min-indent))
 
 (in-package :cltpt/str-utils)
+
+(defun replace-substr (original replacement begin end)
+  "return a new string where the substring [BEGIN,END) in ORIGINAL is replaced with REPLACEMENT."
+  (concatenate 'string
+               (subseq original 0 begin)
+               replacement
+               (subseq original end)))
 
 (defun md5-str (s)
   (ironclad:byte-array-to-hex-string

@@ -30,8 +30,8 @@
             when (eq (getf (car row-node) :ID) 'CLTPT/ORG-MODE::TABLE-ROW)
               collect (loop for cell-node in (cdr row-node)
                             collect (cltpt/combinator:match-text
-                                     reader
-                                     (car cell-node)))))))
+                                     (car cell-node)
+                                     reader))))))
 
 (defun simplify-full-match (match)
   (labels ((my-simplify (m)

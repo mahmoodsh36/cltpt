@@ -17,19 +17,24 @@
                 :pathname "src/tree"
                 :depends-on ("tree")
                 :components ((:file "outline")))
+               (:module "buffer"
+                :pathname "src/buffer"
+                :depends-on ("str-utils")
+                :components ((:file "region")
+                             (:file "change")
+                             (:file "buffer")))
                (:module "combinator"
                 :pathname "src/combinator"
-                :depends-on ("tree")
-                :components ((:file "match")
-                             (:file "reader")
+                :depends-on ("tree" "buffer")
+                :components ((:file "reader")
+                             (:file "match")
                              (:file "combinator")
                              (:file "transform")))
                (:module "base"
                 :pathname "src/base/"
-                :depends-on ("combinator" "file-utils" "str-utils")
+                :depends-on ("combinator" "file-utils" "str-utils" "buffer")
                 :components ((:file "base")
                              (:file "utils")
-                             (:file "region")
                              (:file "text-object")
                              (:file "link")
                              (:file "text-format")
@@ -62,7 +67,15 @@
                ;; TODO: org-mode should not directly depend on roam/agenda.
                (:module "org-mode"
                 :pathname "src/format/org-mode"
-                :depends-on ("combinator" "file-utils" "base" "latex" "html" "latex-previews" "str-utils")
+                :depends-on ("file-utils"
+                             "str-utils"
+                             "combinator"
+                             "latex-previews"
+                             "base"
+                             "latex"
+                             "html"
+                             "roam"
+                             "agenda")
                 :components ((:file "org-mode")
                              (:file "org-list")
                              (:file "org-table")))
@@ -92,4 +105,6 @@
                              (:file "org-table")
                              (:file "org-list")
                              (:file "org-mode")
+                             (:file "buffer")
+                             (:file "region")
                              (:file "manual")))))

@@ -1,10 +1,5 @@
 (defpackage :cltpt/combinator
-  (:use :cl)
-  (:import-from :cltpt/combinator/match
-   :match-id :match-begin :match-end :match-ctx :match-children
-   :make-match :match-clone :match-rule :match-parent
-   :match-set-children-parent :match-props :match
-   :find-submatch :find-submatch-last :find-submatch-all)
+  (:use :cl :cltpt/combinator/match)
   (:import-from
    :cltpt/reader
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
@@ -20,10 +15,12 @@
    :context-rules :consec-with-optional :compile-rule-string
    :between-whitespace :when-match-after :flanked-by-whitespace :flanked-by-whitespace-or-punctuation
    :apply-rule-normalized
+   :context-parent-begin :context-parent-match :context-copy
 
    :match-id :match-begin :match-end :match-ctx :match-children
+   :match-begin-absolute :match-end-absolute
    :make-match :match-clone :match-rule :match-parent
-   :match-set-children-parent :match-props :match
+   :match-set-children-parent :match-props :match :match-region
    :find-submatch :find-submatch-last :find-submatch-all
 
    :match-text
@@ -42,22 +39,40 @@
 ;; 6. no need to store :str for every match (also :ctx isnt needed to be stored in matches at all).
 ;; 7. the usage of this code is currently done on buffers after they have been loaded from the files, which results in the buffer being processed atleast twice. a better approach would be to process the string while its being loaded into memory.
 ;; 8. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
+;; 9. avoid calling (and perhaps cache calls to) match-{begin,end}-absolute.
 
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
 (defstruct context
   rules
   ;; we hash rules by id, so we can grab them quickly during matching
-  rule-hash)
+  rule-hash
+  ;; parent-match will not have the 'end' set, only the 'begin'
+  parent-match*)
+
+(defmethod context-parent-match ((ctx context))
+  (context-parent-match* ctx))
+
+(defmethod context-parent-match ((ctx null))
+  nil)
+
+(defun context-parent-begin (ctx)
+  (if (context-parent-match ctx)
+      (match-begin-absolute (context-parent-match ctx))
+      0))
+
+(defmethod context-rule-by-id ((ctx context) rule-id)
+  (gethash rule-id (context-rule-hash ctx)))
+
+(defmethod context-copy ((ctx context) &optional (parent-match (context-parent-match ctx)))
+  (make-context :rules (context-rules ctx)
+                :rule-hash (context-rule-hash ctx)
+                :parent-match* parent-match))
+
+(defmethod context-copy ((ctx null) &optional parent-match)
+  (make-context :parent-match* parent-match))
 
 (defvar *escaped*)
-
-(defun match-text (input match)
-  "extract the text for MATCH from INPUT (either a string or a reader)."
-  (when match
-    (let ((begin (match-begin match))
-          (end (match-end match)))
-      (subseq input begin end))))
 
 (defun plistp (list1)
   "check whether LIST1 is a plist."
@@ -99,8 +114,8 @@ to replace and new-rule is the rule to replace it with."
 ;; in other applications of this combinator library
 ;; but maybe introduce this caching in other parts of cltpt's code that can benefit form it.
 (defun make-context-from-rules (rules)
-  (let ((ctx (make-context))
-        (rule-hash (make-hash-table :test 'equal)))
+  (let ((rule-hash (make-hash-table :test 'equal))
+        (ctx (make-context :parent-match* nil)))
     (setf (context-rules ctx) rules)
     (setf (context-rule-hash ctx) rule-hash)
     (loop for rule in rules
@@ -141,16 +156,14 @@ to replace and new-rule is the rule to replace it with."
             #\+ #\=
             #\~)))
 
-(defmethod context-rule-by-id ((ctx context) rule-id)
-  (gethash rule-id (context-rule-hash ctx)))
-
 (defun normalize-match (match ctx rule pos)
   "ensures a match result is in the standard plist cons structure."
   (if (numberp match)
-      (make-match :begin pos
-                  :end (+ pos match)
+      (make-match :begin (- pos (context-parent-begin ctx))
+                  :end (- (+ pos match) (context-parent-begin ctx))
                   :ctx ctx
                   :rule rule
+                  :parent (context-parent-match ctx)
                   :children nil)
       match))
 
@@ -163,14 +176,16 @@ to replace and new-rule is the rule to replace it with."
 (defun any (ctx reader pos &rest all)
   "match any of the given combinator rules."
   (loop for one in all
-        for match = (apply-rule-normalized ctx one reader pos)
+        for wrapper = (make-match :begin (- pos (context-parent-begin ctx))
+                                  :ctx ctx
+                                  :parent (context-parent-match ctx))
+        for child-ctx = (context-copy ctx wrapper)
+        for match = (apply-rule-normalized child-ctx one reader pos)
         do (when match
-             (return-from any
-               (match-set-children-parent
-                (make-match :begin (match-begin match)
-                            :end (match-end match)
-                            :ctx ctx
-                            :children (list match)))))))
+             (setf (match-children wrapper) (list match))
+             (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
+             (match-set-children-parent wrapper)
+             (return-from any wrapper))))
 
 (defun literal (ctx reader pos substr)
   "match a literal string."
@@ -251,123 +266,130 @@ to replace and new-rule is the rule to replace it with."
 
 (defun consec (ctx reader pos &rest all)
   "match a consecutive set of rules, each one has to be present."
-  (let ((start pos)
-        (matches))
+  (let* ((start pos)
+         (children)
+         (match (make-match :begin (- start (context-parent-begin ctx))
+                            :ctx ctx
+                            :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx match)))
     (loop for one in all
-          for match = (apply-rule-normalized ctx one reader pos)
+          for match = (apply-rule-normalized child-ctx one reader pos)
           for len = (when match
                       (- (match-end match)
                          (match-begin match)))
           do (if (and match len (plusp len))
                  (progn
-                   (setf pos (match-end match))
-                   (push match matches))
+                   (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
+                   (push match children))
                  (return-from consec nil)))
-    (match-set-children-parent
-     (make-match :begin start
-                 :end pos
-                 :ctx ctx
-                 :children (nreverse matches)))))
+    (setf (match-end match) (- pos (context-parent-begin ctx)))
+    (setf (match-children match) (nreverse children))
+    (when children
+      (match-set-children-parent match))))
 
 (defun consec-atleast-one (ctx reader pos &rest all)
   "match a consecutive set of rules, atleast the first has to be present.
 
 the matcher stops once it encounters a rule that hasnt been matched, and returns
 the consecutive matches up to that point."
-  (let ((start pos)
-        (matches))
+  (let* ((start pos)
+         (children)
+         (match (make-match :begin (- start (context-parent-begin ctx))
+                            :ctx ctx
+                            :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx match)))
     (loop for one in all
-          for match = (apply-rule-normalized ctx one reader pos)
+          for match = (apply-rule-normalized child-ctx one reader pos)
           for len = (when match
                       (- (match-end match)
                          (match-begin match)))
           do (if (and match len (plusp len))
                  (progn
-                   (setf pos (match-end match))
-                   (push match matches))
+                   (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
+                   (push match children))
                  (return)))
-    (when matches
-      (match-set-children-parent
-       (make-match :begin start
-                   :end pos
-                   :ctx ctx
-                   :children (nreverse matches))))))
+    (setf (match-end match) (- pos (context-parent-begin ctx)))
+    (setf (match-children match) (nreverse children))
+    (when children
+      (match-set-children-parent match))))
 
 ;; a consecutive set of matchers, separated by a specific matcher. atleast one
 (defun separated-atleast-one (ctx reader pos sep-matcher matcher)
   "apply the sequence of matcher `MATCHER' separated by `SEP-MATCHER'."
-  (let ((start pos)
-        (matches)
-        (first t)
-        (sep-match)
-        (pos-after-sep pos))
+  (let* ((start pos)
+         (matches)
+         (first t)
+         (sep-match)
+         (pos-after-sep pos)
+         (match (make-match :begin (- start (context-parent-begin ctx))
+                            :ctx ctx
+                            :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx match)))
     (loop
       do (unless first
            ;; match separator
-           (let ((match (apply-rule-normalized ctx sep-matcher reader pos)))
+           (let ((match (apply-rule-normalized child-ctx sep-matcher reader pos)))
              (unless match
                (return))
-             (setf pos-after-sep (match-end match))
+             (setf pos-after-sep (+ (context-parent-begin child-ctx) (match-end match)))
              (setf sep-match match)))
-         (let ((match (apply-rule-normalized ctx matcher reader pos-after-sep)))
+         (let ((match (apply-rule-normalized child-ctx matcher reader pos-after-sep)))
            (unless match
              (return))
-           (setf pos (match-end match))
+           (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
            (unless first
              (push sep-match matches))
            (push match matches))
          (setf first nil))
+    (setf (match-end match) (- pos (context-parent-begin ctx)))
+    (setf (match-children match) (nreverse matches))
     (when matches
-      (match-set-children-parent
-       (make-match :begin start
-                   :end pos
-                   :ctx ctx
-                   :children (nreverse matches))))))
+      (match-set-children-parent match))))
 
 (defun atleast-one (ctx reader pos matcher)
   "match the rule MATCHER atleast once."
-  (let ((start pos)
-        (matches))
+  (let* ((start pos)
+         (matches)
+         (match (make-match :begin (- start (context-parent-begin ctx))
+                            :ctx ctx
+                            :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx match)))
     (loop while (is-before-eof reader pos)
-          for match = (apply-rule-normalized ctx matcher reader pos)
-          while match
-          for len = (when match
-                      (- (match-end match)
-                         (match-begin match)))
-          do (if (and match len (plusp len))
+          for m = (apply-rule-normalized child-ctx matcher reader pos)
+          while m
+          for len = (when m
+                      (- (match-end m)
+                         (match-begin m)))
+          do (if (and m len (plusp len))
                  (progn
-                   (setf pos (match-end match))
-                   (push match matches))
+                   (setf pos (+ (context-parent-begin child-ctx) (match-end m)))
+                   (push m matches))
                  (return)))
     (when matches
-      (match-set-children-parent
-       (make-match :begin start
-                   :end pos
-                   :ctx ctx
-                   :children (nreverse matches))))))
+      (setf (match-end match) (- pos (context-parent-begin ctx)))
+      (setf (match-children match) (nreverse matches))
+      (match-set-children-parent match))))
 
 (defun atleast-one-discard (ctx reader pos matcher)
   "like `atleast-one', but doesnt collect submatches. better performance."
-  (let ((start pos))
+  (let* ((start pos)
+         (match (make-match :begin (- start (context-parent-begin ctx))
+                            :ctx ctx
+                            :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx match)))
     (loop while (is-before-eof reader pos)
-          for match = (apply-rule-normalized ctx matcher reader pos)
-          while match
-          for len = (when match
-                      (- (match-end match)
-                         (match-begin match)))
-          do (if (and match len (plusp len))
-                 (setf pos (match-end match))
+          for m = (apply-rule-normalized child-ctx matcher reader pos)
+          while m
+          for len = (when m
+                      (- (match-end m)
+                         (match-begin m)))
+          do (if (and m len (plusp len))
+                 (setf pos (+ (context-parent-begin child-ctx) (match-end m)))
                  (return)))
     (when (> pos start)
-      (make-match :begin start
-                  :end pos
-                  :ctx ctx
-                  :children nil))))
-
-;; shouldnt we be matching words from any language?
-(defun word-matcher (ctx reader pos)
-  "match an english word."
-  (apply-rule ctx `(atleast-one-discard (eng-char-p)) reader pos))
+      (setf (match-end match) (- pos (context-parent-begin ctx)))
+      (setf (match-children match) nil)
+      match)))
 
 (defun digit-p (ctx reader pos)
   "returns 1 if char at POS of STR is a digit, NIL otherwise."
@@ -375,9 +397,29 @@ the consecutive matches up to that point."
        (digit-char-p (reader-char reader pos))
        1))
 
+(defun simple-wrapper (ctx reader pos rule)
+  "apply a simple parsing rule with the proper wrapping of context and return the correct wrapped match."
+  (let* ((wrapper (make-match
+                   :rule rule
+                   :begin (- pos (context-parent-begin ctx))
+                   :ctx ctx
+                   :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx wrapper))
+         (child (apply-rule-normalized child-ctx rule reader pos)))
+    (when child
+      (setf (match-end wrapper) (+ (match-begin wrapper) (match-end child)))
+      (setf (match-children wrapper) (list child))
+      (match-set-children-parent wrapper)
+      wrapper)))
+
+;; shouldnt we be matching words from any language?
+(defun word-matcher (ctx reader pos)
+  "match an english word."
+  (simple-wrapper ctx reader pos '(atleast-one-discard (eng-char-p))))
+
 (defun natural-number-matcher (ctx reader pos)
   "matches a natural number."
-  (apply-rule ctx `(atleast-one-discard (digit-p)) reader pos))
+  (simple-wrapper ctx reader pos '(atleast-one-discard (digit-p))))
 
 (defun pair (ctx reader pos opening-rule closing-rule
              &optional rules-for-content pair-id (allow-multiline t))
@@ -385,9 +427,14 @@ the consecutive matches up to that point."
 handles nesting of the same pair structure.
 if ALLOW-MULTILINE is NIL, the match will fail if a newline is encountered
 before the final closing rule is found."
-  (let ((opening-match (apply-rule-normalized ctx opening-rule reader pos)))
+  (let* ((start pos)
+         (parent-match (make-match :begin (- start (context-parent-begin ctx))
+                                   :ctx ctx
+                                   :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx parent-match))
+         (opening-match (apply-rule-normalized child-ctx opening-rule reader pos)))
     (when opening-match
-      (let* ((open-end-pos (match-end opening-match))
+      (let* ((open-end-pos (+ (context-parent-begin child-ctx) (match-end opening-match)))
              (current-search-pos open-end-pos)
              (nesting-level 1)
              (final-closing-match)
@@ -402,19 +449,21 @@ before the final closing rule is found."
                             (char= (reader-char reader current-search-pos) #\newline))
                    (return-from pair nil))
                  (let ((potential-close
-                         (apply-rule-normalized ctx
+                         (apply-rule-normalized child-ctx
                                                 closing-rule
                                                 reader
                                                 current-search-pos)))
                    (if potential-close
                        (progn
                          (decf nesting-level)
-                         (setf current-search-pos (match-end potential-close))
+                         (setf current-search-pos
+                               (+ (context-parent-begin child-ctx)
+                                  (match-end potential-close)))
                          (when (= nesting-level 0)
                            (setf final-closing-match potential-close)
                            (return)))
                        (let ((potential-open
-                               (apply-rule-normalized ctx
+                               (apply-rule-normalized child-ctx
                                                       opening-rule
                                                       reader
                                                       current-search-pos)))
@@ -422,33 +471,36 @@ before the final closing rule is found."
                              (progn
                                (incf nesting-level)
                                (setf current-search-pos
-                                     (match-end potential-open)))
+                                     (+ (context-parent-begin child-ctx) (match-end potential-open))))
                              ;; try to match content rules at base nesting level
                              (let ((matched-content nil))
                                (when (and rules-for-content (= nesting-level 1))
                                  (loop for rule in rules-for-content
                                        until matched-content
-                                       do (let ((match-result (apply-rule ctx rule reader current-search-pos)))
+                                       do (let ((match-result (apply-rule child-ctx rule reader current-search-pos)))
                                             (when match-result
-                                              (let ((normalized (normalize-match match-result ctx rule current-search-pos)))
-                                                (setf current-search-pos (match-end normalized))
+                                              (let ((normalized (normalize-match match-result
+                                                                                 child-ctx
+                                                                                 rule
+                                                                                 current-search-pos)))
+                                                (setf current-search-pos
+                                                      (+ (context-parent-begin child-ctx)
+                                                         (match-end normalized)))
                                                 (push normalized content-matches)
                                                 (setf matched-content t))))))
                                (unless matched-content
                                  (incf current-search-pos))))))))
         (when (and final-closing-match (= nesting-level 0))
-          (let* ((overall-end-pos (match-end final-closing-match))
-                 (match (match-set-children-parent
-                         (make-match
-                          :begin pos
-                          :end overall-end-pos
-                          :ctx ctx
-                          :children (append (list opening-match)
-                                            (nreverse content-matches)
-                                            (list final-closing-match))))))
+          (let ((overall-end-pos (+ (context-parent-begin child-ctx)
+                                    (match-end final-closing-match))))
+            (setf (match-end parent-match) (- overall-end-pos (context-parent-begin ctx)))
+            (setf (match-children parent-match)
+                  (append (list opening-match)
+                          (nreverse content-matches)
+                          (list final-closing-match)))
             (when pair-id
-              (setf (match-id match) pair-id))
-            match))))))
+              (setf (match-id parent-match) pair-id))
+            (match-set-children-parent parent-match)))))))
 
 (defun compile-rule-string-helper (spec bindings)
   (let ((result)
@@ -566,8 +618,8 @@ returns (values success-p end-pos) on success, or (values nil nil) on failure."
                     when (not (whitespace-p (reader-char reader i)))
                       return i)))
         (when last-char-pos
-          (make-match :begin pos
-                      :end (1+ last-char-pos)
+          (make-match :begin (- pos (context-parent-begin ctx))
+                      :end (- (1+ last-char-pos) (context-parent-begin ctx))
                       :ctx ctx
                       :id 'lisp-form-content
                       :children nil))))))
@@ -640,9 +692,8 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                (labels ((handle-rule (rule)
                           (let ((match-result (apply-rule ctx rule reader i)))
                             (when match-result
-                              ;; (when (<= (getf (car match-result) :end) end-idx)
-                              (setf i (match-end match-result))
-                              (push match-result events)
+                              (setf i (+ (context-parent-begin ctx) (match-end match-result)))
+                              (push (match-set-children-parent match-result) events)
                               (setf matched t)))))
                  (loop for rule in (union unhashed-rules
                                           (gethash current-char rule-hash))
@@ -676,7 +727,7 @@ an optional escape-char can be provided, defaulting to backslash."
       (when (apply-rule ctx rule reader pos)
         ;; TODO: isnt this hacky? it only makes sense tho :(
         (let ((last-escaped (car *escaped*)))
-          (unless (and last-escaped (equal (match-begin last-escaped) (1- pos)))
+          (unless (and last-escaped (equal (match-begin-absolute last-escaped) (1- pos)))
             (push (make-match :begin (1- pos)
                               :end (1+ pos)
                               :props (list :replace (string (reader-char reader pos)))
@@ -709,7 +760,9 @@ an optional escape-char can be provided, defaulting to backslash."
 immediately after the match satisfies 'condition-fn'."
   (let ((match (apply-rule-normalized ctx rule reader pos)))
     (when match
-      (let ((end-pos (match-end match)))
+      ;; use absolute position since condition-fn (e.g. at-line-end-p) expects absolute
+      ;; positions in the reader
+      (let ((end-pos (match-end-absolute match)))
         (when (funcall condition-fn ctx reader end-pos)
           match)))))
 
@@ -757,8 +810,8 @@ returns the matched substring and its bounds."
           while (not match)
           do (incf pos))
     (when (> pos start)
-      (make-match :begin start
-                  :end pos
+      (make-match :begin (- start (context-parent-begin ctx))
+                  :end (- pos (context-parent-begin ctx))
                   :ctx ctx
                   :children nil))))
 
@@ -775,8 +828,8 @@ returns the matched substring and its bounds."
           else
             do (incf pos))
     (when (> pos start)
-      (make-match :begin start
-                  :end pos
+      (make-match :begin (- start (context-parent-begin ctx))
+                  :end (- pos (context-parent-begin ctx))
                   :ctx ctx
                   :children nil))))
 
@@ -785,12 +838,12 @@ returns the matched substring and its bounds."
   "match all characters until COND-FN returns t."
   (let ((start pos))
     (loop while (is-before-eof reader pos)
-          for result = (funcall condition-fn ctx reader pos)
+          for result = (funcall cond-fn ctx reader pos)
           while (not result)
           do (incf pos))
     (when (> pos start)
-      (make-match :begin start
-                  :end pos
+      (make-match :begin (- start (context-parent-begin ctx))
+                  :end (- pos (context-parent-begin ctx))
                   :ctx ctx
                   :children nil))))
 
@@ -800,31 +853,34 @@ returns the matched substring and its bounds."
 parsers can be marked as optional by wrapping them in an :optional keyword.
 all non-optional parsers must match in order. optional parsers are attempted,
 but if they don't match, parsing continues without them."
-  (let ((start pos)
-        (matches))
+  (let* ((start pos)
+         (matches)
+         (match (make-match :begin (- start (context-parent-begin ctx))
+                            :parent (context-parent-match ctx)
+                            :ctx ctx))
+         (child-ctx (context-copy ctx match)))
     (loop for parser in parsers
           do (cond
                ;; if the parser is marked as optional
                ((and (consp parser)
                      (keywordp (car parser))
                      (getf parser :optional))
-                (let ((match (apply-rule-normalized ctx (cadr parser) reader pos)))
-                  (when match
-                    (setf pos (match-end match))
-                    (push match matches))))
+                (let ((m (apply-rule-normalized child-ctx (cadr parser) reader pos)))
+                  (when m
+                    (setf pos (+ (context-parent-begin child-ctx) (match-end m)))
+                    (push m matches))))
                ;; otherwise, it's a non-optional parser
                (t
-                (let ((match (apply-rule-normalized ctx parser reader pos)))
-                  (if match
+                (let ((m (apply-rule-normalized child-ctx parser reader pos)))
+                  (if m
                       (progn
-                        (setf pos (match-end match))
-                        (push match matches))
+                        (setf pos (+ (context-parent-begin child-ctx) (match-end m)))
+                        (push m matches))
                       (return-from consec-with-optional nil))))))
-    (match-set-children-parent
-     (make-match :begin start
-                 :end pos
-                 :ctx ctx
-                 :children (nreverse matches)))))
+    (setf (match-end match) (- pos (context-parent-begin ctx)))
+    (setf (match-children match) (nreverse matches))
+    (when matches
+      (match-set-children-parent match))))
 
 (defun between-whitespace (ctx reader pos rule)
   "a combinator that uses when-match to match a RULE only if the match
@@ -888,5 +944,5 @@ succeeded by whitespace, punctuation, or a string boundary. the flanking charact
 
 for a given match, run CONDITION-FN and only if it returns true, return the match."
   (let ((match (apply-rule ctx rule reader pos)))
-    (when (funcall condition-fn ctx reader pos rule match)
+    (when (and match (funcall condition-fn ctx reader pos rule match))
       match)))

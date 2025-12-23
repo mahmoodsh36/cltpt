@@ -176,7 +176,7 @@
          (resolved (cltpt/base:text-link-resolve obj))
          (desc-match
            (cltpt/combinator:find-submatch
-            (cltpt/base:text-object-normalized-match obj)
+            (cltpt/base:text-object-match obj)
             'link-desc))
          (desc-begin (when desc-match
                        (cltpt/combinator:match-begin desc-match)))
@@ -244,32 +244,36 @@
         (setf final-desc ""))
       ;; when there's no description for the link the resulting text
       ;; would just be an html snippet with no need for escaping or recursing.
-      (list :text (if desc-match
-                      (cltpt/base:text-object-text obj)
-                      (concatenate 'string
-                                   open-tag
-                                   final-desc
-                                   close-tag))
-            :changes (when desc-match
+      (list :changes (if desc-match
                        (list
-                        (cons
-                         open-tag
-                         (cltpt/base:make-region
-                          :begin 0
-                          :end desc-begin))
-                        (cons
-                         final-desc
-                         (cltpt/base:make-region
-                          :begin desc-begin
-                          :end desc-end))
-                        (cons
-                         close-tag
-                         (cltpt/base:make-region
-                          :begin desc-end
-                          :end (length (cltpt/base:text-object-text obj))))))
+                        (cltpt/buffer:make-change
+                         :operator open-tag
+                         :region (cltpt/buffer:make-region
+                                  :begin 0
+                                  :end desc-begin))
+                        (cltpt/buffer:make-change
+                         :operator final-desc
+                         :region (cltpt/buffer:make-region
+                                  :begin desc-begin
+                                  :end desc-end))
+                        (cltpt/buffer:make-change
+                         :operator close-tag
+                         :region (cltpt/buffer:make-region
+                                  :begin desc-end
+                                  :end (length (cltpt/base:text-object-text obj)))))
+                       (list
+                        ;; replace the text completely
+                        (cltpt/buffer:make-change
+                         :operator (concatenate 'string
+                                                open-tag
+                                                final-desc
+                                                close-tag)
+                         :region (cltpt/buffer:make-region
+                                  :begin 0
+                                  :end (length (cltpt/base:text-object-text obj))))))
             :recurse desc-match
             :escape-region (when desc-match
-                             (cltpt/base:make-region
+                             (cltpt/buffer:make-region
                               :begin desc-begin
                               :end desc-end))))))
 

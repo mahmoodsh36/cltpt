@@ -5,7 +5,7 @@
    :bind-and-eval :bind-and-eval* :eval-in-text-object-lexical-scope
    :compress-consec :concat
    :alist-get :subseq* :sorted-insert :last-atom
-   :merge-plist :replace-substr :add-duration :list-dates :list-date-pairs
+   :merge-plist :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day
    :find-cons-if :tautology
 
@@ -43,17 +43,13 @@
    :text-object-clone :sort-text-objects :text-object-set-parent
    :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
    :text-block :text-object-convert-options :text-object-contents-region
-   :text-object-normalized-match :text-object-match
+   :text-object-match
    :text-link :text-link-link :text-link-resolve
+   :link-resolve :link-desc :link-dest :link-type
+   :target-filepath :convert-target-filepath
    :make-block :block-end
    :text-object-match-text :text-object-root
-
-   :make-region :region-text :region-contains
-   :region-incf :region-decf :region-clone :region-compress :region-compress-by
-   :region-end :region-begin :region-length
-
-   :link-resolve :text-link-link :link-desc :link-dest :link-type
-   :target-filepath :convert-target-filepath
+   :text-object-force-set-text
 
    :*image-ext* :*video-ext*))
 

@@ -84,222 +84,105 @@ the '\\' and processes the char normally (replace or emit)."
          (regions-to-escape (when (and to-escape (not result-is-string))
                               (or (getf result :escape-regions)
                                   (let ((region (getf result :escape-region)))
-                                    (when region (list region))))))
+                                    (when region (list region)))
+                                  ;; if :escape t but no regions specified, create a default region covering the whole text.
+                                  (list (cltpt/buffer:make-region
+                                         :begin 0
+                                         :end (length result-text))))))
          (to-recurse (if recurse-supplied
                          recurse
                          (or (unless result-is-string (getf result :recurse))
                              to-reparse)))
          (escapables (collect-escapables text-object-types))
-         (changes (or (unless result-is-string
-                        (getf result :changes))
-                      ;; if a reparse is requested but not changes were provided
-                      ;; then we need to consider the whole text changed.
-                      (and to-reparse
-                           (list
-                            (cons result-text
-                                  (make-region
-                                   :begin 0
-                                   :end (region-length
-                                         (text-object-text-region text-obj)))))))))
+         (changes (unless result-is-string
+                        (getf result :changes))))
     (when (getf cltpt:*debug* :convert)
       (format t "DEBUG: before incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
-    ;; adjust 'regions-to-escape' to the changes provided in :changes
-    (when regions-to-escape
-      (setf
-       regions-to-escape
-       (if (and changes regions-to-escape)
-           (let ((sorted-changes
-                   (sort (copy-list changes)
-                         #'<
-                         :key (lambda (c)
-                                (region-begin (cdr c))))))
-             (loop for region-spec in regions-to-escape
-                   collect
-                   (let* ((region (if (consp region-spec) (car region-spec) region-spec))
-                          (plist (if (consp region-spec) (cdr region-spec) nil))
-                          (begin-offset 0)
-                          (end-offset 0))
-                     (loop for (str . change-region) in sorted-changes
-                           do (when (< (region-begin change-region)
-                                       (region-begin region))
-                                (incf begin-offset
-                                      (- (length str)
-                                         (region-length change-region)))))
-                     (loop for (str . change-region) in sorted-changes
-                           do (when (< (region-begin change-region)
-                                       (region-end region))
-                                (incf end-offset
-                                      (- (length str)
-                                         (region-length change-region)))))
-                     (let ((new-region (make-region
-                                        :begin (+ (region-begin region) begin-offset)
-                                        :end (+ (region-end region) end-offset))))
-                       (if plist
-                           (cons new-region plist)
-                           new-region)))))
-           regions-to-escape)))
-    ;; this is tricky, we are modifying the text of these objects as we are
-    ;; advancing, but we arent modifying the text at the root document.
-    (if (or changes to-reparse)
-        ;; we expect any changes to happen only to positions of children or changes
-        ;; in their text and nothing else. because otherwise changes would be hard
-        ;; or simply impossible to keep track of.
-        (handle-changed-regions text-obj
-                                fmt-src
-                                changes
-                                to-reparse
-                                :propagate nil
-                                :only-simple-changes t)
-        (text-object-change-text text-obj
-                                 result-text
-                                 :propagate nil))
+    ;; set the child's own buffer where we will apply the changes. and then schedule the changes
+    (if changes
+      (cltpt/buffer:buffer-fetch-parent-text text-obj)
+      (text-object-force-set-text text-obj result-text))
+    (loop for change in changes
+          do (cltpt/buffer:schedule-change* text-obj change :delegate nil))
+    (let* ((parent-text (text-object-text text-obj))
+           (child-regions (loop for child in (text-object-children text-obj)
+                                collect (text-object-text-region child)))
+           ;; compute regions for newlines that should be removed (not escaped) and schedule their removal
+           (newline-removal-regions
+             (loop for child in (text-object-children text-obj)
+                   for child-options = (text-object-convert-options child fmt-dest)
+                   for to-remove-newline = (getf child-options :remove-newline-after)
+                   for child-end = (text-object-end child)
+                   when (and to-remove-newline
+                             (< child-end (length parent-text))
+                             (char= (char parent-text child-end) #\newline))
+                     collect (cltpt/buffer:make-region :begin child-end :end (1+ child-end))
+                     and do (cltpt/buffer:schedule-change
+                             text-obj child-end (1+ child-end) "" :delegate nil)))
+           (raw-change-regions
+             (loop for change in changes
+                   for change-region = (cltpt/buffer:change-region change)
+                   for change-args = (cltpt/buffer:change-args change)
+                   ;; only exclude change regions that don't have :escape t in their args.
+                   ;; changes with :escape t insert content that still needs escaping.
+                   unless (getf change-args :escape)
+                     collect change-region))
+           ;; thinking of the requested escape regions as "holes" in the text-object, the final
+           ;; escape regions would be holes "minus" inner-holes, where inner-holes are holes
+           ;; within the holes that should not be escaped unlike their parent holes.
+           (final-escape-regions
+             (cltpt/buffer/region:region-complement-scoped
+              (cltpt/buffer:make-region
+               :begin 0
+               :end (length parent-text))
+              ;; holes
+              regions-to-escape
+              ;; inner-holes
+              (concatenate 'list
+                           raw-change-regions
+                           child-regions
+                           newline-removal-regions))))
+      ;; schedule the final escape regions
+      (cltpt/buffer:schedule-batch
+       text-obj
+       (mapcar
+        (lambda (region)
+          (labels ((my-text-escape (text)
+                     (let ((escape-newlines (getf (cltpt/buffer/region:region-props region)
+                                                  :escape-newlines
+                                                  t)))
+                       (escape-text
+                        text
+                        fmt-dest
+                        escapables
+                        escape-newlines))))
+            (cltpt/buffer:make-change
+             :region (cltpt/buffer:make-region
+                      :begin (cltpt/buffer:region-begin region)
+                      :end (cltpt/buffer:region-end region))
+             :operator #'my-text-escape)))
+        final-escape-regions)
+       :new-level t
+       :delegate nil))
     (when (getf cltpt:*debug* :convert)
       (format t "DEBUG: after incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
-    ;; grab the new text after the changes were applied above.
-    (setf result-text (text-object-text text-obj))
-    (labels ((escape-text-in-regions (text containing-region escape-regions)
-               ;; find intersections and sort them to process in order
-               ;; TODO: dont sort here, make it a condition that
-               ;; the regions are sorted before being passed.
-               (let* ((effective-regions
-                        (sort
-                         (loop for region-spec in escape-regions
-                               for r = (if (consp region-spec)
-                                           (car region-spec)
-                                           region-spec)
-                               for plist = (when (consp region-spec)
-                                             (cdr region-spec))
-                               for intersection = (region-intersection
-                                                   r
-                                                   containing-region)
-                               when intersection
-                                 collect (cons intersection plist))
-                         #'<
-                         :key (lambda (item)
-                                (region-begin (car item))))))
-                 (if (not effective-regions)
-                     ;; if no escape regions are in this section, just return the text.
-                     (subseq text
-                             (region-begin containing-region)
-                             (region-end containing-region))
-                     ;; otherwise, build the string with escaped parts.
-                     (with-output-to-string (s)
-                       (let ((last-end (region-begin containing-region)))
-                         (dolist (region-spec effective-regions)
-                           (let* ((r (car region-spec))
-                                  (plist (cdr region-spec))
-                                  (escape-newlines
-                                    (getf plist
-                                          :escape-newlines
-                                          *convert-escape-newlines*)))
-                             (write-string
-                              (subseq text last-end (region-begin r))
-                              s)
-                             (when (getf cltpt:*debug* :convert)
-                               (format t "DEBUG: escaping ~A~%"
-                                       (subseq text
-                                               (region-begin r)
-                                               (region-end r))))
-                             (write-string
-                              (escape-text
-                               (subseq text
-                                       (region-begin r)
-                                       (region-end r))
-                               fmt-dest
-                               escapables
-                               escape-newlines)
-                              s)
-                             (setf last-end (region-end r))))
-                         (write-string
-                          (subseq text
-                                  last-end
-                                  (region-end containing-region))
-                          s)))))))
-      (if to-recurse
-          ;; we store the results as fragments (`final-result-fragments') to avoid concatenating all the time
-          (let* ((final-result-fragments)
-                 (idx 0))
-            ;; if we reparsed, we need to reset the parent of the new copies of "children"
-            ;; (when to-reparse
-            ;;   (setf (text-object-children text-obj) children)
-            ;;   (dolist (child children)
-            ;;     (setf (text-object-parent child) text-obj)
-            ;;     ;; (setf (text-object-parent child) nil)
-            ;;     ;; (text-object-set-parent child text-obj)
-            ;;     ;; (text-object-adjust-to-parent child text-obj)
-            ;;     ))
-            (loop for child in (text-object-children text-obj)
-                  do (when (getf cltpt:*debug* :convert)
-                       (format t "DEBUG: converting child ~A~%" child))
-                     (let* ((child-result (convert-tree child fmt-src fmt-dest))
-                            (child-options
-                              (text-object-convert-options child
-                                                           fmt-dest))
-                            (to-remove-newline-after
-                              (getf child-options :remove-newline-after))
-                            (text-in-between-begin idx)
-                            (text-in-between-end (text-object-begin child))
-                            ;; text up to next child.
-                            ;; escape only the region that is requested for escaping in
-                            ;; text-in-between.
-                            (text-in-between
-                              (if to-escape
-                                  (if regions-to-escape
-                                      (escape-text-in-regions
-                                       result-text
-                                       (make-region :begin text-in-between-begin
-                                                    :end text-in-between-end)
-                                       regions-to-escape)
-                                      (escape-text
-                                       (subseq result-text
-                                               text-in-between-begin
-                                               text-in-between-end)
-                                       fmt-dest
-                                       escapables
-                                       *convert-escape-newlines*))
-                                  (subseq result-text
-                                          text-in-between-begin
-                                          text-in-between-end))))
-                       ;; if we reparsed only a specific region, we need to offset the regions of children
-                       (push text-in-between final-result-fragments)
-                       (push child-result final-result-fragments)
-                       (setf idx (text-object-end child))
-                       ;; if requested, ignore all newlines after the object (if any)
-                       (when to-remove-newline-after
-                         (when (and (< idx (length result-text))
-                                    (equal (char result-text idx) #\newline))
-                           (incf idx)))))
-            ;; we need to handle regions-to-escape properly on the remaining text after
-            ;; the region of the last child
-            (let ((final-text-in-between
-                    (if to-escape
-                        (if regions-to-escape
-                            (escape-text-in-regions
-                             result-text
-                             (make-region :begin idx
-                                          :end (length result-text))
-                             regions-to-escape)
-                            (escape-text (subseq result-text idx)
-                                         fmt-dest
-                                         escapables
-                                         *convert-escape-newlines*))
-                        (subseq result-text idx))))
-              (push final-text-in-between final-result-fragments)
-              (apply 'concatenate 'string (nreverse final-result-fragments))))
-          (if to-escape
-              (if regions-to-escape
-                  (escape-text-in-regions
-                   result-text
-                   (make-region :begin 0
-                                :end (length result-text))
-                   regions-to-escape)
-                  (escape-text result-text
-                               fmt-dest
-                               escapables
-                               *convert-escape-newlines*))
-              result-text)))))
+    ;; process children: convert each child and schedule its replacement.
+    (when to-recurse
+      (loop for child in (text-object-children text-obj)
+            do (when (getf cltpt:*debug* :convert)
+                 (format t "DEBUG: converting child ~A~%" child))
+               (let ((child-result (convert-tree child fmt-src fmt-dest)))
+                 (cltpt/buffer:schedule-change
+                  text-obj
+                  (text-object-begin child)
+                  (text-object-end child)
+                  child-result
+                  :delegate nil))))
+    ;; finally we apply all scheduled changes and return the result
+    (cltpt/buffer:apply-scheduled-changes text-obj)
+    (text-object-text text-obj)))
 
 ;; this barely handles simple patterns, it cannot be relied on, but it may make some things easier.
 (defun convert-rule-with-shared-patterns (tree)
@@ -338,17 +221,23 @@ before calling `convert-tree' on the given DOC."
       (when escapes
         (let* ((changes
                  (loop for escape in escapes
-                       collect (cons (getf (cltpt/combinator/match::match-props escape) :replace)
-                                     (make-region :begin (cltpt/combinator:match-begin escape)
-                                                  :end (cltpt/combinator:match-end escape))))))
-          ;; sort changes by region begin position to ensure correct offset calculations in handle-changed-regions
-          ;; (setf changes (sort changes #'< :key (lambda (x) (region-begin (cdr x)))))
-          (handle-changed-regions doc
-                                  src-fmt
-                                  changes
-                                  nil
-                                  :only-simple-changes t
-                                  :propagate t))))
+                       collect (cltpt/buffer:make-change
+                                :operator (getf (cltpt/combinator/match::match-props escape) :replace)
+                                :region (cltpt/buffer:make-region
+                                         :begin (cltpt/combinator:match-begin-absolute escape)
+                                         :end (cltpt/combinator:match-end-absolute escape))))))
+          (loop for change in changes
+                for str = (cltpt/buffer:change-operator change)
+                for change-region = (cltpt/buffer:change-region change)
+                for args = (cltpt/buffer:change-args change)
+                do (apply 'cltpt/buffer:schedule-change
+                          doc
+                          (cltpt/buffer:region-begin change-region)
+                          (cltpt/buffer:region-end change-region)
+                          str
+                          (cltpt/base:merge-plist args
+                                                  (list :new-level nil
+                                                        :delegate t)))))))
     ;; here we've bound :text-obj in *convert-info* so that
     ;; we can access it from within the template.
     (if template
@@ -363,7 +252,7 @@ before calling `convert-tree' on the given DOC."
          :escape nil
          :recurse t
          :reparse nil)
-        (convert-tree new-doc src-fmt dest-fmt))))
+        (convert-tree doc src-fmt dest-fmt))))
 
 (defun convert-simple-format (format-str)
   "this function can be used for \"formatting strings\" with lisp code."

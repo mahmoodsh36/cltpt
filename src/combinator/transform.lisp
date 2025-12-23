@@ -42,7 +42,7 @@
                             (cdr rule)
                             replacements
                             (cltpt/combinator:match-children match)))
-                (cltpt/combinator:match-text reader match)))))))
+                (cltpt/combinator:match-text match reader)))))))
 
 ;; re-interning like that is probably not ideal, is there a better way to go about things?
 ;; ideally we shouldnt have to implement the transformation functions ourselves, but have
@@ -62,7 +62,7 @@
     out))
 
 (defun transform-literal (reader subrules match)
-  (cltpt/combinator:match-text reader match))
+  (cltpt/combinator:match-text match reader))
 
 (defun transform-separated-atleast-one (reader subrules replacements &rest matches)
   (with-output-to-string (out)
@@ -86,7 +86,7 @@
         ;; if we found the corresponding submatch, we extract the text from it, otherwise
         ;; we run the combinator's transform function.
         (if submatch
-            (cltpt/combinator:match-text reader submatch)
+            (cltpt/combinator:match-text submatch reader)
             (let* ((matcher (car rule))
                    (reconstructor (reconstructor-for-combinator matcher)))
               (or (and reconstructor

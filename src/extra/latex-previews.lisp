@@ -149,7 +149,7 @@ the preamble automatically invalidate the old compiled format."
 (defun format-command (template-string substitutions)
   (let ((result template-string))
     (dolist (sub substitutions result)
-      (setf result (replace-all result (car sub) (cdr sub))))))
+      (setf result (cltpt/str-utils:replace-all result (car sub) (cdr sub))))))
 
 (defun cleanup-temp-files (base-name &optional (intermediate-ext ".dvi"))
   (dolist (ext (list ".tex" ".aux" ".log" ".bcf" ".run.xml" intermediate-ext))

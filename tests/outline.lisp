@@ -1,6 +1,6 @@
 (defpackage :cltpt/tests/outline
   (:use :cl :it.bese.fiveam)
-  (:export #:run-outline-tests))
+  (:export :run-outline-tests))
 
 (in-package :cltpt/tests/outline)
 

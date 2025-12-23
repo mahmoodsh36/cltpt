@@ -4,7 +4,7 @@
 ;; to the function that will be running
 (defvar *post-lexer-text-macro-dynamic-object*)
 
-(defclass text-object ()
+(defclass text-object (cltpt/buffer:buffer)
   ((properties
     :initarg :properties
     :accessor text-object-properties
@@ -14,20 +14,6 @@
     :initarg :text
     :initform nil
     :documentation "the text that the text-object holds. this may not be set.")
-   (children
-    :initarg :children
-    :accessor text-object-children
-    :documentation "the children elements of this element."
-    :initform nil)
-   (parent
-    :initarg :parent
-    :accessor text-object-parent
-    :documentation "the parent of this element."
-    :initform nil)
-   (text-region
-    :initarg :text-region
-    :accessor text-object-text-region
-    :documentation "the bounds of the text corresponding to the object in its parent's text.")
    (match
     :initarg :match
     :accessor text-object-match
@@ -37,7 +23,25 @@
     :allocation :class
     :initform nil
     :documentation "the matching method from `*matching-methods*' used to match against the text object."))
-  (:documentation "cltpt objects base class"))
+  (:documentation "cltpt objects base class."))
+
+(defmethod text-object-parent ((obj text-object))
+  (cltpt/buffer:buffer-parent obj))
+
+(defmethod (setf text-object-parent) (value (obj text-object))
+  (setf (cltpt/buffer:buffer-parent obj) value))
+
+(defmethod text-object-children ((obj text-object))
+  (cltpt/buffer:buffer-children obj))
+
+(defmethod (setf text-object-children) (value (obj text-object))
+  (setf (cltpt/buffer:buffer-children obj) value))
+
+(defmethod text-object-text-region ((obj text-object))
+  (cltpt/buffer:buffer-region obj))
+
+(defmethod (setf text-object-text-region) (value (obj text-object))
+  (setf (cltpt/buffer:buffer-region obj) value))
 
 (defgeneric text-object-init (text-obj str1 match)
   (:documentation "this function is invoked by the parser,
@@ -87,7 +91,7 @@ the options are:
 
 ;; TODO: this is easy to optimize by storing said parent beforehand.
 (defmethod nearest-parent-with-text-helper ((node text-object))
-  (if (and (slot-boundp node 'text) (slot-value node 'text))
+  (if (cltpt/buffer:buffer-own-text node)
       node
       (when (text-object-parent node)
         (nearest-parent-with-text-helper (text-object-parent node)))))
@@ -101,9 +105,6 @@ the options are:
   "given a text-object NODE, return closest ancestor (non-strict) with the `text' slot assigned."
   (nearest-parent-with-text-helper node))
 
-(defmethod text-object-holds-text ((text-obj text-object))
-  (and (slot-boundp text-obj 'text) (slot-value text-obj 'text)))
-
 ;; TODO: easy to optimize by not having to find the root (logarithmic complexity),
 ;; and not having to run subseq (linear complexity).
 (defmethod text-object-text ((obj text-object))
@@ -111,79 +112,13 @@ the options are:
 
 this function assumes one ancestor (perhaps the root) has the `text-object-text' slot
 set correctly."
-  (let ((self-text (text-object-holds-text obj)))
+  (let ((self-text (cltpt/buffer:buffer-own-text obj)))
     (or self-text
         (let* ((ancestor (nearest-parent-with-text obj))
-               (str (slot-value ancestor 'text))
+               (str (cltpt/buffer:buffer-own-text ancestor))
                (rel-region (relative-child-region ancestor obj))
-               (obj-str (region-text rel-region str)))
+               (obj-str (cltpt/buffer:region-text rel-region str)))
           obj-str))))
-
-;; TODO: this can be heavily optimized by directly modifying the nearest parent with text
-;; slot set instead of modifying the text at every node in the path to the root.
-;; TODO: this doesnt handle text that only "paritally" contained in an object (i.e. some of the
-;; text is in another text-object or is part of no text-object at all)
-(defmethod text-object-modify-region ((obj text-object)
-                                      new-text
-                                      region
-                                      &key
-                                        (propagate t)
-                                        (propagate-to-children t))
-  (with-slots (parent) obj
-    (let* ((text (text-object-text obj))
-           (updated-object-text (concatenate 'string
-                                             (subseq text
-                                                     0
-                                                     (region-begin region))
-                                             new-text
-                                             (subseq text
-                                                     (region-end region)))))
-      (if propagate
-          (let* ((diff (- (length updated-object-text) (length text)))
-                 (original-region (region-clone (text-object-text-region obj))))
-            ;; adjust this child's region accordingly
-            (incf (region-end (text-object-text-region obj)) diff)
-            ;; modify :contents-region if its there
-            (let ((contents-region (text-object-property obj :contents-region)))
-              (when contents-region
-                (incf (region-end contents-region) diff)))
-            ;; modify children boundaries accordingly
-            ;; TODO: this can be easily optimized too. usage of 'relative-child-region' is
-            ;; redundant.
-            ;; note: we dont want every parent to propagate to children because we would
-            ;; get doubled effects.
-            (when propagate-to-children
-              (mapcar
-               (lambda (child)
-                 (unless (eq child obj)
-                   ;; we have to normalize the region to the child's own coordinate system
-                   (let ((rel-region (relative-child-region obj child)))
-                     (if (< (region-begin region) (region-begin rel-region))
-                         (region-incf (text-object-text-region child) diff)
-                         (when (<= (region-end region) (region-end rel-region))
-                           (incf (region-end (text-object-text-region child))
-                                 diff))))))
-               (text-object-children obj)))
-            ;; if we've reached the root we just set the text proeprty, otherwise we propagate
-            (if parent
-                (let ((idx (position obj (text-object-children parent))))
-                  ;; modify next siblings boundaries accordingly
-                  (loop for sibling in (subseq (text-object-children (text-object-parent obj))
-                                               (1+ idx))
-                        do (region-incf (text-object-text-region sibling) diff))
-                  ;; propagate changes to parents too.
-                  (text-object-modify-region parent
-                                             updated-object-text
-                                             original-region
-                                             :propagate t
-                                             :propagate-to-children nil))
-                (progn
-                  (setf (slot-value obj 'text) updated-object-text)
-                  (setf (text-object-text-region obj)
-                        (make-region :begin 0
-                                     :end (length updated-object-text))))))
-          (text-object-force-set-text obj updated-object-text))
-      updated-object-text)))
 
 ;; TODO: this doesnt correctly handle cases where some object in the tree has the 'text' slot set.
 ;; perhaps in such a case we should be updating the text slot.
@@ -196,8 +131,9 @@ this function doesnt propagate the changes to the children, so using it without
 taking care of children indicies would cause issues."
   (text-object-modify-region obj
                              new-text
-                             (make-region :begin 0
-                                          :end (region-length (text-object-text-region obj)))
+                             (cltpt/buffer:make-region
+                              :begin 0
+                              :end (cltpt/buffer:region-length (text-object-text-region obj)))
                              :propagate propagate))
 
 (defmethod (setf text-object-text) (new-text (obj text-object))
@@ -205,7 +141,7 @@ taking care of children indicies would cause issues."
 
 (defmethod text-object-force-set-text ((text-obj text-object) new-text)
   "set text slot without propagating changes upwards in the tree."
-  (setf (slot-value text-obj 'text) new-text))
+  (setf (slot-value text-obj 'cltpt/buffer::text) new-text))
 
 (defmethod text-object-convert ((obj text-object) backend)
   "default convert function."
@@ -221,22 +157,26 @@ taking care of children indicies would cause issues."
 
 ;; default init function will just set a few slots in the object
 (defmethod text-object-init ((text-obj text-object) str1 match)
+  ;; we initialize objects to an absolute region with respect to the root, but that is modified
+  ;; later by 'text-object-adjust-to-parent'.
   (setf (text-object-text-region text-obj)
-        (make-region :begin (cltpt/combinator:match-begin match)
-                     :end (cltpt/combinator:match-end match)))
+        (cltpt/buffer:make-region
+         :begin (cltpt/combinator:match-begin-absolute match)
+         :end (cltpt/combinator:match-end-absolute match)))
   (setf (text-object-match text-obj) match))
 
 (defmethod text-object-adjust-to-parent ((child text-object) (parent text-object))
-  (region-decf (text-object-text-region child)
-               (text-object-begin parent)))
+  (cltpt/buffer:region-decf
+   (text-object-text-region child)
+   (text-object-begin-in-root parent)))
 
 (defmethod text-object-begin ((text-obj text-object))
   "where the text object begins."
-  (region-begin (text-object-text-region text-obj)))
+  (cltpt/buffer:region-begin (text-object-text-region text-obj)))
 
 (defmethod text-object-end ((text-obj text-object))
   "where the text object ends relative to its parent."
-  (region-end (text-object-text-region text-obj)))
+  (cltpt/buffer:region-end (text-object-text-region text-obj)))
 
 ;; TODO: this doesnt take into account ordering of children in parent, it just
 ;; *pushes* into the parent.
@@ -249,20 +189,18 @@ taking care of children indicies would cause issues."
 (defmethod print-object ((obj text-object) stream)
   (print-unreadable-object (obj stream :type t)
     (format stream "-> ~A ~A"
-            (if (slot-boundp obj 'text-region)
+            (if (slot-boundp obj 'cltpt/buffer::region)
                 (text-object-text-region obj)
                 nil)
             (let ((ancestor (nearest-ancestor-with-text obj)))
-              (if (and ancestor
-                       (slot-boundp ancestor 'text)
-                       (slot-value ancestor 'text))
-                  (cltpt/str-utils:str-prune (text-object-text obj) 15)
-                  nil)))))
+              (when (and ancestor
+                         (cltpt/buffer:buffer-own-text ancestor))
+                (cltpt/str-utils:str-prune (text-object-text obj) 15))))))
 
 ;; this is actually the slowest way to traverse siblings
 ;; TODO: easy to optimize
 (defmethod text-object-next-sibling ((obj text-object))
-  (with-slots (parent) obj
+  (let ((parent (text-object-parent obj)))
     (when parent
       (let ((idx (position obj (text-object-children parent))))
         (when (< idx (1- (length (text-object-children parent))))
@@ -271,7 +209,7 @@ taking care of children indicies would cause issues."
 ;; this is actually the slowest way to traverse siblings
 ;; TODO: easy to optimize
 (defmethod text-object-prev-sibling ((obj text-object))
-  (with-slots (parent) obj
+  (let ((parent (text-object-parent obj)))
     (when parent
       (let ((idx (position obj (text-object-children parent))))
         (when (and (numberp idx) (> idx 0))
@@ -320,19 +258,21 @@ taking care of children indicies would cause issues."
   (and (symbolp value) (string= value 'block-end)))
 
 (defun sort-text-objects (text-objects)
-  "return TEXT-OBJECTS, sorted by starting point."
+  "return TEXT-OBJECTS, sorted by starting point. uses copy-list to avoid destructive modification."
   (sort
-   text-objects
+   (copy-list text-objects)
    '<
    :key
    (lambda (obj)
-     (region-begin (text-object-text-region obj)))))
+     (cltpt/buffer:region-begin (text-object-text-region obj)))))
 
-(defmethod text-object-sorted-children (obj)
+(defmethod text-object-sorted-children ((obj text-object))
   "return the children of the text-obj, sorted by starting point."
   (sort-text-objects (text-object-children obj)))
 
-(defun compute-region-from-spec (text-obj spec)
+;; this is helpful for being able to work similarly with different text-object types that each
+;; have their own way of defining boundaries of "contents"
+(defmethod compute-region-from-spec ((text-obj text-object) spec)
   "compute a region from a contents-region-spec and the object's match.
 SPEC is a plist with keys:
 :begin-submatch - submatch name for begin position (optional, use :self for main match)
@@ -342,17 +282,20 @@ SPEC is a plist with keys:
 :compress       - amount to compress the region (optional)
 :find-last-end  - if t, use find-submatch-last for end-submatch"
   ;; guard against unbound match slot - return default region
-  (let* ((match (if (slot-boundp text-obj 'match)
-                    (text-object-match text-obj)
-                    nil)))
+  (let* ((match (when (slot-boundp text-obj 'match)
+                  (text-object-match text-obj))))
     (unless match
       (return-from compute-region-from-spec
-        (let ((region (make-region :begin 0
-                                   :end (region-length (text-object-text-region text-obj)))))
+        (let ((region (cltpt/buffer:make-region
+                       :begin 0
+                       :end (cltpt/buffer:region-length (text-object-text-region text-obj)))))
           (if (getf spec :compress)
-              (region-compress region (getf spec :compress) (getf spec :compress))
+              (cltpt/buffer:region-compress
+               region
+               (getf spec :compress)
+               (getf spec :compress))
               region))))
-    (let* ((match-begin (cltpt/combinator:match-begin match))
+    (let* ((match-begin-abs (cltpt/combinator:match-begin-absolute match))
            (begin-submatch-name (getf spec :begin-submatch))
            (begin-side (getf spec :begin-side :end))
            (end-submatch-name (getf spec :end-submatch))
@@ -371,47 +314,49 @@ SPEC is a plist with keys:
                                 (cltpt/combinator:find-submatch-last match end-submatch-name)
                                 (cltpt/combinator:find-submatch match end-submatch-name)))
                            (t nil)))
+           ;; use absolute positions and subtract match-begin-abs to get text-relative positions
            (begin-pos (if begin-submatch
                           (- (if (eq begin-side :end)
-                                 (cltpt/combinator:match-end begin-submatch)
-                                 (cltpt/combinator:match-begin begin-submatch))
-                             match-begin)
+                                 (cltpt/combinator:match-end-absolute begin-submatch)
+                                 (cltpt/combinator:match-begin-absolute begin-submatch))
+                             match-begin-abs)
                           0))
            (end-pos (if end-submatch
                         (- (if (eq end-side :end)
-                               (cltpt/combinator:match-end end-submatch)
-                               (cltpt/combinator:match-begin end-submatch))
-                           match-begin)
-                        (region-length (text-object-text-region text-obj))))
-           (region (make-region :begin begin-pos :end end-pos)))
+                               (cltpt/combinator:match-end-absolute end-submatch)
+                               (cltpt/combinator:match-begin-absolute end-submatch))
+                           match-begin-abs)
+                        (cltpt/buffer:region-length (text-object-text-region text-obj))))
+           (region (cltpt/buffer:make-region :begin begin-pos :end end-pos)))
       (if compress
-          (region-compress region compress compress)
+          (cltpt/buffer:region-compress region compress compress)
           region))))
 
 (defmethod text-object-contents-begin ((text-obj text-object))
   (let ((spec (text-object-property text-obj :contents-region-spec)))
     (if spec
-        (region-begin (compute-region-from-spec text-obj spec))
+        (cltpt/buffer:region-begin (compute-region-from-spec text-obj spec))
         (if (text-object-property text-obj :contents-region)
-            (region-begin (text-object-property text-obj :contents-region))
+            (cltpt/buffer:region-begin (text-object-property text-obj :contents-region))
             0))))
 
 (defmethod text-object-contents-end ((text-obj text-object))
   (let ((spec (text-object-property text-obj :contents-region-spec)))
     (if spec
-        (region-end (compute-region-from-spec text-obj spec))
+        (cltpt/buffer:region-end (compute-region-from-spec text-obj spec))
         (if (text-object-property text-obj :contents-region)
-            (or (region-end (text-object-property text-obj :contents-region))
+            (or (cltpt/buffer:region-end (text-object-property text-obj :contents-region))
                 (length (text-object-text text-obj)))
             (length (text-object-text text-obj))))))
 
 (defmethod text-object-contents-region ((text-obj text-object))
-  (make-region :begin (text-object-contents-begin text-obj)
-               :end (text-object-contents-end text-obj)))
+  (cltpt/buffer:make-region
+   :begin (text-object-contents-begin text-obj)
+   :end (text-object-contents-end text-obj)))
 
 (defmethod text-object-contents ((obj text-object))
-  (region-text (text-object-contents-region obj)
-               (text-object-text obj)))
+  (cltpt/buffer:region-text (text-object-contents-region obj)
+                            (text-object-text obj)))
 
 (defclass text-macro (text-object)
   ((rule
@@ -589,17 +534,12 @@ SPEC is a plist with keys:
 ;; inefficient :(, takes O(log(n)) when it should take O(1)
 (defmethod text-object-begin-in-root ((text-obj text-object))
   "where the text object begins in the root-most parent."
-  (let ((begin (region-begin (text-object-text-region text-obj)))
-        (parent (text-object-parent text-obj)))
-    (if parent
-        (+ begin (text-object-begin-in-root parent))
-        begin)))
+  (cltpt/buffer:buffer-begin-absolute text-obj))
 
 ;; TODO: easy to optimize
 (defmethod text-object-end-in-root ((text-obj text-object))
-  "where the text object begins in the root-most parent."
-  (let ((begin-in-root (text-object-begin-in-root text-obj)))
-    (+ begin-in-root (region-length (text-object-text-region text-obj)))))
+  "where the text object ends in the root-most parent."
+  (cltpt/buffer:buffer-end-absolute text-obj))
 
 (defmethod find-children-recursively ((text-obj text-object) cond)
   (let ((results))
@@ -624,14 +564,14 @@ SPEC is a plist with keys:
 (defmethod child-at-pos ((text-obj text-object) pos)
   "find the leaf-most child that encloses the index POS."
   (loop for child in (text-object-children text-obj)
-        do (when (region-contains (text-object-text-region child) pos)
+        do (when (cltpt/buffer:region-contains (text-object-text-region child) pos)
              (return-from child-at-pos
                (if (text-object-children child)
                    (or
                     (child-at-pos
                      child
                      (- pos
-                        (region-begin
+                        (cltpt/buffer:region-begin
                          (text-object-text-region child))))
                     child)
                    child)))))
@@ -650,11 +590,11 @@ SPEC is a plist with keys:
               (text-object-parent text-obj)))
     (setf (text-object-properties new-obj)
           (copy-tree (text-object-properties text-obj)))
-    (when (slot-boundp text-obj 'text)
-      (setf (slot-value new-obj 'text)
+    (when (slot-boundp text-obj 'cltpt/buffer::text)
+      (setf (slot-value new-obj 'cltpt/buffer::text)
             (copy-seq (text-object-text text-obj))))
     (setf (text-object-text-region new-obj)
-          (region-clone (text-object-text-region text-obj)))
+          (cltpt/buffer:region-clone (text-object-text-region text-obj)))
     (if clone-children
         (setf (text-object-children new-obj)
               (loop for child in (text-object-children text-obj)
@@ -683,13 +623,13 @@ and grabbing each position of each object through its ascendants in the tree."
   (let ((old-parent (text-object-parent child)))
     ;; insert it at the right location, keeping the list of children sorted.
     (setf (text-object-children parent)
-           (sorted-insert
-            (text-object-children parent)
-            child
-            :key 'text-object-begin-in-root))
+          (sorted-insert
+           (text-object-children parent)
+           child
+           :key 'text-object-begin-in-root))
     ;; correctly re-set the region for the child
     (setf (text-object-text-region child)
-          (make-region
+          (cltpt/buffer:make-region
            :begin (- (text-object-begin-in-root child)
                      (text-object-begin-in-root parent))
            :end (- (text-object-end-in-root child)
@@ -709,7 +649,7 @@ and grabbing each position of each object through its ascendants in the tree."
     ;; proceed only if there is a parent and the new position actually extends the object.
     (when (and parent (> new-pos old-end))
       ;; update the object's region to the new end position.
-      (setf (region-end (text-object-text-region obj)) new-pos)
+      (setf (cltpt/buffer:region-end (text-object-text-region obj)) new-pos)
       ;; update the cached text by re-slicing it from the parent's text
       ;; using the newly updated region.
       ;; (setf (text-object-text obj)
@@ -738,8 +678,9 @@ and grabbing each position of each object through its ascendants in the tree."
         (parent-end-in-root (text-object-end-in-root parent))
         (child-begin-in-root (text-object-begin-in-root child))
         (child-end-in-root (text-object-end-in-root child)))
-    (make-region :begin (- child-begin-in-root parent-begin-in-root)
-                 :end (- child-end-in-root parent-begin-in-root))))
+    (cltpt/buffer:make-region
+     :begin (- child-begin-in-root parent-begin-in-root)
+     :end (- child-end-in-root parent-begin-in-root))))
 
 (defmethod text-object-root ((tree text-object))
   "given a text-object TREE, return the text-object at the root."
@@ -749,8 +690,9 @@ and grabbing each position of each object through its ascendants in the tree."
 
 ;; TODO: easy to optimize
 (defmethod text-object-text-region-in-root ((obj text-object))
-  (make-region :begin (text-object-begin-in-root obj)
-               :end (text-object-end-in-root obj)))
+  (cltpt/buffer:make-region
+   :begin (text-object-begin-in-root obj)
+   :end (text-object-end-in-root obj)))
 
 ;; this is a utility for reducing boilerplate for `text-object-convert' functionality
 (defun rewrap-within-tags (text-obj open-tag close-tag
@@ -766,40 +708,28 @@ contents region is further compressed by COMPRESS-REGION if provided."
          ;; this is the inner region after region shifts caused by `handle-changed-regions'.
          (inner-region
            (if compress-region
-               (region-compress-by (region-clone contents-region)
-                                   compress-region)
+               (cltpt/buffer:region-compress-by
+                (cltpt/buffer:region-clone contents-region)
+                compress-region)
                contents-region))
          (old-open-tag-region
-           (make-region :begin 0
-                        :end (region-begin inner-region)))
+           (cltpt/buffer:make-region
+            :begin 0
+            :end (cltpt/buffer:region-begin inner-region)))
          (old-close-tag-region
-           (make-region :begin (region-end inner-region)
-                        :end (region-length
-                              (text-object-text-region text-obj)))))
+           (cltpt/buffer:make-region
+            :begin (cltpt/buffer:region-end inner-region)
+            :end (cltpt/buffer:region-length (text-object-text-region text-obj)))))
+    (setf (cltpt/buffer/region:region-props inner-region) escape-region-options)
     (list :text (text-object-text text-obj)
-          :changes (list (cons open-tag old-open-tag-region)
-                         (cons close-tag old-close-tag-region))
+          :changes (list (cltpt/buffer:make-change :operator open-tag
+                                                   :region old-open-tag-region)
+                         (cltpt/buffer:make-change :operator close-tag
+                                                   :region old-close-tag-region))
           :recurse t
           :reparse reparse
           :escape escape
-          :escape-regions (list
-                           (if escape-region-options
-                               (cons inner-region escape-region-options)
-                               inner-region)))))
-
-(defun normalize-match-positions (match)
-  (let ((new-match (cltpt/combinator:match-clone match))
-        (pos (cltpt/combinator:match-begin match)))
-    (cltpt/tree:tree-walk
-     new-match
-     (lambda (submatch)
-       (decf (cltpt/combinator:match-begin submatch) pos)
-       (decf (cltpt/combinator:match-end submatch) pos)))
-    new-match))
-
-;; TODO: optimize, this runs linearly on each call.
-(defmethod text-object-normalized-match ((text-obj text-object))
-  (normalize-match-positions (text-object-match text-obj)))
+          :escape-regions (list inner-region))))
 
 (defclass text-link (text-object)
   ((link
@@ -812,11 +742,13 @@ contents region is further compressed by COMPRESS-REGION if provided."
   (let* ((link-type-match (cltpt/combinator:find-submatch match 'link-type))
          (link-dest-match (cltpt/combinator:find-submatch match 'link-dest))
          (link-desc-match (cltpt/combinator:find-submatch match 'link-desc))
-         (type-str (string-upcase (cltpt/combinator:match-text str1 link-type-match))))
+         (type-str (string-upcase (and link-type-match
+                                       (cltpt/combinator:match-text link-type-match str1)))))
     (setf (text-link-link obj)
           (make-link :type (when type-str (intern type-str :cltpt/base))
-                     :desc (cltpt/combinator:match-text str1 link-desc-match)
-                     :dest (cltpt/combinator:match-text str1 link-dest-match)))
+                     :desc (and link-desc-match
+                                (cltpt/combinator:match-text link-desc-match str1))
+                     :dest (cltpt/combinator:match-text link-dest-match str1)))
     (setf (text-object-property obj :is-inline) t)))
 
 (defmethod text-link-resolve ((obj text-link))
@@ -827,45 +759,60 @@ contents region is further compressed by COMPRESS-REGION if provided."
          (resolved (link-resolve type dest desc)))
     resolved))
 
-(defun text-object-match-text (obj-or-str match)
+(defmethod text-object-find-submatch ((obj text-object) submatch-id)
+  "find a match that belongs to OBJ or to one of its children."
+  (cltpt/tree:tree-map
+   obj
+   (lambda (child)
+     (let ((result (cltpt/combinator:find-submatch (text-object-match child) submatch-id)))
+       (when result
+         (return-from text-object-find-submatch result))))))
+
+(defmethod text-object-match-text ((obj text-object) (match cltpt/combinator:match))
   "get text from MATCH relative to text object OBJ or string STR."
   (when match
-    (let ((full-text (if (typep obj-or-str 'text-object)
-                         (text-object-text (text-object-root obj-or-str))
-                         obj-or-str)))
-      (region-text
-       (make-region
-        :begin (cltpt/combinator:match-begin match)
-        :end (cltpt/combinator:match-end match))
+    (let ((full-text (text-object-text obj))
+          (ascendant-match (text-object-match obj)))
+      (cltpt/buffer:region-text
+       (cltpt/buffer:make-region
+        ;; TODO: use a function that returns the bounds of the descendant match relative
+        ;; to the ascendant instead of doing this manually. this functionality should be
+        ;; present in the buffer structure which matches inherit from.
+        :begin (- (cltpt/combinator:match-begin-absolute match)
+                  (cltpt/combinator:match-begin-absolute ascendant-match))
+        :end (- (cltpt/combinator:match-end-absolute match)
+                (cltpt/combinator:match-begin-absolute ascendant-match)))
        full-text))))
 
-(defmethod find-child-enclosing-region ((obj text-object) (r region))
+(defmethod find-child-enclosing-region ((obj text-object) (r cltpt/buffer:region))
   (loop for child in (text-object-children obj)
-        do (when (region-encloses (text-object-text-region child) r)
+        do (when (cltpt/buffer:region-encloses (text-object-text-region child) r)
              (return-from find-child-enclosing-region
                (if (text-object-children child)
                    (or
                     (find-child-enclosing-region
                      child
-                     (let ((new-region (region-clone r)))
-                       (region-decf new-region
-                                    (region-begin (text-object-text-region child)))
+                     (let ((new-region (cltpt/buffer:region-clone r)))
+                       (cltpt/buffer:region-decf
+                        new-region
+                        (cltpt/buffer:region-begin (text-object-text-region child)))
                        new-region))
                     child)
                    child))))
   obj)
 
-(defmethod find-child-enclosing-region-strict ((obj text-object) (r region))
+(defmethod find-child-enclosing-region-strict ((obj text-object) (r cltpt/buffer:region))
   (loop for child in (text-object-children obj)
-        do (when (region-encloses-strict (text-object-text-region child) r)
+        do (when (cltpt/buffer:region-encloses-strict (text-object-text-region child) r)
              (return-from find-child-enclosing-region-strict
                (if (text-object-children child)
                    (or
                     (find-child-enclosing-region-strict
                      child
-                     (let ((new-region (region-clone r)))
-                       (region-decf new-region
-                                    (region-begin (text-object-text-region child)))
+                     (let ((new-region (cltpt/buffer:region-clone r)))
+                       (cltpt/buffer:region-decf
+                        new-region
+                        (cltpt/buffer:region-begin (text-object-text-region child)))
                        new-region))
                     child)
                    child))))

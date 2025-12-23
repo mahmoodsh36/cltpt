@@ -1,18 +1,20 @@
 (defpackage :cltpt/tests
   (:use :cl :it.bese.fiveam)
-  (:import-from :cltpt/tests/utils
-                :simplify-match
-                :compare-match-loosely
-                :compare-full-match-loosely
-                :plist-to-match
-                :string=+diff)
-  (:export #:run-cltpt-tests
-           :cltpt-suite
-           :simplify-match
-           :compare-match-loosely
-           :compare-full-match-loosely
-           :plist-to-match
-           :string=+diff))
+  (:import-from
+   :cltpt/tests/utils
+   :simplify-match
+   :compare-match-loosely
+   :compare-full-match-loosely
+   :plist-to-match
+   :string=+diff)
+  (:export
+   :run-cltpt-tests
+   :cltpt-suite
+   :simplify-match
+   :compare-match-loosely
+   :compare-full-match-loosely
+   :plist-to-match
+   :string=+diff))
 
 (in-package :cltpt/tests)
 
