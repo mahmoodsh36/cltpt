@@ -55,7 +55,7 @@
   (when node
     (find target-id
           (cltpt/combinator:match-children node)
-          :key #'cltpt/combinator:match-id)))
+          :key 'cltpt/combinator:match-id)))
 
 (defun split-string-lines (str)
   (with-input-from-string (s str)
@@ -78,7 +78,7 @@
                         other-lines))
                      (min-indent
                        (if non-empty-others
-                           (reduce #'min
+                           (reduce 'min
                                    non-empty-others
                                    :key (lambda (l)
                                           (count-leading-spaces l 0 (length l))))
@@ -130,26 +130,38 @@
       (t (values nil nil 0)))))
 
 (defun parse-single-list-item (ctx reader item-start-pos item-indent inline-rules)
+  "parse a single list item. returns (values item-match next-pos)."
   (multiple-value-bind (line-start line-end next-line-start)
       (get-line-bounds reader item-start-pos)
     (multiple-value-bind (is-bullet marker bullet-len)
         (parse-bullet reader line-start line-end item-indent)
       (unless is-bullet
         (return-from parse-single-list-item (values nil item-start-pos)))
-      (let* ((children-of-item)
-             (bullet-begin (+ line-start item-indent))
+      (let* ((bullet-begin (+ line-start item-indent))
              (bullet-end (+ bullet-begin (length marker)))
+             (first-line-content-begin (+ bullet-begin bullet-len))
+             (item-match (cltpt/combinator:make-match
+                          :id 'list-item
+                          :ctx ctx
+                          :parent (cltpt/combinator:context-parent-match ctx)
+                          :begin (- item-start-pos (cltpt/combinator:context-parent-begin ctx))
+                          :props (list :indent item-indent)))
+             (item-ctx (cltpt/combinator:context-copy ctx item-match))
+             (item-children)
              (content-segments)
              (current-scan-pos next-line-start)
              (end-of-content-text line-end))
-        (push (cltpt/combinator:make-match
-               :id 'list-item-bullet
-               :begin bullet-begin
-               :end bullet-end)
-              children-of-item)
-        (let ((first-line-content-begin (+ bullet-begin bullet-len)))
-          (when (< first-line-content-begin line-end)
-            (push (cons first-line-content-begin line-end) content-segments)))
+        (let ((bullet-match (cltpt/combinator:make-match
+                             :id 'list-item-bullet
+                             :ctx item-ctx
+                             :parent (cltpt/combinator:context-parent-match item-ctx)
+                             :begin (- bullet-begin (cltpt/combinator:context-parent-begin item-ctx))
+                             :end (- bullet-end (cltpt/combinator:context-parent-begin item-ctx)))))
+          (push bullet-match item-children))
+        ;; collect content segments from first line
+        (when (< first-line-content-begin line-end)
+          (push (cons first-line-content-begin line-end) content-segments))
+        ;; scan continuation lines
         (loop
           (when (cltpt/reader:is-after-eof reader current-scan-pos)
             (return))
@@ -158,53 +170,80 @@
             (let ((next-indent (count-leading-spaces reader next-l-start next-l-end)))
               (if (and (> next-indent item-indent)
                        (not (nth-value 0 (parse-bullet reader next-l-start next-l-end next-indent))))
-                  (progn (let ((extra-start (+ next-l-start next-indent)))
-                           (when (< extra-start next-l-end)
-                             (push (cons extra-start next-l-end) content-segments)))
-                         (setf current-scan-pos next-l-next)
-                         (setf end-of-content-text next-l-end))
+                  (progn
+                    (let ((extra-start (+ next-l-start next-indent)))
+                      (when (< extra-start next-l-end)
+                        (push (cons extra-start next-l-end) content-segments)))
+                    (setf current-scan-pos next-l-next)
+                    (setf end-of-content-text next-l-end))
                   (return)))))
         (setf content-segments (nreverse content-segments))
-        (let* ((children-of-content)
+        (let* ((content-node-begin (if content-segments
+                                       (caar content-segments)
+                                       first-line-content-begin))
                (pos-after-children current-scan-pos)
                (end-of-children 0)
-               (content-node-begin
-                 (if content-segments
-                     (caar content-segments)
-                     (+ bullet-begin bullet-len))))
+               (content-children))
+          ;; check for nested list
           (unless (cltpt/reader:is-after-eof reader current-scan-pos)
             (multiple-value-bind (child-list-match pos-after-child)
                 (org-list-matcher ctx reader current-scan-pos inline-rules (1+ item-indent))
               (when child-list-match
-                (push child-list-match children-of-content)
+                (let ((child-abs-begin (+ (cltpt/combinator:match-begin child-list-match)
+                                          (cltpt/combinator:context-parent-begin ctx)))
+                      (child-abs-end (+ (cltpt/combinator:match-end child-list-match)
+                                        (cltpt/combinator:context-parent-begin ctx))))
+                  ;; store for now, will be adjusted when content-node is created.
+                  ;; TODO: do this better, we should be setting those to relative positions
+                  ;; initially rather than adjusting them later.
+                  (setf (cltpt/combinator:match-begin child-list-match)
+                        (- child-abs-begin content-node-begin))
+                  (setf (cltpt/combinator:match-end child-list-match)
+                        (- child-abs-end content-node-begin)))
+                (push child-list-match content-children)
                 (setf pos-after-children pos-after-child)
-                (setf end-of-children (cltpt/combinator:match-end child-list-match)))))
+                (setf end-of-children (+ (cltpt/combinator:match-begin child-list-match)
+                                         content-node-begin
+                                         (- (cltpt/combinator:match-end child-list-match)
+                                            (cltpt/combinator:match-begin child-list-match)))))))
+          ;; scan inline rules in content segments
           (when inline-rules
             (dolist (segment content-segments)
-              (let ((matches-in-segment (cltpt/combinator::scan-all-rules
+              (let ((matches-in-segment (cltpt/combinator:scan-all-rules
                                          ctx
                                          reader
                                          inline-rules
                                          (car segment)
                                          (cdr segment))))
                 (when matches-in-segment
-                  (setf children-of-content (nconc children-of-content matches-in-segment))))))
+                  (dolist (m matches-in-segment)
+                    ;; convert from ctx-relative to content-node-relative
+                    (let ((abs-begin (+ (cltpt/combinator:match-begin m)
+                                        (cltpt/combinator:context-parent-begin ctx)))
+                          (abs-end (+ (cltpt/combinator:match-end m)
+                                      (cltpt/combinator:context-parent-begin ctx))))
+                      (setf (cltpt/combinator:match-begin m) (- abs-begin content-node-begin))
+                      (setf (cltpt/combinator:match-end m) (- abs-end content-node-begin))))
+                  (setf content-children (nconc content-children matches-in-segment))))))
           (let* ((final-match-end (max end-of-content-text end-of-children))
-                 (final-next-pos (max current-scan-pos pos-after-children)))
-            (push (cltpt/combinator:make-match
-                   :id 'list-item-content
-                   :begin content-node-begin :end final-match-end
-                   :children (sort children-of-content
-                                   #'<
-                                   :key #'cltpt/combinator:match-begin))
-                  children-of-item)
-            (values (cltpt/combinator:make-match
-                     :id 'list-item
-                     :begin item-start-pos
-                     :end final-match-end
-                     :props (list :indent item-indent)
-                     :children (nreverse children-of-item))
-                    final-next-pos)))))))
+                 (final-next-pos (max current-scan-pos pos-after-children))
+                 (content-match (cltpt/combinator:make-match
+                                 :id 'list-item-content
+                                 :ctx item-ctx
+                                 :parent (cltpt/combinator:context-parent-match item-ctx)
+                                 :begin (- content-node-begin (cltpt/combinator:context-parent-begin item-ctx))
+                                 :end (- final-match-end (cltpt/combinator:context-parent-begin item-ctx))
+                                 :children (sort content-children '< :key 'cltpt/combinator:match-begin))))
+            ;; set parent pointers for content children
+            ;; TODO: make sure the matches are constructed with parent pointers in the first place. this is "incorrect" behavior because the children lose the context of the parent.
+            (cltpt/combinator:match-set-children-parent content-match)
+            (push content-match item-children)
+            ;; finalize item match
+            (setf (cltpt/combinator:match-end item-match)
+                  (- final-match-end (cltpt/combinator:context-parent-begin ctx)))
+            (setf (cltpt/combinator:match-children item-match) (nreverse item-children))
+            (cltpt/combinator:match-set-children-parent item-match)
+            (values item-match final-next-pos)))))))
 
 (defun parse-list-items-at-indent (ctx reader initial-pos expected-indent inline-rules)
   (let ((item-nodes)
@@ -234,6 +273,7 @@
     (values (nreverse item-nodes) last-successful-pos)))
 
 (defun org-list-matcher (ctx reader pos &optional inline-rules (minimum-indent 0))
+  "parse an org-mode list starting at pos. returns (values list-match next-pos)."
   (multiple-value-bind (ls le) (get-line-bounds reader pos)
     (unless (= pos ls)
       (return-from org-list-matcher (values nil pos)))
@@ -241,17 +281,30 @@
       (unless (and (>= indent minimum-indent)
                    (nth-value 0 (parse-bullet reader ls le indent)))
         (return-from org-list-matcher (values nil pos)))
-      (multiple-value-bind (nodes final-pos)
-          (parse-list-items-at-indent ctx reader pos indent inline-rules)
-        (if nodes
-            (values (cltpt/combinator:make-match
-                     :id 'org-list
-                     :begin pos
-                     :end (cltpt/combinator:match-end (car (last nodes)))
-                     :children nodes
-                     :props (list :indent indent))
-                    final-pos)
-            (values nil pos))))))
+      (let* ((list-match (cltpt/combinator:make-match
+                          :id 'org-list
+                          :ctx ctx
+                          :parent (cltpt/combinator:context-parent-match ctx)
+                          :begin (- pos (cltpt/combinator:context-parent-begin ctx))
+                          :props (list :indent indent)))
+             (list-ctx (cltpt/combinator:context-copy ctx list-match)))
+        (multiple-value-bind (nodes final-pos)
+            (parse-list-items-at-indent list-ctx reader pos indent inline-rules)
+          (if nodes
+              (progn
+                ;; final-pos points after the trailing newline for next parsing,
+                ;; but the list match should end before it.
+                (let ((list-end (- final-pos (cltpt/combinator:context-parent-begin ctx))))
+                  ;; if the character before final-pos is a newline, don't include it
+                  (when (and (> final-pos 0)
+                             (< (1- final-pos) (cltpt/reader:reader-buffer-fill reader))
+                             (char= (elt reader (1- final-pos)) #\newline))
+                    (decf list-end))
+                  (setf (cltpt/combinator:match-end list-match) list-end))
+                (setf (cltpt/combinator:match-children list-match) nodes)
+                (cltpt/combinator:match-set-children-parent list-match)
+                (values list-match final-pos))
+              (values nil pos)))))))
 
 (defun list-match-to-nested-list (str list-match)
   "converts an org-list match tree into a nested lisp list structure."
@@ -264,7 +317,7 @@
         (let* ((bullet-node (find-direct-child-by-id item 'list-item-bullet))
                (content-node (find-direct-child-by-id item 'list-item-content))
                (bullet-text (if bullet-node
-                                (cltpt/combinator:match-text str bullet-node)
+                                (cltpt/combinator:match-text bullet-node str)
                                 "-"))
                (item-data (list :bullet bullet-text
                                 :content ""
@@ -391,7 +444,7 @@ returns the string representation of the list structure (no trailing newline)."
          (bullet-node (when first-item
                         (find-direct-child-by-id first-item 'list-item-bullet)))
          (marker (when bullet-node
-                   (cltpt/combinator:match-text str bullet-node))))
+                   (cltpt/combinator:match-text bullet-node str))))
     (if (and marker (string= marker "-"))
         :ul
         :ol)))
@@ -441,7 +494,7 @@ returns the string representation of the list structure (no trailing newline)."
                                   (html-type
                                     (when bullet-node
                                       (get-html-ol-type
-                                       (cltpt/combinator:match-text str bullet-node)))))
+                                       (cltpt/combinator:match-text bullet-node str)))))
                              (when html-type (format nil " type=\"~a\"" html-type))))))
          (format nil
                  "<~a~a>~%~{~a~}</~a>~%"
@@ -455,20 +508,20 @@ returns the string representation of the list structure (no trailing newline)."
        (format nil
                "<li>~{~a~}</li>~%"
                (mapcar (lambda (item)
-                           (to-html-list-recursive str item))
-                         (cltpt/combinator:match-children node))))
+                         (to-html-list-recursive str item))
+                       (cltpt/combinator:match-children node))))
       ('list-item-content
        (with-output-to-string (s)
-         (let ((current-pos (cltpt/combinator:match-begin node)))
+         (let ((current-pos (cltpt/combinator:match-begin-absolute node)))
            (dolist (child (cltpt/combinator:match-children node))
-             (let ((child-begin (cltpt/combinator:match-begin child)))
+             (let ((child-begin (cltpt/combinator:match-begin-absolute child)))
                (write-string (subseq str current-pos child-begin) s)
                (write-string (to-html-list-recursive str child) s)
-               (setf current-pos (cltpt/combinator:match-end child))))
-           (write-string (subseq str current-pos (cltpt/combinator:match-end node))
+               (setf current-pos (cltpt/combinator:match-end-absolute child))))
+           (write-string (subseq str current-pos (cltpt/combinator:match-end-absolute node))
                          s))))
       ('list-item-bullet "")
-      (t (cltpt/combinator:match-text str node)))))
+      (t (cltpt/combinator:match-text node str)))))
 
 (defun to-latex-list (str parse-tree)
   (to-latex-list-recursive str parse-tree))
@@ -487,7 +540,7 @@ returns the string representation of the list structure (no trailing newline)."
                          (bullet-node (when first-item
                                         (find-direct-child-by-id first-item 'list-item-bullet))))
                     (when bullet-node
-                      (get-latex-label-command (cltpt/combinator:match-text str bullet-node)
+                      (get-latex-label-command (cltpt/combinator:match-text bullet-node str)
                                                depth))))))
          (format nil
                  "\\begin{~a}~@[~%~a~]~%~{~a~}\\end{~a}~%"
@@ -506,13 +559,13 @@ returns the string representation of the list structure (no trailing newline)."
                        (cltpt/combinator:match-children node))))
       ('list-item-content
        (with-output-to-string (s)
-         (let ((current-pos (cltpt/combinator:match-begin node)))
+         (let ((current-pos (cltpt/combinator:match-begin-absolute node)))
            (dolist (child (cltpt/combinator:match-children node))
-             (let ((child-begin (cltpt/combinator:match-begin child)))
+             (let ((child-begin (cltpt/combinator:match-begin-absolute child)))
                (write-string (subseq str current-pos child-begin) s)
                (write-string (to-latex-list-recursive str child depth) s)
-               (setf current-pos (cltpt/combinator:match-end child))))
-           (write-string (subseq str current-pos (cltpt/combinator:match-end node))
+               (setf current-pos (cltpt/combinator:match-end-absolute child))))
+           (write-string (subseq str current-pos (cltpt/combinator:match-end-absolute node))
                          s))))
       ('list-item-bullet "")
-      (t (cltpt/combinator:match-text str node)))))
+      (t (cltpt/combinator:match-text node str)))))

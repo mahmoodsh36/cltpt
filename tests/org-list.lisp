@@ -1,8 +1,9 @@
 (defpackage :cltpt/tests/org-list
   (:use :cl :it.bese.fiveam)
-  (:import-from :cltpt/tests
-                :compare-full-match-loosely)
-  (:export #:run-org-list-tests))
+  (:import-from
+   :cltpt/tests
+   :compare-full-match-loosely)
+  (:export :run-org-list-tests))
 
 (in-package :cltpt/tests/org-list)
 

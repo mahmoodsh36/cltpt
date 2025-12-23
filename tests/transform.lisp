@@ -1,8 +1,10 @@
 (defpackage :cltpt/tests/transform
   (:use :cl :it.bese.fiveam)
-  (:import-from :cltpt/tests
-                #:plist-to-match)
-  (:export #:run-transform-tests))
+  (:import-from
+   :cltpt/tests
+   :plist-to-match)
+  (:export
+   :run-transform-tests))
 
 (in-package :cltpt/tests/transform)
 

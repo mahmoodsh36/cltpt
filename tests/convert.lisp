@@ -1,10 +1,12 @@
 (defpackage :cltpt/tests/convert
   (:use :cl :it.bese.fiveam)
-  (:import-from :cltpt/tests
-                #:string=+diff)
-  (:export #:run-conversion-tests
-           #:test-org-src-block-with-image-result-func
-           #:test-comprehensive-org-document-func))
+  (:import-from
+   :cltpt/tests
+   :string=+diff)
+  (:export
+   :run-conversion-tests
+   :test-org-src-block-with-image-result-func
+   :test-comprehensive-org-document-func))
 
 (in-package :cltpt/tests/convert)
 
@@ -76,7 +78,9 @@ plt.close()
 </code></pre></div>
 
 <div class='org-babel-results'><img src='plot.png' /></div>"))
-    (is (string= html-output expected-html))))
+    (is (string=+diff html-output expected-html
+                     "HTML conversion of src block with image result should match expected output")
+        "HTML conversion of src block with image result should match expected output")))
 
 (defun test-comprehensive-org-document-func ()
   "test parsing a comprehensive org document with many features."
@@ -91,7 +95,9 @@ plt.close()
 (test test-comprehensive-org-document-html-conversion
   (let* ((html-output (comprehensive-org-document-html-conversion))
          (expected-html (uiop:read-file-string "tests/data/comprehensive-org-test-expected.html")))
-    (is (string= html-output expected-html))))
+    (is (string=+diff html-output expected-html
+                     "HTML conversion of comprehensive-org-test.org should match expected output")
+        "HTML conversion of comprehensive-org-test.org should match expected output")))
 
 (defun text-block-test-conversion-func ()
   "Test conversion of text-block-test.txt using simple format and compare with expected output."
@@ -104,7 +110,8 @@ plt.close()
 (test text-block-test-conversion
   (multiple-value-bind (actual-output expected-output)
       (text-block-test-conversion-func)
-    (is (string= actual-output expected-output)
+    (is (string=+diff actual-output expected-output
+                     "simple format conversion of text-block-test.txt should match expected output")
         "simple format conversion of text-block-test.txt should match expected output")))
 
 (defun test-org-html-conversion-func ()

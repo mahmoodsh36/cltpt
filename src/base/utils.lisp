@@ -186,18 +186,9 @@ returns the (possibly new) list."
   (loop with notfound = '#:notfound
         for (indicator value) on p1 by #'cddr
         when (eq (getf p2 indicator notfound) notfound)
-          do (progn
-               (push value p2)
-               (push indicator p2)))
+          do (push value p2)
+             (push indicator p2))
   p2)
-
-(defun replace-substr (original replacement begin end)
-  "return a new string where ORIGINAL[BEGIN..END) is replaced with REPLACEMENT.
-BEGIN is inclusive, END is exclusive."
-  (concatenate 'string
-               (subseq original 0 begin)
-               replacement
-               (subseq original end)))
 
 (defun add-duration (timestamp duration &key (sign 1))
   "apply a duration stored as a plist like (:hour 1 :minute 30).

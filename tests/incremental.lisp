@@ -1,6 +1,6 @@
 (defpackage :cltpt/tests/incremental
   (:use :cl :it.bese.fiveam)
-  (:export #:run-incremental-tests))
+  (:export :run-incremental-tests))
 
 (in-package :cltpt/tests/incremental)
 
@@ -32,7 +32,7 @@
      list-obj
      (list 'cltpt/org-mode::org-list 'cltpt/org-mode::org-link)
      (list (cons "hello "
-                 (cltpt/base:make-region :begin 2 :end 2)))
+                 (cltpt/buffer:make-region :begin 2 :end 2)))
      t)
     (format t "positions after: ~A~%"
             (loop for child in (cltpt/base:text-object-children list-obj)
@@ -57,7 +57,7 @@
      (list
       (cons
        "\\(some\\) \\(math here\\)"
-       (cltpt/base:make-region :begin 0 :end 21)))
+       (cltpt/buffer:make-region :begin 0 :end 21)))
      t)
     (format t
             "   === old ===~%~A~%   === new ===~%~A~%"
@@ -82,18 +82,18 @@
      (list
       (cons
        "some"
-       (cltpt/base:region-incf
-        (cltpt/base:make-region :begin 2 :end 6)
+       (cltpt/buffer:region-incf
+        (cltpt/buffer:make-region :begin 2 :end 6)
         (length "start ")))
       (cons
        "math"
-       (cltpt/base:region-incf
-        (cltpt/base:make-region :begin 7 :end 11)
+       (cltpt/buffer:region-incf
+        (cltpt/buffer:make-region :begin 7 :end 11)
         (length "start ")))
       (cons
        "\\(even more math\\) "
-       (cltpt/base:region-incf
-        (cltpt/base:make-region :begin 14 :end 14)
+       (cltpt/buffer:region-incf
+        (cltpt/buffer:make-region :begin 14 :end 14)
         (length "start "))))
      t)
     (let ((final-children-count (length (cltpt/base:text-object-children doc))))
@@ -126,13 +126,13 @@ some1 \\(math\\) here."
      (list
       (cons
        "\\(some2 math\\) "
-       (cltpt/base:make-region :begin 3 :end 3))
+       (cltpt/buffer:make-region :begin 3 :end 3))
       (cons
        "\\(some more math\\) "
-       (cltpt/base:make-region :begin 15 :end 15))
+       (cltpt/buffer:make-region :begin 15 :end 15))
       (cons
        "changed math"
-       (cltpt/base:make-region :begin 23 :end 27)))
+       (cltpt/buffer:make-region :begin 23 :end 27)))
      t)
     (setf obj (car (cltpt/base:text-object-children doc)))
     (let ((final-children-count (length (cltpt/base:text-object-children obj))))

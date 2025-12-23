@@ -44,8 +44,8 @@ the function passes the state between recursive calls by returning two values:
     (let ((child-results (nreverse reversed-child-results)))
       (if (member main-match-type text-object-types)
           ;; this match corresponds to a text-object we need to create.
-          (let* ((match-begin (cltpt/combinator:match-begin match))
-                 (match-end (cltpt/combinator:match-end match))
+          (let* ((match-begin (cltpt/combinator:match-begin-absolute match))
+                 (match-end (cltpt/combinator:match-end-absolute match))
                  (new-text-object (make-instance main-match-type))
                  (is-lexer-macro (is-text-macro main-match-type)))
             (if is-lexer-macro
@@ -86,20 +86,20 @@ the function passes the state between recursive calls by returning two values:
                     (if opening-macro
                         (progn
                           (setf (text-object-property opening-macro :contents-region)
-                                (make-region
-                                 :begin (region-length
+                                (cltpt/buffer:make-region
+                                 :begin (cltpt/buffer:region-length
                                          (text-object-text-region opening-macro))
                                  :end (- match-begin
-                                         (region-begin
+                                         (cltpt/buffer:region-begin
                                           (text-object-text-region
                                            opening-macro)))))
                           (setf (text-object-text-region opening-macro)
-                                (make-region
-                                 :begin (region-begin
+                                (cltpt/buffer:make-region
+                                 :begin (cltpt/buffer:region-begin
                                          (text-object-text-region opening-macro))
                                  :end match-end))
                           (setf (slot-value opening-macro 'text)
-                                (region-text (text-object-text-region opening-macro)
+                                (cltpt/buffer:region-text (text-object-text-region opening-macro)
                                              input))
                           (setf (text-object-property opening-macro :open-macro)
                                 nil)
@@ -122,14 +122,10 @@ the function passes the state between recursive calls by returning two values:
                   (text-object-init new-text-object input match)
                   new-text-object))
             ;; assign the correctly-ordered children to the parent.
-            ;; since `text-object-set-parent` uses `push`, this will create a reversed list.
+            (setf (text-object-children new-text-object) child-results)
             (loop for item in child-results
-                  do (text-object-set-parent item new-text-object)
+                  do (setf (text-object-parent item) new-text-object)
                      (text-object-adjust-to-parent item new-text-object))
-            ;; reverse the parent's children list to restore the correct order.
-            (when (slot-exists-p new-text-object 'children)
-              (setf (text-object-children new-text-object)
-                    (nreverse (text-object-children new-text-object))))
             (if is-new-object
                 (values new-text-object (cons new-text-object current-objects))
                 (values nil current-objects)))
@@ -173,7 +169,7 @@ the function passes the state between recursive calls by returning two values:
                       (make-instance (text-format-document-type format)
                                      :text str1))))
         (setf (text-object-text-region doc)
-              (make-region :begin 0 :end (length str1)))
+              (cltpt/buffer:make-region :begin 0 :end (length str1)))
         (setf (slot-value doc 'text) str1)
         (mapc
          (lambda (entry)
@@ -215,20 +211,22 @@ returns the elements newly inserted into the tree."
         (new-elements))
     (loop for (new-str . region) in changes
           ;; we find the (possibly nested) child that strictly encloses the region of change.
-          do (setf region (region-incf (region-clone region) offset))
+          do (setf region (cltpt/buffer:region-incf (cltpt/buffer:region-clone region) offset))
              (let* ((change-in-region-length
                       (- (length new-str)
-                         (region-length region)))
+                         (cltpt/buffer:region-length region)))
                     (child (find-child-enclosing-region obj region))
                     (parent (text-object-parent child))
                     (child-text (text-object-text child))
                     (rel-child-region (relative-child-region obj child))
-                    (child-region (region-decf (region-clone region)
-                                               (region-begin rel-child-region)))
+                    (child-region (cltpt/buffer:region-decf
+                                   (cltpt/buffer:region-clone region)
+                                   (cltpt/buffer:region-begin rel-child-region)))
                     (region-in-root
-                      (region-incf (region-clone region)
-                                   (region-begin (relative-child-region (text-object-root obj)
-                                                                        obj))))
+                      (cltpt/buffer:region-incf
+                       (cltpt/buffer:region-clone region)
+                       (cltpt/buffer:region-begin (relative-child-region (text-object-root obj)
+                                                                         obj))))
                     (new-child-text (text-object-modify-region
                                      child
                                      new-str
@@ -248,7 +246,7 @@ returns the elements newly inserted into the tree."
                (when (getf cltpt:*debug* :convert)
                  (format t
                          "DEBUG: replaced '~A' with '~A'~%"
-                         (region-text child-region child-text)
+                         (cltpt/buffer:region-text child-region child-text)
                          new-str)
                  (format t
                          "DEBUG: text changed from '~A' to '~A'~%"
@@ -289,14 +287,14 @@ returns the elements newly inserted into the tree."
                                ;; if the modified region is before the beginning of the match,
                                ;; we update both :begin and :end of the match, otherwise we
                                ;; only modify :end.
-                               (if (< (region-begin region-in-root)
+                               (if (< (cltpt/buffer:region-begin region-in-root)
                                       (cltpt/combinator:match-begin subtree))
                                    (progn
                                      (incf (cltpt/combinator:match-begin subtree)
                                            change-in-region-length)
                                      (incf (cltpt/combinator:match-end subtree)
                                            change-in-region-length))
-                                   (when (<= (region-end region-in-root)
+                                   (when (<= (cltpt/buffer:region-end region-in-root)
                                              (cltpt/combinator:match-end subtree))
                                      (incf (cltpt/combinator:match-end subtree)
                                            change-in-region-length)))))
@@ -315,11 +313,12 @@ returns the elements newly inserted into the tree."
                                     child)))
                           (region-relative-to-ancestor
                             (if only-simple-changes
-                                (make-region :begin 0
-                                             :end (length new-child-text))
+                                (cltpt/buffer:make-region
+                                 :begin 0
+                                 :end (length new-child-text))
                                 (relative-child-region ancestor child)))
                           (new-ancestor-text
-                            (region-replace
+                            (cltpt/buffer:region-replace
                              region-relative-to-ancestor
                              (text-object-text ancestor)
                              new-child-text))
@@ -346,8 +345,8 @@ returns the elements newly inserted into the tree."
                                  rules
                                  ;; (cltpt/combinator:context-rules
                                  ;;  (getf (car prev-result) :ctx))
-                                 (region-begin region-relative-to-ancestor)
-                                 (region-end region-relative-to-ancestor))))
+                                 (cltpt/buffer:region-begin region-relative-to-ancestor)
+                                 (cltpt/buffer:region-end region-relative-to-ancestor))))
                           ;; the way we are using `new-objects' here as a plist
                           ;; and then turn it into a list isnt pretty. we should
                           ;; use another way of passing the list to the function
@@ -399,10 +398,10 @@ returns the elements newly inserted into the tree."
                    ;; will take care of this.
                    (unless propagate
                      (loop for node in (text-object-children child)
-                           for node-begin = (region-begin
+                           for node-begin = (cltpt/buffer:region-begin
                                              (relative-child-region obj node))
-                           do (when (>= node-begin (region-begin region))
-                                (region-incf (text-object-text-region node)
+                           do (when (>= node-begin (cltpt/buffer:region-begin region))
+                                (cltpt/buffer:region-incf (text-object-text-region node)
                                              change-in-region-length)))))
                ;; we need to finalize after changes.
                ;; or maybe we shouldnt?
@@ -431,9 +430,10 @@ returns the elements newly inserted into the tree."
          (is-deletion (> (length (text-object-text obj))
                          (length new-str)))
          (changed-region (if is-deletion
-                             (make-region :begin (+ change-pos change-in-length)
-                                          :end change-pos)
-                             (make-region :begin change-pos :end change-pos))))
+                             (cltpt/buffer:make-region
+                              :begin (+ change-pos change-in-length)
+                              :end change-pos)
+                             (cltpt/buffer:make-region :begin change-pos :end change-pos))))
     (if is-deletion
         ;; if its a deletion the change is replacing the region with an empty string.
         (handle-changed-regions obj format (list (cons "" changed-region)) t)

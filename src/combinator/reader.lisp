@@ -4,7 +4,7 @@
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
    :reader-buffer :reader-stream :reader-start-position :reader :reader-input-stream :stream-index
    :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached
-   :reader-fully-consume))
+   :reader-fully-consume :reader-ensure-fill-upto))
 
 (in-package :cltpt/reader)
 

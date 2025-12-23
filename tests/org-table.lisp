@@ -1,6 +1,6 @@
 (defpackage :cltpt/tests/org-table
   (:use :cl :it.bese.fiveam)
-  (:export #:run-org-table-tests))
+  (:export :run-org-table-tests))
 
 (in-package :cltpt/tests/org-table)
 
@@ -25,7 +25,7 @@ get-cell-at-coordinates."
       (format t "requesting cell at coordinates: ~A~%" coords)
       (if target-cell
           (let* ((content-node (first (cltpt/combinator/match:match-children target-cell)))
-                 (cell-text (cltpt/combinator:match-text table-string content-node)))
+                 (cell-text (cltpt/combinator:match-text content-node table-string)))
             (format t "found cell: ~A~%" target-cell)
             (format t "cell content: \"~A\"~%~%" cell-text)
             (format t "--- testing get-cell-coordinates ---~%")
@@ -50,8 +50,8 @@ get-cell-at-coordinates."
       (declare (ignore end-pos))
       (let* ((original-cell (cltpt/org-mode::get-cell-at-coordinates original-table-match coords))
              (cell-text (cltpt/combinator:match-text
-                         original-reader
-                         (first (cltpt/combinator:match-children original-cell)))))
+                         (first (cltpt/combinator:match-children original-cell))
+                         original-reader)))
         (format t "original table string:~%~a~%" original-table-string)
         (format t "cell at ~A has content: \"~A\"~%~%" coords cell-text))
       (format t "--- analyzing reformatted table ---~%")
@@ -63,8 +63,8 @@ get-cell-at-coordinates."
             (let* ((reformatted-cell (cltpt/org-mode::get-cell-at-coordinates
                                       reformatted-table-match coords))
                    (cell-text (cltpt/combinator:match-text
-                               new-reader
-                               (first (cltpt/combinator/match:match-children reformatted-cell)))))
+                               (first (cltpt/combinator/match:match-children reformatted-cell))
+                               new-reader)))
               (format t "reformatted table string:~%~a" new-table-string)
               (format t "cell at ~A now has content: \"~A\"~%" coords cell-text))))))))
 
@@ -129,7 +129,7 @@ list, modifying the list, and converting back to a string."
              (let* ((cell (cltpt/org-mode::get-cell-at-coordinates table-match coords))
                     (content-node (first (cltpt/combinator/match:match-children cell)))
                     (cell-text (if content-node
-                                   (cltpt/combinator:match-text content-node)
+                                   (cltpt/combinator:match-text content-node table-string)
                                    "")))
                (format t "coords: ~A -> content: \"~A\"~%" coords cell-text)))))
 
@@ -162,17 +162,18 @@ hi")
 ;; Table parsing tests moved from org-mode.lisp
 
 (defun test-org-table-1 ()
-  (let ((text
+  (let* ((text
           "| head1 | head2 | head3 |
 +------+-------+-------+
 | foo | \\(mymath\\) | baz  |
 | 123 | 456          | 789  |
 |     |              | 1     |
 | end | row          | test |
-some more text"))
+some more text")
+         (reader (cltpt/reader:reader-from-string text)))
     (cltpt/org-mode::org-table-matcher
      nil
-     text
+     reader
      0
      '((:pattern (cltpt/combinator::pair
                   (cltpt/combinator::literal "\\(")
@@ -181,17 +182,18 @@ some more text"))
         :id mypair)))))
 
 (defun test-org-table-1-func ()
-  (let ((text
+  (let* ((text
           "| head1 | head2 | head3 |
 +------+-------+-------+
 | foo | \\(mymath\\) | baz  |
 | 123 | 456          | 789  |
 |     |              | 1     |
 | end | row          | test |
-some more text"))
+some more text")
+         (reader (cltpt/reader:reader-from-string text)))
     (cltpt/org-mode::org-table-matcher
      nil
-     text
+     reader
      0
      '((:pattern (cltpt/combinator::pair
                   (cltpt/combinator::literal "\\(")
