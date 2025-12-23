@@ -174,8 +174,8 @@ each rule is a plist that can contain the following params.
                (when (and (typep (node-text-obj node) 'cltpt/base:document)
                           (not is-done)
                           (funcall convert-file-predicate in-file))
-                 (when (getf cltpt:*debug* :roam)
-                   (format t "converting ~A to ~A~%" in-file out-file))
+                 (when (getf cltpt:*debug* :convert)
+                   (format t "converting file ~A to ~A~%" in-file out-file))
                  (let ((cltpt/base:*convert-info*
                          (cltpt/base:merge-plist
                           cltpt/base:*convert-info*
