@@ -364,14 +364,18 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                   obj
                   (cltpt/combinator:find-submatch match 'month))
                  :junk-allowed t))
-         (hour-str (cltpt/base:text-object-match-text
-                    obj
-                    (cltpt/combinator:find-submatch match 'hour)))
+         (hour-match (cltpt/combinator:find-submatch match 'hour))
+         (hour-str (when hour-match
+                     (cltpt/base:text-object-match-text
+                      obj
+                      hour-match)))
          (hour (when hour-str
                  (parse-integer hour-str :junk-allowed t)))
-         (minute-str (cltpt/base:text-object-match-text
-                      obj
-                      (cltpt/combinator:find-submatch match 'minute)))
+         (minute-match (cltpt/combinator:find-submatch match 'minute))
+         (minute-str (when minute-match
+                       (cltpt/base:text-object-match-text
+                        obj
+                        minute-match)))
          (minute (when minute-str
                    (parse-integer minute-str :junk-allowed t)))
          (weekday (cltpt/combinator:find-submatch match 'weekday)))
