@@ -70,7 +70,7 @@ object's region. you should just make it return a symbol like `end-type'."))
 (defmethod text-object-ends-by ((text-obj text-object) value)
   (and (symbolp value) (string= value 'end)))
 
-(defmethod text-object-property ((obj text-object) property &optional (default nil))
+(defmethod text-object-property ((obj text-object) property &optional default)
   (getf (text-object-properties obj) property default))
 
 (defmethod (setf text-object-property) (value (obj text-object) property &optional default)
@@ -436,6 +436,7 @@ SPEC is a plist with keys:
               :escape nil)
         (list :text (princ-to-string eval-result)
               :recurse t
+              :escape nil
               ;; :reparse makes post-lexer macros able to contain markup contents
               ;; that gets handled during conversion.
               ;; currently, the code for converting org-document exploits this.
@@ -697,7 +698,7 @@ and grabbing each position of each object through its ascendants in the tree."
 ;; this is a utility for reducing boilerplate for `text-object-convert' functionality
 (defun rewrap-within-tags (text-obj open-tag close-tag
                            &key
-                             (reparse nil)
+                             reparse
                              (escape t)
                              compress-region
                              escape-region-options)
@@ -721,8 +722,7 @@ contents region is further compressed by COMPRESS-REGION if provided."
             :begin (cltpt/buffer:region-end inner-region)
             :end (cltpt/buffer:region-length (text-object-text-region text-obj)))))
     (setf (cltpt/buffer/region:region-props inner-region) escape-region-options)
-    (list :text (text-object-text text-obj)
-          :changes (list (cltpt/buffer:make-change :operator open-tag
+    (list :changes (list (cltpt/buffer:make-change :operator open-tag
                                                    :region old-open-tag-region)
                          (cltpt/buffer:make-change :operator close-tag
                                                    :region old-close-tag-region))

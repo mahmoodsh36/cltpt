@@ -91,8 +91,8 @@
   (case cltpt/html:*html-export-latex-method*
     (cltpt/html::svg
      (let ((img-filepath))
-(let ((img-filepath (cdar (cltpt/latex-previews:generate-previews-for-latex
-                                   (list latex-code)))))
+       (let ((img-filepath (cdar (cltpt/latex-previews:generate-previews-for-latex
+                                  (list latex-code)))))
          (if is-inline
              (format nil
                      "<img src='~A' class='inline-math' />"
@@ -242,32 +242,32 @@
       ;; when there's no description for the link the resulting text
       ;; would just be an html snippet with no need for escaping or recursing.
       (list :changes (if desc-match
-                       (list
-                        (cltpt/buffer:make-change
-                         :operator open-tag
-                         :region (cltpt/buffer:make-region
-                                  :begin 0
-                                  :end desc-begin))
-                        (cltpt/buffer:make-change
-                         :operator final-desc
-                         :region (cltpt/buffer:make-region
-                                  :begin desc-begin
-                                  :end desc-end))
-                        (cltpt/buffer:make-change
-                         :operator close-tag
-                         :region (cltpt/buffer:make-region
-                                  :begin desc-end
-                                  :end (length (cltpt/base:text-object-text obj)))))
-                       (list
-                        ;; replace the text completely
-                        (cltpt/buffer:make-change
-                         :operator (concatenate 'string
-                                                open-tag
-                                                final-desc
-                                                close-tag)
-                         :region (cltpt/buffer:make-region
-                                  :begin 0
-                                  :end (length (cltpt/base:text-object-text obj))))))
+                         (list
+                          (cltpt/buffer:make-change
+                           :operator open-tag
+                           :region (cltpt/buffer:make-region
+                                    :begin 0
+                                    :end desc-begin))
+                          (cltpt/buffer:make-change
+                           :operator final-desc
+                           :region (cltpt/buffer:make-region
+                                    :begin desc-begin
+                                    :end desc-end))
+                          (cltpt/buffer:make-change
+                           :operator close-tag
+                           :region (cltpt/buffer:make-region
+                                    :begin desc-end
+                                    :end (length (cltpt/base:text-object-text obj)))))
+                         (list
+                          ;; replace the text completely
+                          (cltpt/buffer:make-change
+                           :operator (concatenate 'string
+                                                  open-tag
+                                                  final-desc
+                                                  close-tag)
+                           :region (cltpt/buffer:make-region
+                                    :begin 0
+                                    :end (length (cltpt/base:text-object-text obj))))))
             :recurse desc-match
             :escape-region (when desc-match
                              (cltpt/buffer:make-region
