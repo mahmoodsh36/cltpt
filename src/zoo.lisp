@@ -113,16 +113,14 @@
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse nil
         :reparse nil
-        :escape nil
-        :remove-newlines-after t))
+        :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse nil
         :reparse nil
-        :escape nil
-        :remove-newlines-after t))
+        :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
                                            (fmt (eql cltpt/latex:*latex*)))
@@ -150,8 +148,7 @@
     (list :text (latex-fragment-to-html latex-env-contents nil)
           :recurse nil
           :reparse nil
-          :escape nil
-          :remove-newlines-after t)))
+          :escape nil)))
 
 (defmethod cltpt/base:convert-target-filepath ((target pathname))
   (cltpt/base:convert-target-filepath (cltpt/file-utils:ensure-filepath-string target)))
