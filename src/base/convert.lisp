@@ -75,7 +75,7 @@ the '\\' and processes the char normally (replace or emit)."
          (to-escape (if escape-supplied
                         escape
                         (or result-is-string
-                            (getf result :escape))))
+                            (getf result :escape t))))
          (to-reparse (if reparse-supplied
                          reparse
                          (unless result-is-string
@@ -88,10 +88,11 @@ the '\\' and processes the char normally (replace or emit)."
                                   ;; if :escape t but no regions specified, create a default region covering the whole text.
                                   (list (cltpt/buffer:make-region
                                          :begin 0
-                                         :end (length result-text))))))
+                                         :end (length (text-object-text text-obj)))))))
          (to-recurse (if recurse-supplied
                          recurse
-                         (or (unless result-is-string (getf result :recurse))
+                         (or (unless result-is-string
+                               (getf result :recurse t))
                              to-reparse)))
          (escapables (collect-escapables text-object-types))
          (changes (unless result-is-string
@@ -144,27 +145,28 @@ the '\\' and processes the char normally (replace or emit)."
                            child-regions
                            newline-removal-regions))))
       ;; schedule the final escape regions
-      (cltpt/buffer:schedule-batch
-       text-obj
-       (mapcar
-        (lambda (region)
-          (labels ((my-text-escape (text)
-                     (let ((escape-newlines (getf (cltpt/buffer/region:region-props region)
-                                                  :escape-newlines
-                                                  t)))
-                       (escape-text
-                        text
-                        fmt-dest
-                        escapables
-                        escape-newlines))))
-            (cltpt/buffer:make-change
-             :region (cltpt/buffer:make-region
-                      :begin (cltpt/buffer:region-begin region)
-                      :end (cltpt/buffer:region-end region))
-             :operator #'my-text-escape)))
-        final-escape-regions)
-       :new-level t
-       :delegate nil))
+      (when to-escape
+        (cltpt/buffer:schedule-batch
+         text-obj
+         (mapcar
+          (lambda (region)
+            (labels ((my-text-escape (text)
+                       (let ((escape-newlines (getf (cltpt/buffer/region:region-props region)
+                                                    :escape-newlines
+                                                    t)))
+                         (escape-text
+                          text
+                          fmt-dest
+                          escapables
+                          escape-newlines))))
+              (cltpt/buffer:make-change
+               :region (cltpt/buffer:make-region
+                        :begin (cltpt/buffer:region-begin region)
+                        :end (cltpt/buffer:region-end region))
+               :operator #'my-text-escape)))
+          final-escape-regions)
+         :new-level t
+         :delegate nil)))
     (when (getf cltpt:*debug* :convert)
       (format t "DEBUG: after incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
@@ -180,8 +182,12 @@ the '\\' and processes the char normally (replace or emit)."
                   (text-object-end child)
                   child-result
                   :delegate nil))))
-    ;; finally we apply all scheduled changes and return the result
-    (cltpt/buffer:apply-scheduled-changes text-obj)
+    ;; finally we apply all scheduled changes and return the result.
+    ;; escape sequences may have already been registered by the root at document-convert, so
+    ;; we dont want to apply changes if both to-escape and to-recurse are nil because that
+    ;; might cause issues/conflicts.
+    (when (or to-escape to-recurse)
+      (cltpt/buffer:apply-scheduled-changes text-obj))
     (text-object-text text-obj)))
 
 ;; this barely handles simple patterns, it cannot be relied on, but it may make some things easier.

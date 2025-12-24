@@ -266,9 +266,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     ;;                           :reparse nil
     ;;                           :recurse nil
     ;;                           :escape nil)))))))))
+    ;; discard everything for now
     (or final-result
         (list :text ""
-              :reparse t))))
+              :recurse nil))))
 
 (defvar *org-comment-rule*
   '(:pattern
