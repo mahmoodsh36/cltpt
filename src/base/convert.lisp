@@ -84,11 +84,7 @@ the '\\' and processes the char normally (replace or emit)."
          (regions-to-escape (when (and to-escape (not result-is-string))
                               (or (getf result :escape-regions)
                                   (let ((region (getf result :escape-region)))
-                                    (when region (list region)))
-                                  ;; if :escape t but no regions specified, create a default region covering the whole text.
-                                  (list (cltpt/buffer:make-region
-                                         :begin 0
-                                         :end (length (text-object-text text-obj)))))))
+                                    (when region (list region))))))
          (to-recurse (if recurse-supplied
                          recurse
                          (or (unless result-is-string
@@ -104,6 +100,13 @@ the '\\' and processes the char normally (replace or emit)."
     (if changes
       (cltpt/buffer:buffer-fetch-parent-text text-obj)
       (text-object-force-set-text text-obj result-text))
+    ;; if :escape t but no regions specified, create a default region covering the whole text.
+    ;; or if the result was raw text, we should escape by default.
+    (when (or (and to-escape (null regions-to-escape)) result-is-string)
+      (setf regions-to-escape
+            (list (cltpt/buffer:make-region
+                   :begin 0
+                   :end (length (text-object-text text-obj))))))
     (loop for change in changes
           do (cltpt/buffer:schedule-change* text-obj change :delegate nil))
     (let* ((parent-text (text-object-text text-obj))
