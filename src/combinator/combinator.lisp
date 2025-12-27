@@ -773,7 +773,10 @@ the SUCCESSOR-PATTERN is not captured as part of the match."
     (when pattern-match
       (let* ((match-end (match-end pattern-match))
              (successor-match
-               (apply-rule-normalized ctx successor-pattern reader match-end)))
+               (apply-rule-normalized ctx
+                                      successor-pattern
+                                      reader
+                                      (+ match-end (context-parent-begin ctx)))))
         (when successor-match
           pattern-match)))))
 
@@ -787,7 +790,7 @@ the SUCCESSOR-PATTERN is not captured as part of the match."
                  (apply-rule-normalized ctx
                                         successor-pattern
                                         reader
-                                        match-end))))
+                                        (+ match-end (context-parent-begin ctx))))))
         (unless successor-match
           pattern-match)))))
 
