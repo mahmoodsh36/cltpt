@@ -1,10 +1,5 @@
 (in-package :cltpt/base)
 
-;; do we even needs this as a function much less running `member'?
-(defun is-text-macro (typ)
-  (let ((text-macro-classes '(text-macro)))
-    (member typ text-macro-classes)))
-
 ;; receives a match result, returns a text object
 ;; if MATCH has :rule that has :type, or if MATCH has :id, that refers to a `text-object', result will be a `text-object',
 ;; otherwise it will be a list that may contain many instances of `text-object'
@@ -47,7 +42,7 @@ the function passes the state between recursive calls by returning two values:
           (let* ((match-begin (cltpt/combinator:match-begin-absolute match))
                  (match-end (cltpt/combinator:match-end-absolute match))
                  (new-text-object (make-instance main-match-type))
-                 (is-lexer-macro (is-text-macro main-match-type)))
+                 (is-lexer-macro (eq main-match-type 'text-macro)))
             (if is-lexer-macro
                 (let ((match-text (subseq input match-begin match-end))
                       (macro-eval-result))

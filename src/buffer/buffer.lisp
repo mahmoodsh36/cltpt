@@ -335,21 +335,15 @@
                   :delegate delegate
                   :discard-contained discard-contained))
 
-(defun merge-plist (p1 p2)
-  "merge two given plists into one."
-  (loop with notfound = '#:notfound
-        for (indicator value) on p1 by #'cddr
-        when (eq (getf p2 indicator notfound) notfound)
-          do (push value p2)
-             (push indicator p2))
-  p2)
-
-(defun schedule-change* (buffer change &key new-level (delegate t) discard-contained)
-  (schedule-batch buffer
-                  (list change)
-                  :new-level new-level
-                  :delegate delegate
-                  :discard-contained discard-contained))
+(defun schedule-change* (buffer change)
+  (let ((new-level (getf (change-args change) :new-level))
+        (delegate (getf (change-args change) :delegate t))
+        (discard-contained (getf (change-args change) :discard-contained)))
+    (schedule-batch buffer
+                    (list change)
+                    :new-level new-level
+                    :delegate delegate
+                    :discard-contained discard-contained)))
 
 (defun apply-scheduled-changes (buffer &key propagate-to on-apply)
   (unless (buffer-own-text buffer)

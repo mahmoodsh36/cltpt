@@ -159,7 +159,7 @@ here* here"
                (:pattern (cltpt/combinator::lisp-sexp)
                 :id lisp-code))
               :id sharp-lisp-block)))
-         (input-string "#(format t \"hello)(\\\" there\")"))
+         (input-string "#(format t \"hello)(\\\" there\") "))
     (cltpt/combinator::parse input-string rules)))
 
 (test test-sharp-lisp-1

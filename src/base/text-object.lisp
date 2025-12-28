@@ -120,6 +120,9 @@ set correctly."
                (obj-str (cltpt/buffer:region-text rel-region str)))
           obj-str))))
 
+(defmethod text-object-text-length ((obj text-object))
+  (length (text-object-text obj)))
+
 ;; TODO: this doesnt correctly handle cases where some object in the tree has the 'text' slot set.
 ;; perhaps in such a case we should be updating the text slot.
 (defmethod text-object-change-text ((obj text-object)
@@ -701,7 +704,9 @@ and grabbing each position of each object through its ascendants in the tree."
                              reparse
                              (escape t)
                              compress-region
-                             escape-region-options)
+                             escape-region-options
+                             open-tag-args
+                             close-tag-args)
   "change the tags wrapping the contents of a text object. this is used for conversion.
 
 contents region is further compressed by COMPRESS-REGION if provided."
@@ -723,9 +728,11 @@ contents region is further compressed by COMPRESS-REGION if provided."
             :end (cltpt/buffer:region-length (text-object-text-region text-obj)))))
     (setf (cltpt/buffer/region:region-props inner-region) escape-region-options)
     (list :changes (list (cltpt/buffer:make-change :operator open-tag
-                                                   :region old-open-tag-region)
+                                                   :region old-open-tag-region
+                                                   :args open-tag-args)
                          (cltpt/buffer:make-change :operator close-tag
-                                                   :region old-close-tag-region))
+                                                   :region old-close-tag-region
+                                                   :args close-tag-args))
           :recurse t
           :reparse reparse
           :escape escape
@@ -766,7 +773,8 @@ contents region is further compressed by COMPRESS-REGION if provided."
    (lambda (child)
      (let ((result (cltpt/combinator:find-submatch (text-object-match child) submatch-id)))
        (when result
-         (return-from text-object-find-submatch result))))))
+         (return-from text-object-find-submatch result)))))
+  nil)
 
 (defmethod text-object-match-text ((obj text-object) (match cltpt/combinator:match))
   "get text from MATCH relative to text object OBJ or string STR."

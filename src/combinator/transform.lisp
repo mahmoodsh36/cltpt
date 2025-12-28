@@ -1,7 +1,8 @@
 (defpackage :cltpt/transform
   (:use :cl)
-  (:export :transform
-           :reconstruct))
+  (:export
+   :transform
+   :reconstruct))
 
 (in-package :cltpt/transform)
 
@@ -13,6 +14,8 @@
 ;; parser-combinator so as to invoke the corresponding transformation functions and apply
 ;; backtracking to the transformed text (which would ideally be built in chunks as we advance
 ;; through the tree) if the combinator backtracks.
+;; also, the transformer itself should return a reader aswell, one that it should fill up
+;; continuously while reading from its input reader.
 
 ;; rule is a combinator rule, replacements is a list of plists to replace inner rules from the
 ;; original RULE with.
@@ -89,13 +92,11 @@
             (cltpt/combinator:match-text submatch reader)
             (let* ((matcher (car rule))
                    (reconstructor (reconstructor-for-combinator matcher)))
-              (or (and reconstructor
-                       (apply reconstructor
-                              reader
-                              match
-                              (cdr rule)))
-                  ;; might get here if rule is string?
-                  (princ-to-string rule)))))))
+              (and reconstructor
+                   (apply reconstructor
+                          reader
+                          match
+                          (cdr rule))))))))
 
 (defun reconstructor-for-combinator (matcher)
   (let ((func-name (intern (concatenate 'string "RECONSTRUCT-" (symbol-name matcher))
@@ -104,10 +105,17 @@
       func-name)))
 
 (defun reconstruct-consec (reader match &rest all)
-  (with-output-to-string (out)
-    (loop for child in all
-          do (write-string (reconstruct reader match child) out))
-    out))
+  (let ((parts (loop for child in all
+                     for res = (reconstruct reader match child)
+                     unless res return nil
+                     collect res)))
+    (when parts
+      (apply #'concatenate 'string parts))))
+
+(defun reconstruct-any (reader match &rest alternatives)
+  (loop for alt in alternatives
+        for res = (reconstruct reader match alt)
+        when res return res))
 
 (defun reconstruct-literal (reader str)
   str)
