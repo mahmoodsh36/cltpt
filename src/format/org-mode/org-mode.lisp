@@ -9,6 +9,8 @@
 
 (defvar *org-enable-macros* nil)
 
+(defvar *org-enable-babel* nil)
+
 (defun init ()
   (setf (cltpt/base:text-format-text-object-types *org-mode*)
         (concatenate
@@ -1283,6 +1285,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   ;; to compile every preview individually later on.
   (when (eq backend cltpt/html:*html*)
     (ensure-latex-previews-generated obj))
+  ;; evaluate blocks to prepare them for conversion. TODO: i dont think we should be doing this here though
+  (when *org-enable-babel*
+    (eval-blocks obj))
   (list :text (cltpt/base:text-object-text obj)
         :escape t
         :reparse nil
@@ -1377,13 +1382,20 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           (cltpt/combinator:literal " ")
           (cltpt/combinator:when-match
            (cltpt/combinator:succeeded-by
-            (:pattern (cltpt/combinator:lisp-sexp)
-             :id value)
+            ,(cltpt/combinator:copy-rule
+              cltpt/base::*post-lexer-text-macro-rule*
+              'cltpt/base::post-lexer-text-macro)
             ;; we make sure to capture lisp expressions only if they are succeeded
             ;; by " :" because otherwise we might capture a word that is part
             ;; of a sequence of words, like ":title my title", which is a case
             ;; that should be handled by the following rule, not this one.
-            (cltpt/combinator:literal " :"))
+            (cltpt/combinator:any
+             (cltpt/combinator:literal " :")
+             ;; or its followed by a new line
+             (cltpt/combinator:consec-with-optional
+              (:pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+               :optional t)
+              (cltpt/combinator:literal ,(string #\newline)))))
            ,not-starting-with-colon))
          :id keywords-entry)
         ;; a keywords with a value
@@ -1521,7 +1533,6 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 (defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
   (init-org-src-block obj str1))
 
-;; TODO: handle verbatim blocks such as #+begin_example.
 (defmethod convert-block ((obj cltpt/base:text-object)
                           (backend cltpt/base:text-format)
                           block-type
@@ -1582,6 +1593,10 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                              value))
                       when result collect result))
               (props-str (cltpt/str-utils:str-join props " "))
+              ;; pass :discard-contained to make it discard
+              ;; any macros constructed over the opening tag of
+              ;; the block.
+              (open-tag-args '(:discard-contained t))
               (code-open-tag
                 (cltpt/base:pcase backend
                   (cltpt/html:*html*
@@ -1742,17 +1757,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                :region (cltpt/buffer:make-region
                         :begin results-begin
                         :end results-content-begin))
-               changes)
+              changes)
              ;; changes in the code block region
              (push (cltpt/buffer:make-change :operator code-close-tag
                                              :region code-close-tag-region)
                    changes)
              (push (cltpt/buffer:make-change :operator code-open-tag
-                                             :region code-open-tag-region)
+                                             :region code-open-tag-region
+                                             :args open-tag-args)
                    changes)))
          (if changes
-             (list :text text
-                   :changes changes
+             (list :changes changes
                    :recurse t
                    :escape-regions escape-regions
                    :escape t
@@ -1764,15 +1779,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               :escape t
               :compress-region (cltpt/buffer:make-region :begin 1 :end 1)
               :escape-region-options (when (or is-code is-verbatim)
-                                       (list :escape-newlines nil)))))))))
+                                       (list :escape-newlines nil))
+              :open-tag-args open-tag-args)))))))
 
 (defmethod org-src-block-code ((obj org-src-block))
   (let ((code (cltpt/base:text-object-contents obj)))
-    (unindent code)))
-
-(defmethod run-block ((obj org-src-block))
-  (let ((code (org-src-block-code obj)))
-    ))
+    (cltpt/str-utils:unindent code)))
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object) str1)
   (let* ((match (cltpt/base:text-object-match obj))
@@ -1782,9 +1794,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (loop for entry in entries
           for kw-match = (cltpt/combinator:find-submatch entry 'keyword)
           for val-match = (cltpt/combinator:find-submatch entry 'value)
+          for macro-match = (cltpt/combinator:find-submatch
+                             entry
+                             'cltpt/base:post-lexer-text-macro)
           do (let ((kw (cltpt/combinator:match-text kw-match str1))
-                   (val (when val-match
-                          (cltpt/combinator:match-text val-match str1))))
+                   (val (cond
+                          (val-match (cltpt/combinator:match-text val-match str1))
+                          (macro-match
+                           ;; TODO: we shouldnt be evaluating the macros here. we should be using the value
+                           ;; that was already evaluated at the time the object was initialized.
+                           (eval (read-from-string (subseq (cltpt/combinator:match-text macro-match str1) 1))))
+                          (t ""))))
                (push (cons kw val) (cltpt/base:text-object-property obj :keywords-alist))))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block)

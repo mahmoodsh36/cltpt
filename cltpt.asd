@@ -64,7 +64,12 @@
                              (:file "state")
                              (:file "task")
                              (:file "agenda")))
-               ;; TODO: org-mode should not directly depend on roam/agenda.
+               (:module "babel"
+                :pathname "src/babel"
+                :depends-on ("tree")
+                :components ((:file "babel")
+                             (:file "python")))
+               ;; TODO: maybe org-mode should not directly depend on roam/agenda/babel.
                (:module "org-mode"
                 :pathname "src/format/org-mode"
                 :depends-on ("file-utils"
@@ -78,7 +83,8 @@
                              "agenda")
                 :components ((:file "org-mode")
                              (:file "org-list")
-                             (:file "org-table")))
+                             (:file "org-table")
+                             (:file "org-babel")))
                (:module "zoo"
                 :pathname "src/"
                 :depends-on ("base" "latex" "html" "org-mode" "roam")
@@ -87,11 +93,6 @@
                 :pathname "src/extra"
                 :depends-on ("base" "file-utils" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
-               (:module "babel"
-                :pathname "src/babel"
-                :depends-on ("tree")
-                :components ((:file "babel")
-                             (:file "python")))
                (:module "tests"
                 :pathname "tests/"
                 :depends-on ("base" "org-mode" "latex-previews")
@@ -107,4 +108,5 @@
                              (:file "org-mode")
                              (:file "buffer")
                              (:file "region")
-                             (:file "manual")))))
+                             (:file "manual")
+                             (:file "org-babel")))))

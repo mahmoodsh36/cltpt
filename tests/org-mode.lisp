@@ -604,7 +604,7 @@ print('hello')
 
 (defun org-src-block-with-options-func ()
   (let ((result (cltpt/combinator:parse
-                 "#+begin_src python :results output :exports both
+                 "#+begin_src python :results %'(:name link-dest (cltpt/combinator:atleast-one-discard (cltpt/combinator:any))) :reconstruct %cltpt/org-mode::*org-link-rule*
 print('hello')
 #+end_src"
                  (list cltpt/org-mode::*org-src-block-rule*))))

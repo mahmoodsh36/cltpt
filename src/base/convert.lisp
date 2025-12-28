@@ -108,7 +108,8 @@ the '\\' and processes the char normally (replace or emit)."
                    :begin 0
                    :end (length (text-object-text text-obj))))))
     (loop for change in changes
-          do (cltpt/buffer:schedule-change* text-obj change :delegate nil))
+          do (setf (getf (cltpt/buffer:change-args change) :delegate) nil)
+             (cltpt/buffer:schedule-change* text-obj change))
     (let* ((parent-text (text-object-text text-obj))
            (child-regions (loop for child in (text-object-children text-obj)
                                 collect (text-object-text-region child)))
@@ -174,17 +175,35 @@ the '\\' and processes the char normally (replace or emit)."
       (format t "DEBUG: after incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
     ;; process children: convert each child and schedule its replacement.
-    (when to-recurse
-      (loop for child in (text-object-children text-obj)
-            do (when (getf cltpt:*debug* :convert)
-                 (format t "DEBUG: converting child ~A~%" child))
-               (let ((child-result (convert-tree child fmt-src fmt-dest)))
-                 (cltpt/buffer:schedule-change
-                  text-obj
-                  (text-object-begin child)
-                  (text-object-end child)
-                  child-result
-                  :delegate nil))))
+    ;; first, collect regions from changes that have :discard-contained set.
+    ;; children overlapping these regions will be skipped.
+    ;; this is done because sometimes a text-object-convert cal would return changes with
+    ;; :discard-contained set, but the changes that need to be discarded might be registered below
+    ;; (for children etc), so schedule-change* will not discard them since it doesnt know
+    ;; about them yet.
+    ;; TODO: perhaps a better way would be to schedule the 'changes' returned by text-object-convert
+    ;; after we schedule the changes for the children?
+    (let ((discard-regions
+            (loop for change in changes
+                  when (getf (cltpt/buffer:change-args change) :discard-contained)
+                    collect (cltpt/buffer:change-region change))))
+      (when to-recurse
+        (loop for child in (text-object-children text-obj)
+              for child-region = (text-object-text-region child)
+              ;; skip children that overlap with any discard region
+              for overlaps-discard = (some (lambda (dr)
+                                             (cltpt/buffer:region-intersection dr child-region))
+                                           discard-regions)
+              unless overlaps-discard
+                do (when (getf cltpt:*debug* :convert)
+                     (format t "DEBUG: converting child ~A~%" child))
+                   (let ((child-result (convert-tree child fmt-src fmt-dest)))
+                     (cltpt/buffer:schedule-change
+                      text-obj
+                      (text-object-begin child)
+                      (text-object-end child)
+                      child-result
+                      :delegate nil)))))
     ;; finally we apply all scheduled changes and return the result.
     ;; escape sequences may have already been registered by the root at document-convert, so
     ;; we dont want to apply changes if both to-escape and to-recurse are nil because that

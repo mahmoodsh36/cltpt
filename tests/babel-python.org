@@ -1,0 +1,14 @@
+#+begin_src python
+  text = "block1"
+  print(text)
+#+end_src
+
+#+begin_src python
+  text = "block2"
+  print(text)
+#+end_src
+
+#+begin_src python :results %'(:id link-dest :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but-newline))) :reconstruct %cltpt/org-mode::*org-link-rule*
+  filepath = "out.png"
+  print(filepath)
+#+end_src

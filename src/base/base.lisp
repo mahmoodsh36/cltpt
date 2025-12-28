@@ -50,6 +50,9 @@
    :make-block :block-end
    :text-object-match-text :text-object-root
    :text-object-force-set-text
+   :text-object-find-submatch
+   :text-object-text-length
+   :is-post-lexer-macro :post-lexer-macro-value
 
    :*image-ext* :*video-ext*))
 
