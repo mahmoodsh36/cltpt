@@ -19,6 +19,7 @@
    :buffer-apply-changes
    :buffer-propagate
    :buffer-fetch-parent-text
+   :buffer-scheduled-levels
    :schedule-change :schedule-change*
    :schedule-batch
    :apply-scheduled-changes
@@ -370,7 +371,7 @@
                                                    :delegate nil
                                                    :propagate nil)
                                    (when on-apply
-                                     (funcall on-apply buffer change))
+                                     (funcall on-apply buffer change text))
                                    (setf current-batch
                                          (rebase-list-dropping current-batch
                                                                start

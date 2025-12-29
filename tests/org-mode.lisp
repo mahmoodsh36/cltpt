@@ -1,13 +1,16 @@
 (defpackage :cltpt/tests/org-mode
   (:use :cl :it.bese.fiveam)
-  (:import-from :cltpt/tests
-                :simplify-match
-                :compare-match-loosely
-                :compare-full-match-loosely
-                :string=+diff)
-  (:import-from :cltpt/tests/utils
-                :org-rules
-                :rules-from-symbols))
+  (:import-from
+   :cltpt/tests
+   :simplify-match
+   :compare-match-loosely
+   :compare-full-match-loosely
+   :string=+diff)
+  (:import-from
+   :cltpt/tests/utils
+   :org-rules
+   :compare-tree-types
+   :rules-from-symbols))
 
 (in-package :cltpt/tests/org-mode)
 
@@ -1135,214 +1138,121 @@ plt.close()
                       '(org-document (org-src-block org-link))))
 
 (defun test-comprehensive-org-document-func ()
-  "test parsing a comprehensive org document with many features."
   (let ((content (uiop:read-file-string "tests/data/comprehensive-org-test.org")))
     (cltpt/base:parse cltpt/org-mode:*org-mode* content)))
 
-(defun compare-tree-types (actual-tree expected-types-tree &optional (path "root"))
-  "Iterate through two trees simultaneously and check if types match.
-ACTUAL-TREE is the parsed text-object tree.
-EXPECTED-TYPES-TREE is a cons tree of type symbols.
-Uses the cltpt/tree interface for both trees.
-Returns a list of error messages if types don't match."
-  (let ((errors))
-    (labels
-      ((safe-tree-children (node)
-         "Safely get children, handling cases where tree-children might not be applicable"
-         (handler-case
-             (cltpt/tree:tree-children node)
-           (error () nil)))
-
-       (compare-nodes (actual-node expected-node current-path)
-         ;; Check if we have both nodes
-         (cond
-           ;; Both are nil - end of branch
-           ((and (null actual-node) (null expected-node))
-            nil)
-
-           ;; One is nil but not the other - structure mismatch
-           ((null actual-node)
-            (push (format nil "~a: Expected node of type ~a, but got nil"
-                         current-path (cltpt/tree:tree-value expected-node)) errors))
-
-           ((null expected-node)
-            (push (format nil "~a: Got unexpected node of type ~a"
-                         current-path (type-of actual-node)) errors))
-
-           ;; Both exist - compare types and recurse
-           (t
-            ;; Get values and children using tree interface
-            (let ((actual-type (type-of actual-node))
-                  (actual-children (safe-tree-children actual-node))
-                  (expected-type (cltpt/tree:tree-value expected-node))
-                  (expected-children (safe-tree-children expected-node)))
-
-              ;; Compare types - actual-type is a symbol, expected-type comes from tree-value
-              (unless (if (symbolp expected-type)
-                        (equal actual-type expected-type)  ; Both symbols
-                        (string= (symbol-name actual-type) expected-type))  ; Symbol vs string
-                (push (format nil "~a: Expected type ~a, got ~a"
-                             current-path expected-type actual-type) errors))
-
-              ;; Compare children count
-              (unless (= (length actual-children) (length expected-children))
-                (push (format nil "~a: Expected ~d children, got ~d"
-                             current-path (length expected-children) (length actual-children)) errors))
-
-              ;; Recurse on children - iterate through both trees simultaneously
-              (loop for actual-child in actual-children
-                    for expected-child in expected-children
-                    for i from 0
-                    do (compare-nodes actual-child expected-child
-                                    (format nil "~a[~d]" current-path i))))))))
-
-      (compare-nodes actual-tree expected-types-tree path))
-    (nreverse errors)))
-
 (defun create-expected-types-tree ()
-  "Create a cons tree of expected types for the comprehensive org document.
-This exactly matches the actual parsed tree structure."
-  (cons 'cltpt/org-mode::org-document
-        (append
-         ;; 7 keywords at the top level (as cons cells with no children)
-         (list (cons 'cltpt/org-mode::org-keyword nil)
-               (cons 'cltpt/org-mode::org-keyword nil)
-               (cons 'cltpt/org-mode::org-keyword nil)
-               (cons 'cltpt/org-mode::org-keyword nil)
-               (cons 'cltpt/org-mode::org-keyword nil)
-               (cons 'cltpt/org-mode::org-keyword nil)
-               (cons 'cltpt/org-mode::org-keyword nil))
-         ;; Main header that contains all sub-headers (13 of them)
-         (list
-          (cons 'cltpt/org-mode::org-header
-                (list
-                 ;; 1. Text Formatting section
-                 (cons 'cltpt/org-mode::org-header
-                       (list 'cltpt/org-mode::org-emph
-                             'cltpt/org-mode::org-italic
-                             'cltpt/org-mode::org-inline-code))
-                 ;; 2. Links and Images section
-                 (cons 'cltpt/org-mode::org-header
-                       (list (cons 'cltpt/org-mode::org-list
-                                   (list 'cltpt/org-mode::web-link
-                                         'cltpt/org-mode::org-link
-                                         'cltpt/org-mode::org-link
-                                         'cltpt/org-mode::org-link))))
-                 ;; 3. Lists section (3 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Unordered Lists
-                        (cons 'cltpt/org-mode::org-header
-                              (list (cons 'cltpt/org-mode::org-list
-                                          (list (cons 'cltpt/org-mode::org-list
-                                                      (list (cons 'cltpt/org-mode::org-list '())))))))
-                        ;; Ordered Lists
-                        (cons 'cltpt/org-mode::org-header
-                              (list (cons 'cltpt/org-mode::org-list
-                                          (list (cons 'cltpt/org-mode::org-list '())))))
-                        ;; Description Lists
-                        (cons 'cltpt/org-mode::org-header
-                              (list (cons 'cltpt/org-mode::org-list '())))))
-                 ;; 4. Source Code section (3 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Python
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-src-block))
-                        ;; JavaScript
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-src-block))
-                        ;; LaTeX
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-src-block))))
-                 ;; 5. Mathematics section (2 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Inline Math
-                        (cons 'cltpt/org-mode::org-header '())
-                        ;; LaTeX Environments
-                        (cons 'cltpt/org-mode::org-header
-                              (list
-                               ;; First LaTeX environment with keyword
-                               (cons 'cltpt/org-mode::org-latex-env
-                                     (list 'cltpt/org-mode::org-keyword))
-                               ;; Second LaTeX environment with keyword
-                               (cons 'cltpt/org-mode::org-latex-env
-                                     (list 'cltpt/org-mode::org-keyword))))))
-                 ;; 6. Tables section (2 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Simple Table
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-table))
-                        ;; Complex Table
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-table))))
-                 ;; 7. Timestamps section (2 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Deadline
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-list))
-                        ;; Timestamps
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-list))))
-                 ;; 8. Tags and Tasks section (3 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Task with tags
-                        (cons 'cltpt/org-mode::org-header '())
-                        ;; TODO with properties drawer
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-prop-drawer))
-                        ;; DONE with properties drawer and list
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-prop-drawer
-                                    'cltpt/org-mode::org-list))))
-                 ;; 9. Blocks and Quotes section (4 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Quote Block
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-block))
-                        ;; Verse Block
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-block))
-                        ;; Center Block
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-block))
-                        ;; Export Blocks (2 of them)
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-export-block
-                                    'cltpt/org-mode::org-export-block))))
-                 ;; 10. Comments section (2 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Comments
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-comment))
-                        ;; Footnotes
-                        (cons 'cltpt/org-mode::org-header '())))
-                 ;; 11. Advanced Features section (3 sub-headers)
-                 (cons 'cltpt/org-mode::org-header
-                       (list
-                        ;; Macros
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-keyword))
-                        ;; Include
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-keyword))
-                        ;; Bibliography
-                        (cons 'cltpt/org-mode::org-header
-                              (list 'cltpt/org-mode::org-link))))
-                 ;; 12. Target Search section
-                 (cons 'cltpt/org-mode::org-header '())
-                 ;; 13. Final Section
-                 (cons 'cltpt/org-mode::org-header
-                       (list 'cltpt/org-mode::org-emph))))))))
+  '(cltpt/org-mode::org-document
+    ;; 7 keywords at the top level
+    (cltpt/org-mode::org-keyword)
+    (cltpt/org-mode::org-keyword)
+    (cltpt/org-mode::org-keyword)
+    (cltpt/org-mode::org-keyword)
+    (cltpt/org-mode::org-keyword)
+    (cltpt/org-mode::org-keyword)
+    (cltpt/org-mode::org-keyword)
+    ;; main header
+    (cltpt/org-mode::org-header
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-emph)
+      (cltpt/org-mode::org-italic)
+      (cltpt/org-mode::org-inline-code))
+     ;; links and images section
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-list
+       (cltpt/org-mode::web-link)
+       (cltpt/org-mode::org-link)
+       (cltpt/org-mode::org-link)
+       (cltpt/org-mode::org-link)))
+     ;; lists section (3 sub-headers)
+     (cltpt/org-mode::org-header
+      ;; unordered lists
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-list
+        (cltpt/org-mode::org-list
+         (cltpt/org-mode::org-list))))
+      ;; ordered lists
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-list
+        (cltpt/org-mode::org-list)))
+      ;; description lists
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-list)))
+     ;; code section (3 sub-headers)
+     (cltpt/org-mode::org-header
+      ;; python
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-src-block))
+      ;; javascript
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-src-block))
+      ;; latex
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-src-block)))
+     ;; math section
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-header)
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-latex-env
+        (cltpt/org-mode::org-keyword))
+       (cltpt/org-mode::org-latex-env
+        (cltpt/org-mode::org-keyword))))
+     ;; tables section (2 sub-headers)
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-table))
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-table)))
+     ;; timestamps section (2 sub-headers)
+     (cltpt/org-mode::org-header
+      ;; deadline
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-list))
+      ;; timestamps
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-list)))
+     ;; tags and tasks section (3 sub-headers)
+     (cltpt/org-mode::org-header
+      ;; task with tags
+      (cltpt/org-mode::org-header)
+      ;; TODO with properties drawer
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-prop-drawer))
+      ;; DONE with properties drawer and list
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-prop-drawer)
+       (cltpt/org-mode::org-list)))
+     ;; blocks and quotes section (4 sub-headers)
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-block))
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-block))
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-block))
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-export-block)
+       (cltpt/org-mode::org-export-block)))
+     ;; comments section (2 sub-headers)
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-comment))
+      (cltpt/org-mode::org-header))
+     ;; advanced features section (3 sub-headers)
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-keyword))
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-keyword))
+      (cltpt/org-mode::org-header
+       (cltpt/org-mode::org-link)))
+     ;; target search section
+     (cltpt/org-mode::org-header)
+     ;; final section
+     (cltpt/org-mode::org-header
+      (cltpt/org-mode::org-emph)))))
 
 (defun test-comprehensive-org-document-parse ()
-  "test parsing of comprehensive org document and validate structure"
   (let* ((doc (test-comprehensive-org-document-func))
          (expected-tree (create-expected-types-tree))
          (errors (compare-tree-types doc expected-tree)))

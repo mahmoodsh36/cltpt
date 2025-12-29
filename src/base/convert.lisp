@@ -92,14 +92,14 @@ the '\\' and processes the char normally (replace or emit)."
                              to-reparse)))
          (escapables (collect-escapables text-object-types))
          (changes (unless result-is-string
-                        (getf result :changes))))
+                    (getf result :changes))))
     (when (getf cltpt:*debug* :convert)
       (format t "DEBUG: before incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
     ;; set the child's own buffer where we will apply the changes. and then schedule the changes
     (if changes
-      (cltpt/buffer:buffer-fetch-parent-text text-obj)
-      (text-object-force-set-text text-obj result-text))
+        (cltpt/buffer:buffer-fetch-parent-text text-obj)
+        (text-object-force-set-text text-obj result-text))
     ;; if :escape t but no regions specified, create a default region covering the whole text.
     ;; or if the result was raw text, we should escape by default.
     (when (or (and to-escape (null regions-to-escape)) result-is-string)

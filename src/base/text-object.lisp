@@ -55,7 +55,7 @@ the text object should finalize initialization or any other functionality.
 
 work that is done in finalization should not have a compounded effect when
 the function is applied multiple times to an unchanged text-object.
-this has to be true for incremental changes (e.g. `handle-changed-regions') to
+this has to be true for incremental changes (via `reparse-change-in-tree') to
 work properly."))
 
 (defgeneric text-object-ends-by (text-obj value)
@@ -132,12 +132,14 @@ set correctly."
 
 this function doesnt propagate the changes to the children, so using it without
 taking care of children indicies would cause issues."
-  (text-object-modify-region obj
-                             new-text
-                             (cltpt/buffer:make-region
-                              :begin 0
-                              :end (cltpt/buffer:region-length (text-object-text-region obj)))
-                             :propagate propagate))
+  (cltpt/buffer:buffer-replace
+   obj
+   0
+   (cltpt/buffer:region-length (text-object-text-region obj))
+   new-text
+   :delegate nil
+   :propagate propagate)
+  new-text)
 
 (defmethod (setf text-object-text) (new-text (obj text-object))
   (text-object-change-text obj new-text :propagate nil))
@@ -711,7 +713,7 @@ and grabbing each position of each object through its ascendants in the tree."
 
 contents region is further compressed by COMPRESS-REGION if provided."
   (let* ((contents-region (text-object-contents-region text-obj))
-         ;; this is the inner region after region shifts caused by `handle-changed-regions'.
+         ;; this is the inner region after region shifts caused by buffer changes.
          (inner-region
            (if compress-region
                (cltpt/buffer:region-compress-by
