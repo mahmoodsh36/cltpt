@@ -1,12 +1,14 @@
 (defpackage :cltpt/tests/utils
   (:use :cl)
-  (:export :simplify-match
-           :compare-match-loosely
-           :compare-full-match-loosely
-           :plist-to-match
-           :string=+diff
-           :org-rules
-           :rules-from-symbols))
+  (:export
+   :simplify-match
+   :compare-match-loosely
+   :compare-full-match-loosely
+   :plist-to-match
+   :string=+diff
+   :org-rules
+   :rules-from-symbols
+   :compare-tree-types))
 
 (in-package :cltpt/tests/utils)
 
@@ -88,3 +90,56 @@
    'identity
    (loop for sym in syms
          collect (cltpt/base:text-object-rule-from-subclass sym))))
+
+(defun compare-tree-types (actual-tree expected-types-tree &optional (path "root"))
+  "iterate through a text-object tree and validate text-object-types.
+
+ACTUAL-TREE is the parsed text-object tree.
+EXPECTED-TYPES-TREE is a cons tree of type symbols (car is the type, cdr is children list).
+
+when expected children is :IGNORE, skip children comparison for that node.
+
+returns a list of error messages if types don't match, NIL if all match."
+  (let ((errors))
+    (labels
+        ((safe-tree-children (node)
+           (handler-case
+               (cltpt/tree:tree-children node)
+             (error ()
+               nil)))
+         (compare-nodes (actual-node expected-node current-path)
+           (cond
+             ((and (null actual-node) (null expected-node))
+              nil)
+             ((null actual-node)
+              (push (format nil "~a: expected node of type ~a, but got nil"
+                            current-path (cltpt/tree:tree-value expected-node))
+                    errors))
+             ((null expected-node)
+              (push (format nil "~a: got unexpected node of type ~a"
+                            current-path (type-of actual-node))
+                    errors))
+             (t
+              (let ((actual-type (type-of actual-node))
+                    (actual-children (safe-tree-children actual-node))
+                    (expected-type (cltpt/tree:tree-value expected-node))
+                    (expected-children (safe-tree-children expected-node)))
+                (unless (if (symbolp expected-type)
+                            (equal actual-type expected-type)
+                            (string= (symbol-name actual-type) expected-type))
+                  (push (format nil "~a: expected type ~a, got ~a"
+                                current-path expected-type actual-type)
+                        errors))
+                ;; if expected-children is :IGNORE, skip children comparison entirely
+                (unless (eq expected-children :ignore)
+                  (unless (= (length actual-children) (length expected-children))
+                    (push (format nil "~a: expected ~d children, got ~d"
+                                  current-path (length expected-children) (length actual-children))
+                          errors))
+                  (loop for actual-child in actual-children
+                        for expected-child in expected-children
+                        for i from 0
+                        do (compare-nodes actual-child expected-child
+                                          (format nil "~a[~d]" current-path i)))))))))
+      (compare-nodes actual-tree expected-types-tree path))
+    (nreverse errors)))

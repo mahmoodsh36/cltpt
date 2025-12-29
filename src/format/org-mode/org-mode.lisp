@@ -1073,8 +1073,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                     :operator final-open-tag
                                     :region (cltpt/buffer:region-decf
                                              (cltpt/buffer:make-region
-                                              ;; we use 1- to get the | at the start
-                                              ;; replaced by handle-changed-regions
+                                              ;; we use 1- to get the | at the start replaced
                                               :begin (1- (cltpt/combinator:match-begin-absolute cell-match))
                                               :end (cltpt/combinator:match-begin-absolute cell-match))
                                              match-begin)))))
@@ -1803,7 +1802,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                           (macro-match
                            ;; TODO: we shouldnt be evaluating the macros here. we should be using the value
                            ;; that was already evaluated at the time the object was initialized.
-                           (eval (read-from-string (subseq (cltpt/combinator:match-text macro-match str1) 1))))
+                           (ignore-errors (eval (read-from-string (subseq (cltpt/combinator:match-text macro-match str1) 1)))))
                           (t ""))))
                (push (cons kw val) (cltpt/base:text-object-property obj :keywords-alist))))))
 
