@@ -4,6 +4,10 @@
   (let* ((code (org-src-block-code obj))
          (lang-match (cltpt/combinator:find-submatch (cltpt/base:text-object-match obj) 'lang))
          (lang (cltpt/base:text-object-match-text obj lang-match))
+         (eval-property (org-block-keyword-value obj "eval"))
+         (should-eval (not (member eval-property
+                                   (list "no" "on-export")
+                                   :test #'string=)))
          (results-property (org-block-keyword-value obj "results"))
          (reconstruct-property (org-block-keyword-value obj "reconstruct"))
          (transform-property (org-block-keyword-value obj "transform"))
@@ -16,7 +20,8 @@
                          (t '(cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but nil)))))
          (reconstruct-rule (when (consp reconstruct-property)
                              reconstruct-property)))
-    (when (member lang '("python") :test #'string=)
+    (when (and should-eval
+               (member lang '("python") :test #'string=))
       (multiple-value-bind (out-rdr err-rdr)
           (cltpt/babel:babel-eval (intern (string-upcase lang) :cltpt/babel) code)
         ;; ideally we should be working with streams.. transformer should work in an "async" manner
@@ -26,7 +31,6 @@
                          (or (when reconstruct-rule
                                (cltpt/transform:reconstruct out-rdr match reconstruct-rule))
                              (cltpt/combinator:match-text match out-rdr)))))
-          (format t "hello ~A~%" result)
           (when result
             (cltpt/reader:reader-from-string result)))))))
 
@@ -63,3 +67,6 @@
     (cltpt/base:map-text-object
      doc
      #'handle-obj)))
+
+(defmethod cltpt/base:convert-tree :before ((doc org-document) fmt-src fmt-dest &rest args)
+  (eval-blocks doc))

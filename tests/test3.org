@@ -1,10 +1,10 @@
-#+begin_src lisp
+#+begin_src lisp :eval no
   (def-streamable mystruct
     property1
     property2)
 #+end_src
 
-#+begin_src lisp :name blk1 :output %'(plist plist mystruct) :delimiter %(string #\newline)
+#+begin_src lisp :name blk1 :output %'(plist plist mystruct) :delimiter %(string #\newline) :eval no
   (loop for item in `((:name "myname" :property1 "value1")
                       (:name "myname2" :property1 "value2")
                       ,(make-mystruct :property1 "one" :property2 "two")
@@ -19,7 +19,7 @@
 - %(mydefstruct :property1 "one" :property2 "two")
 - %(mydefstruct :property1 "three" :property2 "four")
 
-#+begin_src python :name blk2
+#+begin_src python :name blk2 :eval no
   @run_once
   class MyData:
       def __init__(self, myprop1, myprop2):
@@ -29,11 +29,11 @@
   MyData('%(getf blk1 :property1)', '%(getf blk1 :property2)')
 #+end_src
 
-#+begin_src python :name blk3
+#+begin_src python :name blk3 :eval no
   f'%(make-mydefstruct :property1 {blk1.prop1} :property2 {blk1.prop2})'
 #+end_src
 
-#+begin_src python :input blk1 :encoder blk2 :decoder bkl3 :name blk4
+#+begin_src python :input blk1 :encoder blk2 :decoder bkl3 :name blk4 :eval no
   :output %'(cltpt/combinator:separated-atleast-one
              ,(string #\newline) (:name myline (cltpt/combinator:any)))
   :transform %'(cltpt/org-mode:org-list-matcher (:name myline (cltpt/combinator:any)))
