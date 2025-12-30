@@ -432,61 +432,119 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     :initform *org-list-rule*))
   (:documentation "org-mode list."))
 
-;; this is very hacky, perhaps we should find a better way to export lists
-;; and their children
-;; TODO: make this behave like the org-table conversion function which iterates through
-;; the intermediary objects and places scheduled changes.
+(defun find-direct-child-by-id (node target-id)
+  (when node
+    (find target-id
+          (cltpt/combinator:match-children node)
+          :key 'cltpt/combinator:match-id)))
+
+(defun get-list-type-from-obj (obj list-match)
+  (let* ((children (cltpt/combinator:match-children list-match))
+         (first-item (when children (first children)))
+         (bullet-node (when first-item (find-direct-child-by-id first-item 'list-item-bullet)))
+         (marker (when bullet-node (cltpt/base:text-object-match-text obj bullet-node))))
+    (if (and marker (string= (string-trim " " marker) "-"))
+        :ul
+        :ol)))
+
+(defun generate-list-changes (match backend obj &optional base-offset (depth 0))
+  "generate changes for converting an org-list match to HTML/LaTeX.
+BASE-OFFSET is the absolute position of the top-level text-object's start,
+used for all region-decf calculations to get positions relative to the text-object."
+  (let* ((changes)
+         (match-begin (cltpt/combinator:match-begin-absolute match))
+         ;; use provided base-offset, or match-begin for top-level list
+         (offset (or base-offset match-begin))
+         (list-type (get-list-type-from-obj obj match))
+         ;; get bullet marker for ordered list type detection
+         (first-item (first (cltpt/combinator:match-children match)))
+         (bullet-node (when first-item (find-direct-child-by-id first-item 'list-item-bullet)))
+         (bullet-marker (when bullet-node (cltpt/base:text-object-match-text obj bullet-node)))
+         (open-tag
+           (cltpt/base:pcase backend
+             (cltpt/html:*html*
+              (if (eq list-type :ul)
+                  (format nil "<ul>~%")
+                  (let ((ol-type (get-html-ol-type bullet-marker)))
+                    (format nil "<ol~@[ type=\"~a\"~]>~%" ol-type))))
+             (cltpt/latex:*latex*
+              (if (eq list-type :ul)
+                  (format nil "\\begin{itemize}~%")
+                  (let ((renew-cmd (get-latex-label-command bullet-marker depth)))
+                    (format nil "\\begin{enumerate}~%~@[~a~%~]" renew-cmd))))))
+         (close-tag
+           (cltpt/base:pcase backend
+             (cltpt/html:*html*
+              (if (eq list-type :ul)
+                  (format nil "</ul>~%")
+                  (format nil "</ol>~%")))
+             (cltpt/latex:*latex*
+              (if (eq list-type :ul)
+                  (format nil "~%\\end{itemize}~%")
+                  (format nil "~%\\end{enumerate}~%"))))))
+    ;; schedule change for opening tag first
+    (setf changes
+          (list (cltpt/buffer:make-change
+                 :region (cltpt/buffer:region-decf
+                          (cltpt/buffer:make-region
+                           :begin match-begin
+                           :end match-begin)
+                          offset)
+                 :operator open-tag)))
+    ;; process list items in order
+    (dolist (child (cltpt/combinator:match-children match))
+      (when (eq (cltpt/combinator:match-id child) 'list-item)
+        (let* ((bullet-match (find-direct-child-by-id child 'list-item-bullet))
+               (content-match (find-direct-child-by-id child 'list-item-content))
+               (bullet-begin (when bullet-match (cltpt/combinator:match-begin-absolute bullet-match)))
+               (bullet-end (when bullet-match (cltpt/combinator:match-end-absolute bullet-match)))
+               (item-end (cltpt/combinator:match-end-absolute child)))
+          ;; bullet replacement
+          (when bullet-match
+            (setf changes
+                  (nconc changes
+                         (list (cltpt/buffer:make-change
+                                :region (cltpt/buffer:region-decf
+                                         (cltpt/buffer:make-region :begin bullet-begin :end bullet-end)
+                                         offset)
+                                :operator (cltpt/base:pcase backend
+                                            (cltpt/html:*html* "<li>")
+                                            (cltpt/latex:*latex* "\\item ")))))))
+          ;; nested lists (recurse)
+          (when content-match
+            (dolist (content-child (cltpt/combinator:match-children content-match))
+              (when (eq (cltpt/combinator:match-id content-child) 'org-list)
+                (setf changes
+                      (nconc changes
+                             (generate-list-changes content-child backend obj offset (1+ depth)))))))
+          ;; item close
+          (setf changes
+                (nconc changes
+                       (list (cltpt/buffer:make-change
+                              :region (cltpt/buffer:region-decf
+                                       (cltpt/buffer:make-region :begin item-end :end item-end)
+                                       offset)
+                              :operator (cltpt/base:pcase backend
+                                          (cltpt/html:*html* "</li>")
+                                          (cltpt/latex:*latex* "")))))))))
+    ;; closing tag last
+    (let ((match-end (cltpt/combinator:match-end-absolute match)))
+      (setf changes
+            (nconc changes
+                   (list (cltpt/buffer:make-change
+                          :region (cltpt/buffer:region-decf
+                                   (cltpt/buffer:make-region :begin match-end :end match-end)
+                                   offset)
+                          :operator close-tag)))))
+    changes))
+
 (defmethod cltpt/base:text-object-convert ((obj org-list)
                                            (backend cltpt/base:text-format))
-  ;; create a new non-org-list object, export it, use the output as a new list
-  ;; reparse, that new list, then export the modified newly parsed list as if
-  ;; it was the original
-  (let* ((list-text (cltpt/base:text-object-text obj))
-         (new-children (cltpt/base:text-object-children
-                        (cltpt/base:parse
-                         *org-mode*
-                         list-text
-                         :text-object-types (org-mode-inline-text-object-types))))
-         (new-obj (make-instance 'cltpt/base:text-object)))
-    (cltpt/base:text-object-init
-     new-obj
-     list-text
-     (cltpt/combinator:make-match
-      :begin 0
-      :end (length list-text)
-      :id 'org-list-temp))
-    (cltpt/base:text-object-force-set-text new-obj list-text)
-    ;; set children of new-obj to those of obj without any nested org-lists
-    ;; otherwise things wont work properly (because nested org-lists get converted)
-    ;; to latex and later we try to parse them as a list
-    (setf (cltpt/base:text-object-children new-obj) new-children)
-    (dolist (child new-children)
-      (setf (cltpt/base:text-object-parent child) new-obj)
-      (when (cltpt/base:text-object-match child)
-        (setf (cltpt/combinator/match:match-parent (cltpt/base:text-object-match child))
-              (cltpt/base:text-object-match new-obj))))
-    ;; we create a new intermediate object, treat it as raw text,
-    ;; parse other types of text objects and convert them, then parse the result
-    ;; as a list
-    (let* ((new-txt (cltpt/base:convert-tree
-                     new-obj
-                     *org-mode*
-                     backend
-                     :reparse nil
-                     :recurse t
-                     :escape nil))
-           (parsed (org-list-matcher nil (cltpt/reader:reader-from-string new-txt) 0)))
-      (cond
-        ((eq backend cltpt/latex:*latex*)
-         (list :text (to-latex-list new-txt parsed)
-               :recurse nil
-               :reparse nil
-               :escape nil))
-        ((eq backend cltpt/html:*html*)
-         (list :text (to-html-list new-txt parsed)
-               :recurse nil
-               :reparse nil
-               :escape nil))))))
+  (let ((changes (generate-list-changes (cltpt/base:text-object-match obj) backend obj)))
+    (list :changes changes
+          :recurse t
+          :reparse nil
+          :escape nil)))
 
 ;; matching an org-list after a header we should only match if the list items
 ;; start with "State". otherwise its not a list that should be part of the

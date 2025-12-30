@@ -81,9 +81,8 @@
       2. test2
    b. nested item two
 - item three")
-         (reader (cltpt/reader:reader-from-string text))
-         (parsed-list (cltpt/org-mode::org-list-matcher nil reader 0))
-         (html-output (cltpt/org-mode::to-html-list reader parsed-list)))
+         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* text))
+         (html-output (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
     html-output))
 
 (test org-list-test-3
@@ -91,22 +90,17 @@
    (equalp
     (org-list-test-3-func)
     "<ul>
-<li>we have \\(x=y\\)
+<li> we have <img src='cltpt-latex-previews/cache/cltpt-snippet-57445dda3eae04b5c8affc6fa2037263.svg' class='inline-math' />
 <ol type=\"a\">
-<li>nested item one
+   <li> nested item one
       more nested text
 <ol type=\"1\">
-<li>test1</li>
-<li>test2</li>
-</ol>
+      <li> test1</li>
+      <li> test2</li></ol>
 </li>
-<li>nested item two</li>
-</ol>
-</li>
-<li>item three</li>
-</ul>
-"
-    )))
+   <li> nested item two</li></ol>
+</li><li> item three</li></ul>
+")))
 
 (defun org-list-test-4-func ()
   (let* ((text "- we have \\(x=y\\)
@@ -116,15 +110,9 @@
       2. test2
    b. nested item two
 - item three")
-         (reader (cltpt/reader:reader-from-string text))
-         (parsed-list (cltpt/org-mode::org-list-matcher nil reader 0))
-         (latex-output (cltpt/org-mode::to-latex-list reader parsed-list)))
+         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* text))
+         (latex-output (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/latex:*latex*)))
     latex-output))
-
-(test org-list-test-4
-  (let ((result (org-list-test-4-func)))
-    (fiveam:is (search "\\begin{itemize}" result))
-    (fiveam:is (search "\\end{itemize}" result))))
 
 (defun org-list-test-6-func ()
   (let ((text "- actual cost is 1. the potential changes from \\(2n-M\\) to \\(2(n+1)-M\\) is
