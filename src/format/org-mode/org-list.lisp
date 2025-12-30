@@ -1,50 +1,19 @@
 (in-package :cltpt/org-mode)
 
-;; (defun get-line-bounds (reader pos)
-;;   "returns (values line-start, line-end, next-line-start) for the line at pos."
-;;   (when (cltpt/reader:is-after-eof reader pos)
-;;     (return-from get-line-bounds
-;;       (values (cltpt/reader:reader-buffer-fill reader)
-;;               (cltpt/reader:reader-buffer-fill reader)
-;;               (cltpt/reader:reader-buffer-fill reader))))
-;;   ;; find previous newline by iterating backwards (can't use :from-end with reader)
-;;   (let* ((line-start (or (loop for i from (1- pos) downto 0
-;;                                when (char= (cltpt/reader:reader-char reader i) #\newline)
-;;                                  return i)
-;;                          -1))
-;;          (actual-line-start (1+ line-start))
-;;          (line-end (or (position #\newline reader :start pos)
-;;                        (cltpt/reader:reader-buffer-fill reader)))
-;;          (next-line-start (if (< line-end (cltpt/reader:reader-buffer-fill reader))
-;;                               (1+ line-end)
-;;                               line-end)))
-;;     (values actual-line-start line-end next-line-start)))
-
 ;; this version is much faster than the one above.
 (defun get-line-bounds (reader pos)
-  "returns (values line-start, line-end, next-line-start) for the line at pos."
-  (let* ((buf (cltpt/reader:reader-buffer reader))
-         (buf-len (fill-pointer buf)))
-    ;; check EOF using cached buffer length
-    (when (>= pos buf-len)
-      (when (cltpt/reader:reader-eof-reached reader)
-        (return-from get-line-bounds (values buf-len buf-len buf-len)))
-      (when (cltpt/reader:is-after-eof reader pos)
-        (let ((new-len (fill-pointer buf)))
-          (return-from get-line-bounds (values new-len new-len new-len)))))
-    ;; find previous newline by direct buffer access
-    (let* ((line-start (or (loop for i fixnum from (1- pos) downto 0
-                                 when (char= (char buf i) #\newline)
-                                   return i)
-                           -1))
-           (actual-line-start (the fixnum (1+ line-start)))
-           (line-end (or (position #\newline buf :start actual-line-start)
-                         (fill-pointer buf)))
-           (cur-len (fill-pointer buf))
-           (next-line-start (if (< line-end cur-len)
-                                (1+ line-end)
-                                line-end)))
-      (values actual-line-start line-end next-line-start))))
+  "returns (values line-start, line-end) for the line at pos."
+  (if (cltpt/reader:is-after-eof reader pos)
+      (let ((len (cltpt/reader:reader-buffer-fill reader)))
+        (values len len))
+      (let* ((line-start (or (loop for i fixnum from (1- pos) downto 0
+                                   when (char= (cltpt/reader:reader-char reader i) #\newline)
+                                     return i)
+                             -1))
+             (actual-line-start (the fixnum (1+ line-start)))
+             (line-end (or (position #\newline reader :start actual-line-start)
+                           (cltpt/reader:reader-buffer-fill reader))))
+        (values actual-line-start line-end))))
 
 (defun count-leading-spaces (reader start end)
   (loop for i from start below end
@@ -125,7 +94,7 @@
 
 (defun parse-single-list-item (ctx reader item-start-pos item-indent inline-rules)
   "parse a single list item. returns (values item-match next-pos)."
-  (multiple-value-bind (line-start line-end next-line-start)
+  (multiple-value-bind (line-start line-end)
       (get-line-bounds reader item-start-pos)
     (multiple-value-bind (is-bullet marker bullet-len)
         (parse-bullet reader line-start line-end item-indent)
@@ -143,7 +112,9 @@
              (item-ctx (cltpt/combinator:context-copy ctx item-match))
              (item-children)
              (content-segments)
-             (current-scan-pos next-line-start)
+             (current-scan-pos (if (< line-end (cltpt/reader:reader-buffer-fill reader))
+                                   (1+ line-end)
+                                   line-end))
              (end-of-content-text line-end))
         (let ((bullet-match (cltpt/combinator:make-match
                              :id 'list-item-bullet
@@ -159,7 +130,7 @@
         (loop
           (when (cltpt/reader:is-after-eof reader current-scan-pos)
             (return))
-          (multiple-value-bind (next-l-start next-l-end next-l-next)
+          (multiple-value-bind (next-l-start next-l-end)
               (get-line-bounds reader current-scan-pos)
             (let ((next-indent (count-leading-spaces reader next-l-start next-l-end)))
               (if (and (> next-indent item-indent)
@@ -168,7 +139,9 @@
                     (let ((extra-start (+ next-l-start next-indent)))
                       (when (< extra-start next-l-end)
                         (push (cons extra-start next-l-end) content-segments)))
-                    (setf current-scan-pos next-l-next)
+                    (setf current-scan-pos (if (< next-l-end (cltpt/reader:reader-buffer-fill reader))
+                                               (1+ next-l-end)
+                                               next-l-end))
                     (setf end-of-content-text next-l-end))
                   (return)))))
         (setf content-segments (nreverse content-segments))
