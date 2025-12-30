@@ -46,7 +46,7 @@
 (defun test-org-src-block-with-image-result-func ()
   (cltpt/base:parse
    cltpt/org-mode:*org-mode*
-   "#+begin_src python :results file :exports both
+   "#+begin_src python :results file :exports both :eval no
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -67,7 +67,7 @@ plt.close()
 
 (test test-org-src-block-with-image-result-html-conversion
   (let* ((html-output (org-src-block-with-image-result-html-conversion))
-         (expected-html "<div class='org-src' data-lang='python'><pre><code>import matplotlib.pyplot as plt
+         (expected-html "<div class='org-src' data-lang='python' data-eval='no'><pre><code>import matplotlib.pyplot as plt
 import numpy as np
 
 x = np.linspace(0, 10, 100)
