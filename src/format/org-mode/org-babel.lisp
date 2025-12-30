@@ -34,6 +34,8 @@
           (when result
             (cltpt/reader:reader-from-string result)))))))
 
+;; TODO: we shouldnt be using :delegate nil and then applying the changes to the root. this
+;; causes a reparse of the whole document.
 (defmethod eval-blocks ((doc org-document))
   "evaluate the code of org-src-block instances in DOC and register the results as scheduled changes."
   (labels ((handle-obj (obj)
@@ -48,25 +50,27 @@
                       ;; a replacement operation. otherwise, we want them to point to the end of the
                       ;; src-block, causing an insertion operation.
                       (results-begin (if results-match
-                                         (- (cltpt/combinator:match-begin-absolute results-match)
-                                            base-begin)
-                                         (cltpt/base:text-object-text-length obj)))
+                                         (cltpt/combinator:match-begin-absolute results-match)
+                                         (+ base-begin (cltpt/base:text-object-text-length obj))))
                       (results-end (if results-match
-                                       (- (cltpt/combinator:match-end-absolute results-match)
-                                          base-begin)
-                                       (cltpt/base:text-object-text-length obj))))
+                                       (cltpt/combinator:match-end-absolute results-match)
+                                       (+ base-begin (cltpt/base:text-object-text-length obj)))))
                  (when result
                    (cltpt/reader:reader-fully-consume result)
-                   (cltpt/buffer:schedule-change obj
-                                                 results-begin
-                                                 results-end
-                                                 (concatenate 'string
-                                                              (format nil "~%#+RESULTS:~%")
-                                                              (coerce result 'string))
-                                                 :delegate nil))))))
+                   (cltpt/buffer:schedule-change*
+                    doc
+                    (cltpt/buffer:make-change
+                     :region (cltpt/buffer:make-region :begin results-begin :end results-end)
+                     :operator (concatenate 'string
+                                            (format nil "~%#+RESULTS:~%")
+                                            (coerce result 'string))
+                     :args '(:delegate nil :reparse t))))))))
     (cltpt/base:map-text-object
      doc
-     #'handle-obj)))
+     #'handle-obj)
+    (cltpt/buffer:apply-scheduled-changes
+                    doc
+                    :on-apply (cltpt/base:make-reparse-callback doc *org-mode*))))
 
 (defmethod cltpt/base:convert-tree :before ((doc org-document) fmt-src fmt-dest &rest args)
   (eval-blocks doc))
