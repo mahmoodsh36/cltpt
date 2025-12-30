@@ -62,7 +62,7 @@
 
 (defun parse-table-row (ctx reader row-start-offset inline-rules)
   "parses a single table row, creating a structured tree for cells and their content."
-  (multiple-value-bind (line-start line-end next-line-start)
+  (multiple-value-bind (line-start line-end)
       (get-line-bounds reader row-start-offset)
     (let* ((trimmed-line-start
              (position-if-not
@@ -180,7 +180,9 @@
         (setf (cltpt/combinator:match-children row-match) reversed-children)
         (dolist (child reversed-children)
           (setf (cltpt/combinator/match:match-parent child) row-match))
-        (values row-match next-line-start)))))
+        (values row-match (if (< line-end (cltpt/reader:reader-buffer-fill reader))
+                              (1+ line-end)
+                              line-end))))))
 
 (defun org-table-matcher (ctx reader pos &optional inline-rules)
   "parses an org-mode table starting at pos. returns (values match-node, new-pos)."
@@ -200,7 +202,7 @@
     (loop
       (when (cltpt/reader:is-after-eof reader current-pos)
         (return))
-      (multiple-value-bind (line-start line-end next-start)
+      (multiple-value-bind (line-start line-end)
           (get-line-bounds reader current-pos)
         (unless (and (= current-pos line-start)
                      (is-table-line-at-pos-p reader line-start))
@@ -225,18 +227,21 @@
                 (parse-table-row table-ctx reader line-start inline-rules)
               (push row-node row-nodes)))
         ;; push the newline separator if it exists
-        (when (< line-end next-start)
-          (let ((separator-match (cltpt/combinator:make-match
-                                  :id 'table-row-separator
-                                  :ctx table-ctx
-                                  :parent (cltpt/combinator:context-parent-match table-ctx)
-                                  :begin (- line-end
-                                            (cltpt/combinator:context-parent-begin table-ctx))
-                                  :end (- next-start
-                                          (cltpt/combinator:context-parent-begin table-ctx)))))
-            (push separator-match row-nodes)))
-        (setf current-pos next-start)
-        (setf last-successful-pos current-pos)))
+        (let ((next-line-start (if (< line-end (cltpt/reader:reader-buffer-fill reader))
+                                   (1+ line-end)
+                                   line-end)))
+          (when (< line-end (cltpt/reader:reader-buffer-fill reader))
+            (let ((separator-match (cltpt/combinator:make-match
+                                    :id 'table-row-separator
+                                    :ctx table-ctx
+                                    :parent (cltpt/combinator:context-parent-match table-ctx)
+                                    :begin (- line-end
+                                              (cltpt/combinator:context-parent-begin table-ctx))
+                                    :end (- next-line-start
+                                            (cltpt/combinator:context-parent-begin table-ctx)))))
+              (push separator-match row-nodes)))
+          (setf current-pos next-line-start)
+          (setf last-successful-pos current-pos))))
     (if row-nodes
         (let* ((final-nodes-rev (if (and (car row-nodes)
                                          (eq (cltpt/combinator:match-id (car row-nodes))
@@ -301,9 +306,9 @@
                                            (car (cltpt/combinator/match:match-children
                                                  cell-node))))
                                      (when content-node
-                                        (setf cell-text (cltpt/combinator:match-text
-                                                         content-node
-                                                         str)))))
+                                       (setf cell-text (cltpt/combinator:match-text
+                                                        content-node
+                                                        str)))))
                                  (format s " ~vA ~c" width cell-text *table-v-delimiter*)))))
                    (table-hrule
                     (write-char *table-v-delimiter* s)
@@ -367,7 +372,7 @@ table's data. ignores the new table-row-separator nodes."
            (dolist (cell-node cell-nodes)
              (let* ((content-node (first (cltpt/combinator/match:match-children cell-node)))
                     (cell-text (if content-node
-                                    (cltpt/combinator:match-text content-node str)
+                                   (cltpt/combinator:match-text content-node str)
                                    "")))
                (push cell-text current-row-cells)))
            (push (nreverse current-row-cells) table-data)))
@@ -455,6 +460,5 @@ handles wrapping to the next line automatically."
         (setf next-x 0)
         (setf next-y (1+ next-y)))
       ;; check if we are past the end of the table
-      (if (>= next-y height)
-          nil ; we've iterated past the last cell
-          (cons next-x next-y)))))
+      (unless (>= next-y height)
+        (cons next-x next-y)))))
