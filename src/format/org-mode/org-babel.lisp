@@ -6,7 +6,7 @@
          (lang (cltpt/base:text-object-match-text obj lang-match))
          (eval-property (org-block-keyword-value obj "eval"))
          (should-eval (not (member eval-property
-                                   (list "no" "on-export")
+                                   (list "no" "no-export")
                                    :test #'string=)))
          (results-property (org-block-keyword-value obj "results"))
          (reconstruct-property (org-block-keyword-value obj "reconstruct"))
