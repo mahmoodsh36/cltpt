@@ -34,8 +34,6 @@
           (when result
             (cltpt/reader:reader-from-string result)))))))
 
-;; TODO: we shouldnt be using :delegate nil and then applying the changes to the root. this
-;; causes a reparse of the whole document.
 (defmethod eval-blocks ((doc org-document))
   "evaluate the code of org-src-block instances in DOC and register the results as scheduled changes."
   (labels ((handle-obj (obj)
@@ -69,8 +67,10 @@
      doc
      #'handle-obj)
     (cltpt/buffer:apply-scheduled-changes
-                    doc
-                    :on-apply (cltpt/base:make-reparse-callback doc *org-mode*))))
+     doc
+     :on-apply (cltpt/base:make-reparse-callback doc *org-mode*))))
 
 (defmethod cltpt/base:convert-tree :before ((doc org-document) fmt-src fmt-dest &rest args)
-  (eval-blocks doc))
+  ;; evaluate blocks to prepare them for conversion.
+  (when *org-enable-babel*
+    (eval-blocks doc)))
