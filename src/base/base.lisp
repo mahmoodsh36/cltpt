@@ -1,10 +1,9 @@
 (defpackage :cltpt/base
   (:use :cl)
   (:export
-   :flatten :tree-find :pcase :plistp
+   :tree-find :pcase :plistp
    :bind-and-eval :bind-and-eval* :eval-in-text-object-lexical-scope
-   :compress-consec :concat
-   :alist-get :subseq* :sorted-insert :last-atom
+   :concat :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day
    :find-cons-if :tautology

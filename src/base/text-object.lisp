@@ -62,11 +62,6 @@ work properly."))
   (:documentation "should return whether the value indicates the ending of the
 object's region. you should just make it return a symbol like `end-type'."))
 
-;; the default end function returns the value 'end, which should end any text object that
-;; comes before it, this isnt recommended as it may cause ambiguations
-;; value can be 'end-of-buffer to denote the end of file/buffer/text, this is useful for headers
-;; which should be ended by new headers but also by the end of the text
-;; value can also be another text object
 (defmethod text-object-ends-by ((text-obj text-object) value)
   (and (symbolp value) (string= value 'end)))
 
@@ -80,8 +75,6 @@ object's region. you should just make it return a symbol like `end-type'."))
   (:documentation "returns a plist or a string, if string, converted with recursion and no \"reparsing\".
 if plist, plist can contain the keywords:
   :text    - the text to convert,
-  :reparse - whether to reparse the given :text, or if :text isnt provided the result of text-object-text, the default behavior is to recurse,
-  :reparse-region - the region of the text that is given that is reparsed, if at all,
   :recurse - whether to convert children as well."))
 
 (defgeneric text-object-convert-options (text-obj backend)
@@ -386,11 +379,6 @@ SPEC is a plist with keys:
     :allocation :class
     :initform *post-lexer-text-macro-rule*)))
 
-;; we need to evaluate post-lexer text-macros during finalization. the result
-;; of the evaluation should be also be cached for later use.
-;; (defmethod cltpt/base:text-object-finalize ((obj post-lexer-text-macro))
-;;   (eval-post-lexer-macro obj))
-
 (defvar *cache-post-lexer-macro-evals* nil)
 (defun eval-post-lexer-macro (obj)
   ;; TODO: we can cache results to avoid re-eval which is log(n). i tried this
@@ -437,15 +425,10 @@ SPEC is a plist with keys:
                                   (getf *convert-info* :src-fmt)
                                   (getf *convert-info* :dest-fmt))
               :recurse nil
-              :reparse nil
               :escape nil)
         (list :text (princ-to-string eval-result)
               :recurse t
-              :escape nil
-              ;; :reparse makes post-lexer macros able to contain markup contents
-              ;; that gets handled during conversion.
-              ;; currently, the code for converting org-document exploits this.
-              :reparse nil))))
+              :escape nil))))
 
 (defmethod text-object-convert ((obj post-lexer-text-macro) backend)
   (convert-post-lexer-macro-obj obj backend))
@@ -459,6 +442,7 @@ SPEC is a plist with keys:
   t)
 
 ;; modifies the tree of a rule, replaces 'eval' instance with the evaluation result
+;; TODO: get rid of this, i dont like how i did it.
 (defun post-process-rule (rule)
   (if (listp rule)
       (if (null rule)
@@ -474,6 +458,7 @@ SPEC is a plist with keys:
                         collect (post-process-rule child)))))
       rule))
 
+;; this is a workaround because MOP lookup is very slow.
 (defvar *text-object-rule-hash*
   (make-hash-table :test 'equal)
   "a hashtable mapping symbols of `text-object' subclasses to their combinator rules.")
@@ -656,12 +641,6 @@ and grabbing each position of each object through its ascendants in the tree."
     (when (and parent (> new-pos old-end))
       ;; update the object's region to the new end position.
       (setf (cltpt/buffer:region-end (text-object-text-region obj)) new-pos)
-      ;; update the cached text by re-slicing it from the parent's text
-      ;; using the newly updated region.
-      ;; (setf (text-object-text obj)
-      ;;       (subseq (text-object-text parent)
-      ;;               (text-object-begin obj)
-      ;;               (text-object-end obj)))
       ;; find any sibling objects that are now encompassed by the new, larger region.
       (let ((siblings-to-move
               (loop for sibling in (text-object-children parent)

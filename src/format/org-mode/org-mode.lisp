@@ -466,12 +466,12 @@ used for all region-decf calculations to get positions relative to the text-obje
               (if (eq list-type :ul)
                   (format nil "<ul>~%")
                   (let ((ol-type (get-html-ol-type bullet-marker)))
-                    (format nil "<ol~@[ type=\"~a\"~]>~%" ol-type))))
+                    (format nil "<ol~@[ type=\"~A\"~]>~%" ol-type))))
              (cltpt/latex:*latex*
               (if (eq list-type :ul)
                   (format nil "\\begin{itemize}~%")
                   (let ((renew-cmd (get-latex-label-command bullet-marker depth)))
-                    (format nil "\\begin{enumerate}~%~@[~a~%~]" renew-cmd))))))
+                    (format nil "\\begin{enumerate}~%~@[~A~%~]" renew-cmd))))))
          (close-tag
            (cltpt/base:pcase backend
              (cltpt/html:*html*
@@ -543,7 +543,6 @@ used for all region-decf calculations to get positions relative to the text-obje
   (let ((changes (generate-list-changes (cltpt/base:text-object-match obj) backend obj)))
     (list :changes changes
           :recurse t
-          :reparse nil
           :escape nil)))
 
 ;; matching an org-list after a header we should only match if the list items
@@ -927,7 +926,6 @@ used for all region-decf calculations to get positions relative to the text-obje
             (cltpt/buffer:make-region
              :begin (cltpt/buffer:region-end old-postfix-region)
              :end (length obj-text)))
-           :reparse nil
            :recurse t)))))
 
 (defvar *org-link-rule*
@@ -1175,7 +1173,6 @@ used for all region-decf calculations to get positions relative to the text-obje
     (list :text (cltpt/base:text-object-text obj)
           :changes changes
           :escape nil
-          :reparse nil
           :recurse t)))
 
 (defclass org-document (cltpt/base:document)
@@ -1344,7 +1341,6 @@ used for all region-decf calculations to get positions relative to the text-obje
     (ensure-latex-previews-generated obj))
   (list :text (cltpt/base:text-object-text obj)
         :escape t
-        :reparse nil
         :recurse t))
 
 (defclass org-emph (cltpt/base:text-object)
@@ -1824,8 +1820,7 @@ used for all region-decf calculations to get positions relative to the text-obje
              (list :changes changes
                    :recurse t
                    :escape-regions escape-regions
-                   :escape t
-                   :reparse nil)
+                   :escape t)
              (cltpt/base:rewrap-within-tags
               obj
               code-open-tag
@@ -2015,7 +2010,6 @@ used for all region-decf calculations to get positions relative to the text-obje
     (if (string= (cltpt/base:text-format-name backend) lang)
         (list :text (cltpt/base:text-object-contents obj)
               :recurse nil
-              :reparse nil
               :escape nil)
         (list :text ""
               :reparse t))))
