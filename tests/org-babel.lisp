@@ -31,12 +31,8 @@
     <div class='org-src' data-lang='python'><pre><code>  text = &quot;block1&quot;
   print(text)</code></pre></div>block1
 <br>
-block1
-<br>
 <div class='org-src' data-lang='python'><pre><code>  text = &quot;block2&quot;
   print(text)</code></pre></div>block2
-<br>
-block2
 <br>
 <div class='org-src' data-lang='python' data-reconstruct='(PATTERN
                    (ANY
@@ -47,9 +43,7 @@ block2
                             (PATTERN (ALL-BUT []) ID LINK-DEST) ]])
                     (CONSEC [[ (PATTERN (ALL-BUT []) ID LINK-DEST) ]]))
                    ON-CHAR [)'><pre><code>  filepath = &quot;out.png&quot;
-  print(filepath)</code></pre></div><img src='out.png' />
-<br>
-<img src='out.png' />  </div>
+  print(filepath)</code></pre></div><img src='out.png' />  </div>
 </body>
 </html>"
                           ))

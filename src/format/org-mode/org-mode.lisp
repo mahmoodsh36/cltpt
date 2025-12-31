@@ -1342,9 +1342,6 @@ used for all region-decf calculations to get positions relative to the text-obje
   ;; to compile every preview individually later on.
   (when (eq backend cltpt/html:*html*)
     (ensure-latex-previews-generated obj))
-  ;; evaluate blocks to prepare them for conversion. TODO: i dont think we should be doing this here though
-  (when *org-enable-babel*
-    (eval-blocks obj))
   (list :text (cltpt/base:text-object-text obj)
         :escape t
         :reparse nil
