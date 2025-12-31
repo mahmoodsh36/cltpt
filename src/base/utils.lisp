@@ -65,42 +65,6 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
   (and (consp list1)
        (keywordp (car list1))))
 
-(defun flatten (l)
-  "flatten a tree: turn it into a list."
-  (cond ((null l) nil)
-        ((atom l) (list l))
-        (t (loop for a in l appending (flatten a)))))
-
-;; ended up not needing this more complex one
-;; (defun flatten (tree &optional (max-depth 1))
-;;   "flatten TREE so that no node in the result exceeds MAX-DEPTH nesting.
-;; example: (flatten '(1 (2 (3 4)) (((5 10)))) 2) => (1 2 (3 4) (5 10))"
-;;   (labels
-;;       ((node-depth (node)
-;;          (if (atom node)
-;;              0
-;;              (1+ (reduce 'max (mapcar #'node-depth node)))))
-;;        (flatten-if-too-deep (node)
-;;          (if (or (atom node)
-;;                  (<= (node-depth node) max-depth))
-;;              node
-;;              (mapcan (lambda (x)
-;;                        (let ((res (flatten-if-too-deep x)))
-;;                          (if (listp res) res (list res))))
-;;                      node))))
-;;     (flatten-if-too-deep tree)))
-
-(defun compress-consec (s char-to-compress)
-  "compresses runs of a specific character into a single instance. aaab -> ab."
-  (with-output-to-string (out)
-    (loop for current-char across s
-          with last-char = nil
-          do
-             (unless (and (char= current-char char-to-compress)
-                          (and last-char (char= last-char char-to-compress)))
-               (write-char current-char out))
-             (setf last-char current-char))))
-
 (defun alist-get (alist key)
   "grab value by KEY from ALIST (compare using `equal')."
   (cdr (assoc key alist :test 'equal)))
@@ -117,8 +81,8 @@ example usage: `(let ((myvar 'latex)) (pcase 'latex ('html 1) (myvar 2)))'"
 (defun concat (seqs &optional type)
   "run `concatenate', automatically detect type of sequence using `seq-type'.
 
-the type of sequence to return is determined by the first sequences in the list of sequences
-  example usage:
+the type of sequence to return is determined by the first sequences in the list of sequences.
+example usage:
   CL-USER> (concatenate-type-aware '((1 2 3) (1)))
   (1 2 3 1)
   CL-USER> (concatenate-type-aware '(\"hi\" \"hey\"))

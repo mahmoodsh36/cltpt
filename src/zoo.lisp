@@ -83,7 +83,6 @@
                                   backend)))))
           (list :text (cltpt/base:concat result)
                 :recurse nil
-                :reparse nil
                 :escape nil))
         (text-block-convert-helper obj backend))))
 
@@ -105,21 +104,18 @@
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) t)
         :recurse t
-        :reparse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:display-math)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse nil
-        :reparse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
                                            (fmt (eql cltpt/html:*html*)))
   (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
         :recurse nil
-        :reparse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
@@ -132,7 +128,6 @@
          (latex-env-contents (cltpt/base:text-object-match-text obj latex-env-match)))
     ;; TODO: handle \caption and \label properly.
     (list :text latex-env-contents
-          :reparse nil
           :recurse nil
           :escape nil)))
 
@@ -147,7 +142,6 @@
     ;; TODO: handle \caption and \label properly.
     (list :text (latex-fragment-to-html latex-env-contents nil)
           :recurse nil
-          :reparse nil
           :escape nil)))
 
 (defmethod cltpt/base:convert-target-filepath ((target pathname))

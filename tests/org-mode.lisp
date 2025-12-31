@@ -1069,7 +1069,6 @@ my equation here
      (equal result '(:hour 3)))))
 
 (defun test-org-document-parse-func ()
-  "Test parsing a complete org document with multiple elements."
   (cltpt/base:parse
    cltpt/org-mode:*org-mode*
    "#+title: Test Document

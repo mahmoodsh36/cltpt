@@ -4,7 +4,8 @@
    :md5-str :str-join :str-prune :str-split :str-dupe
    :replace-all
    :replace-substr
-   :unindent :ensure-min-indent))
+   :unindent :ensure-min-indent
+   :compress-consec))
 
 (in-package :cltpt/str-utils)
 
@@ -119,3 +120,14 @@ returns the pruned string, or the original string if it's short enough."
               (loop for line = (read-line in nil nil)
                     while line
                     do (print-trimmed line)))))))))
+
+(defun compress-consec (s char-to-compress)
+  "compresses runs of a specific character into a single instance. aaab -> ab."
+  (with-output-to-string (out)
+    (loop for current-char across s
+          with last-char = nil
+          do
+             (unless (and (char= current-char char-to-compress)
+                          (and last-char (char= last-char char-to-compress)))
+               (write-char current-char out))
+             (setf last-char current-char))))

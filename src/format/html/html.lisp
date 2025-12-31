@@ -65,7 +65,7 @@ directory path.")
       (cltpt/base:replace-chars-and-escapes
        ;; replace any sequence of newlines with a single newline
        ;; TODO: make into customizable behavior
-       (cltpt/base:compress-consec text #\newline)
+       (cltpt/str-utils:compress-consec text #\newline)
        *html-escape-table*
        escapable-chars)
       (cltpt/base:replace-chars-and-escapes

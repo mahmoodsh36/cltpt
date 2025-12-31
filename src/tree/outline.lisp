@@ -31,7 +31,7 @@
 ;;   (setf (getf node :expanded) nil))
 
 (defmethod should-expand ((node cons))
-  "Returns true only if the node has a branch structure AND the :expanded flag."
+  "returns true only if the node has a branch structure AND the :expanded flag."
   (and (consp (car node))
        (getf (car node) :expanded)))
 

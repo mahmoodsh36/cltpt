@@ -57,7 +57,7 @@
       (cltpt/base:replace-chars-and-escapes
        ;; replace any sequence of newlines with a single newline
        ;; TODO: make into customizable behavior
-       (cltpt/base:compress-consec text #\newline)
+       (cltpt/str-utils:compress-consec text #\newline)
        *latex-escape-table*
        escapable-chars)
       (cltpt/base:replace-chars-and-escapes
@@ -100,7 +100,6 @@
 (defmethod cltpt/base:text-object-convert ((obj display-math)
                                            (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
-        :reparse nil
         :recurse t
         :escape nil))
 
@@ -136,7 +135,6 @@
 
 (defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
-        :reparse nil
         :recurse nil
         :escape nil))
 
