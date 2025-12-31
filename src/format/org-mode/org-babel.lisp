@@ -60,7 +60,9 @@
                     (cltpt/buffer:make-change
                      :region (cltpt/buffer:make-region :begin results-begin :end results-end)
                      :operator (concatenate 'string
-                                            (format nil "~%#+RESULTS:~%")
+                                            (format nil (if results-match
+                                                            "#+RESULTS:~%"
+                                                            "~%~%#+RESULTS:~%"))
                                             (coerce result 'string))
                      :args '(:delegate nil :reparse t))))))))
     (cltpt/base:map-text-object
