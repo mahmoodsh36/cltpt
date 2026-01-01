@@ -380,12 +380,14 @@ SPEC is a plist with keys:
     :initform *post-lexer-text-macro-rule*)))
 
 (defvar *cache-post-lexer-macro-evals* nil)
-(defun eval-post-lexer-macro (obj)
+(defun eval-post-lexer-macro (obj &optional force)
   ;; TODO: we can cache results to avoid re-eval which is log(n). i tried this
   ;; but it causes issues as the value sometimes seems to evaluate to 'broken during
   ;; conversion even though it shouldnt be. i really need to investigate this.
   ;; it probably has to do with objects being reparsed/recreated during conversion.
-  (when (and *cache-post-lexer-macro-evals* (text-object-property obj :eval-result))
+  (when (and *cache-post-lexer-macro-evals*
+             (text-object-property obj :eval-result)
+             (not force))
     (return-from eval-post-lexer-macro (text-object-property obj :eval-result)))
   (let ((txt-to-eval (subseq (text-object-text obj) 1))
         (macro-eval-result)

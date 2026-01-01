@@ -53,6 +53,7 @@
    :text-object-find-submatch
    :text-object-text-length
    :is-post-lexer-macro :post-lexer-macro-value
+   :eval-post-lexer-macro
 
    :*image-ext* :*video-ext*))
 

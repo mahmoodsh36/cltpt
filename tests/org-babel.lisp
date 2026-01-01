@@ -19,7 +19,7 @@
                          cltpt/org-mode:*org-mode*
                          cltpt/html:*html*
                          parsed))
-         (expected-output "<!DOCTYPE html>
+          (expected-output "<!DOCTYPE html>
 <html>
 <head>
   <meta charset=\"UTF-8\">
@@ -29,10 +29,14 @@
   <div class=\"post-content\">
     <h1> NIL - NIL </h1>
     <div class='org-src' data-lang='python'><pre><code>  text = &quot;block1&quot;
-  print(text)</code></pre></div>block1
+  print(text)</code></pre></div>
+<br>
+block1
 <br>
 <div class='org-src' data-lang='python'><pre><code>  text = &quot;block2&quot;
-  print(text)</code></pre></div>block2
+  print(text)</code></pre></div>
+<br>
+block2
 <br>
 <div class='org-src' data-lang='python' data-reconstruct='(PATTERN
                    (ANY
@@ -43,7 +47,10 @@
                             (PATTERN (ALL-BUT []) ID LINK-DEST) ]])
                     (CONSEC [[ (PATTERN (ALL-BUT []) ID LINK-DEST) ]]))
                    ON-CHAR [)'><pre><code>  filepath = &quot;out.png&quot;
-  print(filepath)</code></pre></div><img src='out.png' />  </div>
+  print(filepath)
+</code></pre></div>
+
+<div class='org-babel-results'><img src='out.png' /></div>  </div>
 </body>
 </html>"
                           ))

@@ -210,24 +210,25 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
          ,rule)
         ,rule)))
 
-(defmethod cltpt/base:text-object-init :after ((obj org-keyword) str1 match)
+(defmethod org-keyword-cons ((obj org-keyword))
+  "return (keyword . value) from the parsed org-keyword text-object."
   (let* ((match (cltpt/base:text-object-match obj))
          (value-match (cltpt/combinator:find-submatch match 'value))
          (keyword-match (cltpt/combinator:find-submatch match 'keyword))
-         (value (and value-match (cltpt/combinator:match-text value-match str1))))
-    (setf (cltpt/base:text-object-property obj :value) value)
-    (setf (cltpt/base:text-object-property obj :keyword)
-          (cltpt/combinator:match-text keyword-match str1))))
+         (value (and value-match (cltpt/base:text-object-match-text obj value-match)))
+         (keyword (and keyword-match (cltpt/base:text-object-match-text obj keyword-match)))
+         (child (car (cltpt/base:text-object-children obj))))
+    (if value
+        (cons keyword value)
+        (cons keyword
+              (and (typep child 'cltpt/base:post-lexer-text-macro)
+                   (cltpt/base::eval-post-lexer-macro child t))))))
 
-(defmethod cltpt/base:text-object-finalize :after ((obj org-keyword))
-  (let* ((value (cltpt/base:text-object-property obj :value))
-         (child (first (cltpt/base:text-object-children obj))))
-    (unless value
-      (when (typep child 'cltpt/base:post-lexer-text-macro)
-        ;; if we get here, then the value is meant to be the evaluation result
-        ;; of the post-lexer text macro.
-        (setf (cltpt/base:text-object-property obj :value)
-              (cltpt/base::eval-post-lexer-macro child))))))
+(defmethod org-keyword-value ((obj org-keyword))
+  (cdr (org-keyword-cons obj)))
+
+(defmethod org-keyword-keyword ((obj org-keyword))
+  (car (org-keyword-cons obj)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-keyword)
                                            (backend cltpt/base:text-format))
@@ -1191,9 +1192,8 @@ used for all region-decf calculations to get positions relative to the text-obje
     (loop for child in (cltpt/base:text-object-children obj)
           while (or (typep child 'org-keyword) is-first)
           when (typep child 'org-keyword)
-            do (let ((kw-name (cltpt/base:text-object-property child :keyword))
-                     (kw-value (cltpt/base:text-object-property child :value)))
-                 (push (cons kw-name kw-value) result-alist)
+            do (destructuring-bind (kw . val) (org-keyword-cons child)
+                 (push (cons kw val) result-alist)
                  (setf is-first nil)))
     result-alist))
 
