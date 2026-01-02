@@ -1703,14 +1703,11 @@ used for all region-decf calculations to get positions relative to the text-obje
                            "\\end{~A}"
                            cltpt/latex:*latex-code-env*))))
               (escape-regions))
-         ;; if we wanna export results, we will have to apply some modifications
-         ;; to some of the text accordingly so that the #+RESULTS part
-         ;; is ommitted and so that the children after it in the results
-         ;; block are handled correctly (although it code be "raw" and
-         ;; contain no children).
-         ;; if its not code, we surround the block's contents with tags
-         ;; and convert it.
-         (when (and is-code export-results results-match)
+         ;; if there are results, we need to handle them according to :exports value.
+         ;; if :exports both or :exports results, the results should be converted.
+         ;; if :exports code, the results section should be removed.
+         ;; we enter this block whenever we have results, to handle either case.
+         (when (and is-code results-match)
            (let* ((match-base (cltpt/combinator:match-begin-absolute match))
                   ;; lines starting with ": "
                   (match-raw-lines
@@ -1773,49 +1770,72 @@ used for all region-decf calculations to get positions relative to the text-obje
              ;; but we need to account for the changes in the preceding
              ;; region because :escape-regions is applied after the
              ;; incremental changes are applied.
-             (push
-              (cltpt/buffer:make-region
-               :begin results-content-begin
-               :end results-end)
-              escape-regions)
-             (push code-region escape-regions)
+             (when export-results
+               (push
+                (cltpt/buffer:make-region
+                 :begin results-content-begin
+                 :end results-end)
+                escape-regions))
+             (when export-code
+               (push code-region escape-regions))
              ;; we have to push the changes in the correct order. otherwise
              ;; the incremental parser will not function properly.
              ;; changes in the results region
-             (push
-              (cltpt/buffer:make-change
-               :operator results-close-tag
-               :region (cltpt/buffer:make-region
-                        :begin results-end
-                        :end results-end))
-              changes)
-             (when match-raw-lines
-               ;; if its the raw lines (": ") we need to convert, just subseq
-               ;; them accordingly to get rid of the colon and space.
-               ;; in the other case, its just a collection of org elements
-               ;; so we just need to convert them all in the given text region
-               ;; of the "results".
-               ;; :escape t marks this change as needing escaping (won't be excluded
-               ;; from escape-regions in convert-tree)
-               (push (cltpt/buffer:make-change :operator raw-results
-                                               :region results-content-region
-                                               :args '(:escape t))
-                     changes))
-             (push
-              (cltpt/buffer:make-change
-               :operator results-open-tag
-               :region (cltpt/buffer:make-region
-                        :begin results-begin
-                        :end results-content-begin))
-              changes)
+             (if export-results
+                 (progn
+                   ;; when exporting results, wrap them with open/close tags
+                   (push
+                    (cltpt/buffer:make-change
+                     :operator results-close-tag
+                     :region (cltpt/buffer:make-region
+                              :begin results-end
+                              :end results-end))
+                    changes)
+                   (when match-raw-lines
+                     ;; if its the raw lines (": ") we need to convert, just subseq
+                     ;; them accordingly to get rid of the colon and space.
+                     ;; in the other case, its just a collection of org elements
+                     ;; so we just need to convert them all in the given text region
+                     ;; of the "results".
+                     ;; :escape t marks this change as needing escaping (won't be excluded
+                     ;; from escape-regions in convert-tree)
+                     (push (cltpt/buffer:make-change :operator raw-results
+                                                     :region results-content-region
+                                                     :args '(:escape t))
+                           changes))
+                   (push
+                    (cltpt/buffer:make-change
+                     :operator results-open-tag
+                     :region (cltpt/buffer:make-region
+                              :begin results-begin
+                              :end results-content-begin))
+                    changes))
+                 ;; when not exporting results (:exports code), remove the entire results section
+                 (push
+                  (cltpt/buffer:make-change
+                   :operator ""
+                   :region results-region
+                   :args '(:discard-contained t))
+                  changes))
              ;; changes in the code block region
-             (push (cltpt/buffer:make-change :operator code-close-tag
-                                             :region code-close-tag-region)
-                   changes)
-             (push (cltpt/buffer:make-change :operator code-open-tag
-                                             :region code-open-tag-region
-                                             :args open-tag-args)
-                   changes)))
+             ;; if export-code is false (e.g. :exports results), replace code with empty string
+             (if export-code
+                 (progn
+                   (push (cltpt/buffer:make-change :operator code-close-tag
+                                                   :region code-close-tag-region)
+                         changes)
+                   (push (cltpt/buffer:make-change :operator code-open-tag
+                                                   :region code-open-tag-region
+                                                   :args open-tag-args)
+                         changes))
+                 ;; when not exporting code, replace the entire code block region with empty string
+                 (push (cltpt/buffer:make-change
+                        :operator ""
+                        :region (cltpt/buffer:make-region
+                                 :begin 0
+                                 :end results-begin)
+                        :args '(:discard-contained t))
+                       changes))))
          (if changes
              (list :changes changes
                    :recurse t
