@@ -2022,7 +2022,8 @@ used for all region-decf calculations to get positions relative to the text-obje
        :id drawer-open-tag)
       cltpt/combinator:at-line-end-p)
      (cltpt/combinator:when-match
-      (cltpt/combinator:literal-casein ":end:")
+      (:pattern (cltpt/combinator:literal-casein ":end:")
+       :id drawer-close-tag)
       cltpt/combinator:at-line-start-p)
      (eval (org-mode-text-object-types-except '(org-header org-drawer))))
     :on-char #\:))
@@ -2031,6 +2032,23 @@ used for all region-decf calculations to get positions relative to the text-obje
     :allocation :class
     :initform *org-drawer-rule*))
   (:documentation "org-mode drawer."))
+
+(defmethod cltpt/base:text-object-init :after ((obj org-drawer) str1 match)
+  (setf (cltpt/base:text-object-property obj :contents-region-spec)
+        (list :begin-submatch 'drawer-open-tag
+              :begin-side :end
+              :end-submatch 'drawer-close-tag
+              :end-side :start
+              :find-last-end t)))
+
+(defmethod cltpt/base:text-object-convert ((obj org-drawer)
+                                           (backend cltpt/base:text-format))
+  (cltpt/base:rewrap-within-tags
+   obj
+   ""
+   ""
+   ;; compress by 1 to remove newlines
+   :compress-region (cltpt/buffer:make-region :begin 1 :end 1)))
 
 ;; we need an org-specific flavor of latex-env that may accept keywords like #+name
 (defvar *org-latex-env-rule*
