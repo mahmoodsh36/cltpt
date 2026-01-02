@@ -436,6 +436,7 @@ before the final closing rule is found."
     (when opening-match
       (let* ((open-end-pos (+ (context-parent-begin child-ctx) (match-end opening-match)))
              (current-search-pos open-end-pos)
+             ;; the nesting-level thing is for nesting the rule unless the rule is in rules-for-content
              (nesting-level 1)
              (final-closing-match)
              ;; collect content matches as we go
@@ -462,33 +463,35 @@ before the final closing rule is found."
                          (when (= nesting-level 0)
                            (setf final-closing-match potential-close)
                            (return)))
-                       (let ((potential-open
-                               (apply-rule-normalized child-ctx
-                                                      opening-rule
-                                                      reader
-                                                      current-search-pos)))
-                         (if potential-open
-                             (progn
-                               (incf nesting-level)
-                               (setf current-search-pos
-                                     (+ (context-parent-begin child-ctx) (match-end potential-open))))
-                             ;; try to match content rules at base nesting level
-                             (let ((matched-content nil))
-                               (when (and rules-for-content (= nesting-level 1))
-                                 (loop for rule in rules-for-content
-                                       until matched-content
-                                       do (let ((match-result (apply-rule child-ctx rule reader current-search-pos)))
-                                            (when match-result
-                                              (let ((normalized (normalize-match match-result
-                                                                                 child-ctx
-                                                                                 rule
-                                                                                 current-search-pos)))
-                                                (setf current-search-pos
-                                                      (+ (context-parent-begin child-ctx)
-                                                         (match-end normalized)))
-                                                (push normalized content-matches)
-                                                (setf matched-content t))))))
-                               (unless matched-content
+                       ;; try to match content rules before checking for nested opens,
+                       ;; this allows nested blocks to be matched as children
+                       (let ((matched-content))
+                         (when rules-for-content
+                           (loop for rule in rules-for-content
+                                 until matched-content
+                                 do (let ((match-result (apply-rule child-ctx rule reader current-search-pos)))
+                                      (when match-result
+                                        (let ((normalized (normalize-match match-result
+                                                                           child-ctx
+                                                                           rule
+                                                                           current-search-pos)))
+                                          (setf current-search-pos
+                                                (+ (context-parent-begin child-ctx)
+                                                   (match-end normalized)))
+                                          (push normalized content-matches)
+                                          (setf matched-content t))))))
+                         (unless matched-content
+                           ;; if no content matched, check for nested opens
+                           (let ((potential-open
+                                   (apply-rule-normalized child-ctx
+                                                          opening-rule
+                                                          reader
+                                                          current-search-pos)))
+                             (if potential-open
+                                 (progn
+                                   (incf nesting-level)
+                                   (setf current-search-pos
+                                         (+ (context-parent-begin child-ctx) (match-end potential-open))))
                                  (incf current-search-pos))))))))
         (when (and final-closing-match (= nesting-level 0))
           (let ((overall-end-pos (+ (context-parent-begin child-ctx)
