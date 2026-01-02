@@ -915,8 +915,10 @@ succeeded by whitespace or a string boundary. the flanking whitespace is not con
             (is-succeeded-by-whitespace-p (p)
                (or (is-after-eof reader p)
                    (whitespace-p (reader-char reader p)))))
-        (let* ((start-pos (match-begin match))
-               (end-pos (match-end match)))
+        ;; match-begin/end are relative to context-parent-begin, convert to absolute
+        (let* ((parent-begin (context-parent-begin ctx))
+               (start-pos (+ parent-begin (match-begin match)))
+               (end-pos (+ parent-begin (match-end match))))
           ;; succeed if EITHER the preceding OR succeeding check is true
           (when (or (is-preceded-by-whitespace-p start-pos)
                     (is-succeeded-by-whitespace-p end-pos))
@@ -935,8 +937,10 @@ succeeded by whitespace, punctuation, or a string boundary. the flanking charact
                (or (is-after-eof reader p)
                    (whitespace-p (reader-char reader p))
                    (is-punctuation-p (reader-char reader p)))))
-        (let* ((start-pos (match-begin match))
-               (end-pos (match-end match)))
+        ;; match-begin/end are relative to context-parent-begin, convert to absolute
+        (let* ((parent-begin (context-parent-begin ctx))
+               (start-pos (+ parent-begin (match-begin match)))
+               (end-pos (+ parent-begin (match-end match))))
           ;; return a match if either the preceding OR succeeding check is true
           (when (or (is-preceded-by-whitespace-or-punctuation-p start-pos)
                     (is-succeeded-by-whitespace-or-punctuation-p end-pos))
