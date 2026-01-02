@@ -263,7 +263,7 @@ tables
 <p style="color: red;">this should only be visible in the html export</p>
 #+end_export
 
-#+begin_src python :results file :var filepath=(cached-file "WRB4q2d.svg") :exports results :eval no
+#+begin_src python :results file :var filepath=(cached-file "WRB4q2d.svg") :exports both :eval no
   import matplotlib
   matplotlib.use('Agg')
   import matplotlib.pyplot as plt
