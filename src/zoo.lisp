@@ -81,7 +81,7 @@
                                   clone
                                   (getf cltpt/base:*convert-info* :src-fmt)
                                   backend)))))
-          (list :text (cltpt/base:concat result)
+          (list :text (cltpt/base:concat result 'string)
                 :recurse nil
                 :escape nil))
         (text-block-convert-helper obj backend))))
