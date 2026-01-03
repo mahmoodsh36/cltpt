@@ -3,12 +3,41 @@
   print(text)
 #+end_src
 
-#+begin_src python
+#+begin_src python :name blk0
   text = "block2"
+  print(text)
   print(text)
 #+end_src
 
-#+begin_src python :results %'(:id link-dest :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but-newline))) :reconstruct %cltpt/org-mode::*org-link-rule*
+#+begin_src python :results %'(:id link-dest :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but-newline))) :reconstruct %cltpt/org-mode::*org-link-rule* :name blk1
   filepath = "out.png"
   print(filepath)
+#+end_src
+
+#+begin_src python :name image-handler
+  return { "path": "link-path", "type": "link-type" }
+#+end_src
+
+#+begin_src python :name word-handler
+  return "word"
+#+end_src
+
+#+begin_src python :name blk0-child-handler
+  child = [%(getf child :match), %(getf child :begin), %(getf child :end)]
+  return child
+#+end_src
+
+#+begin_src python :name blk0-tree-handler
+  class blk0_tree:
+      def __init__(self):
+          self.prop = 1
+
+  tree = blk0_tree()
+  %'blk0-child-handler-loop
+#+end_src
+
+#+begin_src python :input blk1 :input-type blk1 object :input-handler blk1 org-link image-handler :input blk0 :input-type blk0 stream :input-handler blk0 word-handler :input-rule %'(:name blk0-tree :pattern (cltpt/combinator:separated-atleast-one ,(string #\newline) (cltpt/combinator:all-but-newline)))
+  print(blk1)
+  for word in %'blk0-tree-handler:
+      print(word)
 #+end_src

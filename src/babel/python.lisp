@@ -4,10 +4,6 @@
   "python"
   "the name of the python interpreter to use")
 
-(defvar *chunk-size*
-  1024
-  "size of chunks to read from command outputs.")
-
 (defvar *python-main-func-name*
   "cltpt_babel"
   "the name of the python interpreter to use")
