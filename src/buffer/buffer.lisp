@@ -49,7 +49,7 @@
 
 ;; this package implements a tree-based text "buffer" capable of distinct text regions and incremental change management.
 ;; - buffers can be nested. changes in children propagate up to the root when requested, keeping the tree in sync.
-;; - "scheduled changes" are pending changes are shifted based on the edits made by earlier changes or immediate operations.
+;; - "scheduled changes" are pending changes that are shifted based on the edits made by earlier changes or immediate operations.
 ;; - changes are applied sequentially, with automatic adjusting of coordinates occurring after every edit to keep the integrity of the data. also, when a buffer grows or shrinks, its siblings' regions within the parent are automatically adjusted.
 ;; - this isnt yet used for "incremental changes" in the sense of incremental parsing on in-editor buffer edits. it mainly serves for "smart" modification of the text during conversion.
 ;; - the code can be made faster by not concatenating all the time and using a "string builder".
@@ -76,10 +76,8 @@
    (scheduled-levels
     :accessor buffer-scheduled-levels
     :initform nil
-    :documentation "a list of levels (lists of batches)."))
+    :documentation "a list of levels (list of batches)."))
   (:documentation "a buffer represents a region of text with incremental change management."))
-
-;; using change struct from cltpt/buffer/change
 
 (defun make-buffer (&key parent region text children)
   (let ((buf (make-instance 'buffer
@@ -155,7 +153,7 @@
       (t (+ m-start new-len)))))
 
 (defun rebase-list-tracking (changes m-start m-end new-len)
-  "rebase changes using, tracking and adapting to changes."
+  "rebase changes using tracking and adapting to changes."
   (let ((new-list))
     (dolist (c changes)
       (let ((old-start (change-begin c))
