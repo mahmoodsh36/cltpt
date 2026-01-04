@@ -89,19 +89,19 @@
       (push buf (buffer-children parent)))
     buf))
 
-(defun buffer-region-begin (buffer)
+(defmethod buffer-region-begin ((buffer buffer))
   (region-begin (buffer-region buffer)))
 
-(defun (setf buffer-region-begin) (val buffer)
+(defmethod (setf buffer-region-begin) (val (buffer buffer))
   (setf (region-begin (buffer-region buffer)) val))
 
-(defun buffer-region-end (buffer)
+(defmethod buffer-region-end ((buffer buffer))
   (region-end (buffer-region buffer)))
 
-(defun (setf buffer-region-end) (val buffer)
+(defmethod (setf buffer-region-end) (val (buffer buffer))
   (setf (region-end (buffer-region buffer)) val))
 
-(defun buffer-region-length (buffer)
+(defmethod buffer-region-length ((buffer buffer))
   (- (buffer-region-end buffer) (buffer-region-begin buffer)))
 
 (defmethod buffer-begin-absolute ((buffer buffer))
@@ -122,7 +122,7 @@
              (setf b parent))
     pos))
 
-(defun buffer-text (buffer)
+(defmethod buffer-text ((buffer buffer))
   (or (buffer-own-text buffer)
       (when (buffer-parent buffer)
         (let ((parent-text (buffer-text (buffer-parent buffer))))
@@ -198,7 +198,7 @@
       (incf (buffer-region-begin child) delta)
       (incf (buffer-region-end child) delta))))
 
-(defun buffer-replace (buffer start end text &key (delegate t) propagate)
+(defmethod buffer-replace ((buffer buffer) start end text &key (delegate t) propagate)
   (if delegate
       (multiple-value-bind (target t-start t-end) (resolve-delegation buffer start end)
         (if (eq target buffer)
@@ -231,13 +231,13 @@
           (when propagate
             (buffer-propagate buffer))))))
 
-(defun buffer-insert (buffer pos text &key (delegate t) propagate)
+(defmethod buffer-insert ((buffer buffer) pos text &key (delegate t) propagate)
   (buffer-replace buffer pos pos text :delegate delegate :propagate propagate))
 
-(defun buffer-delete (buffer start end &key (delegate t) propagate)
+(defmethod buffer-delete ((buffer buffer) start end &key (delegate t) propagate)
   (buffer-replace buffer start end "" :delegate delegate :propagate propagate))
 
-(defun buffer-propagate (buffer &key stop-at-text)
+(defmethod buffer-propagate ((buffer buffer) &key stop-at-text)
   "propagate local changes to parent."
   (when (buffer-parent buffer)
     (let* ((parent (buffer-parent buffer))
@@ -264,7 +264,7 @@
             (buffer-propagate buffer :stop-at-text stop-at-text)
             (setf (buffer-own-text parent) nil))))))
 
-(defun buffer-fetch-parent-text (buffer)
+(defmethod buffer-fetch-parent-text ((buffer buffer))
   (when (buffer-parent buffer)
     (setf (buffer-own-text buffer)
           (subseq (buffer-text (buffer-parent buffer))
@@ -288,7 +288,7 @@
           (push (nreverse new-level) new-levels))))
     (setf (buffer-scheduled-levels buffer) (nreverse new-levels))))
 
-(defun schedule-batch (buffer changes &key new-level (delegate t) discard-contained)
+(defmethod schedule-batch ((buffer buffer) changes &key new-level (delegate t) discard-contained)
   (when changes
     (if delegate
         (let ((current-target)
@@ -326,7 +326,7 @@
                 (setf (buffer-scheduled-levels buffer) (append levels (list (list changes))))
                 (nconc (car (last levels)) (list changes))))))))
 
-(defun schedule-change (buffer start end operator &key new-level (delegate t) discard-contained)
+(defmethod schedule-change ((buffer buffer) start end operator &key new-level (delegate t) discard-contained)
   (schedule-batch buffer
                   (list (make-change :region (make-region :begin start :end end)
                                      :operator operator))
@@ -334,7 +334,7 @@
                   :delegate delegate
                   :discard-contained discard-contained))
 
-(defun schedule-change* (buffer change)
+(defmethod schedule-change* ((buffer buffer) change)
   (let ((new-level (getf (change-args change) :new-level))
         (delegate (getf (change-args change) :delegate t))
         (discard-contained (getf (change-args change) :discard-contained)))
@@ -344,7 +344,7 @@
                     :delegate delegate
                     :discard-contained discard-contained)))
 
-(defun apply-scheduled-changes (buffer &key propagate-to on-apply)
+(defmethod apply-scheduled-changes ((buffer buffer) &key propagate-to on-apply)
   (unless (buffer-own-text buffer)
     (setf (buffer-own-text buffer) (buffer-text buffer)))
   (loop while (buffer-scheduled-levels buffer)
