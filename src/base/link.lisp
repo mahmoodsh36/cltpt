@@ -40,3 +40,10 @@ this function should always return a relative path that will be appended to :des
                          dest
                          desc)
   (link-resolve 'file dest desc))
+
+(defgeneric target-text-object (target)
+  (:documentation "given a target that was returned by `link-resolve', return the text-object associated with it (if any)."))
+
+;; when requesting a text-object for a filepath we parse the file and return the document.
+(defmethod target-text-object ((target t))
+  nil)
