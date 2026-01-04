@@ -1689,6 +1689,18 @@ used for all region-decf calculations to get positions relative to the text-obje
                    (format nil
                            "\\end{~A}"
                            cltpt/latex:*latex-code-env*))))
+              ;; outer wrapper for org-src-block (wraps both code and results)
+              (wrapper-open-tag
+                (when is-code
+                  (cltpt/base:pcase backend
+                    (cltpt/html:*html*
+                     (format nil "<div class='org-src-block-container'>"))
+                    (cltpt/latex:*latex* nil))))
+              (wrapper-close-tag
+                (when is-code
+                  (cltpt/base:pcase backend
+                    (cltpt/html:*html* "</div>")
+                    (cltpt/latex:*latex* nil))))
               (escape-regions))
          ;; if there are results, we need to handle them according to :exports value.
          ;; if :exports both or :exports results, the results should be converted.
@@ -1771,6 +1783,14 @@ used for all region-decf calculations to get positions relative to the text-obje
              (if export-results
                  (progn
                    ;; when exporting results, wrap them with open/close tags
+                   (when wrapper-close-tag
+                     (push
+                      (cltpt/buffer:make-change
+                       :operator wrapper-close-tag
+                       :region (cltpt/buffer:make-region
+                                :begin results-end
+                                :end results-end))
+                      changes))
                    (push
                     (cltpt/buffer:make-change
                      :operator results-close-tag
@@ -1798,12 +1818,23 @@ used for all region-decf calculations to get positions relative to the text-obje
                               :end results-content-begin))
                     changes))
                  ;; when not exporting results (:exports code), remove the entire results section
-                 (push
-                  (cltpt/buffer:make-change
-                   :operator ""
-                   :region results-region
-                   :args '(:discard-contained t))
-                  changes))
+                 (progn
+                   (when wrapper-close-tag
+                     (push
+                      (cltpt/buffer:make-change
+                       :operator wrapper-close-tag
+                       :region (cltpt/buffer:make-region
+                                :begin (- (cltpt/combinator:match-end-absolute code-end-match)
+                                          (cltpt/combinator:match-begin-absolute match))
+                                :end (- (cltpt/combinator:match-end-absolute code-end-match)
+                                        (cltpt/combinator:match-begin-absolute match))))
+                      changes))
+                   (push
+                    (cltpt/buffer:make-change
+                     :operator ""
+                     :region results-region
+                     :args '(:discard-contained t))
+                    changes)))
              ;; changes in the code block region
              ;; if export-code is false (e.g. :exports results), replace code with empty string
              (if export-code
@@ -1811,18 +1842,28 @@ used for all region-decf calculations to get positions relative to the text-obje
                    (push (cltpt/buffer:make-change :operator code-close-tag
                                                    :region code-close-tag-region)
                          changes)
-                   (push (cltpt/buffer:make-change :operator code-open-tag
+                   (push (cltpt/buffer:make-change :operator (concatenate 'string
+                                                                          (or wrapper-open-tag "")
+                                                                          code-open-tag)
                                                    :region code-open-tag-region
                                                    :args open-tag-args)
                          changes))
                  ;; when not exporting code, replace the entire code block region with empty string
-                 (push (cltpt/buffer:make-change
-                        :operator ""
-                        :region (cltpt/buffer:make-region
-                                 :begin 0
-                                 :end results-begin)
-                        :args '(:discard-contained t))
-                       changes))))
+                 (progn
+                   (when (and wrapper-open-tag export-results)
+                     (push (cltpt/buffer:make-change
+                            :operator wrapper-open-tag
+                            :region (cltpt/buffer:make-region
+                                     :begin results-begin
+                                     :end results-begin))
+                           changes))
+                   (push (cltpt/buffer:make-change
+                          :operator ""
+                          :region (cltpt/buffer:make-region
+                                   :begin 0
+                                   :end results-begin)
+                          :args '(:discard-contained t))
+                         changes)))))
          (if changes
              (list :changes changes
                    :recurse t
@@ -1840,8 +1881,8 @@ used for all region-decf calculations to get positions relative to the text-obje
                                        :args '(:discard-contained t))))
                  (cltpt/base:rewrap-within-tags
                   obj
-                  code-open-tag
-                  code-close-tag
+                  (concatenate 'string (or wrapper-open-tag "") code-open-tag)
+                  (concatenate 'string code-close-tag (or wrapper-close-tag ""))
                   :escape t
                   :compress-region (cltpt/buffer:make-region :begin 1 :end 1)
                   :escape-region-options (when (or is-code is-verbatim)
