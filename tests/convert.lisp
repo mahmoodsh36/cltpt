@@ -67,7 +67,7 @@ plt.close()
 
 (test test-org-src-block-with-image-result-html-conversion
   (let* ((html-output (org-src-block-with-image-result-html-conversion))
-         (expected-html "<div class='org-src' data-lang='python' data-eval='no'><pre><code>import matplotlib.pyplot as plt
+         (expected-html "<div class='org-src-block-container'><div class='org-src' data-lang='python' data-eval='no'><pre><code>import matplotlib.pyplot as plt
 import numpy as np
 
 x = np.linspace(0, 10, 100)
@@ -77,7 +77,7 @@ plt.savefig(&apos;plot.png&apos;)
 plt.close()
 </code></pre></div>
 
-<div class='org-babel-results'><img src='plot.png' /></div>"))
+<div class='org-babel-results'><img src='plot.png' /></div></div>"))
     (is (string=+diff html-output expected-html
                      "HTML conversion of src block with image result should match expected output")
         "HTML conversion of src block with image result should match expected output")))
