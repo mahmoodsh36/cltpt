@@ -9,7 +9,7 @@
   print(text)
 #+end_src
 
-#+begin_src python :results %'(:id link-dest :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but-newline))) :reconstruct %cltpt/org-mode::*org-link-rule* :name blk1
+#+begin_src python :exports both :results %'(:id link-dest :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but-newline))) :reconstruct %cltpt/org-mode::*org-link-rule* :name blk1
   filepath = "out.png"
   print(filepath)
 #+end_src
@@ -36,7 +36,7 @@
   %'blk0-child-handler-loop
 #+end_src
 
-#+begin_src python :input blk1 :input-type blk1 object :input-handler blk1 org-link image-handler :input blk0 :input-type blk0 stream :input-handler blk0 word-handler :input-rule %'(:name blk0-tree :pattern (cltpt/combinator:separated-atleast-one ,(string #\newline) (cltpt/combinator:all-but-newline)))
+#+begin_src python :exports both :input blk1 :input-type blk1 object :input-handler blk1 org-link image-handler :input blk0 :input-type blk0 stream :input-handler blk0 word-handler :input-rule %'(:name blk0-tree :pattern (cltpt/combinator:separated-atleast-one ,(string #\newline) (cltpt/combinator:all-but-newline)))
   print(blk1)
   for word in %'blk0-tree-handler:
       print(word)

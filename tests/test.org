@@ -137,7 +137,7 @@ latex here
 \[ x = \sqrt{x^2} \]
 
 code here
-#+begin_src python :results output :eval no
+#+begin_src python :results output :eval no :exports both
   import requests
   print('whatever')
   print('whatever2')
@@ -149,7 +149,7 @@ code here
 : \(11\)
 : wow
 
-#+begin_src python :results output :eval no
+#+begin_src python :results output :eval no :exports both
   do nothing
 #+end_src
 

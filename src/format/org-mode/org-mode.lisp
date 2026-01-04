@@ -1606,10 +1606,9 @@ used for all region-decf calculations to get positions relative to the text-obje
                (cltpt/combinator:find-submatch match 'end)
                (cltpt/combinator:find-submatch-last match 'end)))
          (results-match (cltpt/combinator:find-submatch match 'results)))
-    ;; export "both" by default, if :exports wasnt provided.
-    ;; TODO: this shouldnt be the default behavior. we should have it customizable.
+    ;; export "results" by default, if :exports wasnt provided.
     (when (and is-code (not exports-keyword))
-      (setf export-code t)
+      (setf export-code nil)
       (setf export-results t))
     (cond
       ;; if we have `:exports none', we shouldnt export
@@ -1841,15 +1840,25 @@ used for all region-decf calculations to get positions relative to the text-obje
                    :recurse t
                    :escape-regions escape-regions
                    :escape t)
-             (cltpt/base:rewrap-within-tags
-              obj
-              code-open-tag
-              code-close-tag
-              :escape t
-              :compress-region (cltpt/buffer:make-region :begin 1 :end 1)
-              :escape-region-options (when (or is-code is-verbatim)
-                                       (list :escape-newlines nil))
-              :open-tag-args open-tag-args)))))))
+             ;; when there are no results and is-code but export-code is nil
+             ;; (default behavior for src blocks without :exports keyword),
+             ;; we should not export the code block at all
+             (if (and is-code (not export-code))
+                 (list :changes (list (cltpt/buffer:make-change
+                                       :operator ""
+                                       :region (cltpt/buffer:make-region
+                                                :begin 0
+                                                :end (length (cltpt/base:text-object-text obj)))
+                                       :args '(:discard-contained t))))
+                 (cltpt/base:rewrap-within-tags
+                  obj
+                  code-open-tag
+                  code-close-tag
+                  :escape t
+                  :compress-region (cltpt/buffer:make-region :begin 1 :end 1)
+                  :escape-region-options (when (or is-code is-verbatim)
+                                           (list :escape-newlines nil))
+                  :open-tag-args open-tag-args))))))))
 
 (defmethod org-src-block-code ((obj org-src-block))
   (let ((code (cltpt/base:text-object-contents obj)))

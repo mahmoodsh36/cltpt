@@ -28,17 +28,17 @@
 <body>
   <div class=\"post-content\">
     <h1> NIL - NIL </h1>
-    <div class='org-src' data-lang='python'><pre><code>  text = &quot;block1&quot;
-  print(text)</code></pre></div>
+    
 <br>
 block1
 <br>
-<div class='org-src' data-lang='python'><pre><code>  text = &quot;block2&quot;
-  print(text)</code></pre></div>
+
 <br>
 block2
 <br>
-<div class='org-src' data-lang='python' data-reconstruct='(PATTERN
+block2
+<br>
+<div class='org-src' data-lang='python' data-name='blk1' data-reconstruct='(PATTERN
                    (ANY
                     (CONSEC [[ (PATTERN (SYMBOL-MATCHER) ID LINK-TYPE) :
                             (PATTERN (ALL-BUT []) ID LINK-DEST) ][
@@ -50,7 +50,19 @@ block2
   print(filepath)
 </code></pre></div>
 
-<div class='org-babel-results'><img src='out.png' /></div>  </div>
+<div class='org-babel-results'><img src='out.png' /></div>
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+<div class='org-src' data-lang='python' data-pattern='(cltpt/combinator:separated-atleast-one ,(string #\\newline) (cltpt/combinator:all-but-newline)))' data-input-rule='%'(:name blk0-tree' data-input-handler='blk0 word-handler' data-input-type='blk0 stream' data-input='blk0' data-input-handler='blk1 org-link image-handler' data-input-type='blk1 object' data-input='blk1'><pre><code>  print(blk1)
+  for word in %&apos;blk0-tree-handler:
+      print(word)</code></pre></div>  </div>
 </body>
 </html>"
                           ))
