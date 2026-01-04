@@ -46,7 +46,7 @@
    :text-object-match
    :text-link :text-link-link :text-link-resolve
    :link-resolve :link-desc :link-dest :link-type
-   :target-filepath :convert-target-filepath
+   :target-filepath :target-text-object :convert-target-filepath
    :make-block :block-end
    :text-object-match-text :text-object-root
    :text-object-force-set-text

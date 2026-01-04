@@ -232,44 +232,32 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defmethod cltpt/base:text-object-convert ((obj org-keyword)
                                            (backend cltpt/base:text-format))
-  (let* ((kw (cltpt/base:text-object-property obj :keyword))
-         (value (cltpt/base:text-object-property obj :value))
+  (let* ((kw (org-keyword-keyword obj))
+         (value (org-keyword-value obj))
          (final-result))
-    ;; TODO: adapt transclusion functionality to changes
-    ;; handle transclusions
-    ;; (when (and kw (string= kw "transclude") cltpt/roam:*roam-convert-data*)
-    ;;   (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
-    ;;          (first-child (car (cltpt/base:text-object-children
-    ;;                             org-link-parse-result))))
-    ;;     (when (typep first-child 'org-link)
-    ;;       (let* ((dest (cltpt/base:text-object-property first-child :dest))
-    ;;              (type (cltpt/base:text-object-property first-child :type))
-    ;;              (rmr (getf cltpt/roam:*roam-convert-data* :roamer))
-    ;;              (roam-link (cltpt/roam:resolve-link
-    ;;                          rmr
-    ;;                          (getf cltpt/roam:*roam-convert-data* :node)
-    ;;                          obj
-    ;;                          ;; if link doesnt have a type, treat it as an 'id' link
-    ;;                          (if type
-    ;;                              (intern type :cltpt/roam)
-    ;;                              'cltpt/roam::file)
-    ;;                          dest)))
-    ;;         ;; just convert the linked node's object and return that
-    ;;         (when roam-link
-    ;;           (let* ((dest-node (cltpt/roam:link-dest-node roam-link))
-    ;;                  (dest-text-obj (cltpt/roam:node-text-obj dest-node)))
-    ;;             (let ((result (cltpt/base:convert-tree
-    ;;                            dest-text-obj
-    ;;                            *org-mode*
-    ;;                            backend)))
-    ;;               ;; TODO: for some reason redundant newlines in transcluded
-    ;;               ;; documents dont get trimmed.
-    ;;               (setf final-result
-    ;;                     (list :text result
-    ;;                           :reparse nil
-    ;;                           :recurse nil
-    ;;                           :escape nil)))))))))
-    ;; discard everything for now
+    ;; handle transclusions: #+transclude: [[id:some-id]] or #+transclude: [[file:path]]
+    (when (and kw (string-equal kw "transclude") value)
+      (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
+             (first-child (car (cltpt/base:text-object-children org-link-parse-result))))
+        (when (typep first-child 'org-link)
+          ;; resolve the link to get the target (could be a roam node, filepath, or text-object)
+          (let ((resolved (cltpt/base:text-link-resolve first-child)))
+            (when resolved
+              (let ((dest-text-obj
+                      (cond
+                        ((cltpt/base:target-text-object resolved)
+                         (cltpt/roam:node-text-obj resolved))
+                        ((cltpt/base:target-filepath resolved)
+                         ;; (cltpt/base:parse-file *org-mode* resolved)
+                         )
+                        (t nil))))
+                (when dest-text-obj
+                  (let ((result (cltpt/base:convert-tree dest-text-obj *org-mode* backend)))
+                    (setf final-result
+                          (list :text result
+                                :recurse nil
+                                :escape nil))))))))))
+    ;; if no transclusion result, discard the keyword
     (or final-result
         (list :text ""
               :recurse nil))))

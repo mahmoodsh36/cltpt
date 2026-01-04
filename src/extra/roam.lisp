@@ -233,6 +233,9 @@ each rule is a plist that can contain the following params.
 (defmethod cltpt/base:target-filepath ((target node))
   (node-file target))
 
+(defmethod cltpt/base:target-text-object ((target node))
+  (node-text-obj target))
+
 (defmethod cltpt/base:convert-target-filepath ((target node))
   (let* ((root (cltpt/tree:tree-root (node-text-obj target)))
          (dest-filepath (cltpt/base:target-filepath target))
