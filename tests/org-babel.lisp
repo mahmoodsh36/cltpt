@@ -46,8 +46,8 @@ block2
                     (CONSEC [[ (PATTERN (SYMBOL-MATCHER) ID LINK-TYPE) :
                             (PATTERN (ALL-BUT []) ID LINK-DEST) ]])
                     (CONSEC [[ (PATTERN (ALL-BUT []) ID LINK-DEST) ]]))
-                   ON-CHAR [)'><pre><code>  filepath = &quot;out.png&quot;
-  print(filepath)
+                   ON-CHAR [)'><pre><code>filepath = &quot;out.png&quot;
+print(filepath)
 </code></pre></div>
 
 <div class='org-babel-results'><img src='out.png' /></div></div>
@@ -60,9 +60,9 @@ block2
 <br>
 
 <br>
-<div class='org-src-block-container'><div class='org-src' data-lang='python' data-pattern='(cltpt/combinator:separated-atleast-one ,(string #\\newline) (cltpt/combinator:all-but-newline)))' data-input-rule='%'(:name blk0-tree' data-input-handler='blk0 word-handler' data-input-type='blk0 stream' data-input='blk0' data-input-handler='blk1 org-link image-handler' data-input-type='blk1 object' data-input='blk1'><pre><code>  print(blk1)
-  for word in %&apos;blk0-tree-handler:
-      print(word)</code></pre></div></div>  </div>
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-pattern='(cltpt/combinator:separated-atleast-one ,(string #\\newline) (cltpt/combinator:all-but-newline)))' data-input-rule='%'(:name blk0-tree' data-input-handler='blk0 word-handler' data-input-type='blk0 stream' data-input='blk0' data-input-handler='blk1 org-link image-handler' data-input-type='blk1 object' data-input='blk1'><pre><code>print(blk1)
+for word in %&apos;blk0-tree-handler:
+    print(word)</code></pre></div></div>  </div>
 </body>
 </html>"
                           ))
