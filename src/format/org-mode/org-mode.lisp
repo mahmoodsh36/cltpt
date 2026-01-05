@@ -1572,6 +1572,40 @@ used for all region-decf calculations to get positions relative to the text-obje
 (defmethod cltpt/base:text-object-init :after ((obj org-src-block) str1 match)
   (init-org-src-block obj str1))
 
+(defun compute-unindent-changes (text start end)
+  "compute changes to unindent TEXT between START and END by removing leading spaces based on first line.
+returns a list of changes that remove the indentation spaces from each line."
+  (when (and text (> (length text) 0))
+    (let* ((lines (with-input-from-string (in text :start start :end end)
+                    (loop for line = (read-line in nil nil)
+                          while line
+                          collect line)))
+           (first-line (first lines))
+           (indent-amount
+             (when first-line
+               (or (position-if-not (lambda (c) (char= c #\space)) first-line)
+                   (length first-line)))))
+      (when (and indent-amount (> indent-amount 0))
+        (let ((changes)
+              (current-pos start))
+          (dolist (line lines)
+            (let* ((line-len (length line))
+                   ;; count actual spaces in this specific line
+                   (current-indent (or (position-if-not (lambda (c) (char= c #\space)) line)
+                                       line-len))
+                   ;; determine how many chars to actually cut
+                   (cut-amount (min indent-amount current-indent)))
+              (when (> cut-amount 0)
+                (push (cltpt/buffer:make-change
+                       :operator ""
+                       :region (cltpt/buffer:make-region
+                                :begin current-pos
+                                :end (+ current-pos cut-amount)))
+                      changes))
+              ;; move to next line (+1 for newline character)
+              (incf current-pos (1+ line-len))))
+          (nreverse changes))))))
+
 (defmethod convert-block ((obj cltpt/base:text-object)
                           (backend cltpt/base:text-format)
                           block-type
@@ -1843,6 +1877,12 @@ used for all region-decf calculations to get positions relative to the text-obje
                    (push (cltpt/buffer:make-change :operator code-close-tag
                                                    :region code-close-tag-region)
                          changes)
+                   ;; schedule unindent changes for the code region
+                   (let* ((code-begin (cltpt/buffer:region-begin code-region))
+                          (code-end (cltpt/buffer:region-end code-region))
+                          (unindent-changes (compute-unindent-changes text code-begin code-end)))
+                     (dolist (uc (reverse unindent-changes))
+                       (push uc changes)))
                    (push (cltpt/buffer:make-change :operator (concatenate 'string
                                                                           (or wrapper-open-tag "")
                                                                           code-open-tag)
@@ -1880,15 +1920,30 @@ used for all region-decf calculations to get positions relative to the text-obje
                                                 :begin 0
                                                 :end (length (cltpt/base:text-object-text obj)))
                                        :args '(:discard-contained t))))
-                 (cltpt/base:rewrap-within-tags
-                  obj
-                  (concatenate 'string (or wrapper-open-tag "") code-open-tag)
-                  (concatenate 'string code-close-tag (or wrapper-close-tag ""))
-                  :escape t
-                  :compress-region (cltpt/buffer:make-region :begin 1 :end 1)
-                  :escape-region-options (when (or is-code is-verbatim)
-                                           (list :escape-newlines nil))
-                  :open-tag-args open-tag-args))))))))
+                 ;; use rewrap-within-tags but also add unindent changes
+                 (let* ((rewrap-result
+                          (cltpt/base:rewrap-within-tags
+                           obj
+                           (concatenate 'string (or wrapper-open-tag "") code-open-tag)
+                           (concatenate 'string code-close-tag (or wrapper-close-tag ""))
+                           :escape t
+                           :compress-region (cltpt/buffer:make-region :begin 1 :end 1)
+                           :escape-region-options (when (or is-code is-verbatim)
+                                                    (list :escape-newlines nil))
+                           :open-tag-args open-tag-args))
+                        ;; compute unindent changes for code blocks and example blocks
+                        (unindent-changes
+                          (when is-code
+                            (let* ((contents-region (cltpt/base:text-object-contents-region obj))
+                                   ;; compress by 1 to account for newlines after open tag
+                                   (inner-begin (1+ (cltpt/buffer:region-begin contents-region)))
+                                   (inner-end (cltpt/buffer:region-end contents-region)))
+                              (compute-unindent-changes text inner-begin inner-end)))))
+                   ;; append unindent changes to the changes from rewrap-within-tags
+                   (when unindent-changes
+                     (setf (getf rewrap-result :changes)
+                           (append (getf rewrap-result :changes) unindent-changes)))
+                   rewrap-result))))))))
 
 (defmethod org-src-block-code ((obj org-src-block))
   (let ((code (cltpt/base:text-object-contents obj)))
