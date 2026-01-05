@@ -1631,8 +1631,8 @@ returns a list of changes that remove the indentation spaces from each line."
          (results-match (cltpt/combinator:find-submatch match 'results)))
     ;; export "results" by default, if :exports wasnt provided.
     (when (and is-code (not exports-keyword))
-      (setf export-code nil)
-      (setf export-results t))
+      (setf export-code t)
+      (setf export-results nil))
     (cond
       ;; if we have `:exports none', we shouldnt export
       ((or (and exports-keyword (string= exports-keyword "none"))
