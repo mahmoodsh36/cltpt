@@ -1491,7 +1491,7 @@ used for all region-decf calculations to get positions relative to the text-obje
        #+RESULTS[ca08ab2a6a58662675694033105ab0b331611fa2]:
        [[file:/tmp/jyBtMrE.svg]]
 
-       the possible elements could be org-link, org-table, org-block
+       some of the possible elements are org-link, org-table, org-block.
        |#
        (cltpt/combinator:any
         org-export-block
@@ -1499,6 +1499,7 @@ used for all region-decf calculations to get positions relative to the text-obje
         org-table
         org-block
         org-drawer
+        org-example-block
         ,(cltpt/combinator:copy-rule *org-link-rule* 'org-link)))
       :id results-content))
     :id results))
