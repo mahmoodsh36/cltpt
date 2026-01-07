@@ -241,9 +241,12 @@
 
 (defun org-list-matcher (ctx reader pos &optional inline-rules (minimum-indent 0))
   "parse an org-mode list starting at pos. returns (values list-match next-pos)."
+  ;; use a heuristic: if not at line-start, return immediately without an expensive scan
+  (unless (or (= pos 0)
+              (and (> pos 0)
+                   (char= (cltpt/reader:reader-char reader (1- pos)) #\newline)))
+    (return-from org-list-matcher (values nil pos)))
   (multiple-value-bind (ls le) (get-line-bounds reader pos)
-    (unless (= pos ls)
-      (return-from org-list-matcher (values nil pos)))
     (let ((indent (count-leading-spaces reader ls le)))
       (unless (and (>= indent minimum-indent)
                    (nth-value 0 (parse-bullet reader ls le indent)))
