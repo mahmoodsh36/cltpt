@@ -8,8 +8,6 @@
 
 (in-package :cltpt/reader)
 
-;; TODO: this module needs optimization. it reads one character at a time from the stream
-;; which is inefficient. it should be reading in chunks instead.
 ;; this module implements a "buffered" reader for streams, it allows us to work with streams
 ;; as sequences and somewhat like we would work with strings.
 
