@@ -28,11 +28,14 @@
 <body>
   <div class=\"post-content\">
     <h1> NIL - NIL </h1>
-    
+    <div class='org-src-block-container'><div class='org-src' data-lang='python'><pre><code>text = &quot;block1&quot;
+print(text)</code></pre></div></div>
 <br>
 block1
 <br>
-
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk0'><pre><code>text = &quot;block2&quot;
+print(text)
+print(text)</code></pre></div></div>
 <br>
 block2
 <br>
@@ -52,13 +55,19 @@ print(filepath)
 
 <div class='org-babel-results'><img src='out.png' /></div></div>
 <br>
-
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='image-handler'><pre><code>return { &quot;path&quot;: &quot;link-path&quot;, &quot;type&quot;: &quot;link-type&quot; }</code></pre></div></div>
 <br>
-
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='word-handler'><pre><code>return &quot;word&quot;</code></pre></div></div>
 <br>
-
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk0-child-handler'><pre><code>child = [%(getf child :match), %(getf child :begin), %(getf child :end)]
+return child</code></pre></div></div>
 <br>
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk0-tree-handler'><pre><code>class blk0_tree:
+    def __init__(self):
+        self.prop = 1
 
+tree = blk0_tree()
+%&apos;blk0-child-handler-loop</code></pre></div></div>
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='python' data-pattern='(cltpt/combinator:separated-atleast-one ,(string #\\newline) (cltpt/combinator:all-but-newline)))' data-input-rule='%'(:name blk0-tree' data-input-handler='blk0 word-handler' data-input-type='blk0 stream' data-input='blk0' data-input-handler='blk1 org-link image-handler' data-input-type='blk1 object' data-input='blk1'><pre><code>print(blk1)
 for word in %&apos;blk0-tree-handler:
