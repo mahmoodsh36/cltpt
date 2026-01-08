@@ -44,7 +44,6 @@
    :text-block :text-object-convert-options :text-object-contents-region
    :text-object-match
    :text-link :text-link-link :text-link-resolve
-   :link-resolve :link-desc :link-dest :link-type
    :target-filepath :target-text-object :convert-target-filepath
    :make-block :block-end
    :text-object-match-text :text-object-root
@@ -53,6 +52,9 @@
    :text-object-text-length
    :is-post-lexer-macro :post-lexer-macro-value
    :eval-post-lexer-macro
+
+   :link-resolve :link-desc :link-dest :link-type
+   :*id-to-attach-dir-func*
 
    :document :document-title :document-date
    :document-src-file

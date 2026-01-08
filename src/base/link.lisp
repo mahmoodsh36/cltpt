@@ -50,3 +50,16 @@ this function should always return a relative path that will be appended to :des
 ;; when requesting a text-object for a filepath we parse the file and return the document.
 (defmethod target-text-object ((target t))
   nil)
+
+;; this currently just adapts the default org-attach id for org-id's
+;; d0bddd39-2180-4e8d-895b-f64bcb6472ea -> ./data/d0/bddd39-2180-4e8d-895b-f64bcb6472ea
+(defun id-to-attach-dir (src-file id)
+  (cltpt/file-utils:join-paths
+   (cltpt/file-utils:file-dirpath src-file)
+   "data"
+   (subseq id 0 2)
+   (subseq id 2)))
+
+(defvar *id-to-attach-dir-func*
+  'id-to-attach-dir
+  "the function to call for converting an id and src-file to a destination file. for org-attach-like functionality.")
