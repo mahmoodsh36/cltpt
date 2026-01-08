@@ -4,7 +4,7 @@
    :ensure-dir-exists :file-ext
    :file-has-extension-p
    :change-extension :change-dir :path-without-extension
-   :file-basename :base-name-no-ext
+   :file-basename :base-name-no-ext :file-dirpath
    :write-file :read-file :join-paths :join-paths-list :walk-dir :as-dir-path
    :delete-files-by-glob :ensure-filepath-pathname :ensure-filepath-string :ensure-absolute
    :temp-file))
@@ -54,6 +54,10 @@
 
 (defun file-basename (path)
   (namestring (make-pathname :name (pathname-name path) :type (pathname-type path))))
+
+(defun file-dirpath (path)
+  "given a filepath like path/to/file, return parent dir path/to/"
+  (directory-namestring (pathname path)))
 
 (defun base-name-no-ext (path)
   (namestring (make-pathname :name (pathname-name path))))

@@ -156,6 +156,39 @@
                            dest-filepath)))
     new-filepath))
 
+;; this currently just adapts the default org-attach id for org-id's
+;; d0bddd39-2180-4e8d-895b-f64bcb6472ea -> ./data/d0/bddd39-2180-4e8d-895b-f64bcb6472ea
+(defun id-to-attach-dir (src-file id)
+  (cltpt/file-utils:join-paths
+   (cltpt/file-utils:file-dirpath src-file)
+   "data"
+   (subseq id 0 2)
+   (subseq id 2)))
+
+(defmethod cltpt/base:link-resolve ((src cltpt/base:text-object)
+                                    (link-type (eql 'cltpt/base::attachment))
+                                    dest
+                                    desc)
+  (labels ((is-doc (obj)
+             (typep obj 'cltpt/base::document))
+           (has-id (obj)
+             (cltpt/base:text-object-property obj :id)))
+    (let* ((doc (cltpt/base:find-ancestor src #'is-doc))
+           (ancestor-with-id (cltpt/base:find-ancestor src #'has-id))
+           (src-filepath (when doc
+                           (cltpt/base:document-src-file doc)))
+           (id (when ancestor-with-id
+                 (cltpt/base:text-object-property ancestor-with-id :id))))
+      (when (and id src-filepath)
+        ;; we simply resolve it as a 'file link after resolving the raw destination path
+        (cltpt/base:link-resolve
+         src
+         'cltpt/base::file
+         (cltpt/file-utils:join-paths
+          (id-to-attach-dir src-filepath id)
+          dest)
+         desc)))))
+
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-link)
                                            (backend cltpt/base:text-format))
   (let* ((link (cltpt/base:text-link-link obj))

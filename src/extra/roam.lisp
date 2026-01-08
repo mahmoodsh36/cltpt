@@ -215,17 +215,20 @@ each rule is a plist that can contain the following params.
              (cltpt/roam:get-node-by-id rmr dest))))
     dest-node))
 
-(defmethod cltpt/base:link-resolve ((link-type (eql 'cltpt/base::id))
+(defmethod cltpt/base:link-resolve (src
+                                    (link-type (eql 'cltpt/base::id))
                                     dest
                                     desc)
   (resolve-id-link dest desc))
 
-(defmethod cltpt/base:link-resolve ((link-type (eql 'cltpt/base::blk))
+(defmethod cltpt/base:link-resolve (src
+                                    (link-type (eql 'cltpt/base::blk))
                                     dest
                                     desc)
   (resolve-id-link dest desc))
 
-(defmethod cltpt/base:link-resolve ((link-type (eql 'cltpt/base::denote))
+(defmethod cltpt/base:link-resolve (src
+                                    (link-type (eql 'cltpt/base::denote))
                                     dest
                                     desc)
   (resolve-id-link dest desc))

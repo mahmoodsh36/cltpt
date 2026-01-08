@@ -64,6 +64,8 @@
          (text-tree (if text-object-types
                         (parse fmt text :text-object-types text-object-types)
                         (parse fmt text))))
+    (when (typep text-tree 'document)
+      (setf (document-src-file text-tree) filepath))
     text-tree))
 
 (defun text-format-by-name (name)

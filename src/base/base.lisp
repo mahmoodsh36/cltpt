@@ -25,7 +25,6 @@
    :filepath-format
 
    :*author*
-   :document :document-title :document-date
    :text-object
    :text-object-convert :text-object-children
    :map-text-object :map-text-object-with-pos-in-root
@@ -36,7 +35,7 @@
    :text-object-properties
    :text-object-init
    :text-object-begin-in-root :text-object-end-in-root
-   :find-children-recursively :find-children :list-children-recursively
+   :find-children-recursively :find-children :list-children-recursively :find-ancestor
    :child-at-pos
    :text-object-rule-from-subclass
    :text-format-name :text-format-from-alias :text-format-document-type
@@ -54,6 +53,9 @@
    :text-object-text-length
    :is-post-lexer-macro :post-lexer-macro-value
    :eval-post-lexer-macro
+
+   :document :document-title :document-date
+   :document-src-file
 
    :*image-ext* :*video-ext*))
 
