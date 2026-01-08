@@ -53,8 +53,7 @@
                          (fmt2 text-format)
                          src-file
                          dest-file)
-  (let* ((text (cltpt/file-utils:read-file src-file))
-         (doc (parse fmt1 text))
+  (let* ((doc (parse-file fmt1 src-file))
          (result (convert-document fmt1 fmt2 doc)))
     (cltpt/file-utils:write-file dest-file result)))
 

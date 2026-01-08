@@ -219,7 +219,7 @@ taking care of children indicies would cause issues."
 
 (defclass document (text-object)
   ((escapes
-    :accessor text-document-escapes
+    :accessor document-escapes
     :initform nil
     :documentation "escape sequences detected during parsing.")
    (src-file
@@ -601,6 +601,15 @@ SPEC is a plist with keys:
         (setf (text-object-children new-obj)
               (text-object-children text-obj)))
     new-obj))
+
+;; we need a specialized text-object-clone for 'document' to copy the 'escapes' and 'src-file' slot.
+;; though theres currently not really a need for this
+;; (defmethod text-object-clone :around ((text-obj document) &rest args)
+;;   (let ((clone (call-next-method)))
+;;     ;; we arent really deep cloning here tho.. if at all
+;;     (setf (document-escapes clone) (document-escapes text-obj))
+;;     (setf (document-src-file clone) (document-src-file text-obj))
+;;     clone))
 
 (defun map-text-object-with-pos-in-root (text-obj func &optional (pos 0))
   "traverse the text object tree starting at TEXT-OBJ. POS is the position of
