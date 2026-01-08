@@ -245,7 +245,7 @@ before calling `convert-tree' on the given DOC."
                              :src-fmt src-fmt)))
         (template (text-format-conversion-template dest-fmt)))
     ;; process escape sequences by applying them as incremental changes to the document
-    (let* ((escapes (text-document-escapes doc)))
+    (let* ((escapes (document-escapes doc)))
       (when escapes
         (let* ((changes
                  (loop for escape in escapes
