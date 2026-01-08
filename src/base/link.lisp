@@ -2,11 +2,12 @@
 
 ;; "struct representing a link, but doesnt define how it should be resolved."
 (defstruct link
+  src
   type
   desc
   dest)
 
-(defgeneric link-resolve (type desc dest)
+(defgeneric link-resolve (src type dest desc)
   (:documentation "given a link (by its properties), return a target.
 
 target can be a filepath or a text-object. perhaps this isnt the best way
@@ -30,16 +31,18 @@ this function should always return a relative path that will be appended to :des
 (defmethod convert-target-filepath ((target t))
   (target-filepath target))
 
-(defmethod link-resolve ((link-type (eql 'file))
+(defmethod link-resolve (src
+                         (link-type (eql 'file))
                          dest
                          desc)
   (uiop:parse-unix-namestring dest))
 
 ;; default to 'file functionality
-(defmethod link-resolve ((link-type symbol)
+(defmethod link-resolve (src
+                         (link-type symbol)
                          dest
                          desc)
-  (link-resolve 'file dest desc))
+  (link-resolve src 'file dest desc))
 
 (defgeneric target-text-object (target)
   (:documentation "given a target that was returned by `link-resolve', return the text-object associated with it (if any)."))

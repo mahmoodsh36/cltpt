@@ -221,7 +221,11 @@ taking care of children indicies would cause issues."
   ((escapes
     :accessor text-document-escapes
     :initform nil
-    :documentation "escape sequences detected during parsing."))
+    :documentation "escape sequences detected during parsing.")
+   (src-file
+    :accessor document-src-file
+    :initform nil
+    :documentation "the file from which the document was parsed. may be nil."))
   (:documentation "top-level text element."))
 
 (defmethod document-title ((obj document))
@@ -746,7 +750,7 @@ contents region is further compressed by COMPRESS-REGION if provided."
          (type (or (link-type link) 'file))
          (dest (link-dest link))
          (desc (link-desc link))
-         (resolved (link-resolve type dest desc)))
+         (resolved (link-resolve obj type dest desc)))
     resolved))
 
 (defmethod text-object-find-submatch ((obj text-object) submatch-id)
@@ -808,3 +812,10 @@ contents region is further compressed by COMPRESS-REGION if provided."
                     child)
                    child))))
   obj)
+
+(defmethod find-ancestor ((text-obj text-object) pred)
+  "find an ancestor based on the given predicate PRED."
+  (if (funcall pred text-obj)
+      text-obj
+      (when (text-object-parent text-obj)
+        (find-ancestor (text-object-parent text-obj) pred))))
