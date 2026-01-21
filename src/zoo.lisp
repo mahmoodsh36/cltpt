@@ -170,15 +170,17 @@
                            (cltpt/base:document-src-file doc)))
            (id (when ancestor-with-id
                  (cltpt/base:text-object-property ancestor-with-id :id))))
-      (when (and id src-filepath)
-        ;; we simply resolve it as a 'file link after resolving the raw destination path
-        (cltpt/base:link-resolve
-         src
-         'cltpt/base::file
-         (cltpt/file-utils:join-paths
-          (funcall cltpt/base:*id-to-attach-dir-func* src-filepath id)
-          dest)
-         desc)))))
+      (if (and id src-filepath)
+          ;; we simply resolve it as a 'file link after resolving the raw destination path
+          (cltpt/base:link-resolve
+           src
+           'cltpt/base::file
+           (cltpt/file-utils:join-paths
+            (funcall cltpt/base:*id-to-attach-dir-func* src-filepath id)
+            dest)
+           desc)
+          ;; fallback: when no src-file or id is available, resolve as simple file link
+          (cltpt/base:link-resolve src 'cltpt/base::file dest desc)))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-link)
                                            (backend cltpt/base:text-format))
