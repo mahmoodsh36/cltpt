@@ -4,12 +4,18 @@
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
    :reader-buffer :reader-stream :reader-start-position :reader :reader-input-stream :stream-index
    :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached
-   :reader-fully-consume :reader-ensure-fill-upto))
+   :reader-fully-consume :reader-ensure-fill-upto
+   :reader-fast-buffer :reader-fast-buffer-length
+   :*reader-fast-buffer* :*reader-fast-buffer-length*))
 
 (in-package :cltpt/reader)
 
 ;; this module implements a "buffered" reader for streams, it allows us to work with streams
 ;; as sequences and somewhat like we would work with strings.
+
+;; thread-local fast path for pre-filled readers, to avoid CLOS dispatching which would cause performance hit
+(defvar *reader-fast-buffer* nil)
+(defvar *reader-fast-buffer-length* 0)
 
 (defconstant +default-initial-size+ (* 1024 8)
   "the starting size of the buffer.")
@@ -38,7 +44,17 @@
    (growth-factor
     :initarg :growth-factor
     :initform +default-growth-factor+
-    :accessor reader-growth-factor)))
+    :accessor reader-growth-factor)
+   ;; fast-path cache for pre-filled readers (avoids reader-ensure-fill-upto overhead)
+   (fast-buffer
+    :initform nil
+    :accessor reader-fast-buffer
+    :documentation "cached buffer array for direct access when fully loaded.")
+   (fast-buffer-length
+    :initform 0
+    :type fixnum
+    :accessor reader-fast-buffer-length
+    :documentation "cached fill-pointer for fast bounds checking.")))
 
 (defun make-reader (stream &key
                              (initial-size +default-initial-size+)
@@ -60,7 +76,17 @@
   (fill-pointer (reader-buffer reader)))
 
 (defun reader-from-string (str)
-  (cltpt/reader:make-reader (make-string-input-stream str)))
+  (let* ((len (length str))
+         (buf (make-array len :element-type 'character
+                              :adjustable t
+                              :fill-pointer len
+                              :initial-contents str))
+         (r (make-instance 'reader :stream nil)))
+    (setf (reader-buffer r) buf)
+    (setf (reader-eof-reached r) t)
+    (setf (reader-fast-buffer r) buf)
+    (setf (reader-fast-buffer-length r) len)
+    r))
 
 (defun reader-from-input (input)
   "INPUT may be a stream, a string or a reader. a reader object is returned that reads INPUT."
@@ -104,6 +130,8 @@ returns T if target position is available, NIL if EOF reached before target."
                 ;; EOF - no more data
                 ((= new-fill current-fill)
                  (setf (reader-eof-reached reader) t)
+                 (setf (reader-fast-buffer reader) buf)
+                 (setf (reader-fast-buffer-length reader) new-fill)
                  (return-from reader-ensure-fill-upto (< target-pos new-fill)))
                 ;; got some data - check if we have enough
                 ((< target-pos new-fill)
@@ -119,13 +147,21 @@ blocks until the stream is fully consumed."
 
 (defun reader-char (reader idx)
   "read character at a specific position. returns NIL if it is beyond EOF."
-  (when (reader-ensure-fill-upto reader idx)
-    (aref (reader-buffer reader) idx)))
+  (let ((fb *reader-fast-buffer*))
+    (if fb
+        ;; fast path, no CLOS access
+        (when (< idx *reader-fast-buffer-length*)
+          (aref fb idx))
+        ;; slow path, may need to fill from stream
+        (when (reader-ensure-fill-upto reader idx)
+          (aref (reader-buffer reader) idx)))))
 
 (defun is-before-eof (reader idx)
   "return whether IDX is strictly before EOF."
-  (let ((char (reader-char reader idx)))
-    (not (null char))))
+  (let ((fb *reader-fast-buffer*))
+    (if fb
+        (< idx *reader-fast-buffer-length*)
+        (not (null (reader-char reader idx))))))
 
 (defun is-le-eof (reader idx)
   "whether index is less or equal to the position of eof."
@@ -139,32 +175,56 @@ blocks until the stream is fully consumed."
 (defun reader-string= (reader string &key (start1 0) end1 (start2 0) end2)
   "behaves like string= does for strings. (inplace-comparison)"
   (let ((end1 (or end1 most-positive-fixnum))
-        (end2 (or end2 (length string))))
-    (loop for i1 from start1 below end1
-          for i2 from start2 below end2
-          for char1 = (reader-char reader i1)
-          for char2 = (char string i2)
-          do (cond
-               ((null char1)
-                (return-from reader-string= nil))
-               ((char/= char1 char2)
-                (return-from reader-string= nil)))
-          finally (return-from reader-string= t))))
+        (end2 (or end2 (length string)))
+        (fb *reader-fast-buffer*))
+    (if fb
+        ;; fast path, direct buffer comparison
+        (let ((fb-len *reader-fast-buffer-length*))
+          (loop for i1 from start1 below end1
+                for i2 from start2 below end2
+                do (when (>= i1 fb-len)
+                     (return-from reader-string= nil))
+                   (unless (char= (aref fb i1) (char string i2))
+                     (return-from reader-string= nil))
+                finally (return-from reader-string= t)))
+        ;; slow path
+        (loop for i1 from start1 below end1
+              for i2 from start2 below end2
+              for char1 = (reader-char reader i1)
+              for char2 = (char string i2)
+              do (cond
+                   ((null char1)
+                    (return-from reader-string= nil))
+                   ((char/= char1 char2)
+                    (return-from reader-string= nil)))
+              finally (return-from reader-string= t)))))
 
 (defun reader-string-equal (reader string &key (start1 0) end1 (start2 0) end2)
   "behaves like string-equal does for strings. (inplace-comparison, case-insensitive)"
   (let ((end1 (or end1 most-positive-fixnum))
-        (end2 (or end2 (length string))))
-    (loop for i1 from start1 below end1
-          for i2 from start2 below end2
-          for char1 = (reader-char reader i1)
-          for char2 = (char string i2)
-          do (cond
-               ((null char1)
-                (return-from reader-string-equal nil))
-               ((char-not-equal char1 char2)
-                (return-from reader-string-equal nil)))
-          finally (return-from reader-string-equal t))))
+        (end2 (or end2 (length string)))
+        (fb *reader-fast-buffer*))
+    (if fb
+        ;; fast path, direct buffer comparison
+        (let ((fb-len *reader-fast-buffer-length*))
+          (loop for i1 from start1 below end1
+                for i2 from start2 below end2
+                do (when (>= i1 fb-len)
+                     (return-from reader-string-equal nil))
+                   (unless (char-equal (aref fb i1) (char string i2))
+                     (return-from reader-string-equal nil))
+                finally (return-from reader-string-equal t)))
+        ;; slow path
+        (loop for i1 from start1 below end1
+              for i2 from start2 below end2
+              for char1 = (reader-char reader i1)
+              for char2 = (char string i2)
+              do (cond
+                   ((null char1)
+                    (return-from reader-string-equal nil))
+                   ((char-not-equal char1 char2)
+                    (return-from reader-string-equal nil)))
+              finally (return-from reader-string-equal t)))))
 
 ;; TODO: why dont we just make the 'reader' class implement the gray stream interface?
 ;; this is used for lisp-sexp
