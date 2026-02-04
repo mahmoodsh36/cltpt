@@ -3,7 +3,9 @@
   (:import-from
    :cltpt/reader
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
-   :is-le-eof :reader-from-string :reader-from-input)
+   :is-le-eof :reader-from-string :reader-from-input
+   :reader-fast-buffer :reader-fast-buffer-length
+   :*reader-fast-buffer* :*reader-fast-buffer-length*)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one :symbol-matcher :scan-all-rules :any :all-but
@@ -48,7 +50,9 @@
   ;; we hash rules by id, so we can grab them quickly during matching
   rule-hash
   ;; parent-match will not have the 'end' set, only the 'begin'
-  parent-match*)
+  parent-match*
+  ;; cache for context-parent-begin to avoid repeated tree walks
+  (parent-begin-cache nil))
 
 (defmethod context-parent-match ((ctx context))
   (context-parent-match* ctx))
@@ -57,9 +61,14 @@
   nil)
 
 (defun context-parent-begin (ctx)
-  (if (context-parent-match ctx)
-      (match-begin-absolute (context-parent-match ctx))
-      0))
+  (if (null ctx)
+      0
+      (or (context-parent-begin-cache ctx)
+          (let ((begin (if (context-parent-match ctx)
+                           (match-begin-absolute (context-parent-match ctx))
+                           0)))
+            (setf (context-parent-begin-cache ctx) begin)
+            begin))))
 
 (defmethod context-rule-by-id ((ctx context) rule-id)
   (gethash rule-id (context-rule-hash ctx)))
@@ -67,7 +76,8 @@
 (defmethod context-copy ((ctx context) &optional (parent-match (context-parent-match ctx)))
   (make-context :rules (context-rules ctx)
                 :rule-hash (context-rule-hash ctx)
-                :parent-match* parent-match))
+                :parent-match* parent-match
+                :parent-begin-cache nil))
 
 (defmethod context-copy ((ctx null) &optional parent-match)
   (make-context :parent-match* parent-match))
@@ -175,17 +185,18 @@ to replace and new-rule is the rule to replace it with."
 
 (defun any (ctx reader pos &rest all)
   "match any of the given combinator rules."
-  (loop for one in all
-        for wrapper = (make-match :begin (- pos (context-parent-begin ctx))
-                                  :ctx ctx
-                                  :parent (context-parent-match ctx))
-        for child-ctx = (context-copy ctx wrapper)
-        for match = (apply-rule-normalized child-ctx one reader pos)
-        do (when match
-             (setf (match-children wrapper) (list match))
-             (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
-             (match-set-children-parent wrapper)
-             (return-from any wrapper))))
+  (let* ((parent-begin (context-parent-begin ctx))
+         (wrapper (make-match :begin (- pos parent-begin)
+                              :ctx ctx
+                              :parent (context-parent-match ctx)))
+         (child-ctx (context-copy ctx wrapper)))
+    (loop for one in all
+          for match = (apply-rule-normalized child-ctx one reader pos)
+          do (when match
+               (setf (match-children wrapper) (list match))
+               (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
+               (match-set-children-parent wrapper)
+               (return-from any wrapper)))))
 
 (defun literal (ctx reader pos substr)
   "match a literal string."
@@ -678,6 +689,9 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
   (let* ((reader (reader-from-input input))
          (events)
          (*escaped*)
+         ;; bind fast-buffer for reader-char/is-before-eof fast path
+         (*reader-fast-buffer* (reader-fast-buffer reader))
+         (*reader-fast-buffer-length* (reader-fast-buffer-length reader))
          (i start-idx)
          (rule-hash (hash-rules rules))
          ;; hash rules by :on-char to speed up iteration, we only call hashed
