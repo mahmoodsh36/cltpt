@@ -3,8 +3,7 @@
   :version "0.1"
   :author "Mahmood Sheikh <mahmod.m2015@gmail.com>"
   :depends-on ("uiop" "ironclad" "fiveam" "local-time" "clingon" "bordeaux-threads")
-  :components ((:file "cltpt")
-               (:module "file-utils"
+  :components ((:module "file-utils"
                 :pathname "src/"
                 :components ((:file "file-utils")))
                (:module "str-utils"
@@ -93,6 +92,10 @@
                 :pathname "src/extra"
                 :depends-on ("base" "file-utils" "latex" "org-mode" "html")
                 :components ((:file "commandline")))
+               (:module "cltpt"
+                :pathname ""
+                :components ((:file "cltpt"))
+                :depends-on ("base" "org-mode"))
                (:module "tests"
                 :pathname "tests/"
                 :depends-on ("base" "org-mode" "latex-previews")

@@ -4,9 +4,9 @@
 (pushnew #p"./" asdf:*central-registry* :test #'equal)
 (asdf:load-system "cltpt" :force t) ;; force recompilation
 
-(setf (getf cltpt:*debug* :convert) t)
-(setf (getf cltpt:*debug* :parse) t)
-(setf (getf cltpt:*debug* :roam) t)
+(setf (getf cltpt/base:*debug* :convert) t)
+(setf (getf cltpt/base:*debug* :parse) t)
+(setf (getf cltpt/base:*debug* :roam) t)
 
 (cltpt/zoo:init)
 

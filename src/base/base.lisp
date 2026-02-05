@@ -24,7 +24,6 @@
    :convert-simple-format
    :filepath-format
 
-   :*author*
    :text-object
    :text-object-convert :text-object-children
    :map-text-object :map-text-object-with-pos-in-root
@@ -59,6 +58,8 @@
    :document :document-title :document-date
    :document-src-file
 
+   :*debug* :*author*
+
    :*image-ext* :*video-ext*))
 
 (in-package :cltpt/base)
@@ -74,3 +75,13 @@
 (defvar cl-user::*file-info*
   nil
   "this is dynamically bound during conversion and used in `filepath-format-info' to handle the format string for static files.")
+
+(defvar *debug*
+  (list :convert nil
+        :parse nil
+        :roam nil)
+  "different debugging settings, if some property is set to `t', some corresponding debugging functionality throughout the source code will be activated.")
+
+(defvar *author*
+  nil
+  "author name used when generating a document.")

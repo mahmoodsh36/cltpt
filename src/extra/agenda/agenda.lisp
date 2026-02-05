@@ -44,6 +44,7 @@
    :text-object-task
 
    :*agenda-time-format*
+   :*agenda-include-done*
 
    :cycle :state-by-name))
 

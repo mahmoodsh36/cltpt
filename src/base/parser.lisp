@@ -54,14 +54,14 @@ the function passes the state between recursive calls by returning two values:
                        (let ((*package* (find-package :cl-user)))
                          (read-from-string (subseq match-text 1))))
                     (error (c)
-                      (when (getf cltpt:*debug* :parse)
+                      (when (getf *debug* :parse)
                         (format t
                                 "error while evaluating macro ~A: ~A.~%"
                                 match-text
                                 c))
                       (setf macro-eval-result 'broken))
                     (:no-error (result1)
-                      (when (getf cltpt:*debug* :parse)
+                      (when (getf *debug* :parse)
                         (format t "evaluated macro ~A: ~A~%" match-text result1))
                       (setf macro-eval-result result1)
                       (if (typep result1 'text-object)
