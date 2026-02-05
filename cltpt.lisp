@@ -1,15 +1,14 @@
 (defpackage :cltpt
   (:use :cl)
-  (:export :*debug* :*author*))
+  (:import-from :cltpt/tree
+   :tree-map)
+  (:import-from :cltpt/roam
+   :from-files :node)
+  (:import-from :cltpt/base
+   :parse :parse-file :text-object)
+  (:export
+   :tree-map
+   :from-files :node
+   :parse :parse-file :text-object))
 
 (in-package :cltpt)
-
-(defvar *debug*
-  (list :convert nil
-        :parse nil
-        :roam nil)
-  "different debugging settings, if some property is set to `t', some corresponding debugging functionality throughout the source code will be activated.")
-
-(defvar *author*
-  nil
-  "author name used when generating a document.")

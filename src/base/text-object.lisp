@@ -404,7 +404,7 @@ SPEC is a plist with keys:
              (eval
               (read-from-string txt-to-eval)))))
       (error (c)
-        (when (getf cltpt:*debug* :parse)
+        (when (getf *debug* :parse)
           (format t "error while evaluating post-lexer macro ~A: ~A.~%"
                   txt-to-eval c))
         (setf macro-eval-result 'broken))

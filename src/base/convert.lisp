@@ -63,7 +63,7 @@ the '\\' and processes the char normally (replace or emit)."
                            (text-object-types
                             (text-format-text-object-types fmt-src)
                             text-object-types-supplied))
-  (when (getf cltpt:*debug* :convert)
+  (when (getf *debug* :convert)
     (format t "DEBUG: converting object ~A~%" text-obj)
     (cltpt/tree:tree-show text-obj))
   (let* ((result (text-object-convert text-obj fmt-dest))
@@ -93,7 +93,7 @@ the '\\' and processes the char normally (replace or emit)."
          (escapables (collect-escapables text-object-types))
          (changes (unless result-is-string
                     (getf result :changes))))
-    (when (getf cltpt:*debug* :convert)
+    (when (getf *debug* :convert)
       (format t "DEBUG: before incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
     ;; set the child's own buffer where we will apply the changes. and then schedule the changes
@@ -171,7 +171,7 @@ the '\\' and processes the char normally (replace or emit)."
           final-escape-regions)
          :new-level t
          :delegate nil)))
-    (when (getf cltpt:*debug* :convert)
+    (when (getf *debug* :convert)
       (format t "DEBUG: after incremental changes:~%")
       (cltpt/tree:tree-show text-obj))
     ;; process children: convert each child and schedule its replacement.
@@ -195,7 +195,7 @@ the '\\' and processes the char normally (replace or emit)."
                                              (cltpt/buffer:region-intersection dr child-region))
                                            discard-regions)
               unless overlaps-discard
-                do (when (getf cltpt:*debug* :convert)
+                do (when (getf *debug* :convert)
                      (format t "DEBUG: converting child ~A~%" child))
                    (let ((child-result (convert-tree child fmt-src fmt-dest)))
                      (cltpt/buffer:schedule-change
@@ -263,9 +263,9 @@ before calling `convert-tree' on the given DOC."
                           (cltpt/buffer:region-begin change-region)
                           (cltpt/buffer:region-end change-region)
                           str
-                          (cltpt/base:merge-plist args
-                                                  (list :new-level nil
-                                                        :delegate t)))))))
+                          (merge-plist args
+                                       (list :new-level nil
+                                             :delegate t)))))))
     ;; here we've bound :text-obj in *convert-info* so that
     ;; we can access it from within the template.
     (if template
