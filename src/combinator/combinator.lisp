@@ -38,10 +38,11 @@
 ;; 3. the `pair' function isnt optimal, it does redundant work.
 ;; 4. we need a function that may discard any custom "left padding" such as a sequence of characters used for comments, e.g. ";;" in this case. in this exact comment section we have ";;" at the start of each line, we need a function that takes a "list matcher", and allows it to work regardless of those "padding sequences".
 ;; 5. some rules may only want to attempt matching in very specific cases, such as the beginning of a line, ending of a line. currently we support the heuristic of :on-char, and it speeds things up because it reduces the number of matchers executed at each point in the string, but we can add other heuristics too (perhaps an :after-char which for example could be used for ':after-char #\newline').
-;; 6. no need to store :str for every match (also :ctx isnt needed to be stored in matches at all).
-;; 7. the usage of this code is currently done on buffers after they have been loaded from the files, which results in the buffer being processed atleast twice. a better approach would be to process the string while its being loaded into memory.
-;; 8. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
-;; 9. avoid calling (and perhaps cache calls to) match-{begin,end}-absolute.
+;; 6. the usage of this code is currently done on buffers after they have been loaded from the files, which results in the buffer being processed atleast twice. a better approach would be to process the string while its being loaded into memory.
+;; 7. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
+;; 8. avoid calling (and perhaps cache calls to) match-{begin,end}-absolute.
+
+;; (declaim (inline context-parent-begin normalize-match context-rule-by-id))
 
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
@@ -52,7 +53,7 @@
   ;; parent-match will not have the 'end' set, only the 'begin'
   parent-match*
   ;; cache for context-parent-begin to avoid repeated tree walks
-  (parent-begin-cache nil))
+  (parent-begin-cache nil :type (or null fixnum)))
 
 (defmethod context-parent-match ((ctx context))
   (context-parent-match* ctx))
@@ -61,17 +62,21 @@
   nil)
 
 (defun context-parent-begin (ctx)
+  "return the absolute begin position of the context's parent match.
+returns 0 if ctx is nil or has no parent match. result is cached."
   (if (null ctx)
       0
-      (or (context-parent-begin-cache ctx)
-          (let ((begin (if (context-parent-match ctx)
-                           (match-begin-absolute (context-parent-match ctx))
-                           0)))
-            (setf (context-parent-begin-cache ctx) begin)
-            begin))))
+      (the fixnum
+           (or (context-parent-begin-cache ctx)
+               (let ((begin (if (context-parent-match ctx)
+                                (match-begin-absolute (context-parent-match ctx))
+                                0)))
+                 (setf (context-parent-begin-cache ctx) begin)
+                 begin)))))
 
-(defmethod context-rule-by-id ((ctx context) rule-id)
-  (gethash rule-id (context-rule-hash ctx)))
+(defun context-rule-by-id (ctx rule-id)
+  (when ctx
+    (gethash rule-id (context-rule-hash ctx))))
 
 (defmethod context-copy ((ctx context) &optional (parent-match (context-parent-match ctx)))
   (make-context :rules (context-rules ctx)
@@ -88,6 +93,53 @@
   "check whether LIST1 is a plist."
   (and (consp list1)
        (keywordp (car list1))))
+
+;; this really helps with performance. perhaps we should find a way to make the detection of the
+;; first char a rule would need to match easier and work for all rules by default. (a better idea
+;; would to to generalize it to even more than one char, using some form of trie.)
+(defun extract-literal-from-rule (rule)
+  "extract the first character that a rule would match, if determinable.
+returns the character if the rule starts with a known literal, NIL otherwise."
+  (cond
+    ;; nil or atom that's not a string
+    ((or (null rule) (and (atom rule) (not (stringp rule))))
+     nil)
+    ;; string directly
+    ((and (stringp rule) (plusp (length rule)))
+     (char rule 0))
+    ;; not a list - give up
+    ((not (listp rule))
+     nil)
+    ;; (literal "string")
+    ((and (eq (car rule) 'literal)
+          (stringp (cadr rule))
+          (plusp (length (cadr rule))))
+     (char (cadr rule) 0))
+    ;; (literal-casein "string")
+    ((and (eq (car rule) 'literal-casein)
+          (stringp (cadr rule))
+          (plusp (length (cadr rule))))
+     (char-downcase (char (cadr rule) 0)))
+    ;; (consec ...) - extract from first element
+    ((and (eq (car rule) 'consec) (cdr rule))
+     (extract-literal-from-rule (cadr rule)))
+    ;; (any ...) - can't determine (multiple possibilities)
+    ((eq (car rule) 'any)
+     nil)
+    ;; (:pattern ... :on-char #\c) - plist with :on-char
+    ((and (keywordp (car rule)) (getf rule :on-char))
+     (getf rule :on-char))
+    ;; (:pattern (literal ...) ...) - plist with :pattern
+    ((and (keywordp (car rule)) (getf rule :pattern))
+     (extract-literal-from-rule (getf rule :pattern)))
+    ;; (unescaped (literal ...))
+    ((and (eq (car rule) 'unescaped) (cadr rule))
+     (extract-literal-from-rule (cadr rule)))
+    ;; (when-match rule fn) or (followed-by rule fn)
+    ((and (member (car rule) '(when-match followed-by)) (cadr rule))
+     (extract-literal-from-rule (cadr rule)))
+    ;; unknown pattern
+    (t nil)))
 
 (defun copy-rule (rule id &key type)
   (if (plistp rule)
@@ -168,13 +220,16 @@ to replace and new-rule is the rule to replace it with."
 
 (defun normalize-match (match ctx rule pos)
   "ensures a match result is in the standard plist cons structure."
-  (if (numberp match)
-      (make-match :begin (- pos (context-parent-begin ctx))
-                  :end (- (+ pos match) (context-parent-begin ctx))
-                  :ctx ctx
-                  :rule rule
-                  :parent (context-parent-match ctx)
-                  :children nil)
+  (declare (type fixnum pos))
+  (if (typep match 'fixnum)
+      (let ((parent-begin (context-parent-begin ctx)))
+        (declare (type fixnum parent-begin match))
+        (make-match :begin (the fixnum (- pos parent-begin))
+                    :end (the fixnum (- (the fixnum (+ pos match)) parent-begin))
+                    :ctx ctx
+                    :rule rule
+                    :parent (context-parent-match ctx)
+                    :children nil))
       match))
 
 (defun apply-rule-normalized (ctx rule reader pos)
@@ -189,18 +244,28 @@ to replace and new-rule is the rule to replace it with."
          (wrapper (make-match :begin (- pos parent-begin)
                               :ctx ctx
                               :parent (context-parent-match ctx)))
-         (child-ctx (context-copy ctx wrapper)))
+         (child-ctx (context-copy ctx wrapper))
+         (current-char (reader-char reader pos)))
     (loop for one in all
-          for match = (apply-rule-normalized child-ctx one reader pos)
-          do (when match
-               (setf (match-children wrapper) (list match))
-               (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
-               (match-set-children-parent wrapper)
-               (return-from any wrapper)))))
+          ;; skip rules that can't match based on first character
+          for first-char = (extract-literal-from-rule one)
+          when (or (null first-char)
+                   (null current-char)
+                   (char= current-char first-char)
+                   (char= (char-downcase current-char) first-char))
+          do (let ((match (apply-rule-normalized child-ctx one reader pos)))
+               (when match
+                 (setf (match-children wrapper) (list match))
+                 (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
+                 (match-set-children-parent wrapper)
+                 (return-from any wrapper))))))
 
 (defun literal (ctx reader pos substr)
   "match a literal string."
+  (declare (ignore ctx)
+           (type fixnum pos))
   (let ((sublen (length substr)))
+    (declare (type fixnum sublen))
     (when (and (is-le-eof reader (+ pos sublen))
                (reader-string= reader
                                substr
@@ -211,12 +276,15 @@ to replace and new-rule is the rule to replace it with."
 
 (defun literal-casein (ctx reader pos substr)
   "match a literal string, case-insensitive."
+  (declare (ignore ctx)
+           (type fixnum pos))
   (let ((sublen (length substr)))
-    (when (is-le-eof reader (+ pos sublen))
+    (declare (type fixnum sublen))
+    (when (is-le-eof reader (the fixnum (+ pos sublen)))
       (when (reader-string-equal reader
                                  substr
                                  :start1 pos
-                                 :end1 (+ pos sublen)
+                                 :end1 (the fixnum (+ pos sublen))
                                  :end2 sublen)
         sublen))))
 
@@ -247,11 +315,18 @@ to replace and new-rule is the rule to replace it with."
 
 (defun all-but (ctx reader pos exceptions)
   "match everything but the characters in EXCEPTIONS."
+  (declare (ignore ctx)
+           (type fixnum pos))
   (let ((start pos))
-    (loop while (is-before-eof reader pos)
-          for c = (reader-char reader pos)
-          while (not (find c exceptions :test #'char=))
-          do (incf pos))
+    (declare (type fixnum start))
+    (if exceptions
+        (loop while (is-before-eof reader pos)
+              for c of-type character = (reader-char reader pos)
+              while (not (find c exceptions :test #'char=))
+              do (incf pos))
+        ;; if no exceptions, match everything until EOF
+        (loop while (is-before-eof reader pos)
+              do (incf pos)))
     (when (> pos start)
       (- pos start))))
 
@@ -443,7 +518,10 @@ before the final closing rule is found."
                                    :ctx ctx
                                    :parent (context-parent-match ctx)))
          (child-ctx (context-copy ctx parent-match))
-         (opening-match (apply-rule-normalized child-ctx opening-rule reader pos)))
+         (opening-match (apply-rule-normalized child-ctx opening-rule reader pos))
+         ;; extract first chars for fast filtering
+         (closing-first-char (extract-literal-from-rule closing-rule))
+         (opening-first-char (extract-literal-from-rule opening-rule)))
     (when opening-match
       (let* ((open-end-pos (+ (context-parent-begin child-ctx) (match-end opening-match)))
              (current-search-pos open-end-pos)
@@ -454,56 +532,65 @@ before the final closing rule is found."
              (content-matches))
         (loop while (is-before-eof reader current-search-pos)
               do
-                 ;; if multiline is not allowed and we are at the base nesting level,
-                 ;; fail the match if we encounter a newline character.
-                 (when (and (not allow-multiline)
-                            (= nesting-level 1)
-                            (char= (reader-char reader current-search-pos) #\newline))
-                   (return-from pair nil))
-                 (let ((potential-close
-                         (apply-rule-normalized child-ctx
-                                                closing-rule
-                                                reader
-                                                current-search-pos)))
-                   (if potential-close
-                       (progn
-                         (decf nesting-level)
-                         (setf current-search-pos
-                               (+ (context-parent-begin child-ctx)
-                                  (match-end potential-close)))
-                         (when (= nesting-level 0)
-                           (setf final-closing-match potential-close)
-                           (return)))
-                       ;; try to match content rules before checking for nested opens,
-                       ;; this allows nested blocks to be matched as children
-                       (let ((matched-content))
-                         (when rules-for-content
-                           (loop for rule in rules-for-content
-                                 until matched-content
-                                 do (let ((match-result (apply-rule child-ctx rule reader current-search-pos)))
-                                      (when match-result
-                                        (let ((normalized (normalize-match match-result
-                                                                           child-ctx
-                                                                           rule
-                                                                           current-search-pos)))
-                                          (setf current-search-pos
-                                                (+ (context-parent-begin child-ctx)
-                                                   (match-end normalized)))
-                                          (push normalized content-matches)
-                                          (setf matched-content t))))))
-                         (unless matched-content
-                           ;; if no content matched, check for nested opens
-                           (let ((potential-open
-                                   (apply-rule-normalized child-ctx
-                                                          opening-rule
-                                                          reader
-                                                          current-search-pos)))
-                             (if potential-open
-                                 (progn
-                                   (incf nesting-level)
-                                   (setf current-search-pos
-                                         (+ (context-parent-begin child-ctx) (match-end potential-open))))
-                                 (incf current-search-pos))))))))
+                 (let ((current-char (reader-char reader current-search-pos)))
+                   ;; if multiline is not allowed and we are at the base nesting level,
+                   ;; fail the match if we encounter a newline character.
+                   (when (and (not allow-multiline)
+                              (= nesting-level 1)
+                              (char= current-char #\newline))
+                     (return-from pair nil))
+                   ;; only try closing rule if first char could match (or we don't know the first char)
+                   (let ((potential-close
+                           (when (or (null closing-first-char)
+                                     (char= current-char closing-first-char)
+                                     (char= (char-downcase current-char) closing-first-char))
+                             (apply-rule-normalized child-ctx
+                                                    closing-rule
+                                                    reader
+                                                    current-search-pos))))
+                     (if potential-close
+                         (progn
+                           (decf nesting-level)
+                           (setf current-search-pos
+                                 (+ (context-parent-begin child-ctx)
+                                    (match-end potential-close)))
+                           (when (= nesting-level 0)
+                             (setf final-closing-match potential-close)
+                             (return)))
+                         ;; try to match content rules before checking for nested opens,
+                         ;; this allows nested blocks to be matched as children
+                         (let ((matched-content))
+                           (when rules-for-content
+                             (loop for rule in rules-for-content
+                                   until matched-content
+                                   do (let ((match-result (apply-rule child-ctx rule reader current-search-pos)))
+                                        (when match-result
+                                          (let ((normalized (normalize-match match-result
+                                                                             child-ctx
+                                                                             rule
+                                                                             current-search-pos)))
+                                            (setf current-search-pos
+                                                  (+ (context-parent-begin child-ctx)
+                                                     (match-end normalized)))
+                                            (push normalized content-matches)
+                                            (setf matched-content t))))))
+                           (unless matched-content
+                             ;; if no content matched, check for nested opens
+                             ;; only try if first char could match
+                             (let ((potential-open
+                                     (when (or (null opening-first-char)
+                                               (char= current-char opening-first-char)
+                                               (char= (char-downcase current-char) opening-first-char))
+                                       (apply-rule-normalized child-ctx
+                                                              opening-rule
+                                                              reader
+                                                              current-search-pos))))
+                               (if potential-open
+                                   (progn
+                                     (incf nesting-level)
+                                     (setf current-search-pos
+                                           (+ (context-parent-begin child-ctx) (match-end potential-open))))
+                                   (incf current-search-pos)))))))))
         (when (and final-closing-match (= nesting-level 0))
           (let ((overall-end-pos (+ (context-parent-begin child-ctx)
                                     (match-end final-closing-match))))
@@ -726,11 +813,16 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
 (defun is-preceded-by-odd-escape-p (ctx reader pos escape-char)
   "checks if the character at pos is preceded by an odd number of
 contiguous escape-char characters."
+  (declare (ignore ctx)
+           (type fixnum pos)
+           (type character escape-char))
   (if (zerop pos)
       nil
       (let ((i (1- pos))
             (escape-count 0))
-        (loop while (and (>= i 0) (char= (reader-char reader i) escape-char))
+        (loop while (and (>= i 0)
+                         (let ((c (reader-char reader i)))
+                           (and c (char= c escape-char))))
               do (incf escape-count)
                  (decf i))
         (oddp escape-count))))
