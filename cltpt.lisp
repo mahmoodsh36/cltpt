@@ -6,9 +6,12 @@
    :from-files :node)
   (:import-from :cltpt/base
    :parse :parse-file :text-object)
+  (:import-from :cltpt/agenda
+   :*agenda-include-done*)
   (:export
    :tree-map
    :from-files :node
-   :parse :parse-file :text-object))
+   :parse :parse-file :text-object
+   :*agenda-include-done*))
 
 (in-package :cltpt)
