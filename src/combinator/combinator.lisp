@@ -192,31 +192,35 @@ to replace and new-rule is the rule to replace it with."
     ctx))
 
 (defun whitespace-p (char)
-  "Predicate to check if a character is whitespace (space, newline, or tab)."
-  (member char '(#\space #\newline #\tab)))
+  "check if a character is whitespace (space, newline, or tab)."
+  (case char
+    ((#\space #\newline #\tab) t)
+    (otherwise nil)))
 
 (defun is-punctuation-p (char)
-  "predicate to check if a character is punctuation."
-  (member char
-          '(#\. #\, #\; #\:
-            #\! #\?
-            #\" #\' #\`
-            #\( #\)
-            #\[ #\]
-            #\{ #\}
-            #\< #\>
-            #\/ #\\
-            #\|
-            #\@
-            #\#
-            #\$
-            #\%
-            #\^
-            #\&
-            #\*
-            #\- #\_
-            #\+ #\=
-            #\~)))
+  "check if a character is punctuation (check the source to see which chars are considered)."
+  (case char
+    ((#\. #\, #\; #\:
+      #\! #\?
+      #\" #\' #\`
+      #\( #\)
+      #\[ #\]
+      #\{ #\}
+      #\< #\>
+      #\/ #\\
+      #\|
+      #\@
+      #\#
+      #\$
+      #\%
+      #\^
+      #\&
+      #\*
+      #\- #\_
+      #\+ #\=
+      #\~)
+     t)
+    (otherwise nil)))
 
 (defun normalize-match (match ctx rule pos)
   "ensures a match result is in the standard plist cons structure."
@@ -253,12 +257,12 @@ to replace and new-rule is the rule to replace it with."
                    (null current-char)
                    (char= current-char first-char)
                    (char= (char-downcase current-char) first-char))
-          do (let ((match (apply-rule-normalized child-ctx one reader pos)))
-               (when match
-                 (setf (match-children wrapper) (list match))
-                 (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
-                 (match-set-children-parent wrapper)
-                 (return-from any wrapper))))))
+            do (let ((match (apply-rule-normalized child-ctx one reader pos)))
+                 (when match
+                   (setf (match-children wrapper) (list match))
+                   (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
+                   (match-set-children-parent wrapper)
+                   (return-from any wrapper))))))
 
 (defun literal (ctx reader pos substr)
   "match a literal string."
@@ -302,11 +306,12 @@ to replace and new-rule is the rule to replace it with."
 (defun symbol-char (ctx reader pos)
   "helper for `symbol-matcher'."
   (when (or (eng-alphanump ctx reader pos)
-            (char= (reader-char reader pos) #\-)
-            (char= (reader-char reader pos) #\+)
-            (char= (reader-char reader pos) #\_)
-            (char= (reader-char reader pos) #\*)
-            (char= (reader-char reader pos) #\$))
+            (let ((c (reader-char reader pos)))
+              (or (char= c #\-)
+                  (char= c #\+)
+                  (char= c #\_)
+                  (char= c #\*)
+                  (char= c #\$))))
     1))
 
 (defun symbol-matcher (ctx reader pos)
@@ -341,14 +346,17 @@ to replace and new-rule is the rule to replace it with."
           do (incf pos))
     (- pos start)))
 
+(defvar *newline-string* (string #\newline))
+(defvar *whitespace-string* (concatenate 'string " " (string #\newline)))
+
 (defun all-but-newline (ctx reader pos)
   "match all characters but a newline."
-  (all-but ctx reader pos (string #\newline)))
+  (all-but ctx reader pos *newline-string*))
 
 ;; we should add more chars that quality as whitespace
 (defun all-but-whitespace (ctx reader pos)
   "match all characters but whitespaces."
-  (all-but ctx reader pos (concatenate 'string " " (string #\newline))))
+  (all-but ctx reader pos *whitespace-string*))
 
 (defun consec (ctx reader pos &rest all)
   "match a consecutive set of rules, each one has to be present."
@@ -665,7 +673,7 @@ before the final closing rule is found."
         (loop while (is-before-eof reader pos)
               for c = (reader-char reader pos)
               while (or (alpha-char-p c)
-                        (digit-char-p (reader-char reader pos))
+                        (digit-char-p c)
                         (char= c #\-)
                         (char= c #\_)
                         (char= c #\$))
@@ -734,8 +742,11 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
      (cond
        ;; if its a single symbol it must be the id of a rule, we use context
        ;; to retrieve the rule
-       ((and (symbolp rule) (context-rule-by-id ctx rule))
-        (apply-rule ctx (context-rule-by-id ctx rule) reader pos))
+       ((symbolp rule)
+        (let ((resolved (context-rule-by-id ctx rule)))
+          (if resolved
+              (apply-rule ctx resolved reader pos)
+              (error "invalid rule: ~A" rule))))
        ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
         (apply (car rule) ctx reader pos (cdr rule)))
        ((and (listp rule) (getf rule :pattern))
