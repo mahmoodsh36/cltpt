@@ -55,11 +55,9 @@
   ;; cache for context-parent-begin to avoid repeated tree walks
   (parent-begin-cache nil :type (or null fixnum)))
 
-(defmethod context-parent-match ((ctx context))
-  (context-parent-match* ctx))
-
-(defmethod context-parent-match ((ctx null))
-  nil)
+(defun context-parent-match (ctx)
+  (when ctx
+    (context-parent-match* ctx)))
 
 (defun context-parent-begin (ctx)
   "return the absolute begin position of the context's parent match.
@@ -78,14 +76,13 @@ returns 0 if ctx is nil or has no parent match. result is cached."
   (when ctx
     (gethash rule-id (context-rule-hash ctx))))
 
-(defmethod context-copy ((ctx context) &optional (parent-match (context-parent-match ctx)))
-  (make-context :rules (context-rules ctx)
-                :rule-hash (context-rule-hash ctx)
-                :parent-match* parent-match
-                :parent-begin-cache nil))
-
-(defmethod context-copy ((ctx null) &optional parent-match)
-  (make-context :parent-match* parent-match))
+(defun context-copy (ctx &optional (parent-match (context-parent-match ctx)))
+  (if ctx
+      (make-context :rules (context-rules ctx)
+                    :rule-hash (context-rule-hash ctx)
+                    :parent-match* parent-match
+                    :parent-begin-cache nil)
+      (make-context :parent-match* parent-match)))
 
 (defvar *escaped*)
 
@@ -299,9 +296,10 @@ to replace and new-rule is the rule to replace it with."
 
 (defun eng-alphanump (ctx reader pos)
   "match an english character or a digit."
-  (when (or (alpha-char-p (reader-char reader pos))
-            (digit-char-p (reader-char reader pos)))
-    1))
+  (let ((c (reader-char reader pos)))
+    (when (or (alpha-char-p c)
+              (digit-char-p c))
+      1)))
 
 (defun symbol-char (ctx reader pos)
   "helper for `symbol-matcher'."
@@ -664,11 +662,12 @@ before the final closing rule is found."
   "matches a (non-empty) word with hyphens, underscores or dollar signs."
   (let ((start pos))
     (if (or (is-after-eof reader pos)
-            (not (or (alpha-char-p (reader-char reader pos))
-                     (digit-char-p (reader-char reader pos))
-                     (char= (reader-char reader pos) #\-)
-                     (char= (reader-char reader pos) #\_)
-                     (char= (reader-char reader pos) #\$))))
+            (let ((c (reader-char reader pos)))
+              (not (or (alpha-char-p c)
+                       (digit-char-p c)
+                       (char= c #\-)
+                       (char= c #\_)
+                       (char= c #\$)))))
         (return-from word-digits-hyphen nil)
         (loop while (is-before-eof reader pos)
               for c = (reader-char reader pos)
@@ -684,8 +683,9 @@ before the final closing rule is found."
   "matches a (non-empty) word (possibly) with digits."
   (let ((start pos))
     (if (or (is-after-eof reader pos)
-            (not (or (alpha-char-p (reader-char reader pos))
-                     (digit-char-p (reader-char reader pos)))))
+            (let ((c (reader-char reader pos)))
+              (not (or (alpha-char-p c)
+                       (digit-char-p c)))))
         (return-from word-digits nil)
         (loop while (is-before-eof reader pos)
               for c = (reader-char reader pos)
@@ -764,7 +764,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
               (setf (match-id sub-pattern-match) (getf rule :id))
               sub-pattern-match))))
        ((stringp rule)
-        (apply-rule ctx (list 'literal rule) reader pos))
+        (literal ctx reader pos rule))
        (t (error "invalid rule: ~A" rule))))
     (when result
       (setf result (normalize-match result ctx rule pos))
@@ -774,7 +774,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
 ;; the hash table thing is a heuristic that makes things slightly faster
 (defun hash-rules (rules)
   "construct a hash table by :on-char of the list of plists RULES."
-  (let ((hash (make-hash-table :test 'equal)))
+  (let ((hash (make-hash-table :test 'eq)))
     (loop for rule in rules
           do (when (and (consp rule) (keywordp (car rule)))
                (let ((on-char (getf rule :on-char)))
@@ -797,7 +797,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
          ;; trying all rules at all locations
          (hashed-rules (loop for value being the hash-values of rule-hash
                              append value))
-         (unhashed-rules (set-difference rules hashed-rules :test #'equal))
+         (unhashed-rules (set-difference rules hashed-rules :test #'eq))
          (ctx (or ctx (make-context-from-rules rules))))
     (loop while (if end-idx
                     (< i end-idx)
@@ -811,7 +811,8 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                               (push (match-set-children-parent match-result) events)
                               (setf matched t)))))
                  (loop for rule in (union unhashed-rules
-                                          (gethash current-char rule-hash))
+                                          (gethash current-char rule-hash)
+                                          :test #'eq)
                        until matched
                        do (handle-rule rule)
                        finally (unless matched
@@ -922,7 +923,7 @@ the SUCCESSOR-PATTERN is not captured as part of the match."
 
 (defun upcase-word-matcher (ctx reader pos)
   "matches an uppercase (non-empty) word."
-  (apply-rule ctx `(atleast-one-discard (upcase-char-p)) reader pos))
+  (apply-rule ctx '(atleast-one-discard (upcase-char-p)) reader pos))
 
 (defun all-upto (ctx reader pos delimiter-rule)
   "match all characters up to but not including the pattern defined by DELIMITER-RULE.
@@ -943,13 +944,11 @@ returns the matched substring and its bounds."
 returns the matched substring and its bounds."
   (let ((start pos))
     (loop while (is-before-eof reader pos)
-          for delimiter-match = (apply-rule-normalized ctx delimiter-rule reader pos)
-          for without-match = (apply-rule-normalized ctx without-rule reader pos)
-          while (not delimiter-match)
-          if without-match
-            do (return-from all-upto-without nil)
-          else
-            do (incf pos))
+          do (when (apply-rule-normalized ctx delimiter-rule reader pos)
+               (return))
+             (if (apply-rule-normalized ctx without-rule reader pos)
+                 (return-from all-upto-without nil)
+                 (incf pos)))
     (when (> pos start)
       (make-match :begin (- start (context-parent-begin ctx))
                   :end (- pos (context-parent-begin ctx))
@@ -1006,23 +1005,15 @@ but if they don't match, parsing continues without them."
       (match-set-children-parent match))))
 
 (defun between-whitespace (ctx reader pos rule)
-  "a combinator that uses when-match to match a RULE only if the match
-is surrounded by whitespace or the boundaries of the string.
-The surrounding whitespace is not consumed."
-  (flet ((is-preceded-by-whitespace-p (ctx reader pos)
-           (or (zerop pos)
-               (whitespace-p (reader-char reader (1- pos)))))
-         (is-succeeded-by-whitespace-p (ctx reader pos)
-           (or (is-after-eof reader pos)
-               (whitespace-p (reader-char reader pos)))))
-    (let ((rule-with-succeeding-check
-            `(followed-by ,rule ,#'is-succeeded-by-whitespace-p)))
-      (apply-rule ctx
-                  `(when-match
-                    ,rule-with-succeeding-check
-                    ,#'is-preceded-by-whitespace-p)
-                  reader
-                  pos))))
+  "a combinator that uses when-match to match a RULE only if the match is surrounded by whitespace or the boundaries of the string."
+  (when (or (zerop pos)
+            (whitespace-p (reader-char reader (1- pos))))
+    (let ((match (apply-rule-normalized ctx rule reader pos)))
+      (when match
+        (let ((end-pos (+ (context-parent-begin ctx) (match-end match))))
+          (when (or (is-after-eof reader end-pos)
+                    (whitespace-p (reader-char reader end-pos)))
+            match))))))
 
 (defun flanked-by-whitespace (ctx reader pos rule)
   "a combinator that matches a RULE only if it is either preceded OR
