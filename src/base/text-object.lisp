@@ -360,28 +360,30 @@ SPEC is a plist with keys:
   (cltpt/buffer:region-text (text-object-contents-region obj)
                             (text-object-text obj)))
 
-(defclass text-macro (text-object)
-  ((rule
-    :allocation :class
-    :initform '(:pattern
-                (cltpt/combinator:unescaped
-                 (cltpt/combinator:consec
-                  (cltpt/combinator:literal "#")
-                  (:pattern (cltpt/combinator:lisp-sexp)
-                   :id lisp-code)))
-                :on-char #\#))))
+(defmacro define-text-object (name &rest args &key (superclass 'text-object) rule documentation)
+  `(progn
+     (defvar ,name ,rule)
+     (defclass ,name (,superclass)
+       ((rule :allocation :class :initform ,name))
+       ,@(when documentation
+           `((:documentation ,documentation))))))
 
-(defvar *post-lexer-text-macro-rule*
-  '(:pattern
-    (cltpt/combinator:consec
-     (cltpt/combinator:literal "%")
-     (:pattern (cltpt/combinator:lisp-sexp)
-      :id lisp-code))
-    :on-char #\%))
-(defclass post-lexer-text-macro (text-object)
-  ((rule
-    :allocation :class
-    :initform *post-lexer-text-macro-rule*)))
+(define-text-object text-macro
+  :rule '(:pattern
+          (cltpt/combinator:unescaped
+           (cltpt/combinator:consec
+            (cltpt/combinator:literal "#")
+            (:pattern (cltpt/combinator:lisp-sexp)
+             :id lisp-code)))
+          :on-char #\#))
+
+(define-text-object post-lexer-text-macro
+  :rule '(:pattern
+          (cltpt/combinator:consec
+           (cltpt/combinator:literal "%")
+           (:pattern (cltpt/combinator:lisp-sexp)
+            :id lisp-code))
+          :on-char #\%))
 
 (defvar *cache-post-lexer-macro-evals* nil)
 (defun eval-post-lexer-macro (obj &optional force)
@@ -487,6 +489,7 @@ SPEC is a plist with keys:
       (setf rule (list :pattern rule :id subclass)))
     (unless (getf rule :id)
       (setf (getf rule :id) subclass))
+    (setf (symbol-value subclass) rule)
     rule))
 
 (defmethod cltpt/tree:tree-children ((subtree text-object))

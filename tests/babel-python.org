@@ -9,7 +9,7 @@
   print(text)
 #+end_src
 
-#+begin_src python :exports both :results %'(:id link-dest :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but-newline))) :reconstruct %cltpt/org-mode::*org-link-rule* :name blk1
+#+begin_src python :exports both :results %'(:id link-dest :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but-newline))) :reconstruct %cltpt/org-mode::org-link :name blk1
   filepath = "out.png"
   print(filepath)
 #+end_src

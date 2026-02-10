@@ -67,7 +67,7 @@
          (reader (cltpt/reader:reader-from-string str))
          (parsed (cltpt/combinator:parse
                   str
-                  cltpt/org-mode::*org-link-rule*))
+                  cltpt/org-mode::org-link))
          (dest-rule
            '(:pattern
              (cltpt/combinator:consec

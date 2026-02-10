@@ -107,32 +107,28 @@
 ;;    (cltpt/base:text-format-text-object-types *org-mode*)))
 
 ;; even though a property drawer can be considered just a drawer with a special treatment, we implement it as a distinct object from `org-drawer'
-(defvar *org-prop-drawer-rule*
-  `(:pattern
-    (cltpt/combinator:pair
-     (cltpt/combinator:followed-by
-      (:pattern (cltpt/combinator:literal-casein ":properties:")
-       :id drawer-open-tag)
-      cltpt/combinator:at-line-end-p)
-     (cltpt/combinator:when-match
-      (cltpt/combinator:literal-casein ":end:")
-      cltpt/combinator:at-line-start-p)
-     ((:pattern
-       (cltpt/combinator:consec
-        (cltpt/combinator:literal ":")
-        (:pattern (cltpt/combinator:symbol-matcher)
-         :id drawer-key)
-        (cltpt/combinator:literal ":")
-        (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-        (:pattern (cltpt/combinator:all-but-newline)
-         :id drawer-value))
-       :id drawer-entry)))
-    :on-char #\:))
-(defclass org-prop-drawer (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-prop-drawer-rule*))
-  (:documentation "org-mode properties drawer."))
+(cltpt/base:define-text-object org-prop-drawer
+  :rule `(:pattern
+          (cltpt/combinator:pair
+           (cltpt/combinator:followed-by
+            (:pattern (cltpt/combinator:literal-casein ":properties:")
+             :id drawer-open-tag)
+            cltpt/combinator:at-line-end-p)
+           (cltpt/combinator:when-match
+            (cltpt/combinator:literal-casein ":end:")
+            cltpt/combinator:at-line-start-p)
+           ((:pattern
+             (cltpt/combinator:consec
+              (cltpt/combinator:literal ":")
+              (:pattern (cltpt/combinator:symbol-matcher)
+               :id drawer-key)
+              (cltpt/combinator:literal ":")
+              (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+              (:pattern (cltpt/combinator:all-but-newline)
+               :id drawer-value))
+             :id drawer-entry)))
+          :on-char #\:)
+  :documentation "org-mode properties drawer.")
 
 ;; ideally we should be using a hashmap, but it probably doesnt matter here.
 (defmethod org-prop-drawer-get ((obj org-prop-drawer) key)
@@ -165,29 +161,25 @@
                                            (backend cltpt/base:text-format))
   "")
 
-(defvar *org-keyword-rule*
-  `(:pattern
-    (cltpt/combinator:consec-atleast-one
-     (cltpt/combinator:consec
-      (cltpt/combinator:literal "#+")
-      (:pattern (cltpt/combinator:symbol-matcher)
-       :id keyword)
-      (cltpt/combinator:literal ":"))
-     (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-     (cltpt/combinator:any
-      ;; TODO: we shouldnt be enabling text-macros by default, even for keywords.
-      ,(cltpt/combinator:copy-rule
-        cltpt/base::*post-lexer-text-macro-rule*
-        'cltpt/base::post-lexer-text-macro)
-      ;; capture an arbitrary sequence until an EOL (or EOF ofc)
-      (:pattern (cltpt/combinator:all-but-newline)
-       :id value)))
-    :on-char #\#))
-(defclass org-keyword (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-keyword-rule*))
-  (:documentation "org-mode file-level keyword."))
+(cltpt/base:define-text-object org-keyword
+  :rule `(:pattern
+          (cltpt/combinator:consec-atleast-one
+           (cltpt/combinator:consec
+            (cltpt/combinator:literal "#+")
+            (:pattern (cltpt/combinator:symbol-matcher)
+             :id keyword)
+            (cltpt/combinator:literal ":"))
+           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+           (cltpt/combinator:any
+            ;; TODO: we shouldnt be enabling text-macros by default, even for keywords.
+            ,(cltpt/combinator:copy-rule
+              cltpt/base:post-lexer-text-macro
+              'cltpt/base::post-lexer-text-macro)
+            ;; capture an arbitrary sequence until an EOL (or EOF ofc)
+            (:pattern (cltpt/combinator:all-but-newline)
+             :id value)))
+          :on-char #\#)
+  :documentation "org-mode file-level keyword.")
 
 (defun rule-with-org-keywords (rule &optional must-have-keywords)
   "take a parser rule, \"wrap\" it with other rules to match org-like keywords for the object.
@@ -198,14 +190,14 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       `(cltpt/combinator:consec
         (cltpt/combinator:separated-atleast-one
          ,(string #\newline)
-         ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword))
+         ,(cltpt/combinator:copy-rule org-keyword 'org-keyword))
         ,(string #\newline)
         ,rule)
       `(cltpt/combinator:any
         (cltpt/combinator:consec
          (cltpt/combinator:separated-atleast-one
           ,(string #\newline)
-          ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword))
+          ,(cltpt/combinator:copy-rule org-keyword 'org-keyword))
          ,(string #\newline)
          ,rule)
         ,rule)))
@@ -262,19 +254,15 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
         (list :text ""
               :recurse nil))))
 
-(defvar *org-comment-rule*
-  '(:pattern
-    (cltpt/combinator:when-match
-     (cltpt/combinator:consec
-      (cltpt/combinator:literal "# ")
-      (cltpt/combinator:all-but-newline))
-     cltpt/combinator:at-line-start-p)
-    :on-char #\#))
-(defclass org-comment (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-comment-rule*))
-  (:documentation "comment line in org-mode."))
+(cltpt/base:define-text-object org-comment
+  :rule '(:pattern
+          (cltpt/combinator:when-match
+           (cltpt/combinator:consec
+            (cltpt/combinator:literal "# ")
+            (cltpt/combinator:all-but-newline))
+           cltpt/combinator:at-line-start-p)
+          :on-char #\#)
+  :documentation "comment line in org-mode.")
 
 (defmethod cltpt/base:text-object-convert ((obj org-comment)
                                            (backend cltpt/base:text-format))
@@ -320,20 +308,16 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
      :optional t
      :id repeat)
     ">"))
-(defvar *org-timestamp-rule*
-  `(:pattern
-    (cltpt/combinator:consec-atleast-one
-     (:pattern ,*org-single-timestamp-rule*
-      :id begin)
-     "--"
-     (:pattern ,*org-single-timestamp-rule*
-      :id end))
-    :on-char #\<))
-(defclass org-timestamp (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-timestamp-rule*))
-  (:documentation "a timestamp/date. e.g. <2023-12-28 Thu 18:30:00>."))
+(cltpt/base:define-text-object org-timestamp
+  :rule `(:pattern
+          (cltpt/combinator:consec-atleast-one
+           (:pattern ,*org-single-timestamp-rule*
+            :id begin)
+           "--"
+           (:pattern ,*org-single-timestamp-rule*
+            :id end))
+          :on-char #\<)
+  :documentation "a timestamp/date. e.g. <2023-12-28 Thu 18:30:00>.")
 
 (defun org-timestamp-match-to-time (obj match)
   (let* ((day (parse-integer
@@ -379,47 +363,39 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                                  month
                                  year)))
 
-(defvar *org-timestamp-bracket-rule*
-  '(:pattern
-    (cltpt/combinator:consec
-     "["
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id year)
-     "-"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id month)
-     "-"
-     (:pattern (cltpt/combinator:natural-number-matcher)
-      :id day)
-     " "
-     (:pattern (cltpt/combinator:word-matcher)
-      :id weekday)
-     (cltpt/combinator:consec-atleast-one
-      " "
-      (:pattern (cltpt/combinator:natural-number-matcher)
-       :id hour)
-      ":"
-      (:pattern (cltpt/combinator:natural-number-matcher)
-       :id minute)
-      ":"
-      (:pattern (cltpt/combinator:natural-number-matcher)
-       :id second))
-     "]")
-    :on-char #\[))
-(defclass org-timestamp-bracket (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-timestamp-bracket-rule*))
-  (:documentation "a timestamp/date. e.g. [2023-12-28 Thu 18:30]."))
+(cltpt/base:define-text-object org-timestamp-bracket
+  :rule '(:pattern
+          (cltpt/combinator:consec
+           "["
+           (:pattern (cltpt/combinator:natural-number-matcher)
+            :id year)
+           "-"
+           (:pattern (cltpt/combinator:natural-number-matcher)
+            :id month)
+           "-"
+           (:pattern (cltpt/combinator:natural-number-matcher)
+            :id day)
+           " "
+           (:pattern (cltpt/combinator:word-matcher)
+            :id weekday)
+           (cltpt/combinator:consec-atleast-one
+            " "
+            (:pattern (cltpt/combinator:natural-number-matcher)
+             :id hour)
+            ":"
+            (:pattern (cltpt/combinator:natural-number-matcher)
+             :id minute)
+            ":"
+            (:pattern (cltpt/combinator:natural-number-matcher)
+             :id second))
+           "]")
+          :on-char #\[)
+  :documentation "a timestamp/date. e.g. [2023-12-28 Thu 18:30].")
 
-(defvar *org-list-rule*
-  `(org-list-matcher
-    ,*org-inline-text-objects-rule*))
-(defclass org-list (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-list-rule*))
-  (:documentation "org-mode list."))
+(cltpt/base:define-text-object org-list
+  :rule `(org-list-matcher
+          ,*org-inline-text-objects-rule*)
+  :documentation "org-mode list.")
 
 (defun find-direct-child-by-id (node target-id)
   (when node
@@ -616,91 +592,87 @@ used for all region-decf calculations to get positions relative to the text-obje
       (todo-rule
         '(:pattern (cltpt/combinator:upcase-word-matcher)
           :id todo-keyword)))
-  (defvar *org-header-rule*
-    `(:pattern
-      (cltpt/combinator:consec-atleast-one
-       (cltpt/combinator:when-match
-        (cltpt/combinator:any
-         ;; capture header with TODO keyword and tags
-         (cltpt/combinator:consec
-          (:pattern
-           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-           :id stars)
-          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          ,todo-rule
-          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          (:pattern
-           (cltpt/combinator:all-upto-without
-            ,tags-rule
-            ,(string #\newline))
-           :id title)
-          ,tags-rule)
-         ;; capture header without todo keyword but with tags
-         (cltpt/combinator:consec
-          (:pattern
-           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-           :id stars)
-          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          (:pattern
-           (cltpt/combinator:all-upto-without
-            ,tags-rule
-            ,(string #\newline))
-           :id title)
-          ,tags-rule)
-         ;; capture header with todo keyword but without tags
-         (cltpt/combinator:consec
-          (:pattern
-           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-           :id stars)
-          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          ,todo-rule
-          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          (:pattern (cltpt/combinator:all-but-newline)
-           :id title))
-         ;; capture header without todo keyword or tags
-         (cltpt/combinator:consec
-          (:pattern
-           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-           :id stars)
-          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          (:pattern (cltpt/combinator:all-but-newline)
-           :id title)))
-        cltpt/combinator:at-line-start-p)
-       ;; the following is for detecting metadata following an org header
-       (cltpt/combinator:atleast-one
-        (cltpt/combinator:consec
-         (cltpt/combinator:literal ,(string #\newline))
-         (cltpt/combinator:any
-          (cltpt/combinator:separated-atleast-one
-           " "
-           (cltpt/combinator:any
-            (:pattern
-             (cltpt/combinator:consec
-              (:pattern (cltpt/combinator:upcase-word-matcher)
-               :id name)
-              ": "
-              ,(cltpt/combinator:copy-rule *org-timestamp-rule* 'timestamp
-                          :type 'org-timestamp))
-             :id action-active)
-            (:pattern
-             (cltpt/combinator:consec
-              (:pattern (cltpt/combinator:upcase-word-matcher)
-               :id name)
-              ": "
-              ,(cltpt/combinator:copy-rule *org-timestamp-bracket-rule* 'timestamp))
-             :id action-inactive)))
-          ,(cltpt/combinator:copy-rule *org-timestamp-rule* 'todo-timestamp
-                      :type 'org-timestamp)
-          (cltpt/combinator:when-match-after
-           ,(cltpt/combinator:copy-rule *org-list-rule* 'org-list)
-           is-header-metadata-list)
-          ,(cltpt/combinator:copy-rule *org-prop-drawer-rule* 'org-prop-drawer)))))
-      :on-char #\*)))
-(defclass org-header (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-header-rule*))
-  (:documentation "org-mode header."))
+  (cltpt/base:define-text-object org-header
+    :rule `(:pattern
+            (cltpt/combinator:consec-atleast-one
+             (cltpt/combinator:when-match
+              (cltpt/combinator:any
+               ;; capture header with TODO keyword and tags
+               (cltpt/combinator:consec
+                (:pattern
+                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+                 :id stars)
+                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+                ,todo-rule
+                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+                (:pattern
+                 (cltpt/combinator:all-upto-without
+                  ,tags-rule
+                  ,(string #\newline))
+                 :id title)
+                ,tags-rule)
+               ;; capture header without todo keyword but with tags
+               (cltpt/combinator:consec
+                (:pattern
+                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+                 :id stars)
+                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+                (:pattern
+                 (cltpt/combinator:all-upto-without
+                  ,tags-rule
+                  ,(string #\newline))
+                 :id title)
+                ,tags-rule)
+               ;; capture header with todo keyword but without tags
+               (cltpt/combinator:consec
+                (:pattern
+                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+                 :id stars)
+                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+                ,todo-rule
+                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+                (:pattern (cltpt/combinator:all-but-newline)
+                 :id title))
+               ;; capture header without todo keyword or tags
+               (cltpt/combinator:consec
+                (:pattern
+                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+                 :id stars)
+                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+                (:pattern (cltpt/combinator:all-but-newline)
+                 :id title)))
+              cltpt/combinator:at-line-start-p)
+             ;; the following is for detecting metadata following an org header
+             (cltpt/combinator:atleast-one
+              (cltpt/combinator:consec
+               (cltpt/combinator:literal ,(string #\newline))
+               (cltpt/combinator:any
+                (cltpt/combinator:separated-atleast-one
+                 " "
+                 (cltpt/combinator:any
+                  (:pattern
+                   (cltpt/combinator:consec
+                    (:pattern (cltpt/combinator:upcase-word-matcher)
+                     :id name)
+                    ": "
+                    ,(cltpt/combinator:copy-rule org-timestamp 'timestamp
+                                :type 'org-timestamp))
+                   :id action-active)
+                  (:pattern
+                   (cltpt/combinator:consec
+                    (:pattern (cltpt/combinator:upcase-word-matcher)
+                     :id name)
+                    ": "
+                    ,(cltpt/combinator:copy-rule org-timestamp-bracket 'timestamp))
+                   :id action-inactive)))
+                ,(cltpt/combinator:copy-rule org-timestamp 'todo-timestamp
+                            :type 'org-timestamp)
+                (cltpt/combinator:when-match-after
+                 ,(cltpt/combinator:copy-rule org-list 'org-list)
+                 is-header-metadata-list)
+                ,(cltpt/combinator:copy-rule org-prop-drawer 'org-prop-drawer)))))
+            :on-char #\*)
+    :documentation "org-mode header."))
 
 (defmethod cltpt/base:text-object-init :after ((obj org-header) str1 match)
   (let* ((stars (cltpt/combinator:find-submatch match 'stars))
@@ -917,51 +889,44 @@ used for all region-decf calculations to get positions relative to the text-obje
              :end (length obj-text)))
            :recurse t)))))
 
-(defvar *org-link-rule*
-  '(:pattern
-    (cltpt/combinator:any
-     ;; [[type:dest][desc]]
-     (cltpt/combinator:consec
-      "[["
-      (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
-      ":"
-      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-      "]["
-      (:pattern (cltpt/combinator:all-but "[]") :id link-desc)
-      "]]")
-     ;; [[type:dest]]
-     (cltpt/combinator:consec
-      "[["
-      (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
-      ":"
-      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-      "]]")
-     ;; [[dest]]
-     (cltpt/combinator:consec
-      "[["
-      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-      "]]"))
-    :on-char #\[))
-(defclass org-link (cltpt/base:text-link)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-link-rule*))
-  (:documentation "org-mode link."))
+(cltpt/base:define-text-object org-link
+  :superclass cltpt/base:text-link
+  :rule '(:pattern
+          (cltpt/combinator:any
+           ;; [[type:dest][desc]]
+           (cltpt/combinator:consec
+            "[["
+            (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
+            ":"
+            (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+            "]["
+            (:pattern (cltpt/combinator:all-but "[]") :id link-desc)
+            "]]")
+           ;; [[type:dest]]
+           (cltpt/combinator:consec
+            "[["
+            (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
+            ":"
+            (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+            "]]")
+           ;; [[dest]]
+           (cltpt/combinator:consec
+            "[["
+            (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+            "]]"))
+          :on-char #\[)
+  :documentation "org-mode link.")
 
 ;; we're not being clever about it
-(defvar *web-link-rule*
-  `(:pattern
-    (cltpt/combinator:consec
-     (cltpt/combinator:any
-      "https://"
-      "http://")
-     (cltpt/combinator:all-but-whitespace))
-    :on-char #\h))
-(defclass web-link (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *web-link-rule*))
-  (:documentation "a web link."))
+(cltpt/base:define-text-object web-link
+  :rule `(:pattern
+          (cltpt/combinator:consec
+           (cltpt/combinator:any
+            "https://"
+            "http://")
+           (cltpt/combinator:all-but-whitespace))
+          :on-char #\h)
+  :documentation "a web link.")
 
 (defmethod cltpt/base:text-object-init :after ((obj web-link) str1 match)
   (setf (cltpt/base:text-object-property obj :is-inline)
@@ -977,18 +942,14 @@ used for all region-decf calculations to get positions relative to the text-obje
                    (cltpt/base:text-object-text obj))
            :escape nil))))
 
-(defvar *org-inline-code-rule*
-  '(:pattern
-    (cltpt/combinator:pair
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
-     nil nil nil)
-    :on-char #\~))
-(defclass org-inline-code (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-inline-code-rule*))
-  (:documentation "org-mode inline code (surrounded by tildes)."))
+(cltpt/base:define-text-object org-inline-code
+  :rule '(:pattern
+          (cltpt/combinator:pair
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
+           nil nil nil)
+          :on-char #\~)
+  :documentation "org-mode inline code (surrounded by tildes).")
 
 (defmethod cltpt/base:text-object-init :after ((obj org-inline-code) str1 match)
   (setf (cltpt/base:text-object-property obj :is-inline) t))
@@ -1010,25 +971,19 @@ used for all region-decf calculations to get positions relative to the text-obje
       "<code>"
       "</code>"))))
 
-(defclass org-table (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform `(:pattern
-                (org-table-matcher
-                 ;; TODO: currently enabling some text objects like org-italic
-                 ;; inside tables causes issues. this happens when there
-                 ;; is something like `| cell / 1 | cell / 2 |` where the
-                 ;; forward slashes may correspond to an org-italic instance
-                 ;; which might break the text-object tree.
-                 ;; TODO: its not good that we're including all rules as
-                 ;; symbols here. it would cause alot of hashmap lookups
-                 ;; during parsing.
-                 (eval
-                  (set-difference
-                   (org-mode-inline-text-object-types)
-                   '(org-italic org-emph))))
-                :on-char #\|)))
-  (:documentation "org-mode table."))
+(cltpt/base:define-text-object org-table
+  :rule `(:pattern
+          (org-table-matcher
+           ;; TODO: currently enabling some text objects like org-italic
+           ;; inside tables causes issues. this happens when there
+           ;; is something like `| cell / 1 | cell / 2 |` where the
+           ;; forward slashes may correspond to an org-italic instance
+           ;; which might break the text-object tree.
+           (eval
+            (set-difference (org-mode-inline-text-object-types)
+                            '(org-italic org-emph))))
+          :on-char #\|)
+  :documentation "org-mode table.")
 
 ;; TODO: this uses nconc all the time which causes squared complexity
 (defmethod cltpt/base:text-object-convert ((obj org-table)
@@ -1331,19 +1286,17 @@ used for all region-decf calculations to get positions relative to the text-obje
         :escape t
         :recurse t))
 
-(defclass org-emph (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform `(:pattern
-                (cltpt/combinator:flanked-by-whitespace-or-punctuation
-                 (cltpt/combinator:pair
-                  (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
-                  (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
-                  nil
-                  nil
-                  nil))
-                :on-char #\*)))
-  (:documentation "org-mode emphasized text (surrounded by asterisks)."))
+(cltpt/base:define-text-object org-emph
+  :rule `(:pattern
+          (cltpt/combinator:flanked-by-whitespace-or-punctuation
+           (cltpt/combinator:pair
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
+            nil
+            nil
+            nil))
+          :on-char #\*)
+  :documentation "org-mode emphasized text (surrounded by asterisks).")
 
 (defmethod cltpt/base:text-object-init :after ((obj org-emph) str1 match)
   (setf (cltpt/base:text-object-property obj :is-inline)
@@ -1369,21 +1322,17 @@ used for all region-decf calculations to get positions relative to the text-obje
 
 ;; TODO: in org-mode, slashes are interpreted as italic text only if they are
 ;; preceded/succeeded by spaces.
-(defvar *org-italic-rule*
-  '(:pattern
-    (cltpt/combinator:flanked-by-whitespace-or-punctuation
-     (cltpt/combinator:pair
-      (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-      (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-      nil
-      nil
-      nil))
-    :on-char #\/))
-(defclass org-italic (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-italic-rule*))
-  (:documentation "org-mode italicized text (surrounded by forward slahes)."))
+(cltpt/base:define-text-object org-italic
+  :rule '(:pattern
+          (cltpt/combinator:flanked-by-whitespace-or-punctuation
+           (cltpt/combinator:pair
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
+            nil
+            nil
+            nil))
+          :on-char #\/)
+  :documentation "org-mode italicized text (surrounded by forward slahes).")
 
 (defmethod cltpt/base:text-object-init :after ((obj org-italic) str1 match)
   (setf (cltpt/base:text-object-property obj :is-inline)
@@ -1421,7 +1370,7 @@ used for all region-decf calculations to get positions relative to the text-obje
           (cltpt/combinator:when-match
            (cltpt/combinator:succeeded-by
             ,(cltpt/combinator:copy-rule
-              cltpt/base::*post-lexer-text-macro-rule*
+              cltpt/base:post-lexer-text-macro
               'cltpt/base::post-lexer-text-macro)
             ;; we make sure to capture lisp expressions only if they are succeeded
             ;; by " :" because otherwise we might capture a word that is part
@@ -1495,12 +1444,12 @@ used for all region-decf calculations to get positions relative to the text-obje
        |#
        (cltpt/combinator:any
         org-export-block
-        ,(cltpt/combinator:copy-rule *org-list-rule* 'org-list)
         org-table
         org-block
         org-drawer
         org-example-block
-        ,(cltpt/combinator:copy-rule *org-link-rule* 'org-link)))
+        org-link
+        org-list))
       :id results-content))
     :id results))
 (defvar *org-src-block-no-kw-rule*
@@ -1532,34 +1481,30 @@ used for all region-decf calculations to get positions relative to the text-obje
       :id end))
     ;; unlike an `org-block', org-src-block shouldnt contain children (for now)
     nil))
-(defvar *org-src-block-rule*
-  `(:pattern
-    (cltpt/combinator:any
-     ;; block with keywords and execution results
-     (cltpt/combinator:consec
-      ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword)
-      ,*org-src-block-no-kw-rule*
-      (cltpt/combinator:literal ,(string #\newline))
-      (cltpt/combinator:literal ,(string #\newline))
-      ,*org-babel-results-rule*)
-     ;; block with keywords but no execution results
-     (cltpt/combinator:consec
-      ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword)
-      ,*org-src-block-no-kw-rule*)
-     ;; block with results but no keywords
-     (cltpt/combinator:consec
-      ,*org-src-block-no-kw-rule*
-      (cltpt/combinator:literal ,(string #\newline))
-      (cltpt/combinator:literal ,(string #\newline))
-      ,*org-babel-results-rule*)
-     ;; block with no keywords and no results
-     ,*org-src-block-no-kw-rule*)
-    :on-char #\#))
-(defclass org-src-block (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-src-block-rule*))
-  (:documentation "org-mode src block."))
+(cltpt/base:define-text-object org-src-block
+  :rule `(:pattern
+          (cltpt/combinator:any
+           ;; block with keywords and execution results
+           (cltpt/combinator:consec
+            ,(cltpt/combinator:copy-rule org-keyword 'org-keyword)
+            ,*org-src-block-no-kw-rule*
+            (cltpt/combinator:literal ,(string #\newline))
+            (cltpt/combinator:literal ,(string #\newline))
+            ,*org-babel-results-rule*)
+           ;; block with keywords but no execution results
+           (cltpt/combinator:consec
+            ,(cltpt/combinator:copy-rule org-keyword 'org-keyword)
+            ,*org-src-block-no-kw-rule*)
+           ;; block with results but no keywords
+           (cltpt/combinator:consec
+            ,*org-src-block-no-kw-rule*
+            (cltpt/combinator:literal ,(string #\newline))
+            (cltpt/combinator:literal ,(string #\newline))
+            ,*org-babel-results-rule*)
+           ;; block with no keywords and no results
+           ,*org-src-block-no-kw-rule*)
+          :on-char #\#)
+  :documentation "org-mode src block.")
 
 (defun init-org-src-block (obj str1)
   (setf (cltpt/base:text-object-property obj :contents-region-spec)
@@ -1974,33 +1919,29 @@ returns a list of changes that remove the indentation spaces from each line."
                                            (backend cltpt/base:text-format))
   (convert-block obj backend nil t))
 
-(defvar *org-example-block-rule*
-  `(:pattern
-    (cltpt/combinator:pair
-     (cltpt/combinator:unescaped
-      (:pattern
-       (cltpt/combinator:any
-        (cltpt/combinator:consec
-         (:pattern
-          (cltpt/combinator:literal-casein "#+begin_example")
-          :id open-tag)
-         (cltpt/combinator:literal " ")
-         ,*keywords-rule*)
-        (:pattern
-         (cltpt/combinator:literal-casein "#+begin_example")
-         :id open-tag))
-       :id begin))
-     (cltpt/combinator:unescaped
-      (:pattern (cltpt/combinator:literal-casein "#+end_example")
-       :id end))
-     nil)
-    :id org-example-block
-    :on-char #\#))
-(defclass org-example-block (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-example-block-rule*))
-  (:documentation "org-mode example block."))
+(cltpt/base:define-text-object org-example-block
+  :rule `(:pattern
+          (cltpt/combinator:pair
+           (cltpt/combinator:unescaped
+            (:pattern
+             (cltpt/combinator:any
+              (cltpt/combinator:consec
+               (:pattern
+                (cltpt/combinator:literal-casein "#+begin_example")
+                :id open-tag)
+               (cltpt/combinator:literal " ")
+               ,*keywords-rule*)
+              (:pattern
+               (cltpt/combinator:literal-casein "#+begin_example")
+               :id open-tag))
+             :id begin))
+           (cltpt/combinator:unescaped
+            (:pattern (cltpt/combinator:literal-casein "#+end_example")
+             :id end))
+           nil)
+          :id org-example-block
+          :on-char #\#)
+  :documentation "org-mode example block.")
 
 (defmethod cltpt/base:text-object-init :after ((obj org-example-block) str1 match)
   (init-org-src-block obj str1))
@@ -2047,19 +1988,15 @@ returns a list of changes that remove the indentation spaces from each line."
     ;; an org-block can contain every other object except headers
     (eval
      (org-mode-text-object-types-except '(org-header)))))
-(defvar *org-block-rule*
-  `(:pattern
-    (cltpt/combinator:any
-     (cltpt/combinator:consec
-      ,(cltpt/combinator:copy-rule *org-keyword-rule* 'org-keyword)
-      ,*org-block-no-kw-rule*)
-     ,*org-block-no-kw-rule*)
-    :on-char #\#))
-(defclass org-block (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-block-rule*))
-  (:documentation "org-mode block."))
+(cltpt/base:define-text-object org-block
+  :rule `(:pattern
+          (cltpt/combinator:any
+           (cltpt/combinator:consec
+            ,(cltpt/combinator:copy-rule org-keyword 'org-keyword)
+            ,*org-block-no-kw-rule*)
+           ,*org-block-no-kw-rule*)
+          :on-char #\#)
+  :documentation "org-mode block.")
 
 (defmethod org-block-keyword-value ((obj cltpt/base:text-object) kw)
   "return the value associated with a keyword of an `org-block'."
@@ -2098,19 +2035,15 @@ returns a list of changes that remove the indentation spaces from each line."
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
 
 ;; an "export block" is very similar to an src-block, just some slight differences.
-(defvar *org-export-block-rule*
-  `(:pattern
-    ,(cltpt/combinator:copy-modify-rule
-      *org-src-block-no-kw-rule*
-      '((open-tag . "#+begin_export")
-        (end . "#+end_export")))
-    :id org-export-block
-    :on-char #\#))
-(defclass org-export-block (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-export-block-rule*))
-  (:documentation "org-mode export block."))
+(cltpt/base:define-text-object org-export-block
+  :rule `(:pattern
+          ,(cltpt/combinator:copy-modify-rule
+            *org-src-block-no-kw-rule*
+            '((open-tag . "#+begin_export")
+              (end . "#+end_export")))
+          :id org-export-block
+          :on-char #\#)
+  :documentation "org-mode export block.")
 
 (defmethod cltpt/base:text-object-init :after ((obj org-export-block) str1 match)
   (init-org-src-block obj str1))
@@ -2128,24 +2061,20 @@ returns a list of changes that remove the indentation spaces from each line."
         (list :text ""
               :reparse t))))
 
-(defvar *org-drawer-rule*
-  `(:pattern
-    (cltpt/combinator:pair
-     (cltpt/combinator:followed-by
-      (:pattern ,(cltpt/combinator:handle-rule-string ":%w:")
-       :id drawer-open-tag)
-      cltpt/combinator:at-line-end-p)
-     (cltpt/combinator:when-match
-      (:pattern (cltpt/combinator:literal-casein ":end:")
-       :id drawer-close-tag)
-      cltpt/combinator:at-line-start-p)
-     (eval (org-mode-text-object-types-except '(org-header org-drawer))))
-    :on-char #\:))
-(defclass org-drawer (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-drawer-rule*))
-  (:documentation "org-mode drawer."))
+(cltpt/base:define-text-object org-drawer
+  :rule `(:pattern
+          (cltpt/combinator:pair
+           (cltpt/combinator:followed-by
+            (:pattern ,(cltpt/combinator:handle-rule-string ":%w:")
+             :id drawer-open-tag)
+            cltpt/combinator:at-line-end-p)
+           (cltpt/combinator:when-match
+            (:pattern (cltpt/combinator:literal-casein ":end:")
+             :id drawer-close-tag)
+            cltpt/combinator:at-line-start-p)
+           (eval (org-mode-text-object-types-except '(org-header org-drawer))))
+          :on-char #\:)
+  :documentation "org-mode drawer.")
 
 (defmethod cltpt/base:text-object-init :after ((obj org-drawer) str1 match)
   (setf (cltpt/base:text-object-property obj :contents-region-spec)
@@ -2165,21 +2094,18 @@ returns a list of changes that remove the indentation spaces from each line."
    :compress-region (cltpt/buffer:make-region :begin 1 :end 1)))
 
 ;; we need an org-specific flavor of latex-env that may accept keywords like #+name
-(defvar *org-latex-env-rule*
-  `(:pattern
-    ,(rule-with-org-keywords
-      (cltpt/combinator:copy-rule
-       cltpt/latex:*latex-env-rule*
-       ;; we cant use an id 'latex-env' because that will cause a child of type
-       ;; cltpt/latex:latex-env to be matched. we use 'latex-env-1'
-       'latex-env-1)
-      t)
-    :on-char #\#))
-(defclass org-latex-env (cltpt/latex:latex-env)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *org-latex-env-rule*))
-  (:documentation "type for org-mode-specific latex environments (latex-env that may be preceded with keywords like #+name)."))
+(cltpt/base:define-text-object org-latex-env
+  :superclass cltpt/latex:latex-env
+  :rule `(:pattern
+          ,(rule-with-org-keywords
+            (cltpt/combinator:copy-rule
+             cltpt/latex:latex-env
+             ;; we cant use an id 'latex-env' because that will cause a child of type
+             ;; cltpt/latex:latex-env to be matched. we use 'latex-env-1'
+             'latex-env-1)
+            t)
+          :on-char #\#)
+  :documentation "type for org-mode-specific latex environments (latex-env that may be preceded with keywords like #+name).")
 
 (defmethod cltpt/base:text-object-finalize ((obj org-latex-env))
   (let* ((keywords-alist (handle-parsed-org-keywords obj))
