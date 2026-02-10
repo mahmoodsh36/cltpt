@@ -70,7 +70,13 @@
     (write-sequence str1 f)))
 
 (defun read-file (filepath)
-  (uiop:read-file-string filepath))
+  (with-open-file (stream filepath :direction :input
+                                   :element-type 'character
+                                   :if-does-not-exist :error)
+    (let* ((len (file-length stream))
+           (buf (make-string len)))
+      (read-sequence buf stream)
+      buf)))
 
 (defun join-paths (&rest components)
   "merge given args as filepaths, see `join-paths-list'."
