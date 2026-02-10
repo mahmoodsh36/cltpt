@@ -18,7 +18,7 @@
 (defvar *reader-fast-buffer-length* 0)
 
 ;; inline some functions for performance
-;; (declaim (inline reader-char is-before-eof is-after-eof is-le-eof))
+(declaim (inline reader-char is-before-eof is-after-eof is-le-eof))
 
 (defconstant +default-initial-size+ (* 1024 8)
   "the starting size of the buffer.")

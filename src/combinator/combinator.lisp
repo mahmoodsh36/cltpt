@@ -42,7 +42,7 @@
 ;; 7. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
 ;; 8. avoid calling (and perhaps cache calls to) match-{begin,end}-absolute.
 
-;; (declaim (inline context-parent-begin normalize-match))
+(declaim (inline context-parent-begin normalize-match))
 
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
