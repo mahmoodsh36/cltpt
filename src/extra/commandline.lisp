@@ -229,7 +229,7 @@
   (let* ((date-str (format nil "<~A>" date-str))
          (timestamp-match (cltpt/combinator:match-rule
                            nil
-                           cltpt/org-mode::*org-timestamp-rule*
+                           cltpt/org-mode::org-timestamp
                            date-str
                            0))
          (ts (cltpt/org-mode::org-timestamp-match-to-time timestamp-match)))

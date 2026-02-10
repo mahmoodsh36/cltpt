@@ -42,14 +42,12 @@
 ;; 7. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
 ;; 8. avoid calling (and perhaps cache calls to) match-{begin,end}-absolute.
 
-;; (declaim (inline context-parent-begin normalize-match context-rule-by-id))
+;; (declaim (inline context-parent-begin normalize-match))
 
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
 (defstruct context
   rules
-  ;; we hash rules by id, so we can grab them quickly during matching
-  rule-hash
   ;; parent-match will not have the 'end' set, only the 'begin'
   parent-match*
   ;; cache for context-parent-begin to avoid repeated tree walks
@@ -72,14 +70,10 @@ returns 0 if ctx is nil or has no parent match. result is cached."
                  (setf (context-parent-begin-cache ctx) begin)
                  begin)))))
 
-(defun context-rule-by-id (ctx rule-id)
-  (when ctx
-    (gethash rule-id (context-rule-hash ctx))))
 
 (defun context-copy (ctx &optional (parent-match (context-parent-match ctx)))
   (if ctx
       (make-context :rules (context-rules ctx)
-                    :rule-hash (context-rule-hash ctx)
                     :parent-match* parent-match
                     :parent-begin-cache nil)
       (make-context :parent-match* parent-match)))
@@ -172,21 +166,6 @@ to replace and new-rule is the rule to replace it with."
 ;; in cases where the combinator isnt called many times with the same rules
 ;; in other applications of this combinator library
 ;; but maybe introduce this caching in other parts of cltpt's code that can benefit form it.
-(defun make-context-from-rules (rules)
-  (let ((rule-hash (make-hash-table :test 'equal))
-        (ctx (make-context :parent-match* nil)))
-    (setf (context-rules ctx) rules)
-    (setf (context-rule-hash ctx) rule-hash)
-    (loop for rule in rules
-          do (cltpt/tree:tree-map
-              rule
-              (lambda (node)
-                ;; if its a plist it could be a rule with an id
-                (when (and (consp node) (keywordp (car node)))
-                  (let ((node-id (getf node :id)))
-                    (when node-id
-                      (setf (gethash node-id rule-hash) node)))))))
-    ctx))
 
 (defun whitespace-p (char)
   "check if a character is whitespace (space, newline, or tab)."
@@ -740,10 +719,9 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
     (setf
      result
      (cond
-       ;; if its a single symbol it must be the id of a rule, we use context
-       ;; to retrieve the rule
+       ;; if its a single symbol we resolve the rule from the symbol's value
        ((symbolp rule)
-        (let ((resolved (context-rule-by-id ctx rule)))
+        (let ((resolved (symbol-value rule)))
           (if resolved
               (apply-rule ctx resolved reader pos)
               (error "invalid rule: ~A" rule))))
@@ -798,7 +776,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
          (hashed-rules (loop for value being the hash-values of rule-hash
                              append value))
          (unhashed-rules (set-difference rules hashed-rules :test #'eq))
-         (ctx (or ctx (make-context-from-rules rules))))
+         (ctx (or ctx (make-context :rules rules :parent-match* nil))))
     (loop while (if end-idx
                     (< i end-idx)
                     (is-before-eof reader i))

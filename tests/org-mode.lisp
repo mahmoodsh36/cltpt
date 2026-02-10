@@ -22,7 +22,7 @@
 
 (defun make-dummy-context ()
   (let ((rules (org-rules)))
-    (cltpt/combinator::make-context-from-rules rules)))
+    (cltpt/combinator::make-context :rules rules :parent-match* nil)))
 
 (defun org-table-parse (table-text)
   "parse an org-mode table and return a list of rows, each row being a list of cell values."
@@ -44,7 +44,7 @@
 (defun org-keyword-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "#+title: My Document"
-                 (list cltpt/org-mode::*org-keyword-rule*))))
+                 (list cltpt/org-mode::org-keyword))))
     result))
 
 (test org-keyword-basic
@@ -61,7 +61,7 @@
 (defun org-comment-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "# this is a comment"
-                 (list cltpt/org-mode::*org-comment-rule*))))
+                 (list cltpt/org-mode::org-comment))))
     result))
 
 (test org-comment-basic
@@ -76,7 +76,7 @@
 (defun org-header-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "* my header"
-                 (list cltpt/org-mode::*org-header-rule*))))
+                 (list cltpt/org-mode::org-header))))
     result))
 
 (test org-header-basic
@@ -92,7 +92,7 @@
 (defun org-header-with-todo-func ()
   (let ((result (cltpt/combinator:parse
                  "* TODO my header"
-                 (list cltpt/org-mode::*org-header-rule*))))
+                 (list cltpt/org-mode::org-header))))
     result))
 
 (test org-header-with-todo
@@ -109,7 +109,7 @@
 (defun org-header-with-tags-func ()
   (let ((result (cltpt/combinator:parse
                  "* my header :tag1:tag2:"
-                 (list cltpt/org-mode::*org-header-rule*))))
+                 (list cltpt/org-mode::org-header))))
     result))
 
 (test org-header-with-tags
@@ -134,7 +134,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 :ID: my-id
 :LAST_REPEAT: [2024-10-29 Tue 16:40:36]
 :END:"
-                 (list cltpt/org-mode::*org-header-rule*))))
+                 (list cltpt/org-mode::org-header))))
     result))
 
 (test org-header-comprehensive
@@ -154,7 +154,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-timestamp-date-only-func ()
   (let ((result (cltpt/combinator:parse
                  "<2024-01-15 Mon>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
+                 (list cltpt/org-mode::org-timestamp))))
     result))
 
 (test org-timestamp-date-only
@@ -176,7 +176,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-timestamp-with-time-func ()
   (let ((result (cltpt/combinator:parse
                  "<2024-01-15 Mon 14:30:00>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
+                 (list cltpt/org-mode::org-timestamp))))
     (compare-full-match-loosely
      (car result)
      '((:BEGIN 0 :END 25 :MATCH "<2024-01-15 Mon 14:30:00>")
@@ -203,7 +203,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-timestamp-with-repeater-func ()
   (let ((result (cltpt/combinator:parse
                  "<2024-01-15 Mon 14:30:00 +1w>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
+                 (list cltpt/org-mode::org-timestamp))))
     result))
 
 (test org-timestamp-with-repeater
@@ -233,7 +233,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-timestamp-range-func ()
   (let ((result (cltpt/combinator:parse
                  "<2024-01-15 Mon>--<2024-01-16 Tue>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
+                 (list cltpt/org-mode::org-timestamp))))
     (compare-full-match-loosely
      (car result)
      '((:BEGIN 0 :END 34 :MATCH "<2024-01-15 Mon>--<2024-01-16 Tue>")
@@ -263,7 +263,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-date-only-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu>") 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu>") 0)
    '((:BEGIN 0 :END 16 :MATCH "<2023-12-28 Thu>")
      ((:BEGIN 0 :END 16 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -281,7 +281,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-time-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00>") 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00>") 0)
    '((:BEGIN 0 :END 25 :MATCH "<2023-12-28 Thu 18:30:00>")
      ((:BEGIN 0 :END 25 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -306,7 +306,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-repeater-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>") 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>") 0)
    '((:BEGIN 0 :END 29 :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -335,7 +335,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-range-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::*org-timestamp-rule* (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>") 0)
+   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>") 0)
    '((:BEGIN 0 :END 60 :MATCH "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -407,7 +407,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-link-simple-func ()
   (let ((result (cltpt/combinator:parse
                  "[[id:abc123]]"
-                 (list cltpt/org-mode::*org-link-rule*))))
+                 (list cltpt/org-mode::org-link))))
     result))
 
 (test org-link-simple
@@ -424,7 +424,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-link-with-description-func ()
   (let ((result (cltpt/combinator:parse
                  "[[file:document.pdf][My Document]]"
-                 (list cltpt/org-mode::*org-link-rule*))))
+                 (list cltpt/org-mode::org-link))))
     result))
 
 (test org-link-with-description
@@ -443,7 +443,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-link-no-type-func ()
   (let ((result (cltpt/combinator:parse
                  "[[document.pdf]]"
-                 (list cltpt/org-mode::*org-link-rule*))))
+                 (list cltpt/org-mode::org-link))))
     result))
 
 (test org-link-no-type
@@ -458,7 +458,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-web-link-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "https://example.com/page"
-                 (list cltpt/org-mode::*web-link-rule*))))
+                 (list cltpt/org-mode::web-link))))
     result
     ))
 
@@ -473,7 +473,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-inline-code-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "~code here~"
-                 (list cltpt/org-mode::*org-inline-code-rule*))))
+                 (list cltpt/org-mode::org-inline-code))))
     result))
 
 (test org-inline-code-basic
@@ -512,7 +512,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 (defun org-italic-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "/italic text/"
-                 (list cltpt/org-mode::*org-italic-rule*))))
+                 (list cltpt/org-mode::org-italic))))
     result))
 
 (test org-italic-basic
@@ -529,7 +529,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 :ID: my-id-123
 :CUSTOM_ID: my-custom
 :END:"
-                 (list cltpt/org-mode::*org-prop-drawer-rule*))))
+                 (list cltpt/org-mode::org-prop-drawer))))
     result))
 
 (test org-prop-drawer-basic
@@ -553,7 +553,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
   (let ((result (cltpt/combinator:parse
                  ":PROPERTIES:
 :END:"
-                 (list cltpt/org-mode::*org-prop-drawer-rule*))))
+                 (list cltpt/org-mode::org-prop-drawer))))
     result))
 
 (test org-prop-drawer-empty
@@ -589,7 +589,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
                  "#+begin_src python
   print('hello')
 #+end_src"
-                 (list cltpt/org-mode::*org-src-block-rule*))))
+                 (list cltpt/org-mode::org-src-block))))
     result))
 
 (test org-src-block-basic
@@ -607,10 +607,10 @@ print('hello')
 
 (defun org-src-block-with-options-func ()
   (let ((result (cltpt/combinator:parse
-                 "#+begin_src python :results %'(:name link-dest (cltpt/combinator:atleast-one-discard (cltpt/combinator:any))) :reconstruct %cltpt/org-mode::*org-link-rule*
+                 "#+begin_src python :results %'(:name link-dest (cltpt/combinator:atleast-one-discard (cltpt/combinator:any))) :reconstruct %cltpt/org-mode::org-link
 print('hello')
 #+end_src"
-                 (list cltpt/org-mode::*org-src-block-rule*))))
+                 (list cltpt/org-mode::org-src-block))))
     result))
 
 (test org-src-block-with-options
@@ -635,7 +635,7 @@ print('hello')
 #+begin_src lisp
 (+ 1 2)
 #+end_src"
-                 (list cltpt/org-mode::*org-src-block-rule*))))
+                 (list cltpt/org-mode::org-src-block))))
     result))
 
 (test org-src-block-with-name
@@ -712,7 +712,7 @@ print('hello')
                  "#+begin_export html
 <div>Custom HTML</div>
 #+end_export"
-                 (list cltpt/org-mode::*org-export-block-rule*))))
+                 (list cltpt/org-mode::org-export-block))))
     result))
 
 (test org-export-block-html
@@ -733,7 +733,7 @@ print('hello')
                  "#+begin_export latex
 \\textbf{Bold text}
 #+end_export"
-                 (list cltpt/org-mode::*org-export-block-rule*))))
+                 (list cltpt/org-mode::org-export-block))))
     result))
 
 (test org-export-block-latex
@@ -752,7 +752,7 @@ print('hello')
 (defun org-block-example-func ()
   (let ((result (cltpt/combinator:parse
                  "#+begin_example: test"
-                 (list cltpt/org-mode::*org-keyword-rule*))))
+                 (list cltpt/org-mode::org-keyword))))
     result))
 
 (test org-block-example
@@ -769,7 +769,7 @@ print('hello')
 (defun org-block-with-keywords-func ()
   (let ((result (cltpt/combinator:parse
                  "#+name: my-block"
-                 (list cltpt/org-mode::*org-keyword-rule*))))
+                 (list cltpt/org-mode::org-keyword))))
     result))
 
 (test org-block-with-keywords
@@ -843,7 +843,7 @@ print('hello')
 (defun org-latex-env-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "#+latex: \\begin{equation}"
-                 (list cltpt/org-mode::*org-keyword-rule*))))
+                 (list cltpt/org-mode::org-keyword))))
     result))
 
 (test org-latex-env-basic
@@ -860,7 +860,7 @@ print('hello')
 (defun org-latex-env-with-name-func ()
   (let ((result (cltpt/combinator:parse
                  "#+name: eq1"
-                 (list cltpt/org-mode::*org-keyword-rule*))))
+                 (list cltpt/org-mode::org-keyword))))
     result))
 
 (test org-latex-env-with-name
@@ -882,7 +882,7 @@ some math here
 \\end{gather}
 "
    (list
-    cltpt/latex::*latex-env-rule*)))
+    cltpt/latex:latex-env)))
 
 (test latex-env-parse-test-1
   (fiveam:is
@@ -972,7 +972,7 @@ something more
 my equation here
 \\end{equation}
 "
-   (list cltpt/org-mode::*org-latex-env-rule*)))
+   (list cltpt/org-mode::org-latex-env)))
 
 (test test-org-latex-env
   (fiveam:is
@@ -1020,7 +1020,7 @@ my equation here
  #+filetags: 
  #+identifier: 1712235129
  "
-   (list cltpt/org-mode::*org-keyword-rule*)))
+   (list cltpt/org-mode::org-keyword)))
 
 (test test-org-keyword
   (let ((parser-result (test-org-keyword)))
@@ -1272,7 +1272,7 @@ plt.close()
   (let ((result (cltpt/combinator:parse
                  "<2025-10-14 Tue +1d>"
                  ;; "<2025-10-14 10:00 +1d>"
-                 (list cltpt/org-mode::*org-timestamp-rule*))))
+                 (list cltpt/org-mode::org-timestamp))))
     (cltpt/org-mode::handle-time-match (car result))))
 
 (defun run-org-list-extensive-test ()

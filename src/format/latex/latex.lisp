@@ -2,8 +2,8 @@
   (:use :cl)
   (:export
    :*latex* :display-math
-   :inline-math :*inline-math-rule* :display-math :*display-math-rule*
-   :latex-env :*latex-env-rule*
+   :inline-math :display-math
+   :latex-env :latex-link
    :*latex-code-env*
    :init))
 
@@ -65,16 +65,12 @@
        (remove #\newline *latex-escape-table* :key #'car)
        escapable-chars)))
 
-(defvar *inline-math-rule*
-  '(:pattern
-    (cltpt/combinator:pair
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\("))
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\)")))
-    :on-char #\\))
-(defclass inline-math (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *inline-math-rule*)))
+(cltpt/base:define-text-object inline-math
+  :rule '(:pattern
+          (cltpt/combinator:pair
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\("))
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\)")))
+          :on-char #\\))
 
 (defmethod cltpt/base:text-object-init :after ((obj inline-math) str1 match)
   (setf (cltpt/base:text-object-property obj :is-inline)
@@ -86,16 +82,12 @@
         :recurse t
         :escape nil))
 
-(defvar *display-math-rule*
-  '(:pattern
-    (cltpt/combinator:pair
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\["))
-     (cltpt/combinator:unescaped (cltpt/combinator:literal "\\]")))
-    :on-char #\\))
-(defclass display-math (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *display-math-rule*)))
+(cltpt/base:define-text-object display-math
+  :rule '(:pattern
+          (cltpt/combinator:pair
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\["))
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\]")))
+          :on-char #\\))
 
 (defmethod cltpt/base:text-object-convert ((obj display-math)
                                            (fmt (eql *latex*)))
@@ -103,35 +95,29 @@
         :recurse t
         :escape nil))
 
-(defvar *latex-env-rule*
-  `(:pattern
-    (cltpt/combinator:pair
-     (:pattern
-      (cltpt/combinator:unescaped
-       ,(cltpt/combinator:handle-rule-string "\\begin{%W}"))
-      :id open-tag)
-     (:pattern
-      (cltpt/combinator:unescaped
-       ,(cltpt/combinator:handle-rule-string "\\end{%W}"))
-      :id close-tag))
-    :on-char #\\))
-(defclass latex-env (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform *latex-env-rule*))
-  (:documentation "latex environment."))
+(cltpt/base:define-text-object latex-env
+  :rule `(:pattern
+          (cltpt/combinator:pair
+           (:pattern
+            (cltpt/combinator:unescaped
+             ,(cltpt/combinator:handle-rule-string "\\begin{%W}"))
+            :id open-tag)
+           (:pattern
+            (cltpt/combinator:unescaped
+             ,(cltpt/combinator:handle-rule-string "\\end{%W}"))
+            :id close-tag))
+          :on-char #\\)
+  :documentation "latex environment.")
 
-(defclass latex-link (cltpt/base:text-object)
-  ((cltpt/base::rule
-    :allocation :class
-    :initform '(:pattern
-                (cltpt/combinator:consec
-                 "\\ref{"
-                 (:pattern (cltpt/combinator::symbol-matcher)
-                  :id link-dest)
-                 "}")
-                :on-char #\\)))
-  (:documentation "latex link."))
+(cltpt/base:define-text-object latex-link
+  :rule '(:pattern
+          (cltpt/combinator:consec
+           "\\ref{"
+           (:pattern (cltpt/combinator::symbol-matcher)
+            :id link-dest)
+           "}")
+          :on-char #\\)
+  :documentation "latex link.")
 
 (defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)

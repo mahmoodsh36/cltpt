@@ -41,7 +41,7 @@ block2
 <br>
 block2
 <br>
-<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk1' data-reconstruct='(PATTERN
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk1' data-reconstruct='(ID ORG-LINK PATTERN
                    (ANY
                     (CONSEC [[ (PATTERN (SYMBOL-MATCHER) ID LINK-TYPE) :
                             (PATTERN (ALL-BUT []) ID LINK-DEST) ][
