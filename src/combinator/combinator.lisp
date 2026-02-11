@@ -132,6 +132,14 @@ returns the character if the rule starts with a known literal, NIL otherwise."
     ;; unknown pattern
     (t nil)))
 
+(defvar *literal-char-cache* (make-hash-table :test 'eq))
+
+(defun extract-literal-from-rule-cached (rule)
+  (multiple-value-bind (val found) (gethash rule *literal-char-cache*)
+    (if found val
+        (setf (gethash rule *literal-char-cache*)
+              (extract-literal-from-rule rule)))))
+
 (defun copy-rule (rule id &key type)
   (if (plistp rule)
       (let ((copy (copy-tree rule)))
@@ -225,8 +233,7 @@ to replace and new-rule is the rule to replace it with."
         (wrapper)
         (child-ctx))
     (loop for one in all
-          ;; skip rules that can't match based on first character
-          for first-char = (extract-literal-from-rule one)
+          for first-char = (extract-literal-from-rule-cached one)
           when (or (null first-char)
                    (null current-char)
                    (char= current-char first-char)
@@ -507,9 +514,8 @@ before the final closing rule is found."
                                    :parent (context-parent-match ctx)))
          (child-ctx (context-copy ctx parent-match))
          (opening-match (apply-rule-normalized child-ctx opening-rule reader pos))
-         ;; extract first chars for fast filtering
-         (closing-first-char (extract-literal-from-rule closing-rule))
-         (opening-first-char (extract-literal-from-rule opening-rule)))
+         (closing-first-char (extract-literal-from-rule-cached closing-rule))
+         (opening-first-char (extract-literal-from-rule-cached opening-rule)))
     (when opening-match
       (let* ((open-end-pos (+ (context-parent-begin child-ctx) (match-end opening-match)))
              (current-search-pos open-end-pos)
