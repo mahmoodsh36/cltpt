@@ -743,22 +743,23 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
           (if resolved
               (apply-rule ctx resolved reader pos)
               (error "invalid rule: ~A" rule))))
+       ;; plist rules (keywordp car), check before function call rules (next one), which use
+       ;; 'fboundp' and keywordp is cheaper.
+       ((and (listp rule) (keywordp (car rule)))
+        (let ((pattern (getf rule :pattern))
+              (on-char (getf rule :on-char))
+              (id (getf rule :id)))
+          (when pattern
+            (unless (and on-char
+                         (is-before-eof reader pos)
+                         (not (char= (reader-char reader pos) on-char)))
+              (let ((sub-pattern-match (apply-rule-normalized ctx pattern reader pos)))
+                (when sub-pattern-match
+                  (setf (match-id sub-pattern-match) id)
+                  sub-pattern-match))))))
+       ;; function call rules
        ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
         (apply (car rule) ctx reader pos (cdr rule)))
-       ((and (listp rule) (getf rule :pattern))
-        ;; exploit :on-char here too, for some (small?) gains
-        (unless (and (getf rule :on-char)
-                     (is-before-eof reader pos)
-                     (not (char= (reader-char reader pos) (getf rule :on-char))))
-          (let ((sub-pattern-match
-                  (apply-rule-normalized
-                   ctx
-                   (getf rule :pattern)
-                   reader
-                   pos)))
-            (when sub-pattern-match
-              (setf (match-id sub-pattern-match) (getf rule :id))
-              sub-pattern-match))))
        ((stringp rule)
         (literal ctx reader pos rule))
        (t (error "invalid rule: ~A" rule))))
