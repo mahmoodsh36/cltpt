@@ -16,8 +16,8 @@
    :all-upto-included :succeeded-by :all-upto-without
    :context-rules :consec-with-optional :compile-rule-string
    :between-whitespace :when-match-after :flanked-by-whitespace :flanked-by-whitespace-or-punctuation
-   :apply-rule-normalized
    :context-parent-begin :context-parent-match :context-copy
+   :apply-rule
 
    :match-id :match-begin :match-end :match-ctx :match-children
    :match-begin-absolute :match-end-absolute
@@ -212,26 +212,22 @@ to replace and new-rule is the rule to replace it with."
   (if (typep match 'fixnum)
       (let ((parent-begin (context-parent-begin ctx)))
         (declare (type fixnum parent-begin match))
-        (make-match :begin (the fixnum (- pos parent-begin))
-                    :end (the fixnum (- (the fixnum (+ pos match)) parent-begin))
+        (make-match :begin (- pos parent-begin)
+                    :end (- (+ pos match) parent-begin)
                     :ctx ctx
                     :rule rule
                     :parent (context-parent-match ctx)
                     :children nil))
       match))
 
-(defun apply-rule-normalized (ctx rule reader pos)
-  "calls match-rule and ensures its result is normalized."
-  (let ((raw-match (apply-rule ctx rule reader pos)))
-    (when raw-match
-      (normalize-match raw-match ctx rule pos))))
-
 (defun any (ctx reader pos &rest all)
   "match any of the given combinator rules."
+  (declare (type fixnum pos))
   (let ((current-char (reader-char reader pos))
         (parent-begin (context-parent-begin ctx))
         (wrapper)
         (child-ctx))
+    (declare (type fixnum parent-begin))
     (loop for one in all
           for first-char = (extract-literal-from-rule-cached one)
           when (or (null first-char)
@@ -239,15 +235,17 @@ to replace and new-rule is the rule to replace it with."
                    (char= current-char first-char)
                    (char= (char-downcase current-char) first-char))
             do (unless wrapper
-                 (setf wrapper (make-match-simple (- pos parent-begin)
-                                                  0
-                                                  ctx
-                                                  (context-parent-match ctx)))
+                 (setf wrapper (make-match-simple
+                                (- pos parent-begin)
+                                0
+                                ctx
+                                (context-parent-match ctx)))
                  (setf child-ctx (context-copy ctx wrapper)))
-               (let ((match (apply-rule-normalized child-ctx one reader pos)))
+               (let ((match (apply-rule child-ctx one reader pos)))
                  (when match
                    (setf (match-children wrapper) (list match))
-                   (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
+                   (setf (match-end wrapper)
+                         (+ (match-begin wrapper) (match-end match)))
                    (match-set-children-parent wrapper)
                    (return-from any wrapper))))))
 
@@ -271,11 +269,11 @@ to replace and new-rule is the rule to replace it with."
            (type fixnum pos))
   (let ((sublen (length substr)))
     (declare (type fixnum sublen))
-    (when (is-le-eof reader (the fixnum (+ pos sublen)))
+    (when (is-le-eof reader (+ pos sublen))
       (when (reader-string-equal reader
                                  substr
                                  :start1 pos
-                                 :end1 (the fixnum (+ pos sublen))
+                                 :end1 (+ pos sublen)
                                  :end2 sublen)
         sublen))))
 
@@ -348,6 +346,7 @@ to replace and new-rule is the rule to replace it with."
 
 (defun consec (ctx reader pos &rest all)
   "match a consecutive set of rules, each one has to be present."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (children)
@@ -355,14 +354,17 @@ to replace and new-rule is the rule to replace it with."
                                    0
                                    ctx
                                    (context-parent-match ctx)))
-         (child-ctx (context-copy ctx match)))
+         (child-ctx (context-copy ctx match))
+         (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (type fixnum parent-begin start child-parent-begin))
     (loop for one in all
-          for match = (apply-rule-normalized child-ctx one reader pos)
-          for len = (when match
-                      (- (match-end match) (match-begin match)))
-          do (if (and match len (plusp len))
+          for match = (apply-rule child-ctx one reader pos)
+          for len fixnum = (if match
+                               (- (match-end match) (match-begin match))
+                               0)
+          do (if (and match (plusp len))
                  (progn
-                   (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
+                   (setf pos (+ child-parent-begin (match-end match)))
                    (push match children))
                  (return-from consec nil)))
     (setf (match-end match) (- pos parent-begin))
@@ -375,6 +377,7 @@ to replace and new-rule is the rule to replace it with."
 
 the matcher stops once it encounters a rule that hasnt been matched, and returns
 the consecutive matches up to that point."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (children)
@@ -382,14 +385,17 @@ the consecutive matches up to that point."
                                    0
                                    ctx
                                    (context-parent-match ctx)))
-         (child-ctx (context-copy ctx match)))
+         (child-ctx (context-copy ctx match))
+         (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (type fixnum parent-begin start child-parent-begin))
     (loop for one in all
-          for match = (apply-rule-normalized child-ctx one reader pos)
-          for len = (when match
-                      (- (match-end match) (match-begin match)))
-          do (if (and match len (plusp len))
+          for match = (apply-rule child-ctx one reader pos)
+          for len fixnum = (if match
+                               (- (match-end match) (match-begin match))
+                               0)
+          do (if (and match (plusp len))
                  (progn
-                   (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
+                   (setf pos (+ child-parent-begin (match-end match)))
                    (push match children))
                  (return)))
     (setf (match-end match) (- pos parent-begin))
@@ -400,6 +406,7 @@ the consecutive matches up to that point."
 ;; a consecutive set of matchers, separated by a specific matcher. atleast one
 (defun separated-atleast-one (ctx reader pos sep-matcher matcher)
   "apply the sequence of matcher `MATCHER' separated by `SEP-MATCHER'."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (matches)
@@ -410,29 +417,32 @@ the consecutive matches up to that point."
                                    0
                                    ctx
                                    (context-parent-match ctx)))
-         (child-ctx (context-copy ctx match)))
+         (child-ctx (context-copy ctx match))
+         (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (type fixnum parent-begin start pos-after-sep child-parent-begin))
     (loop
       do (unless first
-           (let ((match (apply-rule-normalized child-ctx sep-matcher reader pos)))
-             (unless match
+           (let ((m (apply-rule child-ctx sep-matcher reader pos)))
+             (unless m
                (return))
-             (setf pos-after-sep (+ (context-parent-begin child-ctx) (match-end match)))
-             (setf sep-match match)))
-          (let ((match (apply-rule-normalized child-ctx matcher reader pos-after-sep)))
-            (unless match
-              (return))
-            (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
-            (unless first
-              (push sep-match matches))
-            (push match matches))
-          (setf first nil))
-    (setf (match-end match) (- pos (context-parent-begin ctx)))
+             (setf pos-after-sep (+ child-parent-begin (match-end m)))
+             (setf sep-match m)))
+         (let ((m (apply-rule child-ctx matcher reader pos-after-sep)))
+           (unless m
+             (return))
+           (setf pos (+ child-parent-begin (match-end m)))
+           (unless first
+             (push sep-match matches))
+           (push m matches))
+         (setf first nil))
+    (setf (match-end match) (- pos parent-begin))
     (setf (match-children match) (nreverse matches))
     (when matches
       (match-set-children-parent match))))
 
 (defun atleast-one (ctx reader pos matcher)
   "match the rule MATCHER atleast once."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (matches)
@@ -440,41 +450,44 @@ the consecutive matches up to that point."
                                    0
                                    ctx
                                    (context-parent-match ctx)))
-         (child-ctx (context-copy ctx match)))
-     (loop while (is-before-eof reader pos)
-           for match = (apply-rule-normalized child-ctx matcher reader pos)
-           while match
-           for len = (when match
-                       (- (match-end match) (match-begin match)))
-           do (if (and match len (plusp len))
-                  (progn
-                   (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
-                   (push match matches))
-                  (return)))
+         (child-ctx (context-copy ctx match))
+         (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (type fixnum parent-begin start child-parent-begin))
+    (loop while (is-before-eof reader pos)
+          for m = (apply-rule child-ctx matcher reader pos)
+          while m
+          for len fixnum = (- (match-end m) (match-begin m))
+          do (if (plusp len)
+                 (progn
+                   (setf pos (+ child-parent-begin (match-end m)))
+                   (push m matches))
+                 (return)))
     (when matches
-      (setf (match-end match) (- pos (context-parent-begin ctx)))
+      (setf (match-end match) (- pos parent-begin))
       (setf (match-children match) (nreverse matches))
       (match-set-children-parent match))))
 
 (defun atleast-one-discard (ctx reader pos matcher)
   "like `atleast-one', but doesnt collect submatches. better performance."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (match (make-match-simple (- start parent-begin)
                                    0
                                    ctx
                                    (context-parent-match ctx)))
-         (child-ctx (context-copy ctx match)))
-     (loop while (is-before-eof reader pos)
-           for match = (apply-rule-normalized child-ctx matcher reader pos)
-           while match
-           for len = (when match
-                       (- (match-end match) (match-begin match)))
-           do (if (and match len (plusp len))
-                  (setf pos (+ (context-parent-begin child-ctx) (match-end match)))
-                  (return)))
+         (child-ctx (context-copy ctx match))
+         (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (type fixnum parent-begin start child-parent-begin))
+    (loop while (is-before-eof reader pos)
+          for m = (apply-rule child-ctx matcher reader pos)
+          while m
+          for len fixnum = (- (match-end m) (match-begin m))
+          do (if (plusp len)
+                 (setf pos (+ child-parent-begin (match-end m)))
+                 (return)))
     (when (> pos start)
-      (setf (match-end match) (- pos (context-parent-begin ctx)))
+      (setf (match-end match) (- pos parent-begin))
       (setf (match-children match) nil)
       match)))
 
@@ -486,13 +499,15 @@ the consecutive matches up to that point."
 
 (defun simple-wrapper (ctx reader pos rule)
   "apply a simple parsing rule with the proper wrapping of context and return the correct wrapped match."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (wrapper (make-match-simple (- pos parent-begin)
                                      0
                                      ctx
                                      (context-parent-match ctx)))
          (child-ctx (context-copy ctx wrapper))
-         (child (apply-rule-normalized child-ctx rule reader pos)))
+         (child (apply-rule child-ctx rule reader pos)))
+    (declare (type fixnum parent-begin))
     (when child
       (setf (match-rule wrapper) rule)
       (setf (match-end wrapper) (+ (match-begin wrapper) (match-end child)))
@@ -515,6 +530,7 @@ the consecutive matches up to that point."
 handles nesting of the same pair structure.
 if ALLOW-MULTILINE is NIL, the match will fail if a newline is encountered
 before the final closing rule is found."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (parent-match (make-match-simple (- start parent-begin)
@@ -522,17 +538,19 @@ before the final closing rule is found."
                                           ctx
                                           (context-parent-match ctx)))
          (child-ctx (context-copy ctx parent-match))
-         (opening-match (apply-rule-normalized child-ctx opening-rule reader pos))
+         (child-parent-begin (context-parent-begin child-ctx))
+         (opening-match (apply-rule child-ctx opening-rule reader pos))
          (closing-first-char (extract-literal-from-rule-cached closing-rule))
          (opening-first-char (extract-literal-from-rule-cached opening-rule)))
+    (declare (type fixnum parent-begin start child-parent-begin))
     (when opening-match
-      (let* ((open-end-pos (+ (context-parent-begin child-ctx) (match-end opening-match)))
-             (current-search-pos open-end-pos)
-             ;; the nesting-level thing is for nesting the rule unless the rule is in rules-for-content
-             (nesting-level 1)
-             (final-closing-match)
-             ;; collect content matches as we go
-             (content-matches))
+      (let ((current-search-pos (+ child-parent-begin (match-end opening-match)))
+            ;; the nesting-level thing is for nesting the rule unless the rule is in rules-for-content
+            (nesting-level 1)
+            (final-closing-match)
+            ;; collect content matches as we go
+            (content-matches))
+        (declare (type fixnum current-search-pos nesting-level))
         (loop while (is-before-eof reader current-search-pos)
               do
                  (let ((current-char (reader-char reader current-search-pos)))
@@ -547,15 +565,15 @@ before the final closing rule is found."
                            (when (or (null closing-first-char)
                                      (char= current-char closing-first-char)
                                      (char= (char-downcase current-char) closing-first-char))
-                             (apply-rule-normalized child-ctx
-                                                    closing-rule
-                                                    reader
-                                                    current-search-pos))))
+                             (apply-rule child-ctx
+                                         closing-rule
+                                         reader
+                                         current-search-pos))))
                      (if potential-close
                          (progn
                            (decf nesting-level)
                            (setf current-search-pos
-                                 (+ (context-parent-begin child-ctx)
+                                 (+ child-parent-begin
                                     (match-end potential-close)))
                            (when (= nesting-level 0)
                              (setf final-closing-match potential-close)
@@ -568,36 +586,33 @@ before the final closing rule is found."
                                    until matched-content
                                    do (let ((match-result (apply-rule child-ctx rule reader current-search-pos)))
                                         (when match-result
-                                          (let ((normalized (normalize-match match-result
-                                                                             child-ctx
-                                                                             rule
-                                                                             current-search-pos)))
-                                            (setf current-search-pos
-                                                  (+ (context-parent-begin child-ctx)
-                                                     (match-end normalized)))
-                                            (push normalized content-matches)
-                                            (setf matched-content t))))))
+                                          (setf current-search-pos
+                                                (+ child-parent-begin
+                                                   (match-end match-result)))
+                                          (push match-result content-matches)
+                                          (setf matched-content t)))))
                            (unless matched-content
-                             ;; if no content matched, check for nested opens
-                             ;; only try if first char could match
+                             ;; if no content matched, check for nested opens.
+                             ;; only try if first char could match.
                              (let ((potential-open
                                      (when (or (null opening-first-char)
                                                (char= current-char opening-first-char)
                                                (char= (char-downcase current-char) opening-first-char))
-                                       (apply-rule-normalized child-ctx
-                                                              opening-rule
-                                                              reader
-                                                              current-search-pos))))
+                                       (apply-rule child-ctx
+                                                   opening-rule
+                                                   reader
+                                                   current-search-pos))))
                                (if potential-open
                                    (progn
                                      (incf nesting-level)
                                      (setf current-search-pos
-                                           (+ (context-parent-begin child-ctx) (match-end potential-open))))
+                                           (+ child-parent-begin (match-end potential-open))))
                                    (incf current-search-pos)))))))))
         (when (and final-closing-match (= nesting-level 0))
-          (let ((overall-end-pos (+ (context-parent-begin child-ctx)
+          (let ((overall-end-pos (+ child-parent-begin
                                     (match-end final-closing-match))))
-            (setf (match-end parent-match) (- overall-end-pos (context-parent-begin ctx)))
+            (declare (type fixnum overall-end-pos))
+            (setf (match-end parent-match) (- overall-end-pos parent-begin))
             (setf (match-children parent-match)
                   (append (list opening-match)
                           (nreverse content-matches)
@@ -724,45 +739,46 @@ returns (values success-p end-pos) on success, or (values nil nil) on failure."
                     when (not (whitespace-p (reader-char reader i)))
                       return i)))
         (when last-char-pos
-          (make-match :begin (- pos (context-parent-begin ctx))
-                      :end (- (1+ last-char-pos) (context-parent-begin ctx))
-                      :ctx ctx
-                      :id 'lisp-form-content
-                      :children nil))))))
+          (let ((parent-begin (context-parent-begin ctx)))
+            (declare (type fixnum parent-begin))
+            (make-match :begin (- pos parent-begin)
+                        :end (- (1+ last-char-pos) parent-begin)
+                        :ctx ctx
+                        :id 'lisp-form-content
+                        :children nil)))))))
 
 (defun apply-rule (ctx rule reader pos)
   "returns a 'raw' match: a number (length) for simple successful matches,
 or a pre-formed plist cons cell for combinators/structured matches, or NIL."
-  (let ((result))
-    (setf
-     result
-     (cond
-       ;; if its a single symbol we resolve the rule from the symbol's value
-       ((symbolp rule)
-        (let ((resolved (symbol-value rule)))
-          (if resolved
-              (apply-rule ctx resolved reader pos)
-              (error "invalid rule: ~A" rule))))
-       ;; plist rules (keywordp car), check before function call rules (next one), which use
-       ;; 'fboundp' and keywordp is cheaper.
-       ((and (listp rule) (keywordp (car rule)))
-        (let ((pattern (getf rule :pattern))
-              (on-char (getf rule :on-char))
-              (id (getf rule :id)))
-          (when pattern
-            (unless (and on-char
-                         (is-before-eof reader pos)
-                         (not (char= (reader-char reader pos) on-char)))
-              (let ((sub-pattern-match (apply-rule-normalized ctx pattern reader pos)))
-                (when sub-pattern-match
-                  (setf (match-id sub-pattern-match) id)
-                  sub-pattern-match))))))
-       ;; function call rules
-       ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
-        (apply (car rule) ctx reader pos (cdr rule)))
-       ((stringp rule)
-        (literal ctx reader pos rule))
-       (t (error "invalid rule: ~A" rule))))
+  (declare (type fixnum pos))
+  (let ((result
+          (cond
+            ;; if its a single symbol we resolve the rule from the symbol's value
+            ((symbolp rule)
+             (let ((resolved (symbol-value rule)))
+               (if resolved
+                   (apply-rule ctx resolved reader pos)
+                   (error "invalid rule: ~A" rule))))
+            ;; plist rules (keywordp car), check before function call rules (next one), which use
+            ;; 'fboundp' and keywordp is cheaper.
+            ((and (listp rule) (keywordp (car rule)))
+             (let ((pattern (getf rule :pattern))
+                   (on-char (getf rule :on-char))
+                   (id (getf rule :id)))
+               (when pattern
+                 (unless (and on-char
+                              (is-before-eof reader pos)
+                              (not (char= (reader-char reader pos) on-char)))
+                   (let ((sub-pattern-match (apply-rule ctx pattern reader pos)))
+                     (when sub-pattern-match
+                       (setf (match-id sub-pattern-match) id)
+                       sub-pattern-match))))))
+            ;; function call rules
+            ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
+             (apply (car rule) ctx reader pos (cdr rule)))
+            ((stringp rule)
+             (literal ctx reader pos rule))
+            (t (error "invalid rule: ~A" rule)))))
     (when result
       (setf result (normalize-match result ctx rule pos))
       (setf (match-rule result) rule)
@@ -796,25 +812,27 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                              append value))
          (unhashed-rules (set-difference rules hashed-rules :test #'eq))
          (ctx (or ctx (make-context :rules rules :parent-match* nil))))
-    (loop while (if end-idx
-                    (< i end-idx)
-                    (is-before-eof reader i))
-          do (let ((matched)
-                   (current-char (reader-char reader i)))
-               (labels ((handle-rule (rule)
-                          (let ((match-result (apply-rule ctx rule reader i)))
-                            (when match-result
-                              (setf i (+ (context-parent-begin ctx) (match-end match-result)))
-                              (push (match-set-children-parent match-result) events)
-                              (setf matched t)))))
-                 (loop for rule in (union unhashed-rules
-                                          (gethash current-char rule-hash)
-                                          :test #'eq)
-                       until matched
-                       do (handle-rule rule)
-                       finally (unless matched
-                                 (incf i))))))
-    (values (nreverse events) (nreverse *escaped*))))
+    (let ((ctx-parent-begin (context-parent-begin ctx)))
+      (declare (type fixnum i ctx-parent-begin))
+      (loop while (if end-idx
+                      (< i end-idx)
+                      (is-before-eof reader i))
+            do (let ((matched)
+                     (current-char (reader-char reader i)))
+                 (labels ((handle-rule (rule)
+                            (let ((match-result (apply-rule ctx rule reader i)))
+                              (when match-result
+                                (setf i (+ ctx-parent-begin (match-end match-result)))
+                                (push (match-set-children-parent match-result) events)
+                                (setf matched t)))))
+                   (loop for rule in (union unhashed-rules
+                                            (gethash current-char rule-hash)
+                                            :test #'eq)
+                         until matched
+                         do (handle-rule rule)
+                         finally (unless matched
+                                   (incf i))))))
+      (values (nreverse events) (nreverse *escaped*)))))
 
 (defun parse (input rules)
   (scan-all-rules nil input rules 0))
@@ -829,6 +847,7 @@ contiguous escape-char characters."
       nil
       (let ((i (1- pos))
             (escape-count 0))
+        (declare (type fixnum i escape-count))
         (loop while (and (>= i 0)
                          (let ((c (reader-char reader i)))
                            (and c (char= c escape-char))))
@@ -876,7 +895,7 @@ an optional escape-char can be provided, defaulting to backslash."
 (defun followed-by (ctx reader pos rule condition-fn)
   "a combinator that succeeds only if 'rule' matches and the position
 immediately after the match satisfies 'condition-fn'."
-  (let ((match (apply-rule-normalized ctx rule reader pos)))
+  (let ((match (apply-rule ctx rule reader pos)))
     (when match
       ;; use absolute position since condition-fn (e.g. at-line-end-p) expects absolute
       ;; positions in the reader
@@ -887,28 +906,30 @@ immediately after the match satisfies 'condition-fn'."
 (defun succeeded-by (ctx reader pos pattern successor-pattern)
   "match PATTERN only if it is immediately followed by SUCCESSOR-PATTERN.
 the SUCCESSOR-PATTERN is not captured as part of the match."
-  (let ((pattern-match (apply-rule-normalized ctx pattern reader pos)))
+  (declare (type fixnum pos))
+  (let ((pattern-match (apply-rule ctx pattern reader pos)))
     (when pattern-match
-      (let* ((match-end (match-end pattern-match))
+      (let* ((match-end-val (match-end pattern-match))
              (successor-match
-               (apply-rule-normalized ctx
-                                      successor-pattern
-                                      reader
-                                      (+ match-end (context-parent-begin ctx)))))
+               (apply-rule ctx
+                           successor-pattern
+                           reader
+                           (+ match-end-val (context-parent-begin ctx)))))
         (when successor-match
           pattern-match)))))
 
 (defun unsucceeded-by (ctx reader pos pattern successor-pattern)
   "match PATTERN only if it is not followed by SUCCESSOR-PATTERN."
-  (let ((pattern-match (apply-rule-normalized ctx pattern reader pos)))
+  (declare (type fixnum pos))
+  (let ((pattern-match (apply-rule ctx pattern reader pos)))
     (when pattern-match
-      (let* ((match-end (match-end pattern-match))
+      (let* ((match-end-val (match-end pattern-match))
              (successor-match
-               (when match-end
-                 (apply-rule-normalized ctx
-                                        successor-pattern
-                                        reader
-                                        (+ match-end (context-parent-begin ctx))))))
+               (when match-end-val
+                 (apply-rule ctx
+                             successor-pattern
+                             reader
+                             (+ match-end-val (context-parent-begin ctx))))))
         (unless successor-match
           pattern-match)))))
 
@@ -925,44 +946,53 @@ the SUCCESSOR-PATTERN is not captured as part of the match."
 (defun all-upto (ctx reader pos delimiter-rule)
   "match all characters up to but not including the pattern defined by DELIMITER-RULE.
 returns the matched substring and its bounds."
-  (let ((start pos))
+  (declare (type fixnum pos))
+  (let ((start pos)
+        (parent-begin (context-parent-begin ctx)))
+    (declare (type fixnum start parent-begin))
     (loop while (is-before-eof reader pos)
-          for match = (apply-rule-normalized ctx delimiter-rule reader pos)
+          for match = (apply-rule ctx delimiter-rule reader pos)
           while (not match)
           do (incf pos))
     (when (> pos start)
-      (make-match :begin (- start (context-parent-begin ctx))
-                  :end (- pos (context-parent-begin ctx))
+      (make-match :begin (- start parent-begin)
+                  :end (- pos parent-begin)
                   :ctx ctx
                   :children nil))))
 
 (defun all-upto-without (ctx reader pos delimiter-rule without-rule)
   "match all characters up to but not including the pattern defined by DELIMITER-RULE unless WITHOUT-RULE is matched.
 returns the matched substring and its bounds."
-  (let ((start pos))
+  (declare (type fixnum pos))
+  (let ((start pos)
+        (parent-begin (context-parent-begin ctx)))
+    (declare (type fixnum start parent-begin))
     (loop while (is-before-eof reader pos)
-          do (when (apply-rule-normalized ctx delimiter-rule reader pos)
+          do (when (apply-rule ctx delimiter-rule reader pos)
                (return))
-             (if (apply-rule-normalized ctx without-rule reader pos)
+             (if (apply-rule ctx without-rule reader pos)
                  (return-from all-upto-without nil)
                  (incf pos)))
     (when (> pos start)
-      (make-match :begin (- start (context-parent-begin ctx))
-                  :end (- pos (context-parent-begin ctx))
+      (make-match :begin (- start parent-begin)
+                  :end (- pos parent-begin)
                   :ctx ctx
                   :children nil))))
 
 ;; ended up not using this, but will keep it.
 (defun upto-cond (ctx reader pos cond-fn)
   "match all characters until COND-FN returns t."
-  (let ((start pos))
+  (declare (type fixnum pos))
+  (let ((start pos)
+        (parent-begin (context-parent-begin ctx)))
+    (declare (type fixnum start parent-begin))
     (loop while (is-before-eof reader pos)
           for result = (funcall cond-fn ctx reader pos)
           while (not result)
           do (incf pos))
     (when (> pos start)
-      (make-match :begin (- start (context-parent-begin ctx))
-                  :end (- pos (context-parent-begin ctx))
+      (make-match :begin (- start parent-begin)
+                  :end (- pos parent-begin)
                   :ctx ctx
                   :children nil))))
 
@@ -972,6 +1002,7 @@ returns the matched substring and its bounds."
 parsers can be marked as optional by wrapping them in an :optional keyword.
 all non-optional parsers must match in order. optional parsers are attempted,
 but if they don't match, parsing continues without them."
+  (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (matches)
@@ -979,37 +1010,41 @@ but if they don't match, parsing continues without them."
                                    0
                                    ctx
                                    (context-parent-match ctx)))
-         (child-ctx (context-copy ctx match)))
+         (child-ctx (context-copy ctx match))
+         (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (type fixnum parent-begin start child-parent-begin))
     (loop for parser in parsers
           do (cond
                ;; if the parser is marked as optional
                ((and (consp parser)
                      (keywordp (car parser))
                      (getf parser :optional))
-                (let ((m (apply-rule-normalized child-ctx (cadr parser) reader pos)))
+                (let ((m (apply-rule child-ctx (cadr parser) reader pos)))
                   (when m
-                    (setf pos (+ (context-parent-begin child-ctx) (match-end m)))
+                    (setf pos (+ child-parent-begin (match-end m)))
                     (push m matches))))
                ;; otherwise, it's a non-optional parser
                (t
-                (let ((m (apply-rule-normalized child-ctx parser reader pos)))
+                (let ((m (apply-rule child-ctx parser reader pos)))
                   (if m
                       (progn
-                        (setf pos (+ (context-parent-begin child-ctx) (match-end m)))
+                        (setf pos (+ child-parent-begin (match-end m)))
                         (push m matches))
                       (return-from consec-with-optional nil))))))
-    (setf (match-end match) (- pos (context-parent-begin ctx)))
+    (setf (match-end match) (- pos parent-begin))
     (setf (match-children match) (nreverse matches))
     (when matches
       (match-set-children-parent match))))
 
 (defun between-whitespace (ctx reader pos rule)
   "a combinator that uses when-match to match a RULE only if the match is surrounded by whitespace or the boundaries of the string."
+  (declare (type fixnum pos))
   (when (or (zerop pos)
             (whitespace-p (reader-char reader (1- pos))))
-    (let ((match (apply-rule-normalized ctx rule reader pos)))
+    (let ((match (apply-rule ctx rule reader pos)))
       (when match
         (let ((end-pos (+ (context-parent-begin ctx) (match-end match))))
+          (declare (type fixnum end-pos))
           (when (or (is-after-eof reader end-pos)
                     (whitespace-p (reader-char reader end-pos)))
             match))))))
@@ -1017,19 +1052,21 @@ but if they don't match, parsing continues without them."
 (defun flanked-by-whitespace (ctx reader pos rule)
   "a combinator that matches a RULE only if it is either preceded OR
 succeeded by whitespace or a string boundary. the flanking whitespace is not consumed."
-  (let ((match (apply-rule-normalized ctx rule reader pos)))
+  (declare (type fixnum pos))
+  (let ((match (apply-rule ctx rule reader pos)))
     (when match
       (flet ((is-preceded-by-whitespace-p (p)
+               (declare (type fixnum p))
                (or (zerop p)
                    (whitespace-p (reader-char reader (1- p)))))
             (is-succeeded-by-whitespace-p (p)
+               (declare (type fixnum p))
                (or (is-after-eof reader p)
                    (whitespace-p (reader-char reader p)))))
-        ;; match-begin/end are relative to context-parent-begin, convert to absolute
         (let* ((parent-begin (context-parent-begin ctx))
                (start-pos (+ parent-begin (match-begin match)))
                (end-pos (+ parent-begin (match-end match))))
-          ;; succeed if EITHER the preceding OR succeeding check is true
+          (declare (type fixnum parent-begin start-pos end-pos))
           (when (or (is-preceded-by-whitespace-p start-pos)
                     (is-succeeded-by-whitespace-p end-pos))
             match))))))
@@ -1037,21 +1074,23 @@ succeeded by whitespace or a string boundary. the flanking whitespace is not con
 (defun flanked-by-whitespace-or-punctuation (ctx reader pos rule)
   "a combinator that matches a RULE only if it is either preceded OR
 succeeded by whitespace, punctuation, or a string boundary. the flanking characters are not consumed."
-  (let ((match (apply-rule-normalized ctx rule reader pos)))
+  (declare (type fixnum pos))
+  (let ((match (apply-rule ctx rule reader pos)))
     (when match
       (flet ((is-preceded-by-whitespace-or-punctuation-p (p)
+               (declare (type fixnum p))
                (or (zerop p)
                    (whitespace-p (reader-char reader (1- p)))
                    (is-punctuation-p (reader-char reader (1- p)))))
              (is-succeeded-by-whitespace-or-punctuation-p (p)
+               (declare (type fixnum p))
                (or (is-after-eof reader p)
                    (whitespace-p (reader-char reader p))
                    (is-punctuation-p (reader-char reader p)))))
-        ;; match-begin/end are relative to context-parent-begin, convert to absolute
         (let* ((parent-begin (context-parent-begin ctx))
                (start-pos (+ parent-begin (match-begin match)))
                (end-pos (+ parent-begin (match-end match))))
-          ;; return a match if either the preceding OR succeeding check is true
+          (declare (type fixnum parent-begin start-pos end-pos))
           (when (or (is-preceded-by-whitespace-or-punctuation-p start-pos)
                     (is-succeeded-by-whitespace-or-punctuation-p end-pos))
             match))))))

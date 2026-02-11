@@ -16,6 +16,7 @@
 
 (in-package :cltpt/combinator/match)
 
+(declaim (optimize (speed 3) (safety 0)))
 (declaim (ftype (function (match) fixnum) match-begin match-end))
 
 ;; a match represents a parsed region. inherits from buffer for parent/children/region.
@@ -50,18 +51,20 @@
   ;; but logic needs to be verified if absolute positioning relied on buffer traversal
   (let ((pos (match-begin subtree))
         (m subtree))
+    (declare (type fixnum pos))
     (loop for parent = (match-parent m)
           while parent
-          do (incf pos (match-begin parent))
+          do (setf pos (+ pos (match-begin parent)))
              (setf m parent))
     pos))
 
 (defmethod match-end-absolute ((subtree match))
   (let ((pos (match-end subtree))
         (m subtree))
+    (declare (type fixnum pos))
     (loop for parent = (match-parent m)
           while parent
-          do (incf pos (match-begin parent))
+          do (setf pos (+ pos (match-begin parent)))
              (setf m parent))
     pos))
 
@@ -90,6 +93,7 @@
       (setf (match-parent child) match)))
   match)
 
+(declaim (inline make-match-simple))
 (defun make-match-simple (begin end ctx parent)
   "fast match constructor for hot paths. no region handling, no auto parent-child linkage."
   (declare (type fixnum begin end))

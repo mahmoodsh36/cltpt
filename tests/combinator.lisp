@@ -19,7 +19,7 @@
 (in-suite combinator-suite)
 
 (defun test-combinator-number-1 ()
-  (cltpt/combinator:apply-rule-normalized
+  (cltpt/combinator:apply-rule
    nil
    '(cltpt/combinator:natural-number-matcher)
    (cltpt/reader:reader-from-string "2023")
