@@ -16,87 +16,69 @@
 
 (in-package :cltpt/combinator/match)
 
-(defclass match (buffer)
-  ((ctx
-    :initarg :ctx
-    :accessor match-ctx
-    :initform nil
-    :documentation "the parsing context.")
-   (id
-    :initarg :id
-    :accessor match-id
-    :initform nil
-    :documentation "identifier for this match.")
-   (props
-    :initarg :props
-    :accessor match-props
-    :initform nil
-    :documentation "additional properties.")
-   (rule
-    :initarg :rule
-    :accessor match-rule
-    :initform nil
-    :documentation "the rule that produced this match."))
-  (:documentation "a match represents a parsed region. inherits from buffer for parent/children/region."))
+;; a match represents a parsed region. inherits from buffer for parent/children/region.
+(defstruct (match (:print-function print-match)
+                  (:constructor %make-match))
+  ;; the parsing context
+  (ctx nil :type t)
+  ;; identifier for this match
+  (id nil :type symbol)
+  ;; additional properties
+  (props nil :type list)
+  ;; the rule that produced this match.
+  (rule nil :type t)
+  (begin 0 :type fixnum)
+  (end 0 :type fixnum)
+  (children nil :type list)
+  (parent nil :type (or null match)))
 
-(defmethod print-object ((m match) stream)
+(defun print-match (m stream)
   (print-unreadable-object (m stream :type t)
     (format stream "[~A:~A]~@[ id:~A~]"
             (match-begin m)
             (match-end m)
             (match-id m))))
 
-;; some wrappers for cltpt/buffer/match functionality.
-(defun match-begin (match)
-  (when (and match (buffer-region match))
-    (buffer-region-begin match)))
-
-(defun (setf match-begin) (val match)
-  (setf (buffer-region-begin match) val))
-
-(defun match-end (match)
-  (when (and match (buffer-region match))
-    (buffer-region-end match)))
-
-(defun (setf match-end) (val match)
-  (setf (buffer-region-end match) val))
-
-(defun match-children (match)
-  (buffer-children match))
-
-(defun (setf match-children) (val match)
-  (setf (buffer-children match) val))
-
-(defun match-parent (match)
-  (buffer-parent match))
-
-(defun (setf match-parent) (val match)
-  (setf (buffer-parent match) val))
-
 (defun match-region (match)
-  (buffer-region match))
+  (make-region :begin (match-begin match)
+               :end (match-end match)))
 
 (defmethod match-begin-absolute ((subtree match))
-  (buffer-begin-absolute subtree))
+  ;; assuming relative for now as buffer inheritance is gone,
+  ;; but logic needs to be verified if absolute positioning relied on buffer traversal
+  (let ((pos (match-begin subtree))
+        (m subtree))
+    (loop for parent = (match-parent m)
+          while parent
+          do (incf pos (match-begin parent))
+             (setf m parent))
+    pos))
 
 (defmethod match-end-absolute ((subtree match))
-  (buffer-end-absolute subtree))
+  (let ((pos (match-end subtree))
+        (m subtree))
+    (loop for parent = (match-parent m)
+          while parent
+          do (incf pos (match-begin parent))
+             (setf m parent))
+    pos))
 
 (defun make-match (&key begin end ctx id props rule children parent region)
   "create a match. if REGION is provided, its used directly. otherwise a region is created from BEGIN/END."
-  (let ((m (make-instance 'match
-                          :ctx ctx
-                          :id id
-                          :props props
-                          :rule rule
-                          :region (or region
-                                      (make-region :begin (or begin 0)
-                                                   :end (or end 0)))
-                          :parent parent
-                          :children children)))
+  (let* ((b (if region (cltpt/buffer:region-begin region) (or begin 0)))
+         (e (if region (cltpt/buffer:region-end region) (or end 0)))
+         (m (%make-match
+             :ctx ctx
+             :id id
+             :props props
+             :rule rule
+             :begin b
+             :end e
+             :parent parent
+             :children children)))
     ;; set up parent-child relationships
     (when parent
-      (push m (buffer-children parent)))
+      (push m (match-children parent)))
     m))
 
 (defun match-set-children-parent (match)
@@ -157,6 +139,46 @@
 
 (defmethod cltpt/tree:tree-value ((subtree match))
   subtree)
+
+;; implement cltpt/buffer interface (duck typing for match struct)
+
+(defmethod cltpt/buffer:buffer-children ((m match))
+  (match-children m))
+
+(defmethod (setf cltpt/buffer:buffer-children) (val (m match))
+  (setf (match-children m) val))
+
+(defmethod cltpt/buffer:buffer-parent ((m match))
+  (match-parent m))
+
+(defmethod (setf cltpt/buffer:buffer-parent) (val (m match))
+  (setf (match-parent m) val))
+
+(defmethod cltpt/buffer:buffer-region-begin ((m match))
+  (match-begin m))
+
+(defmethod (setf cltpt/buffer:buffer-region-begin) (val (m match))
+  (setf (match-begin m) val))
+
+(defmethod cltpt/buffer:buffer-region-end ((m match))
+  (match-end m))
+
+(defmethod (setf cltpt/buffer:buffer-region-end) (val (m match))
+  (setf (match-end m) val))
+
+(defmethod cltpt/buffer:buffer-region-length ((m match))
+  (- (match-end m) (match-begin m)))
+
+;; reimplement buffer absolute positioning logic for match struct
+(defmethod cltpt/buffer:buffer-begin-absolute ((m match))
+  (match-begin-absolute m))
+
+(defmethod cltpt/buffer:buffer-end-absolute ((m match))
+  (match-end-absolute m))
+
+(defmethod cltpt/buffer:buffer-text ((m match))
+  (warn "buffer-text called on match struct but match doesn't store text directly.")
+  nil)
 
 (defmethod match-text ((match match) input)
   "extract the text for MATCH from INPUT (either a string or a reader)."
