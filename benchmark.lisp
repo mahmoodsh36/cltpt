@@ -57,7 +57,10 @@
        (rules (org-rules))
        (total-bytes-per-iteration
          (loop for file in org-files
-               sum (with-open-file (s file) (file-length s)))))
+               sum (with-open-file (s file) (file-length s))))
+       ;; pre-read all files into memory once
+       (org-file-contents
+         (mapcar #'uiop:read-file-string org-files)))
 
   (format t "~%=== parsing benchmarks ===~%")
   (format t "files: ~D~%" num-files)
@@ -68,16 +71,17 @@
   ;; low-level combinator parsing (match tree)
   (format t "=== benchmark 1: cltpt/combinator:parse (low-level) ===~%")
   (run-benchmark "combinator"
-                 iterations org-files
-                 (lambda (file)
-                   (let ((content (uiop:read-file-string file)))
-                     (cltpt/combinator:parse content rules)))
+                 iterations
+                 org-file-contents
+                 (lambda (content)
+                   (cltpt/combinator:parse content rules))
                  total-bytes-per-iteration)
 
   ;; high-level base parsing (document tree)
-  (format t "=== benchmark 2: cltpt/base:parse-file (high-level) ===~%")
+  (format t "=== benchmark 2: cltpt/base:parse (high-level) ===~%")
   (run-benchmark "base"
-                 iterations org-files
-                 (lambda (file)
-                   (cltpt/base:parse-file cltpt/org-mode:*org-mode* file))
+                 iterations
+                 org-file-contents
+                 (lambda (content)
+                   (cltpt/base:parse cltpt/org-mode:*org-mode* content))
                  total-bytes-per-iteration))
