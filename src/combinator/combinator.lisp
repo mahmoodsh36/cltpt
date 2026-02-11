@@ -358,14 +358,14 @@ to replace and new-rule is the rule to replace it with."
          (child-parent-begin (context-parent-begin child-ctx)))
     (declare (type fixnum parent-begin start child-parent-begin))
     (loop for one in all
-          for match = (apply-rule child-ctx one reader pos)
-          for len fixnum = (if match
-                               (- (match-end match) (match-begin match))
+          for m = (apply-rule child-ctx one reader pos)
+          for len fixnum = (if m
+                               (- (match-end m) (match-begin m))
                                0)
-          do (if (and match (plusp len))
+          do (if (and m (plusp len))
                  (progn
-                   (setf pos (+ child-parent-begin (match-end match)))
-                   (push match children))
+                   (setf pos (+ child-parent-begin (match-end m)))
+                   (push m children))
                  (return-from consec nil)))
     (setf (match-end match) (- pos parent-begin))
     (setf (match-children match) (nreverse children))
@@ -389,14 +389,14 @@ the consecutive matches up to that point."
          (child-parent-begin (context-parent-begin child-ctx)))
     (declare (type fixnum parent-begin start child-parent-begin))
     (loop for one in all
-          for match = (apply-rule child-ctx one reader pos)
-          for len fixnum = (if match
-                               (- (match-end match) (match-begin match))
+          for m = (apply-rule child-ctx one reader pos)
+          for len fixnum = (if m
+                               (- (match-end m) (match-begin m))
                                0)
-          do (if (and match (plusp len))
+          do (if (and m (plusp len))
                  (progn
-                   (setf pos (+ child-parent-begin (match-end match)))
-                   (push match children))
+                   (setf pos (+ child-parent-begin (match-end m)))
+                   (push m children))
                  (return)))
     (setf (match-end match) (- pos parent-begin))
     (setf (match-children match) (nreverse children))
