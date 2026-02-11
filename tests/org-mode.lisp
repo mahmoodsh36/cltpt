@@ -263,7 +263,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-date-only-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu>") 0)
+   (cltpt/combinator:apply-rule nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu>") 0)
    '((:BEGIN 0 :END 16 :MATCH "<2023-12-28 Thu>")
      ((:BEGIN 0 :END 16 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -281,7 +281,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-time-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00>") 0)
+   (cltpt/combinator:apply-rule nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00>") 0)
    '((:BEGIN 0 :END 25 :MATCH "<2023-12-28 Thu 18:30:00>")
      ((:BEGIN 0 :END 25 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -306,7 +306,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-with-repeater-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>") 0)
+   (cltpt/combinator:apply-rule nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>") 0)
    '((:BEGIN 0 :END 29 :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
@@ -335,7 +335,7 @@ CLOSED: [2024-10-29 Tue 16:41:03]
 
 (defun org-timestamp-comprehensive-range-func ()
   (compare-full-match-loosely
-   (cltpt/combinator:apply-rule-normalized nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>") 0)
+   (cltpt/combinator:apply-rule nil cltpt/org-mode::org-timestamp (cltpt/reader:reader-from-string "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>") 0)
    '((:BEGIN 0 :END 60 :MATCH "<2023-12-28 Thu 18:30:00 +1w>--<2023-12-28 Thu 19:00:00 +1w>")
      ((:BEGIN 0 :END 29 :ID CLTPT/ORG-MODE::BEGIN :MATCH "<2023-12-28 Thu 18:30:00 +1w>")
       ((:BEGIN 0 :END 1 :MATCH "<"))
