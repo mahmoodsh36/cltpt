@@ -753,29 +753,33 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
   (declare (type fixnum pos))
   (let ((result
           (cond
+            ((consp rule)
+             (let ((head (car rule)))
+               (cond
+                 ;; plist rules (keywordp car)
+                 ((keywordp head)
+                  (let ((pattern (getf rule :pattern))
+                        (on-char (getf rule :on-char))
+                        (id (getf rule :id)))
+                    (when pattern
+                      (unless (and on-char
+                                   (is-before-eof reader pos)
+                                   (not (char= (reader-char reader pos) on-char)))
+                        (let ((sub-pattern-match (apply-rule ctx pattern reader pos)))
+                          (when sub-pattern-match
+                            (setf (match-id sub-pattern-match) id)
+                            sub-pattern-match))))))
+                 ;; function call rules, we assume symbol is a valid function, which isnt safe
+                 ;; but running seems to be is expensive.
+                 ((symbolp head)
+                  (apply head ctx reader pos (cdr rule)))
+                 (t (error "invalid rule: ~A" rule)))))
             ;; if its a single symbol we resolve the rule from the symbol's value
             ((symbolp rule)
              (let ((resolved (symbol-value rule)))
                (if resolved
                    (apply-rule ctx resolved reader pos)
                    (error "invalid rule: ~A" rule))))
-            ;; plist rules (keywordp car), check before function call rules (next one), which use
-            ;; 'fboundp' and keywordp is cheaper.
-            ((and (listp rule) (keywordp (car rule)))
-             (let ((pattern (getf rule :pattern))
-                   (on-char (getf rule :on-char))
-                   (id (getf rule :id)))
-               (when pattern
-                 (unless (and on-char
-                              (is-before-eof reader pos)
-                              (not (char= (reader-char reader pos) on-char)))
-                   (let ((sub-pattern-match (apply-rule ctx pattern reader pos)))
-                     (when sub-pattern-match
-                       (setf (match-id sub-pattern-match) id)
-                       sub-pattern-match))))))
-            ;; function call rules
-            ((and (listp rule) (symbolp (car rule)) (fboundp (car rule)))
-             (apply (car rule) ctx reader pos (cdr rule)))
             ((stringp rule)
              (literal ctx reader pos rule))
             (t (error "invalid rule: ~A" rule)))))
