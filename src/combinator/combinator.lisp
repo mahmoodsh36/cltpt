@@ -220,12 +220,10 @@ to replace and new-rule is the rule to replace it with."
 
 (defun any (ctx reader pos &rest all)
   "match any of the given combinator rules."
-  (let* ((parent-begin (context-parent-begin ctx))
-         (wrapper (make-match :begin (- pos parent-begin)
-                              :ctx ctx
-                              :parent (context-parent-match ctx)))
-         (child-ctx (context-copy ctx wrapper))
-         (current-char (reader-char reader pos)))
+  (let ((current-char (reader-char reader pos))
+        (parent-begin (context-parent-begin ctx))
+        (wrapper)
+        (child-ctx))
     (loop for one in all
           ;; skip rules that can't match based on first character
           for first-char = (extract-literal-from-rule one)
@@ -233,7 +231,12 @@ to replace and new-rule is the rule to replace it with."
                    (null current-char)
                    (char= current-char first-char)
                    (char= (char-downcase current-char) first-char))
-            do (let ((match (apply-rule-normalized child-ctx one reader pos)))
+            do (unless wrapper
+                 (setf wrapper (make-match :begin (- pos parent-begin)
+                                           :ctx ctx
+                                           :parent (context-parent-match ctx)))
+                 (setf child-ctx (context-copy ctx wrapper)))
+               (let ((match (apply-rule-normalized child-ctx one reader pos)))
                  (when match
                    (setf (match-children wrapper) (list match))
                    (setf (match-end wrapper) (+ (match-begin wrapper) (match-end match)))
