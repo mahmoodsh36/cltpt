@@ -9,12 +9,14 @@
   (:export
    :match-id :match-begin :match-end :match-ctx :match-children
    :match-begin-absolute :match-end-absolute
-   :make-match :match-clone :match-rule :match-parent
+   :make-match :make-match-simple :match-clone :match-rule :match-parent
    :match-set-children-parent :match-props :match :match-region
    :find-submatch :find-submatch-last :find-submatch-all
    :match-text))
 
 (in-package :cltpt/combinator/match)
+
+(declaim (ftype (function (match) fixnum) match-begin match-end))
 
 ;; a match represents a parsed region. inherits from buffer for parent/children/region.
 (defstruct (match (:print-function print-match)
@@ -87,6 +89,11 @@
     (dolist (child (match-children match))
       (setf (match-parent child) match)))
   match)
+
+(defun make-match-simple (begin end ctx parent)
+  "fast match constructor for hot paths. no region handling, no auto parent-child linkage."
+  (declare (type fixnum begin end))
+  (%make-match :begin begin :end end :ctx ctx :parent parent))
 
 (defun find-submatch (match submatch-id &optional (test 'string=))
   "from a combinator-returned MATCH, find a sub-match by its SUBMATCH-ID."
