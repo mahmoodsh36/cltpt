@@ -211,7 +211,3 @@ the loop stops when NEXT-DATE would be after END-DATE."
 
 (defun today-timestamp ()
   (truncate-to-day (local-time:today)))
-
-(defun tautology (&rest args)
-  "function that always returns T."
-  t)

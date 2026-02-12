@@ -770,7 +770,7 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                             (setf (match-id sub-pattern-match) id)
                             sub-pattern-match))))))
                  ;; function call rules, we assume symbol is a valid function, which isnt safe
-                 ;; but running seems to be is expensive.
+                 ;; but running 'fboundp' seems to be is expensive.
                  ((symbolp head)
                   (apply head ctx reader pos (cdr rule)))
                  (t (error "invalid rule: ~A" rule)))))

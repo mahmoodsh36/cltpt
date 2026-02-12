@@ -12,6 +12,8 @@
 
 (in-package :cltpt/tests/combinator)
 
+;; this is for verifying the parser-combinator works properly. the higher level parsing is tested elsewhere
+
 (def-suite combinator-suite
   :description "tests for the combinator parsing primitives."
   :in cltpt/tests::cltpt-suite)
@@ -336,6 +338,7 @@ this is not a match: #tag2
   (fiveam:is
    (null (test-flanked-by-whitespace-or-punctuation-no-match-func))))
 
+;; a following few tests test some stuff on my personal machine but ill keep them here for now
 (defun org-combinator-test-1 ()
   (time
    (let ((files (uiop:directory-files "/Volumes/main/brain/notes/"

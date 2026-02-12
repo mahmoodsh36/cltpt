@@ -65,10 +65,6 @@ form:
   (make-instance 'roamer
                  :files (getf args :files)))
 
-;; get the backlinks to a specific node
-(defmethod backlinks-to-node ((rm roamer) (nd node))
-  )
-
 (defmethod find-files (file-rules)
   "takes a list of rules for files to find.
 each rule is a plist that can contain the following params.

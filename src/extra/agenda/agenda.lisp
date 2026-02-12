@@ -137,13 +137,7 @@ the new agenda object will contain all the tasks found in the nodes of the roame
         ;; `*agenda-include-done*' is set to `t'
         append (unless (and (state-is-terminal (task-state task1))
                             (not *agenda-include-done*))
-                 (records-between (task-records task1) begin-ts end-ts))))
-
-(defmethod agenda-tasks-between ((agn agenda) begin-ts end-ts)
-  "return all tasks that have a `task-record' whose `time' is between BEGIN-TS and END-TS."
-  (loop for task1 in (agenda-tasks agn)
-        when (records-between (task-records task1) begin-ts end-ts)
-          collect task1))
+                  (records-between (task-records task1) begin-ts end-ts))))
 
 (defstruct agenda-outline-node
   parent
@@ -170,29 +164,6 @@ the new agenda object will contain all the tasks found in the nodes of the roame
 
 (defmethod cltpt/tree:tree-parent ((node agenda-outline-node))
   (agenda-outline-node-parent node))
-
-;; (defmethod cltpt/outline:outline-text ((node agenda-outline-node))
-;;   (let ((date-text
-;;           (local-time:format-timestring
-;;            nil
-;;            (time-range-begin (agenda-outline-node-time-range node))
-;;            :timezone local-time:*default-timezone*
-;;            :format '(:long-weekday
-;;                      #\space
-;;                      (:day 2 #\0)
-;;                      #\space
-;;                      :long-month
-;;                      #\space
-;;                      :year
-;;                      #\space
-;;                      (:hour 2 #\0)
-;;                      #\:
-;;                      (:min 2 #\0)
-;;                      ;; #\space
-;;                      ;; "W"
-;;                      ;; (:iso-week-number 2 #\0)
-;;                      ))))
-;;     date-text))
 
 (defmethod cltpt/tree/outline:outline-text ((node agenda-outline-node))
   (agenda-outline-node-text node))

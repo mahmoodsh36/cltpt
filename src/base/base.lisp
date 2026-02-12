@@ -6,7 +6,7 @@
    :concat :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day
-   :find-cons-if :tautology
+   :find-cons-if
 
    :make-text-format :*simple-format*
    :text-format-text-object-types :text-format-by-name

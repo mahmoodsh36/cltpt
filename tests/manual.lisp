@@ -4,6 +4,7 @@
 (in-package :cltpt/tests/manual)
 
 ;; tests that are meant to be run (and whose output observed) manually
+;; this contains a few tests that would only work on my personal machine but ill keep em here for now.
 
 (defun test-org-parse ()
   (cltpt/tree:tree-show
@@ -11,8 +12,6 @@
 
 (defun test-org-convert ()
   (let ((filepath
-          ;; "/home/mahmooz/brain/notes/1707069432.org"
-          ;; "/home/mahmooz/brain/notes/1684594232.org"
           "tests/test.org")
         (cltpt/org-mode:*org-enable-macros* t))
     (cltpt/zoo:init)
@@ -32,23 +31,6 @@
         "test.out.html")
        nil))))
 
-(defun test-org-convert-1 ()
-  (time
-   (progn
-     ;; (cltpt/base:convert-file
-     ;;  (cltpt/base:text-format-by-name "org-mode")
-     ;;  (cltpt/base:text-format-by-name "latex")
-     ;;  ;; "/home/mahmooz/brain/notes/1752690904.866355.org"
-     ;;  "/tmp/test.org"
-     ;;  "/tmp/test.out.tex")
-     (cltpt/base:convert-file
-      (cltpt/base:text-format-by-name "org-mode")
-      (cltpt/base:text-format-by-name "html")
-      "/home/mahmooz/brain/notes/1712235129.org"
-      ;; "/tmp/test.org"
-      "/tmp/test.out.html")
-     nil)))
-
 (defun test-agenda-2 ()
   (let* ((rmr (cltpt/roam:from-files
                '((:path ("/home/mahmooz/brain/notes/"
@@ -64,7 +46,7 @@
 
 (defun test-agenda-3 ()
   (let* ((rmr (cltpt/roam:from-files
-               '((:path ("./tests/test2.org")
+               '((:path ("./tests/macros.org")
                   :glob "*.org"
                   :format "org-mode"))))
          (begin-ts (local-time:encode-timestamp 0 0 0 0 13 10 2025))
@@ -120,17 +102,10 @@
                    :format "org-mode")))))
      (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
 
-(defun roam-get-title-by-id (_id)
-  (cltpt/roam:node-title
-   (cltpt/roam:get-node-by-id
-    (getf cltpt/roam:*roam-convert-data* :roamer)
-    _id)))
-
 (defun roam-convert-test-2 ()
   (time
    (let* ((rmr (cltpt/roam:from-files
-                '((;;:path ("/home/mahmooz/brain/notes/1710536040.org")
-                   :path ("/home/mahmooz/work/cltpt/test2.org")
+                '((:path ("./tests/macros.org")
                    :glob "*.org"
                    :format "org-mode")))))
      (cltpt/roam:convert-all
