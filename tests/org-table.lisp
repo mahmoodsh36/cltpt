@@ -302,6 +302,35 @@ and then running reformat-table on the resulting parse tree."
 ;; (test test-parse-table
 ;;   (fiveam:is (test-parse-table-func)))
 
+(test test-reformat-substring-relative-pos
+  "ensures reformat-table works correctly when passed a substring (e.g. just the table text) but
+the match object has absolute positions relative to a larger parent document."
+  (let* ((prefix (format nil "some introductory text.~%~%"))
+         (table-text "| col1 | col2 |
+|------+------|
+| val1 | val2 |"
+                     )
+         (full-text (concatenate 'string prefix table-text))
+         (reader (cltpt/reader:reader-from-string full-text))
+         (table-start-pos (position #\| full-text)))
+    (is (not (null table-start-pos)) "could not find table start")
+    (multiple-value-bind (table-match end-pos)
+        (cltpt/org-mode::org-table-matcher nil reader table-start-pos)
+      (is (not (null table-match)) "table match should be found")
+      (when table-match
+        ;; call reformat-table with just the table substring but the original match object (which
+        ;; has absolute positions relative to full-text).
+        ;; if absolute positions are used, this will crash or produce garbage/errors.
+        ;; if relative positions are used, it should work fine.
+        (let ((reformatted (cltpt/org-mode::reformat-table table-text table-match)))
+          ;; note: reformat-table might normalize whitespace/padding, but for this simple table
+          ;; it should be fine.
+          (is (search "col1" reformatted) "reformatted table should contain content"))
+        (let ((data (cltpt/org-mode::table-match-to-nested-list table-text table-match)))
+          (is (equal (first data) '("col1" "col2")) "header row should be correct")
+          (is (equal (second data) :hrule) "should contain hrule")
+          (is (equal (third data) '("val1" "val2")) "data row should be correct"))))))
+
 (defun run-org-table-tests ()
   "run all org-table tests."
   (format t "~&running org-table tests...~%")

@@ -273,12 +273,16 @@
         (let ((cell-nodes (remove-if-not
                            (lambda (node)
                              (eq (cltpt/combinator/match:match-id node) 'table-cell))
-                           (cltpt/combinator/match:match-children row-node))))
+                           (cltpt/combinator/match:match-children row-node)))
+              (row-begin (cltpt/combinator/match:match-begin row-node)))
           (loop for cell-node in cell-nodes
                 for col-idx from 0
                 do (let* ((content-node (car (cltpt/combinator/match:match-children cell-node)))
                           (cell-text (if content-node
-                                         (cltpt/combinator:match-text content-node str)
+                                         (let ((base (+ row-begin (cltpt/combinator/match:match-begin cell-node))))
+                                           (subseq str
+                                                   (+ base (cltpt/combinator/match:match-begin content-node))
+                                                   (+ base (cltpt/combinator/match:match-end content-node))))
                                          ""))
                           (cell-width (length cell-text)))
                      (when (>= col-idx (length col-widths))
@@ -306,9 +310,14 @@
                                            (car (cltpt/combinator/match:match-children
                                                  cell-node))))
                                      (when content-node
-                                       (setf cell-text (cltpt/combinator:match-text
-                                                        content-node
-                                                        str)))))
+                                       (setf cell-text
+                                             (subseq str
+                                                     (+ (cltpt/combinator/match:match-begin child-node)
+                                                        (cltpt/combinator/match:match-begin cell-node)
+                                                        (cltpt/combinator/match:match-begin content-node))
+                                                     (+ (cltpt/combinator/match:match-begin child-node)
+                                                        (cltpt/combinator/match:match-begin cell-node)
+                                                        (cltpt/combinator/match:match-end content-node)))))))
                                  (format s " ~vA ~c" width cell-text *table-v-delimiter*)))))
                    (table-hrule
                     (write-char *table-v-delimiter* s)
@@ -365,6 +374,7 @@ table's data. ignores the new table-row-separator nodes."
       (case (cltpt/combinator/match:match-id row-node)
         ('table-row
          (let ((current-row-cells)
+               (row-begin (cltpt/combinator/match:match-begin row-node))
                (cell-nodes (remove-if-not
                             (lambda (node)
                               (eq (cltpt/combinator/match:match-id node) 'table-cell))
@@ -372,7 +382,10 @@ table's data. ignores the new table-row-separator nodes."
            (dolist (cell-node cell-nodes)
              (let* ((content-node (first (cltpt/combinator/match:match-children cell-node)))
                     (cell-text (if content-node
-                                   (cltpt/combinator:match-text content-node str)
+                                   (let ((base (+ row-begin (cltpt/combinator/match:match-begin cell-node))))
+                                     (subseq str
+                                             (+ base (cltpt/combinator/match:match-begin content-node))
+                                             (+ base (cltpt/combinator/match:match-end content-node))))
                                    "")))
                (push cell-text current-row-cells)))
            (push (nreverse current-row-cells) table-data)))
