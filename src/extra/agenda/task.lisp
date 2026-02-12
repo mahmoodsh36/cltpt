@@ -45,26 +45,11 @@
 (defmethod text-object-task ((obj cltpt/base:text-object))
   (cltpt/base:text-object-property obj :task))
 
-;; (defmethod cltpt/tree:tree-children ((node task))
-;;   (task-children node))
-
-;; (defmethod cltpt/tree:tree-parent ((node task))
-;;   (task-parent node))
-
-;; (defmethod cltpt/outline:outline-text ((node task))
-;;   (format nil "~A: ~A" (task-state node) (task-title node)))
-
-;; (defmethod cltpt/tree:is-subtree ((subtree task) child)
-;;   (typep child 'task))
-
 (defgeneric deadline (record)
   (:documentation "a record that behaves as a deadline should return a timestamp as a deadline."))
 
 (defgeneric start-task (record)
   (:documentation "a record that behaves as a \"when to start\" should return a timestamp."))
-
-(defgeneric end-task (record)
-  (:documentation "a record that behaves as a \"when to end\" should return a timestamp."))
 
 (defgeneric repeat-task (record time-range)
   (:documentation "a repetitive `task-record' should return as many instances as it needs for the given time range."))

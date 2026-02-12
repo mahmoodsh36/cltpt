@@ -16,19 +16,10 @@
 (in-package :cltpt/tree/outline)
 
 (defgeneric should-expand (node)
-  (:documentation "whether to expand a node when displaying the outline."))
-
-(defgeneric outline-text (node)
-  (:documentation "the text to display for a node in the generated outline."))
+  (:documentation "whether a node should be expanded by default."))
 
 (defgeneric could-expand (node)
   (:documentation "whether a node can be expanded."))
-
-;; (defmethod expand-node ((node cons))
-;;   (setf (getf node :expanded) t))
-
-;; (defmethod collapse-node ((node cons))
-;;   (setf (getf node :expanded) nil))
 
 (defmethod should-expand ((node cons))
   "returns true only if the node has a branch structure AND the :expanded flag."

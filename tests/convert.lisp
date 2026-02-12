@@ -16,33 +16,6 @@
 
 (in-suite conversion-suite)
 
-(defun test-convert-1 ()
-  (let ((parsed
-          (cltpt/base:parse
-           cltpt/org-mode:*org-mode*
-           "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
-  my first block
-  %a
-  %(identity a)
-  #(cltpt/base::make-block :type 'subtheorem :let '((b \" that will be included on export\")))
-    hello
-    %(concatenate 'string a b)
-  #(cltpt/base::block-end)
-#(cltpt/base::block-end)")))
-    (cltpt/tree:tree-show parsed)
-    (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
-
-(defun test-convert-2 ()
-  (let ((parsed
-          (cltpt/base:parse
-           cltpt/org-mode:*org-mode*
-           "#(cltpt/base::make-block :type 'theorem :let '((a \"some text\")))
-  my block ~here~
-  %a
-#(cltpt/base::block-end)")))
-    (cltpt/tree:tree-show parsed)
-    (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
-
 (defun test-org-src-block-with-image-result-func ()
   (cltpt/base:parse
    cltpt/org-mode:*org-mode*
@@ -78,8 +51,10 @@ plt.close()
 </code></pre></div>
 
 <div class='org-babel-results'><img src='plot.png' /></div></div>"))
-    (is (string=+diff html-output expected-html
-                     "HTML conversion of src block with image result should match expected output")
+    (is (string=+diff
+         html-output
+         expected-html
+         "HTML conversion of src block with image result should match expected output")
         "HTML conversion of src block with image result should match expected output")))
 
 (defun test-comprehensive-org-document-func ()
@@ -95,8 +70,10 @@ plt.close()
 (test test-comprehensive-org-document-html-conversion
   (let* ((html-output (comprehensive-org-document-html-conversion))
          (expected-html (uiop:read-file-string "tests/data/comprehensive-org-test-expected.html")))
-    (is (string=+diff html-output expected-html
-                     "HTML conversion of comprehensive-org-test.org should match expected output")
+    (is (string=+diff
+         html-output
+         expected-html
+         "HTML conversion of comprehensive-org-test.org should match expected output")
         "HTML conversion of comprehensive-org-test.org should match expected output")))
 
 (defun text-block-test-conversion-func ()
@@ -110,8 +87,10 @@ plt.close()
 (test text-block-test-conversion
   (multiple-value-bind (actual-output expected-output)
       (text-block-test-conversion-func)
-    (is (string=+diff actual-output expected-output
-                     "simple format conversion of text-block-test.txt should match expected output")
+    (is (string=+diff
+         actual-output
+         expected-output
+         "simple format conversion of text-block-test.txt should match expected output")
         "simple format conversion of text-block-test.txt should match expected output")))
 
 (defun test-org-html-conversion-func ()
@@ -125,8 +104,10 @@ plt.close()
 (test test-org-html-conversion
   (multiple-value-bind (actual-output expected-output)
       (test-org-html-conversion-func)
-    (is (string=+diff actual-output expected-output
-                     "HTML conversion of test.org should match expected output")
+    (is (string=+diff
+         actual-output
+         expected-output
+         "HTML conversion of test.org should match expected output")
         "HTML conversion of test.org should match expected output")))
 
 (defun test-org-latex-conversion-func ()
@@ -140,8 +121,10 @@ plt.close()
 (test test-org-latex-conversion
   (multiple-value-bind (actual-output expected-output)
       (test-org-latex-conversion-func)
-    (is (string=+diff actual-output expected-output
-                     "LaTeX conversion of test.org should match expected output")
+    (is (string=+diff
+         actual-output
+         expected-output
+         "LaTeX conversion of test.org should match expected output")
         "LaTeX conversion of test.org should match expected output")))
 
 (defun run-conversion-tests ()

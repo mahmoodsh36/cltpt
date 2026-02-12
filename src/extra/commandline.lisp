@@ -34,32 +34,6 @@
       (to-help (clingon:print-usage cmd t))
       )))
 
-;; (defun convert (node src-format-name dest-format-name)
-;;   (labels ((alias-to-name (alias)
-;;              (cond
-;;                ((string= "org" alias) "org-mode")
-;;                ((string= "tex" alias) "latex")
-;;                ((string= "md" alias) "markdown")
-;;                (otherwise alias)))
-;;            (name-to-alias (name)
-;;              (cond
-;;                ((string= "org-mode" name) "org")
-;;                ((string= "latex" name) "tex")
-;;                ((string= "markdown" name) "md")
-;;                (otherwise name))))
-;;     (setf src-format-name (alias-to-name src-format-name))
-;;     (setf dest-format-name (alias-to-name dest-format-name))
-;;     (let* ((src-file (cltpt/roam:node-file node))
-;;            (dest-file (cltpt/file-utils:change-extension
-;;                        src-file
-;;                        (name-to-alias dest-format-name))))
-;;       (format t "converting ~A to ~A~%" src-file dest-file)
-;;       (cltpt/base:convert-file
-;;        (cltpt/base:text-format-by-name src-format-name)
-;;        (cltpt/base:text-format-by-name dest-format-name)
-;;        src-file
-;;        dest-file))))
-
 (defun roamer-from-file-rules (file-rules)
   (cltpt/roam:from-files
    (mapcar
