@@ -49,7 +49,7 @@
          (src-format (cltpt/base:text-format-by-name
                       (clingon:getopt cmd :src-format)))
          (dest-format (cltpt/base:text-format-by-name
-                      (clingon:getopt cmd :dest-format)))
+                       (clingon:getopt cmd :dest-format)))
          (files (clingon:getopt cmd :files))
          (file-rules (clingon:getopt cmd :rules))
          (filepath-format (clingon:getopt cmd :filepath-format))
