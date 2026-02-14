@@ -177,7 +177,7 @@ the '\\' and processes the char normally (replace or emit)."
     ;; process children: convert each child and schedule its replacement.
     ;; first, collect regions from changes that have :discard-contained set.
     ;; children overlapping these regions will be skipped.
-    ;; this is done because sometimes a text-object-convert cal would return changes with
+    ;; this is done because sometimes a text-object-convert call would return changes with
     ;; :discard-contained set, but the changes that need to be discarded might be registered below
     ;; (for children etc), so schedule-change* will not discard them since it doesnt know
     ;; about them yet.
