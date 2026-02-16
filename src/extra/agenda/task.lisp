@@ -13,7 +13,8 @@
    :make-record-scheduled
 
    :repeat-task :deadline :start-task
-   :task-node :text-object-task))
+   :task-node :text-object-task
+   :task-last-repeat))
 
 (in-package :cltpt/agenda/task)
 
@@ -40,7 +41,9 @@
   tags
   node ;; node refers to a cltpt/roam:node
   children
-  parent)
+  parent
+  ;; timestamp from :LAST_REPEAT: property, repeated entries on or before this are ignored
+  last-repeat)
 
 (defmethod text-object-task ((obj cltpt/base:text-object))
   (cltpt/base:text-object-property obj :task))
@@ -76,7 +79,9 @@
                          time))
          (time-end (and (typep time 'time-range) (time-range-end time)))
          (increment (when time-end
-                      (local-time:timestamp-difference time-end time-begin))))
+                      (local-time:timestamp-difference time-end time-begin)))
+         (last-repeat (when (task-record-task rec)
+                        (task-last-repeat (task-record-task rec)))))
     ;; remove any increments of value 0 because those are irrelevant and problematic
     (setf repeat
           (loop for (key value) on repeat by #'cddr
@@ -93,13 +98,16 @@
         (loop for date1 in dates1
               for date2 = (when increment
                             (local-time:timestamp+ date1 increment :sec))
-              collect (make-task-record
-                       :type 'dupe
-                       :task (task-record-task rec)
-                       :time (if date2
-                                 (make-time-range :begin date1
-                                                  :end date2)
-                                 date1)))))))
+              ;; skip entries on or before the LAST_REPEAT date
+              unless (and last-repeat
+                          (local-time:timestamp<= date1 last-repeat))
+                collect (make-task-record
+                         :type 'dupe
+                         :task (task-record-task rec)
+                         :time (if date2
+                                   (make-time-range :begin date1
+                                                    :end date2)
+                                   date1)))))))
 
 ;; without this printing a node might cause an infinite loop
 (defmethod print-object ((obj task-record) stream)
