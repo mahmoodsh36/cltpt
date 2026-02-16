@@ -685,6 +685,18 @@ used for all region-decf calculations to get positions relative to the text-obje
           (loop for match in (cltpt/combinator:find-submatch-all match 'tag)
                 collect (cltpt/combinator:match-text match str1)))))
 
+;; TODO: i need to make this easier to do. we shouldnt need to construct a text-object just
+;; to parse a timestamp.
+(defun parse-inactive-timestamp-string (str)
+  "parse a string like \"[2025-10-30 Thu 17:42:02]\" into a local-time timestamp."
+  (let* ((reader (cltpt/combinator:reader-from-input str))
+         (match (cltpt/combinator:apply-rule nil org-timestamp-bracket reader 0)))
+    (when match
+      (let ((dummy-obj (make-instance 'cltpt/base:text-object)))
+        (setf (cltpt/buffer:buffer-own-text dummy-obj) str)
+        (cltpt/base:text-object-init dummy-obj str match)
+        (org-timestamp-match-to-time dummy-obj match)))))
+
 (defun get-repeat-interval (repeat-num repeat-word)
   (let ((repeat-num (parse-integer repeat-num :junk-allowed t)))
     (cond
@@ -730,6 +742,7 @@ used for all region-decf calculations to get positions relative to the text-obje
   (let* ((match (cltpt/base:text-object-match obj))
          (title-match (cltpt/combinator:find-submatch match 'title))
          (header-id)
+         (last-repeat-ts)
          (task-records)
          (todo-keyword-match
            (cltpt/combinator:find-submatch match 'todo-keyword))
@@ -751,9 +764,8 @@ used for all region-decf calculations to get positions relative to the text-obje
                             ((string-equal key "id")
                              (setf header-id value))
                             ((string-equal key "last_repeat")
-                             ;; TODO
-                             )
-                            )))))
+                             (setf last-repeat-ts
+                                   (parse-inactive-timestamp-string value))))))))
     (loop for action-match in action-active-matches
           do (let ((action-name
                      (cltpt/base:text-object-match-text
@@ -792,7 +804,8 @@ used for all region-decf calculations to get positions relative to the text-obje
                                (cltpt/base:text-object-match-text obj todo-keyword-match))
                               (cltpt/agenda:state-by-name "TODO"))
                    :tags nil
-                   :records task-records)))
+                   :records task-records
+                   :last-repeat last-repeat-ts)))
         (loop for record in task-records
               do (setf (cltpt/agenda:task-record-task record) task))
         (setf (cltpt/base:text-object-property obj :task) task)))))

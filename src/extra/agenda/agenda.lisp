@@ -21,12 +21,14 @@
    :repeat-task :deadline :start-task
 
    :task-node
-   :text-object-task)
+   :text-object-task
+   :task-last-repeat)
   (:export
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
    :task-record-repeat :task-record-time
+   :task-last-repeat
 
    :from-roamer :task-node :tasks-between
    :make-time-range :time-range-begin :time-range-end :time-range
@@ -55,6 +57,16 @@
     #\:
     (:min 2 #\0))
   "time format displayed in agenda trees.")
+
+(defvar *agenda-day-time-format*
+  '(:long-weekday
+    #\space
+    (:day 2 #\0)
+    #\space
+    :long-month
+    #\space
+    :year)
+  "time format displayed in agenda trees for day entries.")
 
 (defvar *agenda-seqs*
   (list
@@ -198,14 +210,7 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                                              :begin day
                                              :end next-day))))
                  (setf (agenda-outline-node-text day-node)
-                       (local-time:format-timestring
-                        nil
-                        day
-                        :format '(:long-weekday
-                                  #\space
-                                  (:day 2 #\0)
-                                  #\space
-                                  :long-month)))
+                       (local-time:format-timestring nil day :format *agenda-day-time-format*))
                  (loop
                    for (hour . next-hour)
                      in (cltpt/base:list-date-pairs

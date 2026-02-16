@@ -1,0 +1,26 @@
+├─ Friday 25 July 2025
+│ ├─ 00:00
+│ ├─ 02:00
+│ ├─ 04:00
+│ ├─ 06:00
+│ ├─ 08:00
+│ ├─ 10:00
+│ ├─ 12:00
+│ ├─ 14:00
+│ ├─ 16:00
+│ ├─ 18:00
+│ ├─ 20:00
+│ └─ 22:00
+├─ Saturday 26 July 2025
+│ └─ START: (TODO) 10:55 header my secondary header
+├─ Sunday 27 July 2025
+│ ├─ START: (TODO) 10:55 header do something
+│ └─ START: (TODO) 17:55 do something else
+├─ Monday 28 July 2025
+├─ Tuesday 29 July 2025
+│ └─ TODO (10:00) repeating task with last repeat
+├─ Wednesday 30 July 2025
+│ ├─ TODO (10:00) repeating task with last repeat
+│ └─ DEADLINE: TODO 10:00
+└─ Thursday 31 July 2025
+  └─ TODO (10:00) repeating task with last repeat

@@ -1307,6 +1307,24 @@ plt.close()
               (let ((content (cltpt/org-mode::get-list-item-text node)))
                 (format t "content of retrieved node: \"~a\"~%" content))))))))
 
+(defun test-agenda-rendering-func ()
+  "parse test.org, build an agenda, and render it for a fixed date range."
+  (let* ((rmr (cltpt/roam:from-files
+               '((:path ("./tests/test.org")
+                  :format "org-mode"))))
+         (agenda (cltpt/agenda:from-roamer rmr))
+         (begin-ts (local-time:encode-timestamp 0 0 0 0 25 7 2025))
+         (end-ts (local-time:encode-timestamp 0 0 0 0 1 8 2025)))
+    (cltpt/agenda:render-agenda agenda :begin-ts begin-ts :end-ts end-ts)))
+
+(test test-agenda-rendering
+  (let ((actual (test-agenda-rendering-func))
+        (expected (uiop:read-file-string "tests/data/test-org-expected-agenda.txt")))
+    (is (string=+diff
+         actual
+         expected
+         "agenda rendering of test.org should match expected output"))))
+
 (defun run-org-mode-tests ()
   (format t "~&running org-mode tests...~%")
   ;; set up relative paths for latex previews so tests work across different systems
