@@ -12,15 +12,15 @@
 │ ├─ 20:00
 │ └─ 22:00
 ├─ Saturday 26 July 2025
-│ └─ START: (TODO) 10:55 header my secondary header
+│ └─ START: (TODO) 10:55 header my secondary header     :tag1:tag2:important:
 ├─ Sunday 27 July 2025
-│ ├─ START: (TODO) 10:55 header do something
+│ ├─ START: (TODO) 10:55 header do something                       :noexport:
 │ └─ START: (TODO) 17:55 do something else
 ├─ Monday 28 July 2025
 ├─ Tuesday 29 July 2025
 │ └─ TODO (10:00) repeating task with last repeat
 ├─ Wednesday 30 July 2025
 │ ├─ TODO (10:00) repeating task with last repeat
-│ └─ DEADLINE: TODO 10:00
+│ └─ DEADLINE: TODO 10:00 send the professor a mail
 └─ Thursday 31 July 2025
   └─ TODO (10:00) repeating task with last repeat
