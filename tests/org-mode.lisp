@@ -1323,7 +1323,8 @@ plt.close()
     (is (string=+diff
          actual
          expected
-         "agenda rendering of test.org should match expected output"))))
+         "agenda rendering of test.org should match expected output")
+        "agenda rendering of test.org should match expected output")))
 
 (defun run-org-mode-tests ()
   (format t "~&running org-mode tests...~%")

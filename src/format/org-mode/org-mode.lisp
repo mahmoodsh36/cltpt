@@ -803,7 +803,7 @@ used for all region-decf calculations to get positions relative to the text-obje
                    :state (or (cltpt/agenda:state-by-name
                                (cltpt/base:text-object-match-text obj todo-keyword-match))
                               (cltpt/agenda:state-by-name "TODO"))
-                   :tags nil
+                   :tags (cltpt/base:text-object-property obj :tags)
                    :records task-records
                    :last-repeat last-repeat-ts)))
         (loop for record in task-records

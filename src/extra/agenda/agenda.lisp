@@ -252,7 +252,7 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
       out)))
 
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))
-  (labels ((format-ts (ts)
+  (labels ((format-time-from-ts (ts)
              (local-time:format-timestring
               nil
               ts
@@ -260,24 +260,43 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
            (format-time (time)
              (if (typep time 'time-range)
                  (format nil "~A--~A"
-                         (format-ts (time-range-begin time))
-                         (format-ts (time-range-end time)))
-                 (format-ts time))))
-    (let ((task1 (task-record-task rec)))
+                         (format-time-from-ts (time-range-begin time))
+                         (format-time-from-ts (time-range-end time)))
+                 (format-time-from-ts time)))
+           (format-tags (tags)
+             (if tags
+                 (format nil ":~{~A~^:~}:" tags)
+                 ""))
+           (pad-tags (text tags &optional (target-col 72))
+             (if (string= tags "")
+                 text
+                 (let* ((padding (max 1 (- target-col (length text) (length tags)))))
+                   (format nil "~A~A~A"
+                           text
+                           (make-string padding :initial-element #\space)
+                           tags)))))
+    (let* ((task1 (task-record-task rec))
+           (tags (format-tags (task-tags task1))))
       (if (deadline rec)
-          (format nil
-                  "DEADLINE: ~A ~A"
-                  (state-name (task-state task1))
-                  (format-time (task-record-time rec))
-                  (task-title task1))
+          (pad-tags
+           (format nil
+                   "DEADLINE: ~A ~A ~A"
+                   (state-name (task-state task1))
+                   (format-time (task-record-time rec))
+                   (task-title task1))
+           tags)
           (if (start-task rec)
-              (format nil
-                      "START: (~A) ~A ~A"
-                      (state-name (task-state task1))
-                      (format-time (task-record-time rec))
-                      (task-title task1))
-              (format nil
-                      "~A (~A) ~A"
-                      (state-name (task-state task1))
-                      (format-time (task-record-time rec))
-                      (task-title task1)))))))
+              (pad-tags
+               (format nil
+                       "START: (~A) ~A ~A"
+                       (state-name (task-state task1))
+                       (format-time (task-record-time rec))
+                       (task-title task1))
+               tags)
+              (pad-tags
+               (format nil
+                       "~A (~A) ~A"
+                       (state-name (task-state task1))
+                       (format-time (task-record-time rec))
+                       (task-title task1))
+               tags))))))

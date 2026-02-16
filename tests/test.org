@@ -96,7 +96,7 @@ a_1 b_2 - a_2 b_1
 <2025-10-29 Tue 10:00:00 +1w>--<2025-10-29 Tue 14:00:00 +1w>
 SCHEDULED: <2024-10-15 Tue 16:41:04> DEADLINE: <2024-10-15 Tue 16:51:04>
 
-* TODO header my secondary header
+* TODO header my secondary header :tag1:tag2:important:
 SCHEDULED: <2025-07-26 Sat 10:55>
 
 test text1
