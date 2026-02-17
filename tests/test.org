@@ -112,7 +112,7 @@ SCHEDULED: <2025-07-27 Sun 17:55:00>
 ** HER send the professor a mail
 DEADLINE: <2025-07-30 Wed 10:00>
 
-* TODO repeating task with last repeat
+* TODO repeating task with last repeat :test:
 <2025-07-23 Wed 10:00:00 +1d>
 :PROPERTIES:
 :LAST_REPEAT: [2025-07-28 Mon 10:00:00]
