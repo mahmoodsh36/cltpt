@@ -18,9 +18,9 @@
 │ └─ START: (TODO) 17:55 do something else
 ├─ Monday 28 July 2025
 ├─ Tuesday 29 July 2025
-│ └─ TODO (10:00) repeating task with last repeat
+│ └─ TODO (10:00) repeating task with last repeat                      :test:
 ├─ Wednesday 30 July 2025
-│ ├─ TODO (10:00) repeating task with last repeat
+│ ├─ TODO (10:00) repeating task with last repeat                      :test:
 │ └─ DEADLINE: TODO 10:00 send the professor a mail
 └─ Thursday 31 July 2025
-  └─ TODO (10:00) repeating task with last repeat
+  └─ TODO (10:00) repeating task with last repeat                      :test:
