@@ -817,28 +817,6 @@ print('hello')
       ((:BEGIN 22 :END 28 :ID CLTPT/ORG-MODE::ORG-TEXT)
        ((:BEGIN 22 :END 28 :MATCH ": output here")))))))
 
-(defun org-babel-results-comprehensive-func ()
-  (let ((result (cltpt/combinator:scan-all-rules
-                 nil
-                 "
-#+RESULTS[dbde93ab692f9e8701baf65653d4f407e1852306]:
-:
-: \"doing 100k epochs\"
-: loss: 0.07140527340555194
-: this should equal 0: #(0.0193214891516944)
-: this should equal 1: #(0.9785556472163439)
-: this should equal 1: #(0.9836150950875087)
-: this should equal 0: #(0.28466690862319854)
-: this should equal 0: #(0.014254526557710118)
-"
-                 (org-rules))))
-    result))
-
-;; (test org-babel-results-comprehensive
-;;   (fiveam:is
-;;    (compare-full-match-loosely
-;;     (car (org-babel-results-comprehensive-func))
-;;     '((:ID CLTPT/ORG-MODE::ORG-BABEL-RESULTS)))))
 
 (defun org-latex-env-basic-func ()
   (let ((result (cltpt/combinator:parse
@@ -856,23 +834,6 @@ print('hello')
       ((:BEGIN 7 :END 8 :MATCH ":"))
       ((:BEGIN 8 :END 9 :MATCH " "))
       ((:BEGIN 9 :END 26 :ID VALUE :MATCH "\\begin{equation}"))))))
-
-(defun org-latex-env-with-name-func ()
-  (let ((result (cltpt/combinator:parse
-                 "#+name: eq1"
-                 (list cltpt/org-mode::org-keyword))))
-    result))
-
-(test org-latex-env-with-name
-  (fiveam:is
-   (compare-full-match-loosely
-    (car (org-latex-env-with-name-func))
-    '((:BEGIN 0 :END 12 :ID CLTPT/ORG-MODE::ORG-KEYWORD)
-      ((:BEGIN 0 :END 2 :MATCH "#+"))
-      ((:BEGIN 2 :END 6 :ID KEYWORD :MATCH "name"))
-      ((:BEGIN 6 :END 7 :MATCH ":"))
-      ((:BEGIN 7 :END 8 :MATCH " "))
-      ((:BEGIN 8 :END 11 :ID VALUE :MATCH "eq1"))))))
 
 (defun latex-env-parse-test-1 ()
   (cltpt/combinator::parse
@@ -1004,14 +965,6 @@ my equation here
         ((:BEGIN 58 :END 66 :MATCH "equation"))
         ((:BEGIN 66 :END 67 :MATCH "}"))))))))
 
-(defun test-org-latex-env-1 ()
-  (cltpt/base:parse
-   cltpt/org-mode:*org-mode*
-   "#+name: test-name
-\\begin{equation}
-my equation here
-\\end{equation}"))
-
 (defun test-org-keyword ()
   (cltpt/combinator:parse
    "
@@ -1032,17 +985,6 @@ my equation here
         ((:ID KEYWORD :BEGIN 4 :END 9))
         ((:BEGIN 9 :END 10))
         ((:ID VALUE :BEGIN 10 :END 34)))))))
-
-(defun test-duration-1 ()
-  (let ((duration '(:hour 1 :minute 30)))
-    (format t "1. ~A~%" (cltpt/base:add-duration (local-time:now) duration))
-    (format t "2. ~A~%" (cltpt/base:add-duration (local-time:now) duration :sign -1))))
-
-(defun test-duration-2 ()
-  (cltpt/base:list-date-pairs
-   (local-time:today)
-   (cltpt/base:add-duration (local-time:today) '(:day 14))
-   '(:minute 70)))
 
 (defun test-org-duration-parsing-1 ()
   (cltpt/org-mode::get-repeat-interval "1" "w"))
@@ -1067,53 +1009,6 @@ my equation here
   (let ((result (test-org-duration-parsing-3)))
     (fiveam:is
      (equal result '(:hour 3)))))
-
-(defun test-org-document-parse-func ()
-  (cltpt/base:parse
-   cltpt/org-mode:*org-mode*
-   "#+title: Test Document
-#+author: John Doe
-
-* Introduction
-This is a test document with various org-mode elements.
-
-** Math Example
-#+name: eq1
-\\begin{equation}
-E = mc^2
-\\end{equation}
-
-** Code Example
-#+begin_src python
-def hello():
-    print(\"Hello World\")
-#+end_src
-
-** Image Example
-#+begin_src python :results file :exports both
-import matplotlib.pyplot as plt
-import numpy as np
-
-x = np.linspace(0, 10, 100)
-y = np.sin(x)
-plt.plot(x, y)
-plt.savefig('plot.png')
-plt.close()
-#+end_src
-
-#+RESULTS:
-[[file:plot.png]]
-
-** List Example
-- Item 1
-- Item 2
-  - Nested item
-- Item 3
-
-| Name | Age |
-|------+-----|
-| John | 25  |
-| Jane | 30  |"))
 
 (defun test-org-src-block-with-image-result-func ()
   (cltpt/base:parse
@@ -1258,7 +1153,8 @@ plt.close()
     (if errors
         (progn
           (format t "~&tree type validation failed:~%")
-          (loop for error in errors do (format t "  ~a~%" error))
+          (loop for error in errors
+                do (format t "  ~a~%" error))
           nil)
         t)))
 
@@ -1267,45 +1163,6 @@ plt.close()
     (format t "~&actual tree structure (first 3 levels):~%")
     (cltpt/tree:tree-show doc)
     (fiveam:is (test-comprehensive-org-document-parse))))
-
-(defun org-timestamp-1 ()
-  (let ((result (cltpt/combinator:parse
-                 "<2025-10-14 Tue +1d>"
-                 ;; "<2025-10-14 10:00 +1d>"
-                 (list cltpt/org-mode::org-timestamp))))
-    (cltpt/org-mode::handle-time-match (car result))))
-
-(defun run-org-list-extensive-test ()
-  (let* ((messy (concatenate 'string
-                             "-   Item 1   " (string #\newline)
-                             "     Line 1 Continuation" (string #\newline)
-                             "     Line 2 Continuation" (string #\newline)
-                             "- Item 2"))
-         (match (cltpt/org-mode:org-list-matcher nil (cltpt/reader:reader-from-string messy) 0))
-         (clean (reformat-list match)))
-    (format t "~A~%" messy)
-    (format t "~A~%" clean)))
-
-(defun check-list-indexing ()
-  (let* ((text (concatenate 'string
-                            "- chapter 1" (string #\newline)
-                            "- chapter 2" (string #\newline)
-                            "  - section 2.a" (string #\newline)
-                            "  - section 2.b" (string #\newline)
-                            "    - subsection 2.b.1" (string #\newline)
-                            "    - subsection 2.b.2 <-- we want this one" (string #\newline)
-                            "- chapter 3"))
-         (match (cltpt/org-mode:org-list-matcher nil (cltpt/reader:reader-from-string text) 0)))
-    (let* ((target-string "subsection 2.b.2")
-           (pos (search target-string text)))
-      (format t "target text: \"~a\"~%" target-string)
-      (format t "found at character position: ~a~%" pos)
-      (let ((indices (cltpt/org-mode::get-list-item-indices match pos)))
-        (format t "identified indices: ~a~%" indices)
-        (let ((node (cltpt/org-mode::get-item-at-indices match indices)))
-          (when node
-              (let ((content (cltpt/org-mode::get-list-item-text node)))
-                (format t "content of retrieved node: \"~a\"~%" content))))))))
 
 (defun test-agenda-rendering-func ()
   "parse test.org, build an agenda, and render it for a fixed date range."
