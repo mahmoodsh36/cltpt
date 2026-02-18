@@ -80,10 +80,13 @@
 
 (defun reader-from-string (str)
   (let* ((len (length str))
-         ;; if already simple-string, use directly; otherwise coerce
-         (simple-buf (if (simple-string-p str)
+         ;; use the string directly if it's already a character-typed simple-string, otherwise
+         ;; copy into one
+         (simple-buf (if (eq (array-element-type str) 'character)
                          str
-                         (coerce str 'simple-string)))
+                         (let ((s (make-string len)))
+                           (replace s str)
+                           s)))
          (r (make-instance 'reader :stream nil)))
     ;; for strings, we use the simple-buf directly as both the buffer and fast-buffer to avoid
     ;; copying. the buffer slot needs a fill-pointer array for API compatibility, but we only

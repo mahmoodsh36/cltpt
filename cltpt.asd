@@ -98,7 +98,7 @@
                 :depends-on ("base" "org-mode"))
                (:module "tests"
                 :pathname "tests/"
-                :depends-on ("base" "org-mode" "latex-previews")
+                :depends-on ("base" "org-mode" "latex-previews" "commandline")
                 :components ((:file "utils")
                              (:file "main")
                              (:file "combinator")
@@ -112,4 +112,5 @@
                              (:file "buffer")
                              (:file "region")
                              (:file "manual")
-                             (:file "org-babel")))))
+                             (:file "org-babel")
+                             (:file "commandline")))))
