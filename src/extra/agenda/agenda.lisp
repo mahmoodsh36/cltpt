@@ -93,7 +93,7 @@
                                     :sequence-desc seq-desc))))))
 
 (defvar *agenda-include-done*
-  t
+  nil
   "whether to include agenda nodes that are in one of the `*done-states*'.")
 
 (defclass agenda ()
