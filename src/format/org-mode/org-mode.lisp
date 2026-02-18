@@ -320,48 +320,44 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   :documentation "a timestamp/date. e.g. <2023-12-28 Thu 18:30:00>.")
 
 (defun org-timestamp-match-to-time (obj match)
-  (let* ((day (parse-integer
-               (cltpt/base:text-object-match-text
-                obj
-                (cltpt/combinator:find-submatch match 'day))
-               :junk-allowed t))
-         (second-str-match (cltpt/combinator:find-submatch match 'second))
-         (second-str (when second-str-match
-                       (cltpt/base:text-object-match-text obj second-str-match)))
-         (second (when second-str
-                   (parse-integer second-str :junk-allowed t)))
-         (year (parse-integer
-                (cltpt/base:text-object-match-text
-                 obj
-                 (cltpt/combinator:find-submatch match 'year))
-                :junk-allowed t))
-         (month (parse-integer
-                 (cltpt/base:text-object-match-text
-                  obj
-                  (cltpt/combinator:find-submatch match 'month))
+  (labels ((get-text (m)
+             (when m
+               (if (typep obj 'cltpt/base:text-object)
+                   (cltpt/base:text-object-match-text obj m)
+                   ;; if its not a text object we consider it a string and use match-text
+                   (cltpt/combinator:match-text m obj)))))
+    (let* ((day (parse-integer
+                 (get-text (cltpt/combinator:find-submatch match 'day))
                  :junk-allowed t))
-         (hour-match (cltpt/combinator:find-submatch match 'hour))
-         (hour-str (when hour-match
-                     (cltpt/base:text-object-match-text
-                      obj
-                      hour-match)))
-         (hour (when hour-str
-                 (parse-integer hour-str :junk-allowed t)))
-         (minute-match (cltpt/combinator:find-submatch match 'minute))
-         (minute-str (when minute-match
-                       (cltpt/base:text-object-match-text
-                        obj
-                        minute-match)))
-         (minute (when minute-str
-                   (parse-integer minute-str :junk-allowed t)))
-         (weekday (cltpt/combinator:find-submatch match 'weekday)))
-    (local-time:encode-timestamp 0
-                                 (or second 0)
-                                 (or minute 0)
-                                 (or hour 0)
-                                 day
-                                 month
-                                 year)))
+           (second-str-match (cltpt/combinator:find-submatch match 'second))
+           (second-str (when second-str-match
+                         (get-text second-str-match)))
+           (second (when second-str
+                     (parse-integer second-str :junk-allowed t)))
+           (year (parse-integer
+                  (get-text (cltpt/combinator:find-submatch match 'year))
+                  :junk-allowed t))
+           (month (parse-integer
+                   (get-text (cltpt/combinator:find-submatch match 'month))
+                   :junk-allowed t))
+           (hour-match (cltpt/combinator:find-submatch match 'hour))
+           (hour-str (when hour-match
+                       (get-text hour-match)))
+           (hour (when hour-str
+                   (parse-integer hour-str :junk-allowed t)))
+           (minute-match (cltpt/combinator:find-submatch match 'minute))
+           (minute-str (when minute-match
+                         (get-text minute-match)))
+           (minute (when minute-str
+                     (parse-integer minute-str :junk-allowed t)))
+           (weekday (cltpt/combinator:find-submatch match 'weekday)))
+      (local-time:encode-timestamp 0
+                                   (or second 0)
+                                   (or minute 0)
+                                   (or hour 0)
+                                   day
+                                   month
+                                   year))))
 
 (cltpt/base:define-text-object org-timestamp-bracket
   :rule '(:pattern

@@ -198,16 +198,16 @@
     :key :to)))
 
 (defun date-str-to-ts (date-str)
-  ;; this is a hack that inserts "<>" around the date string so that it can
-  ;; be parsed as an org timestamp
+  ;; wrap the date string in "<>" so it can be parsed as an org timestamp
   (let* ((date-str (format nil "<~A>" date-str))
-         (timestamp-match (cltpt/combinator:match-rule
+         (reader (cltpt/combinator:reader-from-input date-str))
+         (timestamp-match (cltpt/combinator:apply-rule
                            nil
                            cltpt/org-mode::org-timestamp
-                           date-str
-                           0))
-         (ts (cltpt/org-mode::org-timestamp-match-to-time timestamp-match)))
-    ts))
+                           reader
+                           0)))
+    (when timestamp-match
+      (cltpt/org-mode::org-timestamp-match-to-time date-str timestamp-match))))
 
 (defun agenda-handler (cmd)
   "the handler for the agenda command"
