@@ -69,7 +69,6 @@
   (clingon:make-command
    :name "convert"
    :description "convert files."
-   ;; :usage "[options] [arguments ...]"
    :options (convert-options)
    :handler #'convert-handler))
 
@@ -138,7 +137,6 @@
   (clingon:make-command
    :name "roam"
    :description "query information about your files"
-   ;; :usage "[options] [arguments ...]"
    :options (roam-options)
    :handler #'roam-handler))
 
