@@ -88,9 +88,13 @@
                 :pathname "src/"
                 :depends-on ("base" "latex" "html" "org-mode" "roam")
                 :components ((:file "zoo")))
+               (:module "utils"
+                :pathname "src/"
+                :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html")
+                :components ((:file "utils")))
                (:module "commandline"
                 :pathname "src/extra"
-                :depends-on ("base" "file-utils" "latex" "org-mode" "html")
+                :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html" "utils")
                 :components ((:file "commandline")))
                (:module "cltpt"
                 :pathname ""

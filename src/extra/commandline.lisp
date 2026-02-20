@@ -34,36 +34,29 @@
       (to-help (clingon:print-usage cmd t))
       )))
 
-(defun roamer-from-file-rules (file-rules)
-  (cltpt/roam:from-files
-   (mapcar
-    (lambda (r)
-      (read-from-string r))
-    file-rules)))
-
 ;; the current way we do this is problematic because some files might get converted
 ;; multiple times if they return many nodes (headers etc)
 (defun convert-handler (cmd)
   "the handler for the `convert' command"
   (let* ((args (clingon:command-arguments cmd))
-         (src-format (cltpt/base:text-format-by-name
-                      (clingon:getopt cmd :src-format)))
-         (dest-format (cltpt/base:text-format-by-name
-                       (clingon:getopt cmd :dest-format)))
-         (files (clingon:getopt cmd :files))
-         (file-rules (clingon:getopt cmd :rules))
-         (filepath-format (clingon:getopt cmd :filepath-format))
-         (static-filepath-format (clingon:getopt cmd :static-filepath-format))
          (dest-dir (clingon:getopt cmd :dest-dir))
-         (roamer (if file-rules
-                     (roamer-from-file-rules file-rules)
-                     (cltpt/roam:from-files files))))
-    (when (and roamer filepath-format dest-format)
-      (cltpt/roam:convert-all roamer
-                              dest-format
-                              filepath-format
-                              :dest-dir dest-dir
-                              :static-filepath-format static-filepath-format))))
+         (files (clingon:getopt cmd :files))
+         (file-rules (mapcar
+                      (lambda (r)
+                        (read-from-string r))
+                      (clingon:getopt cmd :rules)))
+         (src-format-name (clingon:getopt cmd :src-format))
+         (dest-format-name (clingon:getopt cmd :dest-format))
+         (filepath-format (clingon:getopt cmd :filepath-format))
+         (static-filepath-format (clingon:getopt cmd :static-filepath-format)))
+    (cltpt/utils:convert-all
+     :src-format-name src-format-name
+     :dest-format-name dest-format-name
+     :files files
+     :rules file-rules
+     :filepath-format filepath-format
+     :static-filepath-format static-filepath-format
+     :dest-dir dest-dir)))
 
 (defun convert-command ()
   (clingon:make-command
