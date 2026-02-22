@@ -92,9 +92,13 @@
                 :pathname "src/"
                 :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html")
                 :components ((:file "utils")))
+               (:module "publish"
+                :pathname "src/publish/"
+                :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html" "utils")
+                :components ((:file "publish")))
                (:module "commandline"
                 :pathname "src/extra"
-                :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html" "utils")
+                :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html" "utils" "publish")
                 :components ((:file "commandline")))
                (:module "cltpt"
                 :pathname ""

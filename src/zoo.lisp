@@ -79,7 +79,8 @@
                                  ;;  :propagate nil)
                                  (cltpt/base:convert-tree
                                   clone
-                                  (getf cltpt/base:*convert-info* :src-fmt)
+                                  (or (getf cltpt/base:*convert-info* :src-fmt)
+                                      cltpt/base:*simple-format*)
                                   backend)))))
           (list :text (cltpt/base:concat result 'string)
                 :recurse nil
@@ -89,16 +90,19 @@
 (defun latex-fragment-to-html (latex-code is-inline)
   (case cltpt/html:*html-export-latex-method*
     (cltpt/html::svg
-     (let ((img-filepath))
-       (let ((img-filepath (cdar (cltpt/latex-previews:generate-previews-for-latex
-                                  (list latex-code)))))
-         (if is-inline
-             (format nil
-                     "<img src='~A' class='inline-math' />"
-                     img-filepath)
-             (format nil
-                     "<img src='~A' class='display-math' />"
-                     img-filepath)))))))
+     (let* ((img-filepath (cdar (cltpt/latex-previews:generate-previews-for-latex
+                                 (list latex-code))))
+            (filename (cltpt/file-utils:file-basename img-filepath))
+            (img-url (if cltpt/html:*html-static-route*
+                         (cltpt/file-utils:join-paths cltpt/html:*html-static-route* filename)
+                         img-filepath)))
+       (if is-inline
+           (format nil
+                   "<img src='~A' class='inline-math' />"
+                   img-url)
+           (format nil
+                   "<img src='~A' class='display-math' />"
+                   img-url))))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)
                                            (fmt (eql cltpt/html:*html*)))
