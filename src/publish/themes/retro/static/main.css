@@ -1,0 +1,219 @@
+:root {
+    --bg0: #0a0a0a; --bg1: #141414; --bg2: #222222;
+    --fg0: #33ff33; --fg1: #22cc22;
+    --accent: #ffb000; --accent2: #33ff33; --dim: #338833;
+}
+
+body.light-theme {
+    --bg0: #f0eee0; --bg1: #e0ddd0; --bg2: #ccc8b8;
+    --fg0: #1a1a0a; --fg1: #2a2a1a;
+    --accent: #b07800; --accent2: #206020; --dim: #807860;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: var(--bg0);
+    color: var(--fg1);
+    font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    font-size: 0.92rem;
+    line-height: 1.7;
+    transition: background 0.3s, color 0.3s;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+header {
+    padding: 1.5rem 0;
+    border-bottom: 2px solid var(--accent);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.3rem;
+    font-weight: bold;
+    text-decoration: none;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+}
+
+.logo::before { content: "> "; color: var(--accent2); }
+
+nav ul {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+}
+
+nav a {
+    text-decoration: none;
+    color: var(--fg1);
+}
+
+nav a:hover { color: var(--accent2); }
+
+.hero { padding: 3rem 0; }
+.hero h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+.hero p { color: var(--dim); }
+
+.post-list { list-style: none; margin-top: 2rem; }
+.post-list li {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--bg2);
+}
+
+.post-list a {
+    text-decoration: none;
+    color: var(--accent2);
+}
+
+.post-list a:hover { text-decoration: underline; }
+
+article, .hero, .archive {
+    flex: 1;
+    padding: 3rem 0;
+}
+
+article h1 {
+    font-size: 1.8rem;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--bg2);
+    padding-bottom: 0.5rem;
+}
+
+article h2 { color: var(--accent2); margin: 1.5rem 0 0.5rem; }
+article h3 { color: var(--fg0); margin: 1rem 0 0.5rem; }
+article p { margin-bottom: 1rem; }
+
+article a { color: var(--accent2); }
+article a:hover { color: var(--accent); }
+
+article code {
+    background: var(--bg1);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+}
+
+article pre {
+    background: var(--bg1);
+    padding: 1rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    border-left: 3px solid var(--accent);
+}
+
+article pre code {
+    background: none;
+    padding: 0;
+}
+
+article img {
+    max-width: 100%;
+    height: auto;
+}
+
+article blockquote {
+    border-left: 3px solid var(--dim);
+    padding-left: 1rem;
+    color: var(--dim);
+    margin: 1rem 0;
+}
+
+article ul, article ol {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+}
+
+article li { margin-bottom: 0.3rem; }
+
+footer {
+    padding: 1.5rem 0;
+    border-top: 2px solid var(--accent);
+    text-align: center;
+    color: var(--dim);
+    font-size: 0.85rem;
+}
+
+.theme-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--fg1);
+    font-size: 1.1rem;
+    font-family: inherit;
+}
+
+.theme-toggle:hover { color: var(--accent2); }
+
+.info-content {
+    max-width: 600px;
+    margin: 2rem auto 0;
+    text-align: left;
+    padding: 1.5rem;
+    background: var(--bg1);
+    border: 1px solid var(--bg2);
+}
+
+.info-content h2 { color: var(--accent2); margin-bottom: 0.8rem; }
+.info-content p { margin-bottom: 0.8rem; }
+.info-content a { color: var(--accent2); text-decoration: none; }
+.info-content a:hover { text-decoration: underline; }
+
+.archive h1 {
+    font-size: 1.8rem;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.archive p { color: var(--dim); margin-bottom: 1.5rem; }
+
+.post-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.post-tags { display: flex; gap: 0.4rem; }
+
+.post-tag {
+    background: var(--bg2);
+    color: var(--dim);
+    font-size: 0.78rem;
+    padding: 0.1rem 0.4rem;
+    font-family: inherit;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+}
+
+th, td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--bg2);
+}
+
+th { color: var(--accent2); }
+tr:hover { background: var(--bg1); }
