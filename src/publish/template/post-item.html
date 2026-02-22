@@ -1,0 +1,17 @@
+<li>
+  <div class="post-item-header">
+    <a href="%(cltpt/publish:node-to-href (getf cltpt/roam:*roam-convert-data* :node))">
+      %(or (cltpt/roam:node-title (getf cltpt/roam:*roam-convert-data* :node))
+           (cltpt/file-utils:file-basename
+            (cltpt/roam:node-file (getf cltpt/roam:*roam-convert-data* :node))))
+    </a>
+    <div class="post-tags">
+      #(cltpt/base:make-block
+        :let* (list (list 'text-obj (cltpt/roam:node-text-obj (getf cltpt/roam:*roam-convert-data* :node))))
+        :escape nil
+        :loop '(tag (cltpt/base:text-object-property text-obj :tags)))
+        <span class="post-tag">%(identity tag)</span>
+      #(cltpt/base:block-end)
+    </div>
+  </div>
+</li>

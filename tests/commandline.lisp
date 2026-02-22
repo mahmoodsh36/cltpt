@@ -12,7 +12,7 @@
 
 (defun run-cltpt-command (&rest args)
   "run ./run.sh with ARGS and return stdout as a string. stderr is discarded."
-  (let ((cmd (list* "./run.sh" args)))
+  (let ((cmd (list* "env" "-u" "CL_SOURCE_REGISTRY" "-u" "ASDF_OUTPUT_TRANSLATIONS" "./run.sh" args)))
     (multiple-value-bind (stdout stderr exit-code)
         (uiop:run-program cmd
                           :output '(:string)
