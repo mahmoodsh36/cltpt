@@ -8,11 +8,15 @@
    :render-post-items
    :node-to-href
    :publish
-   :load-theme-by-name))
+   :load-theme-by-name
+   :*default-static-filepath-format*
+   :*default-html-static-route*
+   :*default-filepath-format*))
 
 (in-package :cltpt/publish)
 
 (defvar *current-template-file* nil)
+
 (defvar *theme-dir* nil)
 
 (defun built-in-themes-dir ()
@@ -54,25 +58,32 @@
       cltpt/html:*html*
       :escape nil))))
 
+(defvar *default-filepath-format*
+  "%(cltpt/publish:title-to-filename (or (getf *file-info* :root-title) (getf *file-info* :filename))).html")
+
+(defvar *default-static-filepath-format*
+  "static/%(getf *file-info* :filename)")
+
+(defvar *default-html-static-route*
+  "static/")
+
+;; theme-dir is only needed for resolving templates later on.
 (defun publish (output-dir files
                 &key
                   include-files exclude-files
                   static-output-dir
-                  filepath-format static-filepath-format
+                  (filepath-format *default-filepath-format*)
+                  (static-filepath-format *default-static-filepath-format*)
                   templates
                   template-file
-                  theme-dir)
+                  theme-dir
+                  (html-static-route *default-html-static-route*))
   (cltpt/file-utils:ensure-dir-exists (cltpt/file-utils:as-dir-path output-dir))
   (let* ((*theme-dir* (or theme-dir *theme-dir*))
          (*current-template-file*
            (when template-file
              (uiop:native-namestring (uiop:truename* template-file))))
-         (cltpt/html:*html-static-route* "static/")
-         (filepath-format
-           (or filepath-format
-               "%(cltpt/publish:title-to-filename (or (getf *file-info* :root-title) (getf *file-info* :filename))).html"))
-         (static-filepath-format (or static-filepath-format
-                                     "static/%(getf *file-info* :filename)"))
+         (cltpt/html:*html-static-route* html-static-route)
          (rmr (cltpt/roam:from-files files))
          (files-to-convert
            (if include-files

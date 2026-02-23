@@ -319,7 +319,7 @@
             (let ((template-dir (cltpt/file-utils:join-paths theme-dir "template")))
               (loop for path in (uiop:directory-files (cltpt/file-utils:as-dir-path template-dir))
                     when (string= (cltpt/file-utils:file-ext path) "html")
-                    collect (uiop:native-namestring path)))))
+                      collect (uiop:native-namestring path)))))
     ;; copy static assets from theme
     (when theme-dir
       (let ((dest-dir-static (cltpt/file-utils:join-paths dest-dir "static")))
@@ -332,7 +332,8 @@
             (cltpt/file-utils:join-paths
              dest-dir-static
              (cltpt/file-utils:file-basename item))))
-         (uiop:directory-files (cltpt/file-utils:as-dir-path (cltpt/file-utils:join-paths theme-dir "static"))))))
+         (uiop:directory-files
+          (cltpt/file-utils:as-dir-path (cltpt/file-utils:join-paths theme-dir "static"))))))
     (if rmr-files
         (cltpt/publish:publish
          dest-dir
