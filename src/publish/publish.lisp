@@ -93,7 +93,8 @@
                                       :key (lambda (node)
                                              (cltpt/roam:node-file node))
                                       :test 'string=)
-                     append (cons include-file (cltpt/utils:find-linked-files rmr node)))
+                     append (cons include-file
+                                  (cltpt/utils:find-linked-files rmr node exclude-files)))
                ;; if include-files wasnt provided we consider all files
                (mapcar #'cltpt/roam:node-file (cltpt/roam:roamer-nodes rmr))))
          (static-output-dir (or static-output-dir

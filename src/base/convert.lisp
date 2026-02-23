@@ -4,9 +4,6 @@
   t
   "whether to escape newlines on conversion. see `text-format-escape'.")
 
-(defvar *convert-info*
-  nil
-  "conversion info that may be useful to pass to downstream functions during conversion.")
 
 (defun replace-chars (s replace-table)
   "return a new string where every character in S that is a key in REPLACE-TABLE is

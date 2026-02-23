@@ -69,6 +69,10 @@
   (list "png" "webp" "svg" "jpg" "jpeg" "gif")
   "a list holding the file extensions that should be recognized as image links.")
 
+(defvar *convert-info*
+  nil
+  "conversion info that may be useful to pass to downstream functions during conversion.")
+
 (defvar *video-ext*
   (list "mp4")
   "a list holding the file extensions that should be recognized as video links.")

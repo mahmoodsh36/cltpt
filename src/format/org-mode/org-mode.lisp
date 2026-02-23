@@ -11,6 +11,10 @@
 
 (defvar *org-enable-babel* nil)
 
+(defvar *org-mode*
+  (cltpt/base:make-text-format "org-mode")
+  "`text-format' instance of the org-mode format.")
+
 (defun init ()
   (setf (cltpt/base:text-format-text-object-types *org-mode*)
         (concatenate
@@ -46,10 +50,6 @@
   ;;       "org-mode")
   (setf (cltpt/base:text-format-document-type *org-mode*)
         'org-document))
-
-(defvar *org-mode*
-  (cltpt/base:make-text-format "org-mode")
-  "`text-format' instance of the org-mode format.")
 
 (defun org-mode-text-object-types ()
   (cltpt/base:text-format-text-object-types *org-mode*))

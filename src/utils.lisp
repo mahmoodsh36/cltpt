@@ -58,7 +58,9 @@
                       (min (+ i snippets-at-once)
                            (length all-snippets)))))))
 
-(defun find-linked-files (rmr root)
+;; exclude-files is important here because it includes files we shouldnt recurse from, not just
+;; "exclude".
+(defun find-linked-files (rmr root exclude-files)
   "helper function to find all linked files from a node."
   (let ((linked-files)
         (nodes-left (list root)))
@@ -83,7 +85,7 @@
                          (cltpt/base:target-filepath result))))
                 (when (and linked-file
                            (not (member linked-file
-                                        *excluded-files*
+                                        exclude-files
                                         :test 'string=)))
                   (unless (member linked-file
                                   (cons (cltpt/roam:node-file node) linked-files)

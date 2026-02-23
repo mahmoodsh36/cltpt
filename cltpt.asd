@@ -90,7 +90,7 @@
                 :components ((:file "zoo")))
                (:module "utils"
                 :pathname "src/"
-                :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html")
+                :depends-on ("base" "file-utils" "latex" "org-mode" "roam" "html" "latex-previews")
                 :components ((:file "utils")))
                (:module "publish"
                 :pathname "src/publish/"
