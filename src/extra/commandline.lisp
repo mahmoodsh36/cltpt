@@ -155,6 +155,13 @@
     :long-name "out"
     :key :output-format)))
 
+(defun roamer-from-file-rules (file-rules)
+  (cltpt/roam:from-files
+   (mapcar
+    (lambda (r)
+      (read-from-string r))
+    file-rules)))
+
 (defun agenda-command ()
   (clingon:make-command
    :name "agenda"
