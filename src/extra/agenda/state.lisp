@@ -72,5 +72,5 @@
          (next-state-desc (cadr state-cdr))
          (next-state (make-state :desc next-state-desc
                                  :timestamp (local-time:now)
-                                 :sequence-desc seq)))
+                                 :sequence-desc seq-desc)))
     next-state))
