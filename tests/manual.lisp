@@ -83,9 +83,9 @@
 (defun test-latex-preview-1 ()
   (loop for my-comp in (list :latex :lualatex)
         append (loop for my-img-conv in (list :dvisvgm :dvipng :imagemagick)
-                     append (let ((cltpt/latex::*latex-compiler-key* my-comp)
-                                  (cltpt/latex::*default-latex-preview-pipeline* my-img-conv))
-                              (cltpt/latex::generate-previews-for-latex
+                     append (let ((cltpt/latex-previews:*latex-compiler-key* my-comp)
+                                  (cltpt/latex-previews:*latex-preview-pipeline-key* my-img-conv))
+                              (cltpt/latex-previews:generate-previews-for-latex
                                (list "\\(x=\\somebrokencommand\\)"
                                      "\\(x=yyy\\)"))))))
 
