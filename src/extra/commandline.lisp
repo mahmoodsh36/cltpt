@@ -199,7 +199,12 @@
     :flag
     :description "show only the first instance of each repeating task."
     :long-name "first-repeat-only"
-    :key :first-repeat-only)))
+    :key :first-repeat-only)
+   (clingon:make-option
+    :flag
+    :description "include tasks that are in a terminal (done) state."
+    :long-name "include-done"
+    :key :include-done)))
 
 (defun date-str-to-ts (date-str)
   ;; wrap the date string in "<>" so it can be parsed as an org timestamp
@@ -221,6 +226,7 @@
          (begin-ts-str (clingon:getopt cmd :from))
          (end-ts-str (clingon:getopt cmd :to))
          (first-repeat-only (clingon:getopt cmd :first-repeat-only))
+         (include-done (clingon:getopt cmd :include-done))
          (roamer (if file-rules
                      (roamer-from-file-rules file-rules)
                      (when files
@@ -236,7 +242,8 @@
                  agenda
                  :begin-ts begin-ts
                  :end-ts end-ts
-                 :first-repeat-only first-repeat-only))))))
+                 :first-repeat-only first-repeat-only
+                 :include-done include-done))))))
 
 (defun publish-options ()
   (list
