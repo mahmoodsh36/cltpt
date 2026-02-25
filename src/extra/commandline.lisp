@@ -194,7 +194,12 @@
     :short-name #\t
     :description "the end time for the agenda."
     :long-name "to"
-    :key :to)))
+    :key :to)
+   (clingon:make-option
+    :flag
+    :description "show only the first instance of each repeating task."
+    :long-name "first-repeat-only"
+    :key :first-repeat-only)))
 
 (defun date-str-to-ts (date-str)
   ;; wrap the date string in "<>" so it can be parsed as an org timestamp
@@ -215,13 +220,13 @@
          (file-rules (clingon:getopt cmd :rules))
          (begin-ts-str (clingon:getopt cmd :from))
          (end-ts-str (clingon:getopt cmd :to))
+         (first-repeat-only (clingon:getopt cmd :first-repeat-only))
          (roamer (if file-rules
                      (roamer-from-file-rules file-rules)
                      (when files
                        (cltpt/roam:from-files files)))))
     (when roamer
-      (let ((nodes (cltpt/roam:roamer-nodes roamer))
-            (agenda (cltpt/agenda:from-roamer roamer))
+      (let ((agenda (cltpt/agenda:from-roamer roamer))
             (begin-ts (when begin-ts-str
                         (date-str-to-ts begin-ts-str)))
             (end-ts (when end-ts-str
@@ -230,7 +235,8 @@
                 (cltpt/agenda:render-agenda
                  agenda
                  :begin-ts begin-ts
-                 :end-ts end-ts))))))
+                 :end-ts end-ts
+                 :first-repeat-only first-repeat-only))))))
 
 (defun publish-options ()
   (list

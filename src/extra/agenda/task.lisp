@@ -9,7 +9,7 @@
 
    :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time
+   :task-record-repeat :task-record-time :task-record-type
    :make-record-scheduled
 
    :repeat-task :deadline :start-task
@@ -102,7 +102,7 @@
               unless (and last-repeat
                           (local-time:timestamp<= date1 last-repeat))
                 collect (make-task-record
-                         :type 'dupe
+                         :type :dupe
                          :task (task-record-task rec)
                          :time (if date2
                                    (make-time-range :begin date1

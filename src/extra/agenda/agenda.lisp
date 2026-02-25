@@ -16,7 +16,7 @@
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time
+   :task-record-repeat :task-record-time :task-record-type
 
    :repeat-task :deadline :start-task
 
@@ -27,7 +27,7 @@
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time
+   :task-record-repeat :task-record-time :task-record-type
    :task-last-repeat
 
    :from-roamer :task-node :tasks-between
@@ -95,6 +95,7 @@
 (defvar *agenda-include-done*
   nil
   "whether to include agenda nodes that are in one of the `*done-states*'.")
+
 
 (defclass agenda ()
   ((tasks
@@ -190,11 +191,13 @@ the new agenda object will contain all the tasks found in the nodes of the roame
     (format stream "-> agenda-outline-node with ~A children."
             (length (cltpt/tree:tree-children obj)))))
 
-(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts)
+(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts first-repeat-only)
   "build a forest representing the data of AGN for the given dates.
 
 the returned list of trees should be implemented using the `cltpt/tree' and `cltpt/tree/outline' interface."
-  (let* ((agenda-forest))
+  (let* ((agenda-forest)
+         ;; tracks tasks that have already had a repeat instance shown
+         (seen-repeat-tasks (make-hash-table)))
     (let* ((fully-displayed-days 1)
            (hour-diff 2)
            (begin-ts (if begin-ts
@@ -233,8 +236,16 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                       (loop
                         for my-record
                           in (agenda-records-between agn hour next-hour)
-                        do (push my-record
-                                 (agenda-outline-node-children hour-node))))
+                        do (when (or (not first-repeat-only)
+                                     (not (eq (task-record-type my-record) :dupe))
+                                     (not (gethash (task-record-task my-record)
+                                                   seen-repeat-tasks)))
+                             (when (eq (task-record-type my-record) :dupe)
+                               (setf (gethash (task-record-task my-record)
+                                              seen-repeat-tasks)
+                                     t))
+                             (push my-record
+                                   (agenda-outline-node-children hour-node)))))
                  (when (< i fully-displayed-days)
                    (setf (agenda-outline-node-expansion-state day-node)
                          'expanded))
@@ -243,11 +254,12 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                        (reverse (agenda-outline-node-children day-node))))))
     (nreverse agenda-forest)))
 
-(defmethod render-agenda ((agn agenda) &key begin-ts end-ts)
+(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only)
   (with-output-to-string (out)
     (let* ((agenda-forest (build-agenda-forest agn
                                                :begin-ts begin-ts
-                                               :end-ts end-ts)))
+                                               :end-ts end-ts
+                                               :first-repeat-only first-repeat-only)))
       (write-sequence (cltpt/tree/outline:render-forest agenda-forest) out)
       out)))
 
