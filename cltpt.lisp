@@ -7,8 +7,6 @@
   (:import-from :cltpt/base
    :parse :parse-file :text-object
    :convert-document)
-  (:import-from :cltpt/agenda
-   :*agenda-include-done*)
   (:import-from :cltpt/html
    :*html*)
   (:import-from :cltpt/org-mode
@@ -22,8 +20,6 @@
 
    :parse :parse-file :text-object
    :convert-document
-
-   :*agenda-include-done*
 
    :*html*
 

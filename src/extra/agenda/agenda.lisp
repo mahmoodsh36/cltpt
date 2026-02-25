@@ -46,7 +46,6 @@
    :text-object-task
 
    :*agenda-time-format*
-   :*agenda-include-done*
 
    :cycle :state-by-name))
 
@@ -91,11 +90,6 @@
                       (return-from state-by-name
                         (make-state :desc state-desc
                                     :sequence-desc seq-desc))))))
-
-(defvar *agenda-include-done*
-  nil
-  "whether to include agenda nodes that are in one of the `*done-states*'.")
-
 
 (defclass agenda ()
   ((tasks
@@ -144,12 +138,12 @@ the new agenda object will contain all the tasks found in the nodes of the roame
                      (and (is-between (task-record-time record) begin-ts end-ts)
                           (list record))))))
 
-(defmethod agenda-records-between ((agn agenda) begin-ts end-ts)
+(defmethod agenda-records-between ((agn agenda) begin-ts end-ts &key include-done)
   (loop for task1 in (agenda-tasks agn)
         ;; we dont include a task if its DONE (in a terminal state), unless
-        ;; `*agenda-include-done*' is set to `t'
+        ;; `include-done' is set to `t'
         append (unless (and (state-is-terminal (task-state task1))
-                            (not *agenda-include-done*))
+                            (not include-done))
                   (records-between (task-records task1) begin-ts end-ts))))
 
 (defstruct agenda-outline-node
@@ -191,10 +185,15 @@ the new agenda object will contain all the tasks found in the nodes of the roame
     (format stream "-> agenda-outline-node with ~A children."
             (length (cltpt/tree:tree-children obj)))))
 
-(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts first-repeat-only)
+(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts first-repeat-only include-done)
   "build a forest representing the data of AGN for the given dates.
 
-the returned list of trees should be implemented using the `cltpt/tree' and `cltpt/tree/outline' interface."
+the returned list of trees should be implemented using the `cltpt/tree' and `cltpt/tree/outline' interface.
+
+BEGIN-TS: start of the date range (defaults to today, truncated to day).
+END-TS: end of the date range (defaults to 7 days after BEGIN-TS).
+FIRST-REPEAT-ONLY: when non-nil, show only the first occurrence of each repeating task in the range.
+INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
   (let* ((agenda-forest)
          ;; tracks tasks that have already had a repeat instance shown
          (seen-repeat-tasks (make-hash-table)))
@@ -235,7 +234,7 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                                        (:min 2 #\0))))
                       (loop
                         for my-record
-                          in (agenda-records-between agn hour next-hour)
+                          in (agenda-records-between agn hour next-hour :include-done include-done)
                         do (when (or (not first-repeat-only)
                                      (not (eq (task-record-type my-record) :dupe))
                                      (not (gethash (task-record-task my-record)
@@ -254,12 +253,16 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
                        (reverse (agenda-outline-node-children day-node))))))
     (nreverse agenda-forest)))
 
-(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only)
+(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done)
+  "render AGN as a string agenda tree.
+
+BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'."
   (with-output-to-string (out)
     (let* ((agenda-forest (build-agenda-forest agn
                                                :begin-ts begin-ts
                                                :end-ts end-ts
-                                               :first-repeat-only first-repeat-only)))
+                                               :first-repeat-only first-repeat-only
+                                               :include-done include-done)))
       (write-sequence (cltpt/tree/outline:render-forest agenda-forest) out)
       out)))
 

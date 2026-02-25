@@ -1183,6 +1183,50 @@ plt.close()
          "agenda rendering of test.org should match expected output")
         "agenda rendering of test.org should match expected output")))
 
+(test test-agenda-options
+  "test first-repeat-only and include-done together."
+  (let* ((rmr (cltpt/roam:from-files
+               '((:path ("./tests/test.org")
+                  :format "org-mode"))))
+         (agenda (cltpt/agenda:from-roamer rmr))
+         (begin-ts (local-time:encode-timestamp 0 0 0 0 25 7 2025))
+         (end-ts (local-time:encode-timestamp 0 0 0 0 1 8 2025))
+         (actual (cltpt/agenda:render-agenda agenda
+                                             :begin-ts begin-ts
+                                             :end-ts end-ts
+                                             :first-repeat-only t
+                                             :include-done t)))
+    (is (string=+diff
+         actual
+         "├─ Friday 25 July 2025
+│ ├─ 00:00
+│ ├─ 02:00
+│ ├─ 04:00
+│ ├─ 06:00
+│ ├─ 08:00
+│ ├─ 10:00
+│ ├─ 12:00
+│ ├─ 14:00
+│ ├─ 16:00
+│ ├─ 18:00
+│ ├─ 20:00
+│ └─ 22:00
+├─ Saturday 26 July 2025
+│ └─ START: (TODO) 10:55 header my secondary header     :tag1:tag2:important:
+├─ Sunday 27 July 2025
+│ ├─ START: (TODO) 10:55 header do something                       :noexport:
+│ └─ START: (TODO) 17:55 do something else
+├─ Monday 28 July 2025
+├─ Tuesday 29 July 2025
+│ ├─ START: (DONE) 09:00 completed task                                :test:
+│ └─ TODO (10:00) repeating task with last repeat                      :test:
+├─ Wednesday 30 July 2025
+│ └─ DEADLINE: TODO 10:00 send the professor a mail
+└─ Thursday 31 July 2025
+"
+         "agenda options")
+        "agenda options")))
+
 (defun run-org-mode-tests ()
   (format t "~&running org-mode tests...~%")
   ;; set up relative paths for latex previews so tests work across different systems
