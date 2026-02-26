@@ -38,6 +38,23 @@
   (format t "~%--- 4. path list output ---~%~a"
           (cltpt/tree/outline:render-as-path-list *test-forest*)))
 
+(test test-simple-style-nested
+  (let* ((forest (list (cons '(:text "root" :expanded t)
+                             (list (cons '(:text "level1" :expanded t)
+                                         (list (cons '(:text "level2" :expanded t)
+                                                     (list '(:text "level3")))
+                                               '(:text "level2b")))
+                                   '(:text "sibling")))))
+         (result (cltpt/tree/outline:render-outline forest cltpt/tree/outline:*simple-style*)))
+    (is (string= result
+                 "- root
+  - level1
+    - level2
+      - level3
+    - level2b
+  - sibling
+"))))
+
 (defun run-outline-tests ()
   (format t "~&running outline tests...~%")
   (let ((results (run! 'outline-suite)))
