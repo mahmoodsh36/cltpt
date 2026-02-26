@@ -253,17 +253,20 @@ INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
                        (reverse (agenda-outline-node-children day-node))))))
     (nreverse agenda-forest)))
 
-(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done)
+(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done style)
   "render AGN as a string agenda tree.
 
-BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'."
+BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
+ STYLE: a render-style object from cltpt/tree/outline (e.g., *lsblk-style*, *json-style*)"
   (with-output-to-string (out)
     (let* ((agenda-forest (build-agenda-forest agn
                                                :begin-ts begin-ts
                                                :end-ts end-ts
                                                :first-repeat-only first-repeat-only
-                                               :include-done include-done)))
-      (write-sequence (cltpt/tree/outline:render-forest agenda-forest) out)
+                                               :include-done include-done))
+           (style-obj (or style cltpt/tree/outline:*lsblk-style*))
+           (rendered (cltpt/tree/outline:render-outline agenda-forest style-obj)))
+      (write-sequence rendered out)
       out)))
 
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))

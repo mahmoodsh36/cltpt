@@ -204,7 +204,19 @@
     :flag
     :description "include tasks that are in a terminal (done) state."
     :long-name "include-done"
-    :key :include-done)))
+    :key :include-done)
+   (clingon:make-option
+    :string
+    :description "output style/format. one of: lsblk (default), ascii, simple, json, indented-json, sexp, dot, path."
+    :long-name "style"
+    :key :style)))
+
+(defun parse-style (style-str)
+  (let* ((sym-name (format nil "*~a-STYLE*" (string-upcase style-str)))
+         (sym (find-symbol sym-name :cltpt/tree/outline)))
+    (if sym
+        (symbol-value sym)
+        (error "unknown style: ~A." style-str))))
 
 (defun date-str-to-ts (date-str)
   ;; wrap the date string in "<>" so it can be parsed as an org timestamp
@@ -227,6 +239,8 @@
          (end-ts-str (clingon:getopt cmd :to))
          (first-repeat-only (clingon:getopt cmd :first-repeat-only))
          (include-done (clingon:getopt cmd :include-done))
+         (style-str (clingon:getopt cmd :style))
+         (style-obj (when style-str (parse-style style-str)))
          (roamer (if file-rules
                      (roamer-from-file-rules file-rules)
                      (when files
@@ -243,7 +257,8 @@
                  :begin-ts begin-ts
                  :end-ts end-ts
                  :first-repeat-only first-repeat-only
-                 :include-done include-done))))))
+                 :include-done include-done
+                 :style style-obj))))))
 
 (defun publish-options ()
   (list
