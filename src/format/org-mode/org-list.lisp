@@ -50,10 +50,9 @@
                   (write-string first-line out)
                   (dolist (l other-lines)
                     (write-char #\newline out)
-                    (if (string= "" (string-trim '(#\space #\tab) l))
-                        (write-string "" out)
-                        (write-string (subseq l (min (length l) min-indent))
-                                      out))))))))))
+                    (unless (string= "" (string-trim '(#\space #\tab) l))
+                      (write-string (subseq l (min (length l) min-indent))
+                                    out))))))))))
 
 (defun get-match-clean-content (str begin end)
   (if (and (< begin end)
