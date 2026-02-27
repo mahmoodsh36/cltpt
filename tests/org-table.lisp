@@ -216,16 +216,16 @@ the match object has absolute positions relative to a larger parent document."
          (table-start-pos (position #\| full-text)))
     (is (not (null table-start-pos)) "could not find table start")
     (multiple-value-bind (table-match end-pos)
-        (cltpt/org-mode::org-table-matcher nil reader table-start-pos)
+        (cltpt/org-mode:org-table-matcher nil reader table-start-pos)
       (is (not (null table-match)) "table match should be found")
       (when table-match
         ;; call reformat-table with just the table substring but the original match object (which
         ;; has absolute positions relative to full-text).
         ;; if absolute positions are used, this will crash or produce garbage/errors.
         ;; if relative positions are used, it should work fine.
-        (let ((reformatted (cltpt/org-mode::reformat-table table-text table-match)))
+        (let ((reformatted (cltpt/org-mode:reformat-table table-text table-match)))
           (is (search "col1" reformatted) "reformatted table should contain content"))
-        (let ((data (cltpt/org-mode::table-match-to-nested-list table-text table-match)))
+        (let ((data (cltpt/org-mode:table-match-to-list table-text table-match)))
           (is (equal (first data) '("col1" "col2")) "header row should be correct")
           (is (equal (second data) :hrule) "should contain hrule")
           (is (equal (third data) '("val1" "val2")) "data row should be correct"))))))

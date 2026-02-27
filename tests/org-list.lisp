@@ -137,6 +137,46 @@
       result
       '((:ID CLTPT/ORG-MODE:ORG-LIST :BEGIN 0 :END 469 :INDENT 0))))))
 
+(test list-nested-roundtrip
+  "list-match-to-list and list-to-list-string round-trip correctly."
+  (dolist (text '("- alpha
+- beta
+- gamma"
+                  "1. first
+2. second
+3. third"
+                  "- parent one
+  a. child a
+  b. child b
+- parent two"
+                  "- level 0
+  - level 1
+    - level 2"))
+    (let* ((match (cltpt/org-mode:org-list-matcher
+                   nil
+                   (cltpt/reader:reader-from-string text)
+                   0))
+           (data (cltpt/org-mode:list-match-to-list text match))
+           (result (cltpt/org-mode:list-to-list-string data)))
+      (is (string= text result))))
+  ;; verify data structure
+  (let* ((text "- parent
+  a. child a
+  b. child b
+- sibling")
+         (match (cltpt/org-mode:org-list-matcher
+                 nil
+                 (cltpt/reader:reader-from-string text)
+                 0))
+         (data (cltpt/org-mode:list-match-to-list text match)))
+    (is (= 2 (length data)))
+    (is (string= "parent" (getf (first data) :content)))
+    (is (string= "sibling" (getf (second data) :content)))
+    (let ((children (getf (first data) :children)))
+      (is (= 2 (length children)))
+      (is (string= "a." (getf (first children) :bullet)))
+      (is (string= "child a" (getf (first children) :content))))))
+
 (defun run-org-list-tests ()
   (format t "~&running org-list tests...~%")
   (let ((results (run! 'org-list-suite)))

@@ -275,10 +275,10 @@
                 (values list-match final-pos))
               (values nil pos)))))))
 
-(defun list-match-to-nested-list (str list-match)
+(defun list-match-to-list (str list-match)
   "converts an org-list match tree into a nested lisp list structure."
   (unless (and list-match (eq (cltpt/combinator:match-id list-match) 'org-list))
-    (return-from list-match-to-nested-list nil))
+    (return-from list-match-to-list nil))
   (let ((items (cltpt/combinator:match-children list-match))
         (result-list))
     (dolist (item items)
@@ -292,24 +292,23 @@
                                 :content ""
                                 :children nil)))
           (when content-node
-            (let* ((content-begin (cltpt/combinator:match-begin content-node))
+            (let* ((content-begin (cltpt/combinator:match-begin-absolute content-node))
                    (sub-list-node (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list))
                    (text-end (if sub-list-node
-                                 (cltpt/combinator:match-begin sub-list-node)
-                                 (cltpt/combinator:match-end content-node))))
+                                 (cltpt/combinator:match-begin-absolute sub-list-node)
+                                 (cltpt/combinator:match-end-absolute content-node))))
               (setf (getf item-data :content)
                     (get-match-clean-content str content-begin text-end))
               (when sub-list-node
-                (setf (getf item-data :children) (list-match-to-nested-list str sub-list-node)))))
+                (setf (getf item-data :children) (list-match-to-list str sub-list-node)))))
           (push item-data result-list))))
     (nreverse result-list)))
 
-(defun nested-list-to-list-string (nested-list &optional (indent-level 0))
-  "converts nested list structure to an org-list string.
-returns the list string *without* a trailing newline."
+(defun list-to-list-string (lst &optional (indent-level 0))
+  "converts nested list structure to an org-list string. returns the list string without a trailing newline."
   (with-output-to-string (s)
     ;; loop used to handle separators between items correctly
-    (loop for (item . rest) on nested-list
+    (loop for (item . rest) on lst
           do (let ((bullet (getf item :bullet))
                    (content (getf item :content))
                    (children (getf item :children))
@@ -327,21 +326,21 @@ returns the list string *without* a trailing newline."
                (when children
                  ;; need newline before entering sub-list
                  (write-char #\newline s)
-                 (write-string (nested-list-to-list-string children (+ indent-level 2)) s))
+                 (write-string (list-to-list-string children (+ indent-level 2)) s))
                ;; write separator (only if there is another item following)
                (when rest
                  (write-char #\newline s))))))
 
-(defun nested-list-to-list-match (ctx nested-list &optional inline-rules)
-  (let ((generated-text (nested-list-to-list-string nested-list)))
+(defun list-to-list-match (ctx lst &optional inline-rules)
+  (let ((generated-text (list-to-list-string lst)))
     (org-list-matcher ctx generated-text 0 inline-rules)))
 
 (defun reformat-list (str parse-tree)
   "normalizes indentation and spacing.
 returns the string representation of the list structure (no trailing newline)."
-  (let ((data (list-match-to-nested-list str parse-tree))
+  (let ((data (list-match-to-list str parse-tree))
         (indent (getf (cltpt/combinator:match-props parse-tree) :indent 0)))
-    (nested-list-to-list-string data indent)))
+    (list-to-list-string data indent)))
 
 (defun get-list-item-indices (root-list-node target-pos-or-node)
   (let ((target-pos (if (typep target-pos-or-node 'cltpt/combinator:match)
