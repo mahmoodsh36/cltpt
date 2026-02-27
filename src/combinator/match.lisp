@@ -12,7 +12,8 @@
    :make-match :make-match-simple :match-clone :match-rule :match-parent
    :match-set-children-parent :match-props :match :match-region
    :find-submatch :find-submatch-last :find-submatch-all
-   :match-text))
+   :match-text
+   :find-direct-match-child-by-id))
 
 (in-package :cltpt/combinator/match)
 
@@ -197,3 +198,9 @@
     (let ((begin (match-begin-absolute match))
           (end (match-end-absolute match)))
       (subseq input begin end))))
+
+(defun find-direct-match-child-by-id (node target-id)
+  (when node
+    (find target-id
+          (match-children node)
+          :key 'match-id)))

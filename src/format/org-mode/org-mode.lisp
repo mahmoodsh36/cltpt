@@ -393,23 +393,23 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           ,*org-inline-text-objects-rule*)
   :documentation "org-mode list.")
 
-(defun find-direct-child-by-id (node target-id)
-  (when node
-    (find target-id
-          (cltpt/combinator:match-children node)
-          :key 'cltpt/combinator:match-id)))
-
 (defun get-list-type-from-obj (obj list-match)
   (let* ((children (cltpt/combinator:match-children list-match))
-         (first-item (when children (first children)))
-         (bullet-node (when first-item (find-direct-child-by-id first-item 'list-item-bullet)))
-         (marker (when bullet-node (cltpt/base:text-object-match-text obj bullet-node))))
+         (first-item (when children
+                       (first children)))
+         (bullet-node (when first-item
+                        (cltpt/combinator/match:find-direct-match-child-by-id
+                         first-item
+                         'list-item-bullet)))
+         (marker (when bullet-node
+                   (cltpt/base:text-object-match-text obj bullet-node))))
     (if (and marker (string= (string-trim " " marker) "-"))
         :ul
         :ol)))
 
 (defun generate-list-changes (match backend obj &optional base-offset (depth 0))
   "generate changes for converting an org-list match to HTML/LaTeX.
+
 BASE-OFFSET is the absolute position of the top-level text-object's start,
 used for all region-decf calculations to get positions relative to the text-object."
   (let* ((changes)
@@ -419,8 +419,12 @@ used for all region-decf calculations to get positions relative to the text-obje
          (list-type (get-list-type-from-obj obj match))
          ;; get bullet marker for ordered list type detection
          (first-item (first (cltpt/combinator:match-children match)))
-         (bullet-node (when first-item (find-direct-child-by-id first-item 'list-item-bullet)))
-         (bullet-marker (when bullet-node (cltpt/base:text-object-match-text obj bullet-node)))
+         (bullet-node (when first-item
+                        (cltpt/combinator/match:find-direct-match-child-by-id
+                         first-item
+                         'list-item-bullet)))
+         (bullet-marker (when bullet-node
+                          (cltpt/base:text-object-match-text obj bullet-node)))
          (open-tag
            (cltpt/base:pcase backend
              (cltpt/html:*html*
@@ -455,10 +459,16 @@ used for all region-decf calculations to get positions relative to the text-obje
     ;; process list items in order
     (dolist (child (cltpt/combinator:match-children match))
       (when (eq (cltpt/combinator:match-id child) 'list-item)
-        (let* ((bullet-match (find-direct-child-by-id child 'list-item-bullet))
-               (content-match (find-direct-child-by-id child 'list-item-content))
-               (bullet-begin (when bullet-match (cltpt/combinator:match-begin-absolute bullet-match)))
-               (bullet-end (when bullet-match (cltpt/combinator:match-end-absolute bullet-match)))
+        (let* ((bullet-match (cltpt/combinator/match:find-direct-match-child-by-id
+                              child
+                              'list-item-bullet))
+               (content-match (cltpt/combinator/match:find-direct-match-child-by-id
+                               child
+                               'list-item-content))
+               (bullet-begin (when bullet-match
+                               (cltpt/combinator:match-begin-absolute bullet-match)))
+               (bullet-end (when bullet-match
+                             (cltpt/combinator:match-end-absolute bullet-match)))
                (item-end (cltpt/combinator:match-end-absolute child)))
           ;; bullet replacement
           (when bullet-match
@@ -466,7 +476,9 @@ used for all region-decf calculations to get positions relative to the text-obje
                   (nconc changes
                          (list (cltpt/buffer:make-change
                                 :region (cltpt/buffer:region-decf
-                                         (cltpt/buffer:make-region :begin bullet-begin :end bullet-end)
+                                         (cltpt/buffer:make-region
+                                          :begin bullet-begin
+                                          :end bullet-end)
                                          offset)
                                 :operator (cltpt/base:pcase backend
                                             (cltpt/html:*html* "<li>")
@@ -477,7 +489,11 @@ used for all region-decf calculations to get positions relative to the text-obje
               (when (eq (cltpt/combinator:match-id content-child) 'org-list)
                 (setf changes
                       (nconc changes
-                             (generate-list-changes content-child backend obj offset (1+ depth)))))))
+                             (generate-list-changes content-child
+                                                    backend
+                                                    obj
+                                                    offset
+                                                    (1+ depth)))))))
           ;; item close
           (setf changes
                 (nconc changes
