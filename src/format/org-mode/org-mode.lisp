@@ -3,7 +3,10 @@
   (:export
    :org-list-matcher :*org-mode* :org-mode-text-object-types :init :*org-enable-macros*
    :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
-   :org-example-block))
+   :org-example-block
+   :get-cell-at-coordinates :get-cell-coordinates :org-table-matcher
+   :get-table-width :get-table-height :reformat-table :nested-list-to-table-string
+   :table-match-to-nested-list))
 
 (in-package :cltpt/org-mode)
 
