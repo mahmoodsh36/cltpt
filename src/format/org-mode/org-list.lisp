@@ -283,8 +283,8 @@
         (result-list))
     (dolist (item items)
       (when (eq (cltpt/combinator:match-id item) 'list-item)
-        (let* ((bullet-node (find-direct-child-by-id item 'list-item-bullet))
-               (content-node (find-direct-child-by-id item 'list-item-content))
+        (let* ((bullet-node (cltpt/combinator/match:find-direct-match-child-by-id item 'list-item-bullet))
+               (content-node (cltpt/combinator/match:find-direct-match-child-by-id item 'list-item-content))
                (bullet-text (if bullet-node
                                 (cltpt/combinator:match-text bullet-node str)
                                 "-"))
@@ -293,7 +293,7 @@
                                 :children nil)))
           (when content-node
             (let* ((content-begin (cltpt/combinator:match-begin content-node))
-                   (sub-list-node (find-direct-child-by-id content-node 'org-list))
+                   (sub-list-node (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list))
                    (text-end (if sub-list-node
                                  (cltpt/combinator:match-begin sub-list-node)
                                  (cltpt/combinator:match-end content-node))))
@@ -356,9 +356,9 @@ returns the string representation of the list structure (no trailing newline)."
             when (eq (cltpt/combinator:match-id child) 'list-item)
               do (when (and (>= target-pos (cltpt/combinator:match-begin child))
                             (< target-pos (cltpt/combinator:match-end child)))
-                   (let* ((content-node (find-direct-child-by-id child 'list-item-content))
+                   (let* ((content-node (cltpt/combinator/match:find-direct-match-child-by-id child 'list-item-content))
                           (sub-list-node (and content-node
-                                              (find-direct-child-by-id content-node 'org-list))))
+                                              (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list))))
                      (if (and sub-list-node
                               (>= target-pos (cltpt/combinator:match-begin sub-list-node))
                               (< target-pos (cltpt/combinator:match-end sub-list-node)))
@@ -379,15 +379,15 @@ returns the string representation of the list structure (no trailing newline)."
         (if (< idx (length items))
             (setf current-item (nth idx items))
             (return-from get-item-at-indices nil)))
-      (let* ((content-node (find-direct-child-by-id current-item 'list-item-content)))
-        (setf current-list (and content-node (find-direct-child-by-id content-node 'org-list)))))
+      (let* ((content-node (cltpt/combinator/match:find-direct-match-child-by-id current-item 'list-item-content)))
+        (setf current-list (and content-node (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list)))))
     current-item))
 
 (defun get-list-item-text (str item-node)
-  (let ((content-node (find-direct-child-by-id item-node 'list-item-content)))
+  (let ((content-node (cltpt/combinator/match:find-direct-match-child-by-id item-node 'list-item-content)))
     (if content-node
         (let* ((begin (cltpt/combinator:match-begin content-node))
-               (sub-list (find-direct-child-by-id content-node 'org-list))
+               (sub-list (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list))
                (end (if sub-list
                         (cltpt/combinator:match-begin sub-list)
                         (cltpt/combinator:match-end content-node))))
@@ -399,9 +399,9 @@ returns the string representation of the list structure (no trailing newline)."
         (children (cltpt/combinator:match-children root-list-node)))
     (dolist (child children)
       (when (eq (cltpt/combinator:match-id child) 'list-item)
-        (let* ((content (find-direct-child-by-id child 'list-item-content))
+        (let* ((content (cltpt/combinator/match:find-direct-match-child-by-id child 'list-item-content))
                (sub-list (when content
-                           (find-direct-child-by-id content 'org-list))))
+                           (cltpt/combinator/match:find-direct-match-child-by-id content 'org-list))))
           (when sub-list
             (setf depth (max depth (1+ (get-list-depth sub-list))))))))
     depth))
@@ -411,7 +411,7 @@ returns the string representation of the list structure (no trailing newline)."
          (first-item (when children
                        (first children)))
          (bullet-node (when first-item
-                        (find-direct-child-by-id first-item 'list-item-bullet)))
+                        (cltpt/combinator/match:find-direct-match-child-by-id first-item 'list-item-bullet)))
          (marker (when bullet-node
                    (cltpt/combinator:match-text bullet-node str))))
     (if (and marker (string= marker "-"))
