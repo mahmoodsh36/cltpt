@@ -414,9 +414,8 @@ and returns a formatted org-mode table string."
                          (max (aref col-widths col-idx) cell-width))))))
     ;; pass 2: build the formatted string
     (with-output-to-string (s)
-      (loop for row-data in table-data
-            do
-               (if (eq row-data :hrule)
+      (loop for (row-data . rest) on table-data
+            do (if (eq row-data :hrule)
                    (progn
                      (write-char *table-v-delimiter* s)
                      (loop for width across col-widths
@@ -426,8 +425,7 @@ and returns a formatted org-mode table string."
                                 (write-char *table-intersection-delimiter* s))
                               (dotimes (i (+ width 2)) ;; +2 for padding
                                 (write-char *table-h-delimiter* s)))
-                     (write-char *table-v-delimiter* s)
-                     (write-char #\newline s))
+                     (write-char *table-v-delimiter* s))
                    ;; it's a data row
                    (progn
                      (write-char *table-v-delimiter* s)
@@ -438,8 +436,9 @@ and returns a formatted org-mode table string."
                                         " ~vA ~c"
                                         width
                                         cell-text
-                                        *table-v-delimiter*)))
-                     (write-char #\newline s)))))))
+                                        *table-v-delimiter*)))))
+               (when rest
+                 (write-char #\newline s))))))
 
 (defun get-table-height (table-match)
   "takes an org-table match and returns its height (number of data rows)."
