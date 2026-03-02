@@ -1,12 +1,17 @@
 (defpackage :cltpt
   (:use :cl)
-  (:import-from :cltpt/tree
-   :tree-map)
+  (:import-from
+   :cltpt/tree
+   :tree-map :tree-show)
   (:import-from :cltpt/roam
    :from-files :node)
-  (:import-from :cltpt/base
+  (:import-from
+   :cltpt/base
    :parse :parse-file :text-object
-   :convert-document)
+   :convert-document :map-text-object
+   :text-object-text :text-object-property
+   :text-object-begin :text-object-end
+   :text-object-begin-in-root :text-object-end-in-root)
   (:import-from :cltpt/html
    :*html*)
   (:import-from :cltpt/org-mode
@@ -14,12 +19,15 @@
   (:import-from :cltpt/latex
    :*latex*)
   (:export
-   :tree-map
+   :tree-map :tree-show
 
    :from-files :node
 
    :parse :parse-file :text-object
-   :convert-document
+   :convert-document :map-text-object
+   :text-object-text :text-object-property
+   :text-object-begin :text-object-end
+   :text-object-begin-in-root :text-object-end-in-root
 
    :*html*
 
