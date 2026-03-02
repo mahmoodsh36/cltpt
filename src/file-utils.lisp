@@ -104,31 +104,34 @@ the function trims excessive use of the separator (usually forward slash)."
 (defun walk-dir (path &key handle-file-fn glob (recurse t))
   "walk a directory and optionally apply HANDLE-FILE-FN to files matching a glob.
 
-args:
-  PATH: starting directory (string or pathname).
-  HANDLE-FILE-FN: optional function called with each matching file path (string).
-  GLOB: glob pattern like \"*.lisp\" or \"**/*.txt\" (defaults to all files).
-  RECURSE: when T (default), walks directories recursively. when NIL, only files
-           in the top-level directory are considered.
+PATH: starting directory (string or pathname).
+HANDLE-FILE-FN: optional function called with each matching file path (string).
+GLOB: glob pattern like \"*.lisp\" or \"**/*.txt\" (defaults to all files).
+RECURSE: when T (default), walks directories recursively. when NIL, only files
+         in the top-level directory are considered.
 
 returns a flat list of file paths as strings."
-  (let ((path (uiop:ensure-directory-pathname path)))
-    (let ((files (uiop:directory-files path))
-          (subdirectories (when recurse (uiop:subdirectories path)))
-          (matching-files))
-      (dolist (file files)
-        (when (or (not glob) (pathname-match-p file (merge-pathnames glob path)))
-          (let ((file-str (uiop:unix-namestring file)))
-            (when handle-file-fn
-              (funcall handle-file-fn file-str))
-            (push file-str matching-files))))
-      ;; recurse into subdirectories (if enabled) and combine results
-      (append (nreverse matching-files)
-              (loop for dir in subdirectories
-                    append (walk-dir dir
-                                     :handle-file-fn handle-file-fn
-                                     :glob glob
-                                     :recurse recurse))))))
+  (let* ((path (truename
+                (uiop:ensure-absolute-pathname
+                 (uiop:ensure-directory-pathname path)
+                 *default-pathname-defaults*)))
+         (files (uiop:directory-files path))
+         (subdirectories (when recurse
+                           (uiop:subdirectories path)))
+         (matching-files))
+    (dolist (file files)
+      (when (or (not glob) (pathname-match-p file (merge-pathnames glob path)))
+        (let ((file-str (uiop:unix-namestring file)))
+          (when handle-file-fn
+            (funcall handle-file-fn file-str))
+          (push file-str matching-files))))
+    ;; recurse into subdirectories (if enabled) and combine results
+    (append (nreverse matching-files)
+            (loop for dir in subdirectories
+                  append (walk-dir dir
+                                   :handle-file-fn handle-file-fn
+                                   :glob glob
+                                   :recurse recurse)))))
 
 (defun delete-files-by-glob (directory-path glob)
   "delete all files in DIRECTORY-PATH whose names match GLOB.
