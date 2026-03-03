@@ -636,7 +636,7 @@ and grabbing each position of each object through its ascendants in the tree."
            (text-object-children parent)
            child
            :key 'text-object-begin-in-root))
-    ;; correctly re-set the region for the child
+    ;; re-set the region for the child to the corrected one after the change
     (setf (text-object-text-region child)
           (cltpt/buffer:make-region
            :begin (- (text-object-begin-in-root child)
