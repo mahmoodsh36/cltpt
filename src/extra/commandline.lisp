@@ -370,16 +370,22 @@
          (uiop:directory-files
           (cltpt/file-utils:as-dir-path (cltpt/file-utils:join-paths theme-dir "static"))))))
     (if rmr-files
-        (cltpt/publish:publish
-         dest-dir
-         rmr-files
-         :include-files include-files
-         :exclude-files exclude-files
-         :templates templates
-         :template-file template-file
-         :theme-dir theme-dir
-         :filepath-format filepath-format
-         :static-filepath-format static-filepath-format)
+        ;; we use apply because we might not want to pass some vars like filepath-format
+        ;; when their value is nil. we could just check for nil in the publish function, but i
+        ;; decided to do it this way.
+        (apply #'cltpt/publish:publish
+               dest-dir
+               rmr-files
+               :include-files include-files
+               :exclude-files exclude-files
+               :templates templates
+               :template-file template-file
+               :theme-dir theme-dir
+               (append
+                (when filepath-format
+                  (list :filepath-format filepath-format))
+                (when static-filepath-format
+                  (list :static-filepath-format static-filepath-format))))
         (progn
           (format *error-output* "error: supply at least one instance of --file or --rule.~%")
           (clingon:print-usage cmd t)))))
