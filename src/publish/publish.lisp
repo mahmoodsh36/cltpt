@@ -11,7 +11,8 @@
    :load-theme-by-name
    :*default-static-filepath-format*
    :*default-html-static-route*
-   :*default-filepath-format*))
+   :*default-filepath-format*
+   :convert-template* :convert-template))
 
 (in-package :cltpt/publish)
 
@@ -46,17 +47,20 @@
                         (char= char #\\))
                     (write-char #\_ out))))))
 
+(defun convert-template* (template-file)
+  (let ((*current-template-file* (uiop:native-namestring (uiop:truename* template-file))))
+    (cltpt/base:convert-tree
+     (cltpt/base:parse
+      cltpt/base:*simple-format*
+      (cltpt/file-utils:read-file template-file))
+     cltpt/base:*simple-format*
+     cltpt/html:*html*
+     :escape nil)))
+
 (defun convert-template (dest-dir template-file)
   (cltpt/file-utils:write-file
    (cltpt/file-utils:change-dir template-file dest-dir)
-   (let ((*current-template-file* (uiop:native-namestring (uiop:truename* template-file))))
-     (cltpt/base:convert-tree
-      (cltpt/base:parse
-       cltpt/base:*simple-format*
-       (cltpt/file-utils:read-file template-file))
-      cltpt/base:*simple-format*
-      cltpt/html:*html*
-      :escape nil))))
+   (convert-template* template-file)))
 
 (defvar *default-filepath-format*
   "%(cltpt/publish:title-to-filename (or (getf *file-info* :root-title) (getf *file-info* :filename))).html")
