@@ -2,11 +2,12 @@
   (:use :cl)
   (:export
    :org-list-matcher :*org-mode* :org-mode-text-object-types :init :*org-enable-macros*
-   :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
    :org-example-block
    :get-cell-at-coordinates :get-cell-coordinates :org-table-matcher
    :get-table-width :get-table-height :reformat-table :list-to-table-string :list-to-list-string
-   :table-match-to-list :list-match-to-list))
+   :table-match-to-list :list-match-to-list
+   :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
+   :org-latex-env :org-keyword :org-prop-drawer :org-drawer :org-export-block))
 
 (in-package :cltpt/org-mode)
 

@@ -35,6 +35,7 @@
    :make-record-scheduled :make-record-deadline
    :make-record-timestamp :make-record-deadline :render-agenda
    :build-agenda-forest :agenda-outline-node :agenda-outline-node-expansion-state
+   :agenda-outline-node-parent
 
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
