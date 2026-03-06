@@ -52,6 +52,7 @@
    :text-object-text-length
    :is-post-lexer-macro :post-lexer-macro-value
    :eval-post-lexer-macro
+   :text-object-contents-begin :text-object-contents-end
 
    :link-resolve :link-desc :link-dest :link-type
    :*id-to-attach-dir-func*
