@@ -76,5 +76,14 @@
         };
 
         apps.default = { type = "app"; program = "${pkg}/bin/${name}"; };
+        apps.tests = {
+          type = "app";
+          program = "${pkgs.writeShellScript "run-cltpt-tests" ''
+            ${sbcl''}/bin/sbcl --non-interactive \
+              --eval '(require :asdf)' \
+              --eval '(asdf:load-system :cltpt)' \
+              --eval '(cltpt/tests:run-cltpt-tests)'
+          ''}";
+        };
       });
 }
