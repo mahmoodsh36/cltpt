@@ -257,7 +257,6 @@
               (cltpt/latex:*latex* "}")))
       (when (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
         ;; we should check if its the same file, otherwise copy-file will break
-        (format t "here123 copying to ~A~%" new-filepath)
         (unless (string= dest-filepath new-filepath)
           (when (uiop:probe-file* dest-filepath)
             (ensure-directories-exist new-filepath)
