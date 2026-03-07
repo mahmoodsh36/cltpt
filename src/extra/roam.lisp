@@ -154,6 +154,7 @@ each rule is a plist that can contain the following params.
                         filepath-format
                         &key
                           dest-dir
+                          dest-dir-static
                           static-filepath-format
                           (convert-file-predicate (lambda (x) t)))
   (let ((files-done (make-hash-table :test 'equal)))
@@ -178,7 +179,8 @@ each rule is a plist that can contain the following params.
                           (list
                            :filepath-format filepath-format
                            :static-filepath-format static-filepath-format
-                           :dest-dir dest-dir))))
+                           :dest-dir dest-dir
+                           :dest-dir-static dest-dir-static))))
                    (cltpt/base:convert-file
                     (node-format node)
                     dest-format
