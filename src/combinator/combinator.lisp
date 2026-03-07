@@ -169,13 +169,6 @@ to replace and new-rule is the rule to replace it with."
                       (setf (getf subrule :pattern) modification-rule))))))
     new-rule))
 
-;; TODO: we are constructing this context on every call to the combinator
-;; rules dont change often (if at all), so we should cache this, maybe not
-;; in the combinator itself because that may introduce some unneeded overhead,
-;; in cases where the combinator isnt called many times with the same rules
-;; in other applications of this combinator library
-;; but maybe introduce this caching in other parts of cltpt's code that can benefit form it.
-
 (defun whitespace-p (char)
   "check if a character is whitespace (space, newline, or tab)."
   (case char
