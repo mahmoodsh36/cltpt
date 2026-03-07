@@ -217,27 +217,32 @@
                      (cltpt/combinator:match-end desc-match)))
          (dest-filepath (when resolved
                           (cltpt/base:target-filepath resolved)))
+         (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*))
          (new-filepath
            (when resolved
-             (let ((dest-dir-static (or (getf cltpt/base:*convert-info* :dest-dir-static)
-                                        (getf cltpt/base:*convert-info* :dest-dir))))
-               (if dest-dir-static
+             (let ((dest-dir
+                     (if (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
+                         (or (getf cltpt/base:*convert-info* :dest-dir-static)
+                             (getf cltpt/base:*convert-info* :dest-dir))
+                         (getf cltpt/base:*convert-info* :dest-dir))))
+               (if dest-dir
                    (cltpt/file-utils:join-paths
-                    dest-dir-static
+                    dest-dir
                     (cltpt/base:convert-target-filepath resolved))
                    (cltpt/base:convert-target-filepath resolved)))))
          ;; TODO/FIXME: this will not work when dest-filepath is a directory path that ends with
          ;; a forward slash.
          (inserted-filepath
            (or (when new-filepath
-                 (if (and (eq backend cltpt/html:*html*) cltpt/html:*html-static-route*)
+                 (if (and (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
+                          (eq backend cltpt/html:*html*)
+                          cltpt/html:*html-static-route*)
                      ;; if its html we should respect *html-static-route*
                      (cltpt/file-utils:join-paths
                       cltpt/html:*html-static-route*
                       (cltpt/file-utils:file-basename new-filepath))
                      (cltpt/file-utils:file-basename new-filepath)))
-               dest-filepath))
-         (static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*)))
+               dest-filepath)))
     (when dest-filepath
       ;; initialize the tags to the <a> tag, if its a video or an image,
       ;; it gets overwritten later.
