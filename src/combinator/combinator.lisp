@@ -1041,13 +1041,16 @@ but if they don't match, parsing continues without them."
     (when matches
       (match-set-children-parent match))))
 
-(defun consec-bounded (ctx reader pos boundary-rule rest-id &rest parsers)
+(defun consec-bounded (ctx reader pos boundary-rule rest-id fallback-eof &rest parsers)
   "match an ordered sequence of rules within a bounded region.
 
 BOUNDARY-RULE determines where the region ends. it is tried at each position
 starting from POS until it matches or EOF is reached. the match is constrained
 to the region [POS, boundary-position). if BOUNDARY-RULE is nil, the region
 extends to EOF.
+
+FALLBACK-EOF, if non-nil, falls back to EOF when the boundary rule is not found.
+if nil (the default), the function returns NIL when no boundary is found.
 
 REST-ID, if non-nil, creates a match spanning everything between the last prefix
 and the first suffix.
@@ -1066,24 +1069,29 @@ in the list is the outermost/rightmost and is matched first)."
         (start pos))
     (declare (type fixnum region-end parent-begin start))
     ;; find end of bounded region
-    (if boundary-rule
-        (let ((boundary-first-char (extract-literal-from-rule-cached boundary-rule)))
-          (if boundary-first-char
-              ;; fast path, skip positions where first char doesn't match
-              (loop while (is-before-eof reader region-end)
-                    do (when (and (char= (reader-char reader region-end)
-                                         boundary-first-char)
-                                  (apply-rule ctx boundary-rule reader region-end))
-                         (return))
-                       (incf region-end))
-              ;; no first-char known, try apply-rule at every position.
-              (loop while (is-before-eof reader region-end)
-                    do (when (apply-rule ctx boundary-rule reader region-end)
-                         (return))
-                       (incf region-end))))
-        ;; no boundary rule, extend to EOF.
-        (loop while (is-before-eof reader region-end)
-              do (incf region-end)))
+    (let ((boundary-found))
+      (if boundary-rule
+          (let ((boundary-first-char (extract-literal-from-rule-cached boundary-rule)))
+            (if boundary-first-char
+                ;; fast path, skip positions where first char doesn't match
+                (loop while (is-before-eof reader region-end)
+                      do (when (and (char= (reader-char reader region-end)
+                                           boundary-first-char)
+                                    (apply-rule ctx boundary-rule reader region-end))
+                           (setf boundary-found t)
+                           (return))
+                         (incf region-end))
+                ;; no first-char known, try apply-rule at every position.
+                (loop while (is-before-eof reader region-end)
+                      do (when (apply-rule ctx boundary-rule reader region-end)
+                           (setf boundary-found t)
+                           (return))
+                         (incf region-end))))
+          ;; no boundary rule, extend to EOF.
+          (loop while (is-before-eof reader region-end)
+                do (incf region-end)))
+      (when (and boundary-rule (not boundary-found) (not fallback-eof))
+        (return-from consec-bounded nil)))
     ;; separate parsers into prefixes and suffixes
     (let ((prefixes)
           (suffixes))

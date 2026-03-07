@@ -560,6 +560,7 @@ used for all region-decf calculations to get positions relative to the text-obje
               (cltpt/combinator:consec-bounded
                (cltpt/combinator:literal ,(string #\newline))
                title
+               t
                (:pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
                 :id stars)
                (cltpt/combinator:literal " ")
