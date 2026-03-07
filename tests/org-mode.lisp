@@ -1233,7 +1233,7 @@ plt.close()
      input
      (rules-from-symbols '(cltpt/org-mode:org-header)))))
 
-(test test-org-header-bounded-tree
+(test test-org-header-1
   (fiveam:is
    (compare-full-match-loosely
     (car (test-org-header-bounded-tree-func))
@@ -1259,6 +1259,32 @@ plt.close()
         ((:BEGIN 4 :END 5))
         ((:BEGIN 5 :END 9 :ID CLTPT/ORG-MODE::TAG)))
        ((:BEGIN 11 :END 12)))))))
+
+(test test-org-header-2
+  (let* ((input "* head [[link:dest][desc]] tail [10%]")
+         (rules (org-rules))
+         (result (cltpt/combinator:parse input rules)))
+    (fiveam:is
+     (compare-full-match-loosely
+      (car result)
+      '((:BEGIN 0 :END 37 :ID CLTPT/ORG-MODE:ORG-HEADER)
+        ((:BEGIN 0 :END 37)
+         ((:BEGIN 0 :END 1 :ID CLTPT/ORG-MODE::STARS))
+         ((:BEGIN 1 :END 2))
+         ((:BEGIN 2 :END 31 :ID CLTPT/ORG-MODE::TITLE)
+          ((:BEGIN 5 :END 24 :ID CLTPT/ORG-MODE:ORG-LINK)
+           ((:BEGIN 0 :END 19)
+            ((:BEGIN 0 :END 2))
+            ((:BEGIN 2 :END 6 :ID CLTPT/ORG-MODE::LINK-TYPE))
+            ((:BEGIN 6 :END 7))
+            ((:BEGIN 7 :END 11 :ID CLTPT/ORG-MODE::LINK-DEST))
+            ((:BEGIN 11 :END 13))
+            ((:BEGIN 13 :END 17 :ID CLTPT/ORG-MODE::LINK-DESC))
+            ((:BEGIN 17 :END 19)))))
+         ((:BEGIN 31 :END 37 :ID CLTPT/ORG-MODE::COMPLETION-STATUS)
+          ((:BEGIN 0 :END 2))
+          ((:BEGIN 2 :END 5))
+          ((:BEGIN 5 :END 6)))))))))
 
 (defun run-org-mode-tests ()
   (format t "~&running org-mode tests...~%")

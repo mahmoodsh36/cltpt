@@ -557,31 +557,30 @@ used for all region-decf calculations to get positions relative to the text-obje
     :rule `(:pattern
             (cltpt/combinator:consec-atleast-one
              (cltpt/combinator:when-match
-              (cltpt/combinator:consec-bounded
+              (cltpt/combinator:prefix-middle-suffix
                (cltpt/combinator:literal ,(string #\newline))
                title
-               t
-               (:pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-                :id stars)
-               (cltpt/combinator:literal " ")
-               ,todo-rule
-               (:pattern (cltpt/combinator:consec
-                          (cltpt/combinator:literal "[#")
-                          (cltpt/combinator:all-but "]")
-                          (cltpt/combinator:literal "] "))
-                :id priority
-                :optional t)
-               (:pattern (cltpt/combinator:consec
-                          (cltpt/combinator:literal " [")
-                          (cltpt/combinator:all-but "]")
-                          (cltpt/combinator:literal "]"))
-                :id completion-status
-                :optional t
-                :suffix t)
-               (:pattern ,tags-rule
-                :id tags
-                :optional t
-                :suffix t))
+               ((:pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+                 :id stars)
+                (cltpt/combinator:literal " ")
+                ,todo-rule
+                (:pattern (cltpt/combinator:consec
+                           (cltpt/combinator:literal "[#")
+                           (cltpt/combinator:all-but "]")
+                           (cltpt/combinator:literal "] "))
+                 :id priority
+                 :optional t))
+               ((:pattern (cltpt/combinator:consec
+                           (cltpt/combinator:literal " [")
+                           (cltpt/combinator:all-but "]")
+                           (cltpt/combinator:literal "]"))
+                 :id completion-status
+                 :optional t)
+                (:pattern ,tags-rule
+                 :id tags
+                 :optional t))
+               (eval (org-mode-inline-text-object-rule))
+               t)
               cltpt/combinator:at-line-start-p)
              ;; the following is for detecting metadata following an org header
              (cltpt/combinator:atleast-one
