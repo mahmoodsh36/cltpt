@@ -538,67 +538,9 @@ used for all region-decf calculations to get positions relative to the text-obje
      'list-item-content)
     reader)))
 
-;; TODO: we may want to match tags-rule only if its before a newline
-;; (let ((tags-rule
-;;         '(cltpt/combinator:consec
-;;           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-;;           (cltpt/combinator:literal ":")
-;;           (cltpt/combinator:separated-atleast-one
-;;            ":"
-;;            (:pattern
-;;             (cltpt/combinator:symbol-matcher)
-;;             :id tag))
-;;           (cltpt/combinator:literal ":")))
-;;       (todo-rule
-;;         '(:pattern (cltpt/combinator:upcase-word-matcher)
-;;           :id todo-keyword)))
-;;   (defvar *org-header-rule*
-;;     `(:pattern
-;;       (cltpt/combinator:consec-atleast-one
-;;        (cltpt/combinator:when-match
-;;         (cltpt/combinator:consec-with-optional
-;;          (:pattern
-;;           (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-;;           :id stars)
-;;          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-;;          (:optional ,todo-rule)
-;;          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-;;          (:pattern
-;;           (cltpt/combinator:all-upto-without
-;;            ,tags-rule
-;;            ,(string #\newline))
-;;           :id title)
-;;          (:optional ,tags-rule))
-;;         cltpt/combinator:at-line-start-p)
-;;        ;; the following is for detecting metadata following an org header
-;;        (cltpt/combinator:atleast-one
-;;         (cltpt/combinator:consec
-;;          (cltpt/combinator:literal ,(string #\newline))
-;;          (cltpt/combinator:any
-;;           (cltpt/combinator:separated-atleast-one
-;;            " "
-;;            (cltpt/combinator:any
-;;             (:pattern
-;;              (cltpt/combinator:consec
-;;               (:pattern (cltpt/combinator:upcase-word-matcher)
-;;                :id name)
-;;               ": "
-;;               ,(copy-rule *org-timestamp-rule* 'timestamp))
-;;              :id action-active)
-;;             (:pattern
-;;              (cltpt/combinator:consec
-;;               (:pattern (cltpt/combinator:upcase-word-matcher)
-;;                :id name)
-;;               ": "
-;;               ,(copy-rule *org-timestamp-bracket-rule* 'timestamp))
-;;              :id action-inactive)))
-;;           ,(copy-rule *org-timestamp-rule* 'todo-timestamp)
-;;           ,(copy-rule *org-prop-drawer-rule* 'org-prop-drawer)))))
-;;       :on-char #\*)))
 (let ((tags-rule
         '(cltpt/combinator:consec
-          (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-          (cltpt/combinator:literal ":")
+          (cltpt/combinator:literal " :")
           (cltpt/combinator:separated-atleast-one
            ":"
            (:pattern
@@ -606,57 +548,39 @@ used for all region-decf calculations to get positions relative to the text-obje
             :id tag))
           (cltpt/combinator:literal ":")))
       (todo-rule
-        '(:pattern (cltpt/combinator:upcase-word-matcher)
-          :id todo-keyword)))
+        '(:pattern (cltpt/combinator:consec
+                    (:pattern (cltpt/combinator:upcase-word-matcher)
+                     :id todo-keyword)
+                    (cltpt/combinator:literal " "))
+          :optional t)))
   (cltpt/base:define-text-object org-header
     :rule `(:pattern
             (cltpt/combinator:consec-atleast-one
              (cltpt/combinator:when-match
-              (cltpt/combinator:any
-               ;; capture header with TODO keyword and tags
-               (cltpt/combinator:consec
-                (:pattern
-                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-                 :id stars)
-                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-                ,todo-rule
-                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-                (:pattern
-                 (cltpt/combinator:all-upto-without
-                  ,tags-rule
-                  ,(string #\newline))
-                 :id title)
-                ,tags-rule)
-               ;; capture header without todo keyword but with tags
-               (cltpt/combinator:consec
-                (:pattern
-                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-                 :id stars)
-                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-                (:pattern
-                 (cltpt/combinator:all-upto-without
-                  ,tags-rule
-                  ,(string #\newline))
-                 :id title)
-                ,tags-rule)
-               ;; capture header with todo keyword but without tags
-               (cltpt/combinator:consec
-                (:pattern
-                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-                 :id stars)
-                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-                ,todo-rule
-                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-                (:pattern (cltpt/combinator:all-but-newline)
-                 :id title))
-               ;; capture header without todo keyword or tags
-               (cltpt/combinator:consec
-                (:pattern
-                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
-                 :id stars)
-                (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-                (:pattern (cltpt/combinator:all-but-newline)
-                 :id title)))
+              (cltpt/combinator:consec-bounded
+               (cltpt/combinator:literal ,(string #\newline))
+               title
+               (:pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal "*"))
+                :id stars)
+               (cltpt/combinator:literal " ")
+               ,todo-rule
+               (:pattern (cltpt/combinator:consec
+                          (cltpt/combinator:literal "[#")
+                          (cltpt/combinator:all-but "]")
+                          (cltpt/combinator:literal "] "))
+                :id priority
+                :optional t)
+               (:pattern (cltpt/combinator:consec
+                          (cltpt/combinator:literal " [")
+                          (cltpt/combinator:all-but "]")
+                          (cltpt/combinator:literal "]"))
+                :id completion-status
+                :optional t
+                :suffix t)
+               (:pattern ,tags-rule
+                :id tags
+                :optional t
+                :suffix t))
               cltpt/combinator:at-line-start-p)
              ;; the following is for detecting metadata following an org header
              (cltpt/combinator:atleast-one
@@ -671,8 +595,10 @@ used for all region-decf calculations to get positions relative to the text-obje
                     (:pattern (cltpt/combinator:upcase-word-matcher)
                      :id name)
                     ": "
-                    ,(cltpt/combinator:copy-rule org-timestamp 'timestamp
-                                :type 'org-timestamp))
+                    ,(cltpt/combinator:copy-rule
+                      org-timestamp
+                      'timestamp
+                      :type 'org-timestamp))
                    :id action-active)
                   (:pattern
                    (cltpt/combinator:consec
@@ -681,8 +607,10 @@ used for all region-decf calculations to get positions relative to the text-obje
                     ": "
                     ,(cltpt/combinator:copy-rule org-timestamp-bracket 'timestamp))
                    :id action-inactive)))
-                ,(cltpt/combinator:copy-rule org-timestamp 'todo-timestamp
-                            :type 'org-timestamp)
+                ,(cltpt/combinator:copy-rule
+                  org-timestamp
+                  'todo-timestamp
+                  :type 'org-timestamp)
                 (cltpt/combinator:when-match-after
                  ,(cltpt/combinator:copy-rule org-list 'org-list)
                  is-header-metadata-list)
