@@ -1067,11 +1067,21 @@ in the list is the outermost/rightmost and is matched first)."
     (declare (type fixnum region-end parent-begin start))
     ;; find end of bounded region
     (if boundary-rule
-        (loop while (is-before-eof reader region-end)
-              do (when (apply-rule ctx boundary-rule reader region-end)
-                   (return))
-                 (incf region-end))
-        ;; no boundary rule: extend to EOF
+        (let ((boundary-first-char (extract-literal-from-rule-cached boundary-rule)))
+          (if boundary-first-char
+              ;; fast path, skip positions where first char doesn't match
+              (loop while (is-before-eof reader region-end)
+                    do (when (and (char= (reader-char reader region-end)
+                                         boundary-first-char)
+                                  (apply-rule ctx boundary-rule reader region-end))
+                         (return))
+                       (incf region-end))
+              ;; no first-char known, try apply-rule at every position.
+              (loop while (is-before-eof reader region-end)
+                    do (when (apply-rule ctx boundary-rule reader region-end)
+                         (return))
+                       (incf region-end))))
+        ;; no boundary rule, extend to EOF.
         (loop while (is-before-eof reader region-end)
               do (incf region-end)))
     ;; separate parsers into prefixes and suffixes
