@@ -83,6 +83,10 @@
                   theme-dir
                   (html-static-route *default-html-static-route*))
   (cltpt/file-utils:ensure-dir-exists (cltpt/file-utils:as-dir-path output-dir))
+  (setf static-output-dir
+        (or static-output-dir
+            (cltpt/file-utils:join-paths output-dir "static")))
+  (cltpt/file-utils:ensure-dir-exists (cltpt/file-utils:as-dir-path static-output-dir))
   (let* ((*theme-dir* (or theme-dir *theme-dir*))
          (*current-template-file*
            (when template-file
@@ -101,8 +105,6 @@
                                   (cltpt/utils:find-linked-files rmr node exclude-files)))
                ;; if include-files wasnt provided we consider all files
                (mapcar #'cltpt/roam:node-file (cltpt/roam:roamer-nodes rmr))))
-         (static-output-dir (or static-output-dir
-                                (cltpt/file-utils:join-paths output-dir "static")))
          (cltpt/latex-previews:*latex-previews-cache-directory* static-output-dir)
          (cltpt/latex-previews:*latex-compiler-key* :lualatex)
          (cltpt/latex-previews:*latex-preview-pipeline-key* :dvisvgm)
@@ -116,9 +118,6 @@
     (let ((cltpt/roam:*roam-convert-data* (list :roamer rmr)))
       (loop for template in templates
             do (convert-template output-dir template)))
-    ;; apparently it doesnt work unless theres a '/' at the end.
-    (cltpt/file-utils:ensure-dir-exists
-     (concatenate 'string static-output-dir "/"))
     (cltpt/utils:compile-all-latex-previews rmr file-predicate)
     (cltpt/utils:convert-all
      :dest-format-name "html"
