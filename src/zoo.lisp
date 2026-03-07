@@ -43,7 +43,20 @@
   (let ((loop-expr (cltpt/base:text-object-property obj :loop))
         ;; we set :not-to-loop in a recursive call, so that we dont loop
         ;; indefinitely by checking if we have set it already or not.
-        (not-to-loop (cltpt/base:text-object-property obj :not-to-loop)))
+        (not-to-loop (cltpt/base:text-object-property obj :not-to-loop))
+        (if-expr (cltpt/base:text-object-property obj :if)))
+    ;; :if if-expr exists, only convert block contents if condition evaluates to non-nil
+    (when if-expr
+      (let ((condition-result
+              (cltpt/base:eval-in-text-object-lexical-scope
+               obj
+               (lambda ()
+                 (eval if-expr)))))
+        (unless condition-result
+          (return-from cltpt/base:text-object-convert
+            (list :text ""
+                  :recurse nil
+                  :escape nil)))))
     (if (and loop-expr (not not-to-loop))
         (let* ((var-name (car loop-expr))
                (var-values
