@@ -124,6 +124,7 @@
      :dest-format-name "html"
      :roamer rmr
      :dest-dir output-dir
+     :dest-dir-static static-output-dir
      :filepath-format filepath-format
      :static-filepath-format static-filepath-format
      :predicate file-predicate)))

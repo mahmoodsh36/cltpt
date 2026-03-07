@@ -165,8 +165,7 @@
   (cltpt/base:convert-target-filepath (cltpt/file-utils:ensure-filepath-string target)))
 
 (defmethod cltpt/base:convert-target-filepath ((target string))
-  (let* ((static-ext (append cltpt/base:*image-ext* cltpt/base:*video-ext*))
-         (dest-filepath (cltpt/base:target-filepath target))
+  (let* ((dest-filepath (cltpt/base:target-filepath target))
          (filepath-format-string (getf cltpt/base:*convert-info* :static-filepath-format))
          (new-filepath (if (and dest-filepath filepath-format-string)
                            (cltpt/base:filepath-format dest-filepath filepath-format-string)
@@ -220,10 +219,13 @@
                           (cltpt/base:target-filepath resolved)))
          (new-filepath
            (when resolved
-             (if (getf cltpt/base:*convert-info* :dest-dir)
-                 (cltpt/file-utils:join-paths (getf cltpt/base:*convert-info* :dest-dir)
-                                              (cltpt/base:convert-target-filepath resolved))
-                 (cltpt/base:convert-target-filepath resolved))))
+             (let ((dest-dir-static (or (getf cltpt/base:*convert-info* :dest-dir-static)
+                                        (getf cltpt/base:*convert-info* :dest-dir))))
+               (if dest-dir-static
+                   (cltpt/file-utils:join-paths
+                    dest-dir-static
+                    (cltpt/base:convert-target-filepath resolved))
+                   (cltpt/base:convert-target-filepath resolved)))))
          ;; TODO/FIXME: this will not work when dest-filepath is a directory path that ends with
          ;; a forward slash.
          (inserted-filepath
@@ -253,9 +255,9 @@
             (cltpt/base:pcase backend
               (cltpt/html:*html* "</a>")
               (cltpt/latex:*latex* "}")))
-      ;; TODO: copy the destination file to the destination dir
       (when (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
         ;; we should check if its the same file, otherwise copy-file will break
+        (format t "here123 copying to ~A~%" new-filepath)
         (unless (string= dest-filepath new-filepath)
           (when (uiop:probe-file* dest-filepath)
             (ensure-directories-exist new-filepath)

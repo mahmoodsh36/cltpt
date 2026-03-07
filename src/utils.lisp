@@ -11,7 +11,7 @@
                       src-format-name dest-format-name
                       files rules
                       filepath-format static-filepath-format
-                      dest-dir
+                      dest-dir dest-dir-static
                       roamer
                       predicate)
   (let* ((src-format (or src-format (cltpt/base:text-format-by-name src-format-name)))
@@ -23,6 +23,7 @@
        dest-format
        filepath-format
        :dest-dir dest-dir
+       :dest-dir-static dest-dir-static
        :static-filepath-format static-filepath-format
        :convert-file-predicate predicate))))
 
