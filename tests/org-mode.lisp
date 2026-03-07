@@ -1227,6 +1227,39 @@ plt.close()
          "agenda options")
         "agenda options")))
 
+(defun test-org-header-bounded-tree-func ()
+  (let ((input "** TODO [#A] header text [50%] :tag1:tag2:"))
+    (cltpt/combinator:parse
+     input
+     (rules-from-symbols '(cltpt/org-mode:org-header)))))
+
+(test test-org-header-bounded-tree
+  (fiveam:is
+   (compare-full-match-loosely
+    (car (test-org-header-bounded-tree-func))
+    '((:BEGIN 0 :END 42 :ID CLTPT/ORG-MODE:ORG-HEADER)
+      ((:BEGIN 0 :END 2 :ID CLTPT/ORG-MODE::STARS))
+      ((:BEGIN 2 :END 3))
+      ((:BEGIN 3 :END 8)
+       ((:BEGIN 0 :END 4 :ID CLTPT/ORG-MODE::TODO-KEYWORD))
+       ((:BEGIN 4 :END 5)))
+      ((:BEGIN 8 :END 13 :ID CLTPT/ORG-MODE::PRIORITY)
+       ((:BEGIN 0 :END 2))
+       ((:BEGIN 2 :END 3))
+       ((:BEGIN 3 :END 5)))
+      ((:BEGIN 13 :END 24 :ID CLTPT/ORG-MODE::TITLE))
+      ((:BEGIN 24 :END 30 :ID CLTPT/ORG-MODE::COMPLETION-STATUS)
+       ((:BEGIN 0 :END 2))
+       ((:BEGIN 2 :END 5))
+       ((:BEGIN 5 :END 6)))
+      ((:BEGIN 30 :END 42 :ID CLTPT/ORG-MODE::TAGS)
+       ((:BEGIN 0 :END 2))
+       ((:BEGIN 2 :END 11)
+        ((:BEGIN 0 :END 4 :ID CLTPT/ORG-MODE::TAG))
+        ((:BEGIN 4 :END 5))
+        ((:BEGIN 5 :END 9 :ID CLTPT/ORG-MODE::TAG)))
+       ((:BEGIN 11 :END 12)))))))
+
 (defun run-org-mode-tests ()
   (format t "~&running org-mode tests...~%")
   ;; set up relative paths for latex previews so tests work across different systems
