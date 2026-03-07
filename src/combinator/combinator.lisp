@@ -14,7 +14,7 @@
    :at-line-end-p :followed-by :separated-atleast-one
    :all-but-whitespace :handle-rule-string :all-upto
    :all-upto-included :succeeded-by :all-upto-without
-   :context-rules :consec-with-optional :consec-bounded :compile-rule-string
+   :context-rules :consec-with-optional :prefix-middle-suffix :compile-rule-string
    :between-whitespace :when-match-after :flanked-by-whitespace :flanked-by-whitespace-or-punctuation
    :context-parent-begin :context-parent-match :context-copy
    :apply-rule
@@ -1034,8 +1034,17 @@ but if they don't match, parsing continues without them."
     (when matches
       (match-set-children-parent match))))
 
-(defun consec-bounded (ctx reader pos boundary-rule rest-id fallback-eof &rest parsers)
-  "match an ordered sequence of rules within a bounded region.
+(defun prefix-middle-suffix (ctx
+                             reader
+                             pos
+                             boundary-rule
+                             middle-id
+                             prefix-rules
+                             suffix-rules
+                             &optional
+                               middle-rules
+                               fallback-eof)
+  "match a prefixed and postfixed list of rules within a bounded region.
 
 BOUNDARY-RULE determines where the region ends. it is tried at each position
 starting from POS until it matches or EOF is reached. the match is constrained
@@ -1045,17 +1054,18 @@ extends to EOF.
 FALLBACK-EOF, if non-nil, falls back to EOF when the boundary rule is not found.
 if nil (the default), the function returns NIL when no boundary is found.
 
-REST-ID, if non-nil, creates a match spanning everything between the last prefix
+MIDDLE-ID, if non-nil, creates a match spanning everything between the last prefix
 and the first suffix.
 
-rules are specified in their natural text order. each plist rule can be tagged with:
-- :optional t  - rule may not match (defaults to NIL).
-- :suffix t    - rule is anchored to end of region, matched right-to-left (defaults to NIL).
+PREFIX-RULES are matched left-to-right from the start. each can be marked with :optional t
+to allow it to not match.
 
-prefix rules (no :suffix) are matched left-to-right from the start.
-suffix rules are matched right-to-left from the end of the bounded region,
-in reverse order of how they appear in the argument list (so the last :suffix
-in the list is the outermost/rightmost and is matched first)."
+SUFFIX-RULES are anchored to the end of the region, matched right-to-left in reverse
+order (so the last rule in the list is the outermost/rightmost and is matched first).
+each can be marked with :optional t.
+
+MIDDLE-RULES, if provided, are scanned within the middle region (between last prefix and
+first suffix) using scan-all-rules."
   (declare (type fixnum pos))
   (let ((region-end pos)
         (parent-begin (context-parent-begin ctx))
@@ -1066,7 +1076,7 @@ in the list is the outermost/rightmost and is matched first)."
       (if boundary-rule
           (let ((boundary-first-char (extract-literal-from-rule-cached boundary-rule)))
             (if boundary-first-char
-                ;; fast path, skip positions where first char doesn't match
+                ;; fast path, skip positions where first char doesnt match.
                 (loop while (is-before-eof reader region-end)
                       do (when (and (char= (reader-char reader region-end)
                                            boundary-first-char)
@@ -1084,76 +1094,78 @@ in the list is the outermost/rightmost and is matched first)."
           (loop while (is-before-eof reader region-end)
                 do (incf region-end)))
       (when (and boundary-rule (not boundary-found) (not fallback-eof))
-        (return-from consec-bounded nil)))
-    ;; separate parsers into prefixes and suffixes
-    (let ((prefixes)
-          (suffixes))
-      (loop for parser in parsers
-            do (if (and (consp parser) (keywordp (car parser)) (getf parser :suffix))
-                   (push parser suffixes)
-                   (push parser prefixes)))
-      (setf prefixes (nreverse prefixes))
-      ;; suffixes are now in reverse order (outermost/rightmost first).
-      (let* ((matches)
-             (match (make-match-simple (- start parent-begin)
-                                       0
-                                       ctx
-                                       (context-parent-match ctx)))
-             (child-ctx (context-copy ctx match))
-             (child-parent-begin (context-parent-begin child-ctx)))
-        (declare (type fixnum child-parent-begin))
-        ;; match prefixes left-to-right
-        (loop for parser in prefixes
-              do (let* ((is-optional (and (consp parser)
-                                          (keywordp (car parser))
-                                          (getf parser :optional)))
-                        (m (when (<= pos region-end)
-                             (apply-rule child-ctx parser reader pos))))
-                   (cond
-                     ((and m (<= (+ child-parent-begin (match-end m)) region-end))
-                      (setf pos (+ child-parent-begin (match-end m)))
-                      (push m matches))
-                     ((not is-optional)
-                      (return-from consec-bounded nil)))))
-        ;; match suffixes right-to-left from region end
-        (let ((right-bound region-end)
-              (suffix-matches))
-          (declare (type fixnum right-bound))
-          (loop for parser in suffixes
-                for first-char = (extract-literal-from-rule-cached parser)
-                do (let ((is-optional (and (consp parser)
-                                           (keywordp (car parser))
-                                           (getf parser :optional)))
-                         (found))
-                     (loop for try-pos from (1- right-bound) downto pos
-                           do (when (or (null first-char)
-                                        (let ((c (reader-char reader try-pos)))
-                                          (and c (char= c first-char))))
-                                (let ((m (apply-rule child-ctx parser reader try-pos)))
-                                  (when (and m
-                                             (= (+ child-parent-begin (match-end m))
-                                                right-bound))
-                                    (setf right-bound try-pos)
-                                    (push m suffix-matches)
-                                    (setf found t)
-                                    (return)))))
-                     (when (and (not found) (not is-optional))
-                       (return-from consec-bounded nil))))
-          ;; capture the rest (middle portion between last prefix and first suffix)
-          (when (and rest-id (<= pos right-bound))
-            (push (make-match :begin (- pos child-parent-begin)
-                              :end (- right-bound child-parent-begin)
-                              :ctx child-ctx
-                              :id rest-id
-                              :children nil)
-                  matches))
-          ;; combine prefix matches (reversed) with suffix matches (in text order)
-          (setf matches (nconc (nreverse matches) suffix-matches))
-          ;; finalize and return
-          (setf (match-end match) (- region-end parent-begin))
-          (setf (match-children match) matches)
-          (when matches
-            (match-set-children-parent match)))))))
+        (return-from prefix-middle-suffix nil)))
+    ;; reverse order of suffixes (outermost/rightmost first).
+    (let* ((suffixes (reverse suffix-rules))
+           (children)
+           (match (make-match-simple (- start parent-begin)
+                                     0
+                                     ctx
+                                     (context-parent-match ctx)))
+           (child-ctx (context-copy ctx match))
+           (child-parent-begin (context-parent-begin child-ctx)))
+      (declare (type fixnum child-parent-begin))
+      ;; match prefixes left-to-right
+      (loop for parser in prefix-rules
+            do (let ((is-optional (and (consp parser)
+                                       (keywordp (car parser))
+                                       (getf parser :optional)))
+                     (m (when (<= pos region-end)
+                          (apply-rule child-ctx parser reader pos))))
+                 (cond
+                   ((and m (<= (+ child-parent-begin (match-end m)) region-end))
+                    (setf pos (+ child-parent-begin (match-end m)))
+                    (push m children))
+                   ((not is-optional)
+                    (return-from prefix-middle-suffix nil)))))
+      ;; match suffixes right-to-left from region end
+      (let ((right-bound region-end)
+            (suffix-children))
+        (loop for parser in suffixes
+              for first-char = (extract-literal-from-rule-cached parser)
+              do (let ((is-optional (and (consp parser)
+                                         (keywordp (car parser))
+                                         (getf parser :optional)))
+                       (found))
+                   (loop for try-pos from (1- right-bound) downto pos
+                         do (when (or (null first-char)
+                                      (let ((c (reader-char reader try-pos)))
+                                        (and c (char= c first-char))))
+                              (let ((m (apply-rule child-ctx parser reader try-pos)))
+                                (when (and m
+                                           (= (+ child-parent-begin (match-end m))
+                                              right-bound))
+                                  (setf right-bound try-pos)
+                                  (push m suffix-children)
+                                  (setf found t)
+                                  (return)))))
+                   (when (and (not found) (not is-optional))
+                     (return-from prefix-middle-suffix nil))))
+        ;; capture the middle (between last prefix and first suffix)
+        (when (and middle-id (<= pos right-bound))
+          (let ((middle-match (make-match-simple
+                               (- pos child-parent-begin)
+                               (- right-bound child-parent-begin)
+                               child-ctx
+                               (context-parent-match child-ctx))))
+            (setf (match-id middle-match) middle-id)
+            (when (and middle-rules (< pos right-bound))
+              (let* ((middle-ctx (context-copy child-ctx middle-match))
+                     (middle-children
+                       (scan-all-rules middle-ctx reader middle-rules
+                                       pos right-bound)))
+                (setf (match-children middle-match) middle-children)
+                (when middle-children
+                  (match-set-children-parent middle-match))))
+            (push middle-match children)))
+        ;; collect suffix children (already in correct order)
+        (dolist (child suffix-children)
+          (push child children))
+        ;; finalize top-level match
+        (setf (match-end match) (- region-end parent-begin))
+        (setf (match-children match) (nreverse children))
+        (when (match-children match)
+          (match-set-children-parent match))))))
 
 (defun between-whitespace (ctx reader pos rule)
   "a combinator that uses when-match to match a RULE only if the match is surrounded by whitespace or the boundaries of the string."
