@@ -1140,7 +1140,7 @@ in the list is the outermost/rightmost and is matched first)."
                      (when (and (not found) (not is-optional))
                        (return-from consec-bounded nil))))
           ;; capture the rest (middle portion between last prefix and first suffix)
-          (when (and rest-id (< pos right-bound))
+          (when (and rest-id (<= pos right-bound))
             (push (make-match :begin (- pos child-parent-begin)
                               :end (- right-bound child-parent-begin)
                               :ctx child-ctx
