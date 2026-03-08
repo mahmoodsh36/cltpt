@@ -2,19 +2,23 @@
   (:use :cl :it.bese.fiveam)
   (:import-from
    :cltpt/tests/utils
-   :simplify-match
-   :compare-match-loosely
-   :compare-full-match-loosely
    :plist-to-match
-   :string=+diff)
+   :string=+diff
+   :match-tree-equal-p
+   :match-trees-equal-p
+   :match-tree-diff
+   :is-match-tree
+   :is-match-trees)
   (:export
    :run-cltpt-tests
    :cltpt-suite
-   :simplify-match
-   :compare-match-loosely
-   :compare-full-match-loosely
    :plist-to-match
-   :string=+diff))
+   :string=+diff
+   :match-tree-equal-p
+   :match-trees-equal-p
+   :match-tree-diff
+   :is-match-tree
+   :is-match-trees))
 
 (in-package :cltpt/tests)
 
