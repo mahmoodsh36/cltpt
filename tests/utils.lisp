@@ -1,47 +1,130 @@
 (defpackage :cltpt/tests/utils
   (:use :cl)
   (:export
-   :simplify-match
-   :compare-match-loosely
-   :compare-full-match-loosely
    :plist-to-match
    :string=+diff
    :org-rules
    :rules-from-symbols
-   :compare-tree-types))
+   :compare-tree-types
+   :match-tree-equal-p
+   :match-trees-equal-p
+   :match-tree-diff
+   :is-match-tree
+   :is-match-trees))
 
 (in-package :cltpt/tests/utils)
 
-(defun simplify-match (match)
-  "simplify a match to a plist with :begin and :end keys for comparison."
-  (let ((new-match))
-    (when (listp match)
-      (when (getf match :begin)
-        (setf (getf new-match :begin) (getf match :begin)))
-      (when (getf match :end)
-        (setf (getf new-match :end) (getf match :end)))
-      (let ((str (getf match :str))
-            (begin (getf match :begin))
-            (end (getf match :end)))
-        (when (and str begin end)
-          (setf (getf new-match :match) (subseq str begin end)))))
-    (when (typep match 'cltpt/combinator/match::match)
-      (setf (getf new-match :begin)
-            (cltpt/combinator:match-begin match))
-      (setf (getf new-match :end)
-            (cltpt/combinator:match-end match)))))
+(defun match-tree-equal-p (actual expected)
+  "recursively compare an actual match tree against an expected plist tree.
+EXPECTED format: ((:ID id :BEGIN begin :END end) child1 child2 ...)
+where each child has the same format.
+returns T if trees match, NIL otherwise."
+  (when (and (null actual) (null expected))
+    (return-from match-tree-equal-p t))
+  (when (or (null actual) (null expected))
+    (return-from match-tree-equal-p nil))
+  (let* ((expected-info (car expected))
+         (expected-children (cdr expected))
+         (expected-id (getf expected-info :id))
+         (expected-begin (getf expected-info :begin))
+         (expected-end (getf expected-info :end)))
+    (unless (and (eql (cltpt/combinator/match:match-begin actual) expected-begin)
+                 (eql (cltpt/combinator/match:match-end actual) expected-end)
+                 (or (null expected-id)
+                     (eql (cltpt/combinator/match:match-id actual) expected-id)))
+      (return-from match-tree-equal-p nil))
+    (unless (= (length (cltpt/combinator/match:match-children actual))
+               (length expected-children))
+      (return-from match-tree-equal-p nil))
+    (loop for actual-child in (cltpt/combinator/match:match-children actual)
+          for expected-child in expected-children
+          always (match-tree-equal-p actual-child expected-child))))
 
-(defun compare-match-loosely (match1 match2)
-  (let ((match11 (simplify-match match1))
-        (match22 (simplify-match match2)))
-    (equalp match11 match22)))
+(defun match-trees-equal-p (actual-list expected-list)
+  "compare a list of match trees against a list of expected plist trees.
+returns T if all trees match, NIL otherwise."
+  (and (= (length actual-list) (length expected-list))
+       (loop for actual in actual-list
+             for expected in expected-list
+             always (match-tree-equal-p actual expected))))
 
-(defun compare-full-match-loosely (match1 match2)
-  (cltpt/tree::trees-map
-   (list match1 match2)
-   (lambda (submatch1 submatch2)
-     (compare-match-loosely submatch1
-                            (car submatch2)))))
+(defun match-tree-diff (actual expected &optional (path "root"))
+  "return a string describing the first mismatch between actual match tree and expected plist tree, or NIL if they are equal."
+  (cond
+    ((and (null actual) (null expected))
+     nil)
+    ((or (null actual) (null expected))
+     (format nil
+             "at ~A: one side is nil~%  actual:   ~S~%  expected: ~S"
+             path
+             actual
+             expected))
+    (t
+     (let* ((expected-info (car expected))
+            (expected-children (cdr expected))
+            (expected-id (getf expected-info :id))
+            (expected-begin (getf expected-info :begin))
+            (expected-end (getf expected-info :end))
+            (actual-begin (cltpt/combinator/match:match-begin actual))
+            (actual-end (cltpt/combinator/match:match-end actual))
+            (actual-id (cltpt/combinator/match:match-id actual)))
+       (cond
+         ((not (and (eql actual-begin expected-begin)
+                    (eql actual-end expected-end)
+                    (or (null expected-id) (eql actual-id expected-id))))
+          (format nil
+                  "at ~A:~%  actual:   [~A:~A] id=~S~%  expected: [~A:~A] id=~S"
+                  path
+                  actual-begin
+                  actual-end
+                  actual-id
+                  expected-begin
+                  expected-end
+                  expected-id))
+         ((/= (length (cltpt/combinator/match:match-children actual))
+              (length expected-children))
+          (format nil
+                  "at ~A: child count differs~%  actual:   ~A children~%  expected: ~A children"
+                  path
+                  (length (cltpt/combinator/match:match-children actual))
+                  (length expected-children)))
+         (t
+          (loop for actual-child in (cltpt/combinator/match:match-children actual)
+                for expected-child in expected-children
+                for i from 0
+                thereis (match-tree-diff
+                         actual-child
+                         expected-child
+                         (format nil "~A[~A]" path i)))))))))
+
+(defmacro is-match-tree (actual expected)
+  "compare actual match tree against expected plist tree, reporting a helpful message on failure."
+  (let ((a (gensym "ACTUAL"))
+        (d (gensym "DIFF")))
+    `(let* ((,a ,actual)
+            (,d (match-tree-diff ,a ,expected)))
+       (if ,d
+           (it.bese.fiveam:fail "~A" ,d)
+           (it.bese.fiveam:pass)))))
+
+(defmacro is-match-trees (actual-list expected-list)
+  "compare list of match trees against list of expected plist trees."
+  (let ((al (gensym "ACTUAL-LIST"))
+        (el (gensym "EXPECTED-LIST")))
+    `(let ((,al ,actual-list)
+           (,el ,expected-list))
+       (if (/= (length ,al) (length ,el))
+           (it.bese.fiveam:fail "list length differs: actual ~A, expected ~A"
+                                (length ,al)
+                                (length ,el))
+           (loop for actual in ,al
+                 for expected in ,el
+                 for i from 0
+                 do (let ((diff (match-tree-diff actual expected (format nil "tree[~A]" i))))
+                      (when diff
+                        (it.bese.fiveam:fail "~A" diff)
+                        (return)))
+                 finally (it.bese.fiveam:pass))))))
 
 (defun plist-to-match (plist-tree)
   "convert a plist-based parse tree to match structs."
@@ -112,12 +195,16 @@ returns a list of error messages if types don't match, NIL if all match."
              ((and (null actual-node) (null expected-node))
               nil)
              ((null actual-node)
-              (push (format nil "~a: expected node of type ~a, but got nil"
-                            current-path (cltpt/tree:tree-value expected-node))
+              (push (format nil
+                            "~a: expected node of type ~a, but got nil"
+                            current-path
+                            (cltpt/tree:tree-value expected-node))
                     errors))
              ((null expected-node)
-              (push (format nil "~a: got unexpected node of type ~a"
-                            current-path (type-of actual-node))
+              (push (format nil
+                            "~a: got unexpected node of type ~a"
+                            current-path
+                            (type-of actual-node))
                     errors))
              (t
               (let ((actual-type (type-of actual-node))
@@ -127,19 +214,26 @@ returns a list of error messages if types don't match, NIL if all match."
                 (unless (if (symbolp expected-type)
                             (equal actual-type expected-type)
                             (string= (symbol-name actual-type) expected-type))
-                  (push (format nil "~a: expected type ~a, got ~a"
-                                current-path expected-type actual-type)
+                  (push (format nil
+                                "~a: expected type ~a, got ~a"
+                                current-path
+                                expected-type
+                                actual-type)
                         errors))
                 ;; if expected-children is :IGNORE, skip children comparison entirely
                 (unless (eq expected-children :ignore)
                   (unless (= (length actual-children) (length expected-children))
-                    (push (format nil "~a: expected ~d children, got ~d"
-                                  current-path (length expected-children) (length actual-children))
+                    (push (format nil
+                                  "~a: expected ~d children, got ~d"
+                                  current-path
+                                  (length expected-children)
+                                  (length actual-children))
                           errors))
                   (loop for actual-child in actual-children
                         for expected-child in expected-children
                         for i from 0
-                        do (compare-nodes actual-child expected-child
+                        do (compare-nodes actual-child
+                                          expected-child
                                           (format nil "~a[~d]" current-path i)))))))))
       (compare-nodes actual-tree expected-types-tree path))
     (nreverse errors)))
