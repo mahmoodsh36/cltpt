@@ -19,10 +19,6 @@
 
 (in-suite org-mode-suite)
 
-(defun make-dummy-context ()
-  (let ((rules (org-rules)))
-    (cltpt/combinator::make-context :rules rules :parent-match* nil)))
-
 (defun org-table-parse (table-text)
   "parse an org-mode table and return a list of rows, each row being a list of cell values."
   (let* ((reader (cltpt/reader:reader-from-string table-text))
@@ -126,7 +122,7 @@
 ;; comprehensive header test - more extensive with scheduling/closing
 (defun org-header-comprehensive-test-func ()
   (let ((result (cltpt/combinator:scan-all-rules
-                 (make-dummy-context)
+                 nil
                  "* TODO my main header :test:here:noexport:
 SCHEDULED: <2024-10-29 Tue 16:41:04>
 CLOSED: [2024-10-29 Tue 16:41:03]
