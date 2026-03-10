@@ -8,6 +8,7 @@
    :roamer-from-files
    :node
    :node-file
+   :node-text-obj
    :roamer-nodes)
   (:import-from
    :cltpt/base
@@ -23,12 +24,16 @@
    :*org-mode*)
   (:import-from :cltpt/latex
    :*latex*)
+  (:import-from
+   :cltpt/file-utils
+   :read-file :write-file)
   (:export
    :tree-map :tree-show
 
    :roamer-from-files
    :node
    :node-file
+   :node-text-obj
    :roamer-nodes
 
    :parse :parse-file :text-object
@@ -42,6 +47,8 @@
 
    :*org-mode*
 
-   :*latex*))
+   :*latex*
+
+   :read-file :write-file))
 
 (in-package :cltpt)
