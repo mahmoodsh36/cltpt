@@ -38,6 +38,7 @@
           (sb-ext:save-lisp-and-die "${name}"
            :executable t
            :purify t
+           :save-runtime-options t
            #+sb-core-compression :compression
            #+sb-core-compression t
           :toplevel (lambda () (cltpt/commandline:commandline-main (uiop:command-line-arguments)))

@@ -4,6 +4,23 @@
 
 (in-package :cltpt/commandline)
 
+;; by default only --help works, we add -h
+(setf clingon.command:*DEFAULT-OPTIONS*
+      (list
+       (clingon:make-option
+        :flag
+        :description "display usage information and exit"
+        :short-name #\h
+        :long-name "help"
+        :key :help)
+       clingon.command:*default-version-flag*
+       clingon.command:*default-bash-completions-flag*))
+
+(defun handle-help (cmd)
+  (when (clingon:getopt cmd :help)
+    (clingon:print-usage cmd t)
+    t))
+
 (defun top-level-command ()
   (clingon:make-command
    :name "cltpt"
@@ -19,26 +36,17 @@
    :options (cli-options)))
 
 (defun cli-options ()
-  (list
-   (clingon:make-option
-    :flag
-    :description "help."
-    :short-name #\h
-    ;; :long-name "help"
-    :key :help)))
+  nil)
 
 (defun top-level-handler (cmd)
-  (let* (;; (args (clingon:command-arguments cmd))
-         ;; (app (clingon:command-parent cmd))
-         (to-help (clingon:getopt cmd :help)))
-    (cond
-      (to-help (clingon:print-usage cmd t))
-      )))
+  (handle-help cmd))
 
 ;; the current way we do this is problematic because some files might get converted
 ;; multiple times if they return many nodes (headers etc)
 (defun convert-handler (cmd)
   "the handler for the `convert' command"
+  (when (handle-help cmd)
+    (return-from convert-handler))
   (let* ((args (clingon:command-arguments cmd))
          (dest-dir (clingon:getopt cmd :dest-dir))
          (files (clingon:getopt cmd :files))
@@ -113,6 +121,8 @@
 
 (defun roam-handler (cmd)
   "the handler for the `roam' command"
+  (when (handle-help cmd)
+    (return-from roam-handler))
   (let* ((args (clingon:command-arguments cmd))
          (files (clingon:getopt cmd :files))
          (file-rules (clingon:getopt cmd :rules))
@@ -232,6 +242,8 @@
 
 (defun agenda-handler (cmd)
   "the handler for the agenda command"
+  (when (handle-help cmd)
+    (return-from agenda-handler))
   (let* ((args (clingon:command-arguments cmd))
          (files (clingon:getopt cmd :files))
          (file-rules (clingon:getopt cmd :rules))
@@ -331,6 +343,8 @@
     :key :theme-dir)))
 
 (defun publish-handler (cmd)
+  (when (handle-help cmd)
+    (return-from publish-handler))
   (let* ((files         (clingon:getopt cmd :files))
          (file-rules    (mapcar #'read-from-string (clingon:getopt cmd :rules)))
          (dest-dir      (clingon:getopt cmd :dest-dir))
