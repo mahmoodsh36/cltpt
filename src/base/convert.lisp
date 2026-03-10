@@ -4,7 +4,6 @@
   t
   "whether to escape newlines on conversion. see `text-format-escape'.")
 
-
 (defun replace-chars (s replace-table)
   "return a new string where every character in S that is a key in REPLACE-TABLE is
 replaced by its associated string."

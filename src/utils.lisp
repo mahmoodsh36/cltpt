@@ -16,7 +16,7 @@
                       predicate)
   (let* ((src-format (or src-format (cltpt/base:text-format-by-name src-format-name)))
          (dest-format (or dest-format (cltpt/base:text-format-by-name dest-format-name)))
-         (roamer (or roamer (cltpt/roam:from-files (or files rules)))))
+         (roamer (or roamer (cltpt/roam:roamer-from-files (or files rules)))))
     (when (and roamer filepath-format dest-format)
       (cltpt/roam:convert-all
        roamer

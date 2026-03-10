@@ -43,7 +43,7 @@
 <body>
   #(getf cl-user::*my-metadata* :other-preamble-contents)
 ")
-         (rmr (cltpt/roam:from-files
+         (rmr (cltpt/roam:roamer-from-files
                '((:path ("/home/mahmooz/notes/")
                   :regex ".*\\.org"
                   :format "org-mode")))))

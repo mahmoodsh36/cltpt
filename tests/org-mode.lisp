@@ -1476,7 +1476,7 @@ plt.close()
 
 (defun test-agenda-rendering-func ()
   "parse test.org, build an agenda, and render it for a fixed date range."
-  (let* ((rmr (cltpt/roam:from-files
+  (let* ((rmr (cltpt/roam:roamer-from-files
                '((:path ("./tests/test.org")
                   :format "org-mode"))))
          (agenda (cltpt/agenda:from-roamer rmr))
@@ -1495,7 +1495,7 @@ plt.close()
 
 (test test-agenda-options
   "test first-repeat-only and include-done together."
-  (let* ((rmr (cltpt/roam:from-files
+  (let* ((rmr (cltpt/roam:roamer-from-files
                '((:path ("./tests/test.org")
                   :format "org-mode"))))
          (agenda (cltpt/agenda:from-roamer rmr))

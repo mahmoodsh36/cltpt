@@ -92,7 +92,7 @@
            (when template-file
              (uiop:native-namestring (uiop:truename* template-file))))
          (cltpt/html:*html-static-route* html-static-route)
-         (rmr (cltpt/roam:from-files files))
+         (rmr (cltpt/roam:roamer-from-files files))
          (files-to-convert
            (if include-files
                (loop for include-file in include-files
