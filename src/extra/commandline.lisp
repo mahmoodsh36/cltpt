@@ -79,8 +79,8 @@
    (clingon:make-option
     :list
     :description "the files to act on."
-    :short-name #\f
-    :long-name "file"
+    :short-name #\i
+    :long-name "input"
     :key :files)
    (clingon:make-option
     :list
@@ -277,8 +277,8 @@
    (clingon:make-option
     :list
     :description "org files to publish (repeatable)."
-    :short-name #\f
-    :long-name "file"
+    :short-name #\i
+    :long-name "input"
     :key :files)
    (clingon:make-option
     :list
@@ -296,7 +296,7 @@
    (clingon:make-option
     :list
     :description "files to include (repeatable)."
-    :short-name #\i
+    :short-name #\n
     :long-name "include"
     :key :include-files)
    (clingon:make-option
