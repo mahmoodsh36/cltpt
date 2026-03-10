@@ -670,16 +670,22 @@ CLOSED: [2024-10-29 Tue 16:41:03]
   (let ((result (cltpt/combinator:parse
                  "https://example.com/page"
                  (list cltpt/org-mode::web-link))))
-    result
-    ))
+    result))
 
 (test org-web-link-basic
   (is-match-tree
    (car (org-web-link-basic-func))
-   '((:BEGIN 0 :END 24 :ID CLTPT/ORG-MODE::WEB-LINK)
-     ((:BEGIN 0 :END 8)
-      ((:BEGIN 0 :END 8)))
-     ((:BEGIN 8 :END 24)))))
+   '((:BEGIN 0 :END 24 :ID CLTPT/ORG-MODE::WEB-LINK))))
+
+(defun org-web-link-trailing-punctuation-func ()
+  (cltpt/combinator:parse
+   "check this https://google.com., okay?"
+   (list cltpt/org-mode::web-link)))
+
+(test org-web-link-trailing-punctuation
+  (is-match-tree
+   (car (org-web-link-trailing-punctuation-func))
+   '((:BEGIN 11 :END 29 :ID CLTPT/ORG-MODE::WEB-LINK))))
 
 (defun org-inline-code-basic-func ()
   (let ((result (cltpt/combinator:parse

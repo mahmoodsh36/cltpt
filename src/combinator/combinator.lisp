@@ -18,6 +18,7 @@
    :between-whitespace :when-match-after :flanked-by-whitespace :flanked-by-whitespace-or-punctuation
    :context-parent-begin :context-parent-match :context-copy
    :apply-rule
+   :web-link-matcher
 
    :match-id :match-begin :match-end :match-ctx :match-children
    :match-begin-absolute :match-end-absolute
@@ -302,6 +303,39 @@ to replace and new-rule is the rule to replace it with."
                   (char= c #\*)
                   (char= c #\$))))
     1))
+
+(defun web-link-matcher (ctx reader pos)
+  "match a generic url, excluding trailing punctuation."
+  (declare (ignore ctx)
+           (type fixnum pos))
+  (let ((start pos)
+        (matched-protocol))
+    (loop for proto in '("https://" "http://")
+          do (let ((plen (length proto)))
+               (when (and (is-le-eof reader (+ pos plen))
+                          (reader-string-equal
+                           reader proto
+                           :start1 pos
+                           :end1 (+ pos plen)
+                           :end2 plen))
+                 (setf pos (+ pos plen))
+                 (setf matched-protocol t)
+                 (return))))
+    (unless matched-protocol
+      (return-from web-link-matcher nil))
+    (let ((base-pos pos))
+      (loop while (is-before-eof reader pos)
+            for c = (reader-char reader pos)
+            while (not (whitespace-p c))
+            do (incf pos))
+      ;; backtrack trailing punctuation
+      (loop while (> pos base-pos)
+            for c = (reader-char reader (1- pos))
+            while (or (char= c #\.) (char= c #\,) (char= c #\;) (char= c #\:)
+                      (char= c #\!) (char= c #\?))
+            do (decf pos))
+      (when (> pos start)
+        (- pos start)))))
 
 (defun symbol-matcher (ctx reader pos)
   "matches a 'symbol', which may include some special characters."

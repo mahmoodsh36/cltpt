@@ -876,12 +876,7 @@ used for all region-decf calculations to get positions relative to the text-obje
 
 ;; we're not being clever about it
 (cltpt/base:define-text-object web-link
-  :rule `(:pattern
-          (cltpt/combinator:consec
-           (cltpt/combinator:any
-            "https://"
-            "http://")
-           (cltpt/combinator:all-but-whitespace))
+  :rule '(:pattern (cltpt/combinator:web-link-matcher)
           :on-char #\h)
   :documentation "a web link.")
 
