@@ -1,7 +1,7 @@
 (defpackage :cltpt/roam
   (:use :cl)
   (:export
-   :from-files :roamer-rescan :roamer-nodes
+   :roamer-from-files :roamer-rescan :roamer-nodes
    :node-id :node-title :node-desc :node-file :node-text-obj :node-file-rule
    :roamer-node-id-hashtable :get-node-by-id :convert-all
    :node-format :node-info-format-str :make-node :text-object-roam-data
@@ -54,7 +54,7 @@ form:
     :accessor roamer-node-id-hashtable
     :documentation "map a node to its id.")))
 
-(defun from-files (files)
+(defun roamer-from-files (files)
   "see documentation of `find-files' for FILES. takes a set of rules, returns a
 `roamer' object."
   (let ((rmr (make-roamer :files files)))

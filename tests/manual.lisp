@@ -32,7 +32,7 @@
        nil))))
 
 (defun test-agenda-2 ()
-  (let* ((rmr (cltpt/roam:from-files
+  (let* ((rmr (cltpt/roam:roamer-from-files
                '((:path ("/home/mahmooz/brain/notes/"
                          "/home/mahmooz/brain/daily/"
                          )
@@ -45,7 +45,7 @@
     ))
 
 (defun test-agenda-3 ()
-  (let* ((rmr (cltpt/roam:from-files
+  (let* ((rmr (cltpt/roam:roamer-from-files
                '((:path ("./tests/macros.org")
                   :glob "*.org"
                   :format "org-mode"))))
@@ -58,7 +58,7 @@
 
 (defun roam-test-1 ()
   (time
-   (let* ((rmr (cltpt/roam:from-files
+   (let* ((rmr (cltpt/roam:roamer-from-files
                 '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
                    :glob "*.org"
                    :format "org-mode")))))
@@ -72,7 +72,7 @@
                (cltpt/roam:roamer-nodes rmr)))))))
 
 (defun agenda-test-1 ()
-  (let* ((rmr (cltpt/roam:from-files
+  (let* ((rmr (cltpt/roam:roamer-from-files
                '((:path ("/home/mahmooz/brain/daily/")
                   :glob "*.org"
                   :format "org-mode"))))
@@ -96,7 +96,7 @@
 
 (defun roam-convert-test-1 ()
   (time
-   (let* ((rmr (cltpt/roam:from-files
+   (let* ((rmr (cltpt/roam:roamer-from-files
                 '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
                    :glob "*.org"
                    :format "org-mode")))))
@@ -104,7 +104,7 @@
 
 (defun roam-convert-test-2 ()
   (time
-   (let* ((rmr (cltpt/roam:from-files
+   (let* ((rmr (cltpt/roam:roamer-from-files
                 '((:path ("./tests/macros.org")
                    :glob "*.org"
                    :format "org-mode")))))

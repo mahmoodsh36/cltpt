@@ -120,7 +120,7 @@
          (roamer (if file-rules
                      (roamer-from-file-rules file-rules)
                      (when files
-                       (cltpt/roam:from-files files)))))
+                       (cltpt/roam:roamer-from-files files)))))
     (when roamer
       (let ((nodes (cltpt/roam:roamer-nodes roamer)))
         (loop for node in nodes
@@ -156,7 +156,7 @@
     :key :output-format)))
 
 (defun roamer-from-file-rules (file-rules)
-  (cltpt/roam:from-files
+  (cltpt/roam:roamer-from-files
    (mapcar
     (lambda (r)
       (read-from-string r))
@@ -244,7 +244,7 @@
          (roamer (if file-rules
                      (roamer-from-file-rules file-rules)
                      (when files
-                       (cltpt/roam:from-files files)))))
+                       (cltpt/roam:roamer-from-files files)))))
     (when roamer
       (let ((agenda (cltpt/agenda:from-roamer roamer))
             (begin-ts (when begin-ts-str
@@ -270,7 +270,7 @@
     :key :files)
    (clingon:make-option
     :list
-    :description "file rules passed to cltpt/roam:from-files (repeatable)."
+    :description "file rules passed to cltpt/roam:roamer-from-files (repeatable)."
     :short-name #\r
     :long-name "rule"
     :key :rules)
