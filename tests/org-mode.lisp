@@ -686,7 +686,6 @@ CLOSED: [2024-10-29 Tue 16:41:03]
   (is-match-tree
    (car (org-web-link-trailing-punctuation-func))
    '((:BEGIN 11 :END 29 :ID CLTPT/ORG-MODE::WEB-LINK))))
-
 (defun org-inline-code-basic-func ()
   (let ((result (cltpt/combinator:parse
                  "~code here~"
@@ -699,6 +698,55 @@ CLOSED: [2024-10-29 Tue 16:41:03]
    '((:BEGIN 0 :END 11 :ID CLTPT/ORG-MODE::ORG-INLINE-CODE)
      ((:BEGIN 0 :END 1))
      ((:BEGIN 10 :END 11)))))
+(defun org-emph-basic-func ()
+  (let ((result (cltpt/combinator:parse
+                 "*bold text*"
+                 (list cltpt/org-mode::org-emph))))
+    result))
+
+(test org-emph-basic
+  (is-match-tree
+   (car (org-emph-basic-func))
+   '((:BEGIN 0 :END 11 :ID CLTPT/ORG-MODE::ORG-EMPH)
+     ((:BEGIN 0 :END 1))
+     ((:BEGIN 10 :END 11)))))
+
+(defun org-underline-basic-func ()
+  (let ((result (cltpt/combinator:parse
+                 "_under lined_"
+                 (list cltpt/org-mode::org-underline))))
+    result))
+
+(test org-underline-basic
+  (is-match-tree
+   (car (org-underline-basic-func))
+   '((:BEGIN 0 :END 13 :ID CLTPT/ORG-MODE::ORG-UNDERLINE)
+     ((:BEGIN 0 :END 1))
+     ((:BEGIN 12 :END 13)))))
+
+(defun org-strike-through-basic-func ()
+  (let ((result (cltpt/combinator:parse
+                 "+struck+"
+                 (list cltpt/org-mode::org-strike-through))))
+    result))
+
+(test org-strike-through-basic
+  (is-match-tree
+   (car (org-strike-through-basic-func))
+   '((:BEGIN 0 :END 8 :ID CLTPT/ORG-MODE::ORG-STRIKE-THROUGH)
+     ((:BEGIN 0 :END 1))
+     ((:BEGIN 7 :END 8)))))
+
+(defun org-empty-pairs-func ()
+  (cltpt/combinator:parse
+   "empty ** and // and __ and ++"
+   (list cltpt/org-mode::org-emph
+         cltpt/org-mode::org-italic
+         cltpt/org-mode::org-underline
+         cltpt/org-mode::org-strike-through)))
+
+(test org-empty-pairs
+  (is (null (org-empty-pairs-func))))
 
 (defun org-keywords-basic-func ()
   (let ((result (cltpt/combinator:parse
@@ -1362,7 +1410,9 @@ plt.close()
      (cltpt/org-mode::org-header
       (cltpt/org-mode::org-emph)
       (cltpt/org-mode::org-italic)
-      (cltpt/org-mode::org-inline-code))
+      (cltpt/org-mode::org-underline)
+      (cltpt/org-mode::org-inline-code)
+      (cltpt/org-mode::org-strike-through))
      ;; links and images section
      (cltpt/org-mode::org-header
       (cltpt/org-mode::org-list

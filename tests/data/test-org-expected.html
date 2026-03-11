@@ -39,7 +39,7 @@ comment here
 <br>
 this is a comment 2
 <br>
-\#+end_comment
+#+end_comment
 <br>
 some *text*
 <br>
@@ -77,47 +77,31 @@ wow</div></div>
 <br>
 
 <br>
-escaped macro here: \#(format nil &quot;test~A&quot; 1)
+escaped macro here: #(format nil &quot;test~A&quot; 1)
 <br>
-#(cltpt/base::make-block :type &apos;definition)
+<definition>
 <br>
 my first block
 <br>
-#(cltpt/base::block-end)
+</definition>
 <br>
-#(cltpt/base::make-block :type &apos;theorem :let &apos;((a &quot;some text&quot;)))
+<theorem>
 <br>
   my first block
 <br>
-  %a
+  some text  <subtheorem>
 <br>
-  #(cltpt/base::make-block :type &apos;subtheorem
-<br>
-               :let* &apos;((b &quot; that will be included on export&quot;)))
-<br>
-    %(concatenate &apos;string a b)
-<br>
-  #(cltpt/base::block-end)
-<br>
-#(cltpt/base::block-end)
+    some text that will be included on export  </subtheorem></theorem>
 <br>
 
 <br>
-add 1 to get %(+ (cltpt/base::prev-obj-eval) 1), add 10 to get %(+ (cltpt/base::prev-obj-eval) 10)
+add 1 to get BROKEN, add 10 to get BROKEN
 <br>
-#(cltpt/base::blk :type &apos;theorem
+<theorem>
 <br>
-        :let &apos;((prev-num (prev))
+then add the first number from the next list to get BROKENmultiply that by 5 to get BROKEN. anything is possible! this is only a simple example
 <br>
-               (next-num (parse-integer (car (text-list-items (next &apos;text-list)))))
-<br>
-               (new-num (+ prev-num next-num))))
-<br>
-then add the first number from the next list to get %new-num
-<br>
-multiply that by 5 to get %(* new-num 5). anything is possible! this is only a simple example
-<br>
-#(cltpt/base::/blk)
+</theorem>
 <br>
 <ul>
 <li> 45 <a href='mylink'>mylink</a></li>
@@ -161,15 +145,15 @@ i personally plan on reducing my usage of org-mode syntax elements and use the &
 <br>
 syntax above because it is a much more powerful alternative.
 <br>
-#(cltpt/base::b :type &apos;definition :name &quot;block1&quot; :let &apos;((myvar1 &quot;)my(-(test)&quot;)))
+<definition>
 <br>
-output: %(concatenate &apos;string &quot;value: [<a href='" myvar1 "'>" myvar1 "</a>]&quot;).
+output: value: [[[)my(-(test)]]].
 <br>
-#(cltpt/base::/b)
+</definition>
 <br>
 to transclude some block (possibly from another file ofcourse):
 <br>
-#(transclude :name &quot;block1&quot; :rebind &apos;((myvar1 &quot;somevaluehere&quot;)))
+BROKEN
 <br>
 here is <b>some important text</b>, but also more <b>important text</b>.
 <br>

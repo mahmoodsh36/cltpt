@@ -370,11 +370,11 @@ SPEC is a plist with keys:
 
 (define-text-object text-macro
   :rule '(:pattern
-          (cltpt/combinator:unescaped
-           (cltpt/combinator:consec
-            (cltpt/combinator:literal "#")
-            (:pattern (cltpt/combinator:lisp-sexp)
-             :id lisp-code)))
+          (cltpt/combinator:consec
+           (cltpt/combinator:unescaped
+            (cltpt/combinator:literal "#"))
+           (:pattern (cltpt/combinator:lisp-sexp)
+            :id lisp-code))
           :on-char #\#))
 
 (define-text-object post-lexer-text-macro
