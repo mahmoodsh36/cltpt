@@ -543,11 +543,12 @@ the consecutive matches up to that point."
   (simple-wrapper ctx reader pos '(atleast-one-discard (digit-p))))
 
 (defun pair (ctx reader pos opening-rule closing-rule
-             &optional rules-for-content pair-id (allow-multiline t))
+             &optional rules-for-content pair-id (allow-multiline t) (allow-empty t))
   "matches an opening-rule, then content parsed by rules-for-content, then a closing-rule.
 handles nesting of the same pair structure.
 if ALLOW-MULTILINE is NIL, the match will fail if a newline is encountered
-before the final closing rule is found."
+before the final closing rule is found.
+if ALLOW-EMPTY is NIL, the match will fail if the pair surrounds no content."
   (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
@@ -625,16 +626,20 @@ before the final closing rule is found."
                                            (+ child-parent-begin (match-end potential-open))))
                                    (incf current-search-pos)))))))))
         (when (and final-closing-match (= nesting-level 0))
-          (let ((overall-end-pos (+ child-parent-begin
-                                    (match-end final-closing-match))))
-            (setf (match-end parent-match) (- overall-end-pos parent-begin))
-            (setf (match-children parent-match)
-                  (append (list opening-match)
-                          (nreverse content-matches)
-                          (list final-closing-match)))
-            (when pair-id
-              (setf (match-id parent-match) pair-id))
-            (match-set-children-parent parent-match)))))))
+          (let ((opening-end (match-end opening-match))
+                (closing-start (match-begin final-closing-match)))
+            (when (and (not allow-empty) (= opening-end closing-start))
+              (return-from pair nil))
+            (let ((overall-end-pos (+ child-parent-begin
+                                      (match-end final-closing-match))))
+              (setf (match-end parent-match) (- overall-end-pos parent-begin))
+              (setf (match-children parent-match)
+                    (append (list opening-match)
+                            (nreverse content-matches)
+                            (list final-closing-match)))
+              (when pair-id
+                (setf (match-id parent-match) pair-id))
+              (match-set-children-parent parent-match))))))))
 
 (defun compile-rule-string-helper (spec bindings)
   (let ((result)
@@ -1211,8 +1216,8 @@ succeeded by whitespace or a string boundary. the flanking whitespace is not con
             match))))))
 
 (defun flanked-by-whitespace-or-punctuation (ctx reader pos rule)
-  "a combinator that matches a RULE only if it is either preceded OR
-succeeded by whitespace, punctuation, or a string boundary. the flanking characters are not consumed."
+  "a combinator that matches a RULE only if it is either preceded OR succeeded by whitespace,
+punctuation, or a string boundary. the flanking characters are not consumed."
   (declare (type fixnum pos))
   (let ((match (apply-rule ctx rule reader pos)))
     (when match

@@ -42,6 +42,8 @@
            cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
            org-italic
            org-emph
+           org-underline
+           org-strike-through
            org-inline-code
            org-comment
            web-link)
@@ -60,7 +62,7 @@
 
 (defun org-mode-inline-text-object-types ()
   (intersection
-   '(org-link web-link org-inline-code org-emph org-italic
+   '(org-link web-link org-inline-code org-emph org-italic org-underline org-strike-through
      cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env)
    (org-mode-text-object-types)))
 
@@ -1239,11 +1241,12 @@ used for all region-decf calculations to get positions relative to the text-obje
         :recurse t))
 
 (cltpt/base:define-text-object org-emph
-  :rule `(:pattern
+  :rule '(:pattern
           (cltpt/combinator:flanked-by-whitespace-or-punctuation
            (cltpt/combinator:pair
             (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
             (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
+            nil
             nil
             nil
             nil))
@@ -1282,6 +1285,7 @@ used for all region-decf calculations to get positions relative to the text-obje
             (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
             nil
             nil
+            nil
             nil))
           :on-char #\/)
   :documentation "org-mode italicized text (surrounded by forward slahes).")
@@ -1300,6 +1304,58 @@ used for all region-decf calculations to get positions relative to the text-obje
      (cltpt/base:rewrap-within-tags obj "\\textit{" "}"))
     ((eq backend cltpt/html:*html*)
      (cltpt/base:rewrap-within-tags obj "<i>" "</i>"))))
+
+(cltpt/base:define-text-object org-underline
+  :rule '(:pattern
+          (cltpt/combinator:flanked-by-whitespace-or-punctuation
+           (cltpt/combinator:pair
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "_"))
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "_"))
+            nil
+            nil
+            nil
+            nil))
+          :on-char #\_)
+  :documentation "org-mode underlined text (surrounded by underscores).")
+
+(defmethod cltpt/base:text-object-init :after ((obj org-underline) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline) t))
+
+(defmethod cltpt/base:text-object-finalize ((obj org-underline))
+  (compress-contents-region-by-one obj))
+
+(defmethod cltpt/base:text-object-convert ((obj org-underline) (backend cltpt/base:text-format))
+  (cond
+    ((eq backend cltpt/latex:*latex*)
+     (cltpt/base:rewrap-within-tags obj "\\underline{" "}"))
+    ((eq backend cltpt/html:*html*)
+     (cltpt/base:rewrap-within-tags obj "<u>" "</u>"))))
+
+(cltpt/base:define-text-object org-strike-through
+  :rule '(:pattern
+          (cltpt/combinator:flanked-by-whitespace-or-punctuation
+           (cltpt/combinator:pair
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "+"))
+            (cltpt/combinator:unescaped (cltpt/combinator:literal "+"))
+            nil
+            nil
+            nil
+            nil))
+          :on-char #\+)
+  :documentation "org-mode strike-through text (surrounded by plus signs).")
+
+(defmethod cltpt/base:text-object-init :after ((obj org-strike-through) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline) t))
+
+(defmethod cltpt/base:text-object-finalize ((obj org-strike-through))
+  (compress-contents-region-by-one obj))
+
+(defmethod cltpt/base:text-object-convert ((obj org-strike-through) (backend cltpt/base:text-format))
+  (cond
+    ((eq backend cltpt/latex:*latex*)
+     (cltpt/base:rewrap-within-tags obj "\\sout{" "}"))
+    ((eq backend cltpt/html:*html*)
+     (cltpt/base:rewrap-within-tags obj "<s>" "</s>"))))
 
 ;; we dont want a keyword to be matched as a value, e.g. ":keyword1 :keyword2".
 ;; so we discard any match starting with ":".

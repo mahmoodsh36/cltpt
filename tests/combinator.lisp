@@ -531,6 +531,33 @@ print(\"hello\")
               ((:id tag-name :begin 1 :end 5))))))
     (is-match-trees result expected-tree)))
 
+(defun test-text-macro-1-func ()
+  (let* ((rules (rules-from-symbols '(cltpt/base::text-macro)))
+         (input-string "\\#(format t \"hello)(\\\" there\") "))
+    (cltpt/combinator::parse input-string rules)))
+
+(test test-text-macro-1
+  (multiple-value-bind (result escapes) (test-text-macro-1-func)
+    (fiveam:is (null result))
+    (fiveam:is (= 1 (length escapes)))
+    (let ((escape (car escapes)))
+      (fiveam:is (eq (cltpt/combinator:match-id escape) 'cltpt/combinator::escape))
+      (fiveam:is (= 0 (cltpt/combinator:match-begin-absolute escape)))
+      (fiveam:is (= 2 (cltpt/combinator:match-end-absolute escape))))))
+
+(defun test-text-macro-2-func ()
+  (let* ((rules (rules-from-symbols '(cltpt/base::text-macro)))
+         (input-string "#(format t \"hello)(\\\" there\") "))
+    (cltpt/combinator::parse input-string rules)))
+
+(test test-text-macro-2
+  (let* ((result (test-text-macro-2-func))
+         (expected-tree
+           '(((:ID CLTPT/BASE:TEXT-MACRO :BEGIN 0 :END 29)
+              ((:BEGIN 0 :END 1))
+              ((:ID CLTPT/BASE::LISP-CODE :BEGIN 1 :END 29))))))
+    (is-match-trees result expected-tree)))
+
 (defun run-combinator-tests ()
   (format t "~&running combinator tests...~%")
   (let ((results (run! 'combinator-suite)))

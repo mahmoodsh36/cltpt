@@ -234,7 +234,10 @@
           ((:BEGIN 153 :END 166 :ID CLTPT/LATEX::CLOSE-TAG)
            ((:BEGIN 0 :END 5))
            ((:BEGIN 5 :END 12))
-           ((:BEGIN 12 :END 13))))))))))
+           ((:BEGIN 12 :END 13))))
+         ((:BEGIN 290 :END 294 :ID CLTPT/ORG-MODE::ORG-STRIKE-THROUGH)
+          ((:BEGIN 0 :END 1))
+          ((:BEGIN 3 :END 4)))))))))
 
 (test list-nested-roundtrip
   "list-match-to-list and list-to-list-string round-trip correctly."
