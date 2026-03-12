@@ -17,7 +17,8 @@
    :text-object-text :text-object-property
    :text-object-begin :text-object-end
    :text-object-begin-in-root :text-object-end-in-root
-   :text-object-convert)
+   :text-object-convert
+   :convert-simple-format)
   (:import-from :cltpt/html
    :*html*)
   (:import-from :cltpt/org-mode
@@ -26,7 +27,8 @@
    :*latex*)
   (:import-from
    :cltpt/file-utils
-   :read-file :write-file)
+   :read-file :write-file
+   :join-paths)
   (:export
    :tree-map :tree-show
 
@@ -42,6 +44,7 @@
    :text-object-begin :text-object-end
    :text-object-begin-in-root :text-object-end-in-root
    :text-object-convert
+   :convert-simple-format
 
    :*html*
 
@@ -49,6 +52,7 @@
 
    :*latex*
 
-   :read-file :write-file))
+   :read-file :write-file
+   :join-paths))
 
 (in-package :cltpt)

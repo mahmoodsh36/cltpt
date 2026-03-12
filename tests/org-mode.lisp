@@ -1003,7 +1003,6 @@ print('hello')
             ((:BEGIN 0 :END 2))
             ((:BEGIN 2 :END 5))))))))))))
 
-
 (defun org-src-block-comprehensive-with-file-results-func ()
   (let ((result (cltpt/combinator::parse
                  "
@@ -1178,7 +1177,6 @@ print('hello')
          ((:BEGIN 0 :END 13)
           ((:BEGIN 0 :END 2))
           ((:BEGIN 2 :END 13))))))))))
-
 
 (defun org-latex-env-basic-func ()
   (let ((result (cltpt/combinator:parse
