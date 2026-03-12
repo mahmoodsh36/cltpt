@@ -7,7 +7,8 @@
    :get-table-width :get-table-height :reformat-table :list-to-table-string :list-to-list-string
    :table-match-to-list :list-match-to-list
    :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
-   :org-latex-env :org-keyword :org-prop-drawer :org-drawer :org-export-block))
+   :org-latex-env :org-keyword :org-prop-drawer :org-drawer :org-export-block
+   :org-underline :org-strike-through))
 
 (in-package :cltpt/org-mode)
 
