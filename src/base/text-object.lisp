@@ -377,6 +377,9 @@ SPEC is a plist with keys:
             :id lisp-code))
           :on-char #\#))
 
+(defmethod cltpt/base:text-object-init :after ((obj text-macro) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline) t))
+
 (define-text-object post-lexer-text-macro
   :rule '(:pattern
           (cltpt/combinator:consec
@@ -384,6 +387,9 @@ SPEC is a plist with keys:
            (:pattern (cltpt/combinator:lisp-sexp)
             :id lisp-code))
           :on-char #\%))
+
+(defmethod cltpt/base:text-object-init :after ((obj post-lexer-text-macro) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline) t))
 
 (defvar *cache-post-lexer-macro-evals* nil)
 (defun eval-post-lexer-macro (obj &optional force)

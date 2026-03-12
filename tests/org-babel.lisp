@@ -71,7 +71,8 @@ tree = blk0_tree()
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='python' data-pattern='(cltpt/combinator:separated-atleast-one ,(string #\\newline) (cltpt/combinator:all-but-newline)))' data-input-rule='%'(:name blk0-tree' data-input-handler='blk0 word-handler' data-input-type='blk0 stream' data-input='blk0' data-input-handler='blk1 org-link image-handler' data-input-type='blk1 object' data-input='blk1'><pre><code>print(blk1)
 for word in %&apos;blk0-tree-handler:
-    print(word)</code></pre></div></div>  </div>
+    print(word)</code></pre></div></div>
+  </div>
 </body>
 </html>"
                           ))
