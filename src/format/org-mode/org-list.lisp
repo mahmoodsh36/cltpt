@@ -305,39 +305,42 @@
     (nreverse result-list)))
 
 (defun list-to-list-string (lst &optional (indent-level 0))
-  "converts nested list structure to an org-list string. returns the list string without a trailing newline."
+  "converts nested list structure to an org-list string."
   (with-output-to-string (s)
-    ;; loop used to handle separators between items correctly
-    (loop for (item . rest) on lst
-          do (let ((bullet (getf item :bullet))
-                   (content (getf item :content))
-                   (children (getf item :children))
-                   (indent-str (make-string indent-level :initial-element #\space)))
-               ;; write bullet and indent
-               (format s "~a~a " indent-str bullet)
-               ;; write content
-               (let ((lines (split-string-lines content)))
-                 (when lines
-                   (write-string (first lines) s)
-                   (dolist (line (cdr lines))
-                     ;; 2 spaces indent matches "- " length
-                     (format s "~%~a  ~a" indent-str line))))
-               ;; write children (if any)
-               (when children
-                 ;; need newline before entering sub-list
-                 (write-char #\newline s)
-                 (write-string (list-to-list-string children (+ indent-level 2)) s))
-               ;; write separator (only if there is another item following)
-               (when rest
-                 (write-char #\newline s))))))
+    ;; child indent is based on the first item's bullet width (bullet + space)
+    (let* ((first-bullet (getf (first lst) :bullet))
+           (content-offset (1+ (length first-bullet)))
+           (content-indent-str (make-string content-offset :initial-element #\space)))
+      (loop for (item . rest) on lst
+            do (let ((bullet (getf item :bullet))
+                     (content (getf item :content))
+                     (children (getf item :children))
+                     (indent-str (make-string indent-level :initial-element #\space)))
+                 ;; write bullet and indent
+                 (format s "~a~a " indent-str bullet)
+                 ;; write content
+                 (let ((lines (split-string-lines content)))
+                   (when lines
+                     (write-string (first lines) s)
+                     (dolist (line (cdr lines))
+                       (format s "~%~a~a~a" indent-str content-indent-str line))))
+                 ;; write children (if any)
+                 (when children
+                   ;; need newline before entering sub-list
+                   (write-char #\newline s)
+                   (write-string
+                    (list-to-list-string children (+ indent-level content-offset))
+                    s))
+                 ;; write separator (only if there is another item following)
+                 (when rest
+                   (write-char #\newline s)))))))
 
 (defun list-to-list-match (ctx lst &optional inline-rules)
   (let ((generated-text (list-to-list-string lst)))
     (org-list-matcher ctx generated-text 0 inline-rules)))
 
 (defun reformat-list (str parse-tree)
-  "normalizes indentation and spacing.
-returns the string representation of the list structure (no trailing newline)."
+  "normalizes indentation and spacing."
   (let ((data (list-match-to-list str parse-tree))
         (indent (getf (cltpt/combinator:match-props parse-tree) :indent 0)))
     (list-to-list-string data indent)))
@@ -355,9 +358,14 @@ returns the string representation of the list structure (no trailing newline)."
             when (eq (cltpt/combinator:match-id child) 'list-item)
               do (when (and (>= target-pos (cltpt/combinator:match-begin child))
                             (< target-pos (cltpt/combinator:match-end child)))
-                   (let* ((content-node (cltpt/combinator/match:find-direct-match-child-by-id child 'list-item-content))
-                          (sub-list-node (and content-node
-                                              (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list))))
+                   (let* ((content-node (cltpt/combinator/match:find-direct-match-child-by-id
+                                         child
+                                         'list-item-content))
+                          (sub-list-node
+                            (and content-node
+                                 (cltpt/combinator/match:find-direct-match-child-by-id
+                                  content-node
+                                  'org-list))))
                      (if (and sub-list-node
                               (>= target-pos (cltpt/combinator:match-begin sub-list-node))
                               (< target-pos (cltpt/combinator:match-end sub-list-node)))
@@ -378,15 +386,23 @@ returns the string representation of the list structure (no trailing newline)."
         (if (< idx (length items))
             (setf current-item (nth idx items))
             (return-from get-item-at-indices nil)))
-      (let* ((content-node (cltpt/combinator/match:find-direct-match-child-by-id current-item 'list-item-content)))
-        (setf current-list (and content-node (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list)))))
+      (let* ((content-node (cltpt/combinator/match:find-direct-match-child-by-id
+                            current-item
+                            'list-item-content)))
+        (setf current-list
+              (and content-node
+                   (cltpt/combinator/match:find-direct-match-child-by-id
+                    content-node
+                    'org-list)))))
     current-item))
 
 (defun get-list-item-text (str item-node)
   (let ((content-node (cltpt/combinator/match:find-direct-match-child-by-id item-node 'list-item-content)))
     (if content-node
         (let* ((begin (cltpt/combinator:match-begin content-node))
-               (sub-list (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list))
+               (sub-list (cltpt/combinator/match:find-direct-match-child-by-id
+                          content-node
+                          'org-list))
                (end (if sub-list
                         (cltpt/combinator:match-begin sub-list)
                         (cltpt/combinator:match-end content-node))))
@@ -398,9 +414,13 @@ returns the string representation of the list structure (no trailing newline)."
         (children (cltpt/combinator:match-children root-list-node)))
     (dolist (child children)
       (when (eq (cltpt/combinator:match-id child) 'list-item)
-        (let* ((content (cltpt/combinator/match:find-direct-match-child-by-id child 'list-item-content))
+        (let* ((content (cltpt/combinator/match:find-direct-match-child-by-id
+                         child
+                         'list-item-content))
                (sub-list (when content
-                           (cltpt/combinator/match:find-direct-match-child-by-id content 'org-list))))
+                           (cltpt/combinator/match:find-direct-match-child-by-id
+                            content
+                            'org-list))))
           (when sub-list
             (setf depth (max depth (1+ (get-list-depth sub-list))))))))
     depth))
