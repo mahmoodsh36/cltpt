@@ -319,11 +319,13 @@
                  ;; write bullet and indent
                  (format s "~a~a " indent-str bullet)
                  ;; write content
-                 (let ((lines (split-string-lines content)))
+                 (let ((lines (split-string-lines content))
+                       (own-content-indent
+                         (make-string (1+ (length bullet)) :initial-element #\space)))
                    (when lines
                      (write-string (first lines) s)
                      (dolist (line (cdr lines))
-                       (format s "~%~a~a~a" indent-str content-indent-str line))))
+                       (format s "~%~a~a~a" indent-str own-content-indent line))))
                  ;; write children (if any)
                  (when children
                    ;; need newline before entering sub-list
@@ -334,10 +336,6 @@
                  ;; write separator (only if there is another item following)
                  (when rest
                    (write-char #\newline s)))))))
-
-(defun list-to-list-match (ctx lst &optional inline-rules)
-  (let ((generated-text (list-to-list-string lst)))
-    (org-list-matcher ctx generated-text 0 inline-rules)))
 
 (defun reformat-list (str parse-tree)
   "normalizes indentation and spacing."
