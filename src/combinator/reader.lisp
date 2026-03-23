@@ -6,6 +6,7 @@
    :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached
    :reader-fully-consume :reader-ensure-fill-upto
    :reader-fast-buffer :reader-fast-buffer-length
+   :reader-position :reader-position-if :reader-position-if-not
    :*reader-fast-buffer* :*reader-fast-buffer-length*))
 
 (in-package :cltpt/reader)
@@ -147,8 +148,11 @@ returns T if target position is available, NIL if EOF reached before target."
                  ;; create simple-string copy for fast path
                  (let ((simple-buf (make-string new-fill)))
                    (replace simple-buf buf)
-                   (setf (reader-fast-buffer reader) simple-buf))
+                   (setf (reader-fast-buffer reader) simple-buf)
+                   ;; propagate to thread-local specials so callers get the fast path immediately
+                   (setf *reader-fast-buffer* simple-buf))
                  (setf (reader-fast-buffer-length reader) new-fill)
+                 (setf *reader-fast-buffer-length* new-fill)
                  (return-from reader-ensure-fill-upto (< target-pos new-fill)))
                 ;; got some data - check if we have enough
                 ((< target-pos new-fill)
@@ -189,6 +193,46 @@ blocks until the stream is fully consumed."
 (defun is-after-eof (reader idx)
   "return whether IDX is (not strictly) after EOF."
   (not (is-before-eof reader idx)))
+
+(defun reader-position (reader char start end)
+  "find the first occurrence of CHAR in READER in [START, END).
+uses the fast-buffer path when available. non-generic alternative to `position'."
+  (declare (type fixnum start end)
+           (type character char))
+  (let ((fb *reader-fast-buffer*))
+    (if fb
+        (let ((fb-len (the fixnum *reader-fast-buffer-length*)))
+          (declare (type simple-string fb))
+          (loop for i fixnum from start below (min end fb-len)
+                when (char= (schar fb i) char)
+                  return i))
+        (loop for i fixnum from start below end
+              for c = (reader-char reader i)
+              while c
+              when (char= c char)
+                return i))))
+
+(defun reader-position-if (reader predicate start end)
+  "find the first position in [START, END) where PREDICATE returns true.
+non-generic alternative to cl:position-if."
+  (declare (type fixnum start end)
+           (type function predicate))
+  (loop for i fixnum from start below end
+        for c = (reader-char reader i)
+        while c
+        when (funcall predicate c)
+          return i))
+
+(defun reader-position-if-not (reader predicate start end)
+  "find the first position in [START, END) where PREDICATE returns false.
+non-generic alternative to cl:position-if-not."
+  (declare (type fixnum start end)
+           (type function predicate))
+  (loop for i fixnum from start below end
+        for c = (reader-char reader i)
+        while c
+        unless (funcall predicate c)
+          return i))
 
 (defun reader-string= (reader string &key (start1 0) end1 (start2 0) end2)
   "behaves like string= does for strings. (inplace-comparison)"
