@@ -1646,6 +1646,25 @@ plt.close()
           ((:BEGIN 2 :END 5))
           ((:BEGIN 5 :END 6)))))))))
 
+(test test-header-hierarchy-nesting
+  (let* ((doc (cltpt/base:parse
+               cltpt/org-mode:*org-mode*
+               "* test
+** test2
+**** hello1
+*** hello2
+* other"))
+         (errors (compare-tree-types
+                  doc
+                  '(cltpt/org-mode::org-document
+                    (cltpt/org-mode::org-header
+                     (cltpt/org-mode::org-header
+                      (cltpt/org-mode::org-header)
+                      (cltpt/org-mode::org-header)))
+                    (cltpt/org-mode::org-header)))))
+    (is (null errors)
+        (format nil "header hierarchy errors: ~{~a~^, ~}" errors))))
+
 (defun run-org-mode-tests ()
   (format t "~&running org-mode tests...~%")
   ;; set up relative paths for latex previews so tests work across different systems

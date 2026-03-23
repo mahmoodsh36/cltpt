@@ -1198,11 +1198,12 @@ used for all region-decf calculations to get positions relative to the text-obje
       ;; in org-mode itself. this is feasible but will require more work, but for
       ;; now this will be sufficient.
       (when header-stack
-        ;; first extend the last header to the end of the document
-        (let ((last-last-header (cltpt/base:last-atom header-stack)))
-          (cltpt/base:text-object-extend-in-parent
-           last-last-header
-           (cltpt/base:text-object-end obj)))
+        ;; extend all remaining headers on the stack to the end of the document,
+        ;; from deepest to shallowest so that deeper headers get absorbed as
+        ;; children of shallower ones via text-object-extend-in-parent.
+        (let ((doc-end (cltpt/base:text-object-end obj)))
+          (dolist (header header-stack)
+            (cltpt/base:text-object-extend-in-parent header doc-end)))
         ;; then ensure all headers encompass their children
         (dolist (header (reverse header-stack)) ; process from deepest to shallowest
           (let ((children (cltpt/base:text-object-children header)))
