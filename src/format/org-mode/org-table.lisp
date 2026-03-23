@@ -13,49 +13,38 @@
 (defun is-table-line-at-pos-p (reader pos)
   "checks if the line at pos starts with a delimiter after trimming whitespace."
   (multiple-value-bind (line-start line-end) (get-line-bounds reader pos)
-    (let ((trimmed-start
-            (position-if-not
-             (lambda (c)
-               (member c '(#\space #\tab)))
-             reader
-             :start line-start
-             :end line-end)))
-      (and trimmed-start
-           (member (elt reader trimmed-start)
-                   (list *table-v-delimiter* *table-intersection-delimiter*))))))
+    (let ((trimmed-start (cltpt/combinator:position-non-horizontal-whitespace
+                          reader
+                          line-start
+                          line-end)))
+      (when trimmed-start
+        (let ((c (cltpt/reader:reader-char reader trimmed-start)))
+          (or (char= c *table-v-delimiter*)
+              (char= c *table-intersection-delimiter*)))))))
 
 (defun is-hrule-line-at-pos-p (reader pos)
   "checks if the line at pos is a horizontal rule."
   (multiple-value-bind (line-start line-end) (get-line-bounds reader pos)
     (let ((trimmed-start
-            (position-if-not (lambda (c) (member c '(#\space #\tab)))
-                             reader :start line-start :end line-end)))
+            (cltpt/combinator:position-non-horizontal-whitespace reader line-start line-end)))
       (and trimmed-start
-           (member (elt reader trimmed-start)
-                   (list *table-v-delimiter* *table-intersection-delimiter*))
+           (let ((c (cltpt/reader:reader-char reader trimmed-start)))
+             (or (char= c *table-v-delimiter*)
+                 (char= c *table-intersection-delimiter*)))
            ;; the line must contain at least one h-delimiter
-           (find *table-h-delimiter* reader :start line-start :end line-end)
-           (loop for i from (1+ trimmed-start) below line-end
-                 for char = (elt reader i)
-                 always (member char (list #\space #\tab
-                                           *table-h-delimiter*
-                                           *table-intersection-delimiter*
-                                           *table-v-delimiter*)))))))
+           (cltpt/reader:reader-position reader *table-h-delimiter* line-start line-end)
+           (loop for i fixnum from (1+ trimmed-start) below line-end
+                 for c = (cltpt/reader:reader-char reader i)
+                 always (or (char= c #\space)
+                            (char= c #\tab)
+                            (char= c *table-h-delimiter*)
+                            (char= c *table-intersection-delimiter*)
+                            (char= c *table-v-delimiter*)))))))
 
 (defun find-content-bounds (reader start end)
   "finds the start and end of non-whitespace content within the slice [start, end)."
-  (let ((content-start
-          (position-if-not
-           (lambda (c)
-             (member c '(#\space #\tab)))
-           reader
-           :start start
-           :end end))
-        ;; use loop-based backwards search (cant use :from-end with reader)
-        (content-end
-          (loop for i from (1- end) downto start
-                when (not (member (elt reader i) '(#\space #\tab)))
-                  return i)))
+  (let ((content-start (cltpt/combinator:position-non-horizontal-whitespace reader start end))
+        (content-end (cltpt/combinator:position-non-horizontal-whitespace-from-end reader start end)))
     (if content-start
         (values content-start (1+ content-end))
         (values start start))))
@@ -65,11 +54,7 @@
   (multiple-value-bind (line-start line-end)
       (get-line-bounds reader row-start-offset)
     (let* ((trimmed-line-start
-             (position-if-not
-              (lambda (c) (member c '(#\space #\tab)))
-              reader
-              :start line-start
-              :end line-end))
+             (cltpt/combinator:position-non-horizontal-whitespace reader line-start line-end))
            (row-match (cltpt/combinator:make-match
                        :id 'table-row
                        :ctx ctx
@@ -79,10 +64,11 @@
            (row-children)
            (current-pos trimmed-line-start))
       (loop
-        (let ((delimiter-pos (position *table-v-delimiter*
-                                       reader
-                                       :start current-pos
-                                       :end line-end)))
+        (let ((delimiter-pos (cltpt/reader:reader-position
+                              reader
+                              *table-v-delimiter*
+                              current-pos
+                              line-end)))
           (unless delimiter-pos (return)) ;; exit when no more '|' are found
           (when (> delimiter-pos current-pos)
             (let* ((cell-begin current-pos)
@@ -209,11 +195,10 @@
           (return))
         ;; push the row/hrule
         (if (is-hrule-line-at-pos-p reader line-start)
-            (let* ((trimmed-start (position-if-not
-                                   (lambda (c) (member c '(#\space #\tab)))
+            (let* ((trimmed-start (cltpt/combinator:position-non-horizontal-whitespace
                                    reader
-                                   :start line-start
-                                   :end line-end))
+                                   line-start
+                                   line-end))
                    (hrule-match (cltpt/combinator:make-match
                                  :id 'table-hrule
                                  :ctx table-ctx

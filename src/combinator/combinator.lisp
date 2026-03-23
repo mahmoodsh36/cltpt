@@ -5,6 +5,7 @@
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
    :is-le-eof :reader-from-string :reader-from-input
    :reader-fast-buffer :reader-fast-buffer-length
+   :reader-position-if-not
    :*reader-fast-buffer* :*reader-fast-buffer-length*)
   (:export
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
@@ -16,6 +17,7 @@
    :all-upto-included :succeeded-by :all-upto-without
    :context-rules :consec-with-optional :prefix-middle-suffix :compile-rule-string
    :between-whitespace :when-match-after :flanked-by-whitespace :flanked-by-whitespace-or-punctuation
+   :horizontal-whitespace-p :position-non-horizontal-whitespace :position-non-horizontal-whitespace-from-end
    :context-parent-begin :context-parent-match :context-copy
    :apply-rule
    :web-link-matcher
@@ -188,6 +190,22 @@ to replace and new-rule is the rule to replace it with."
 (defun whitespace-p (char)
   "check if a character is whitespace (space, newline, or tab)."
   (find char *whitespace-string* :test #'char=))
+
+(defun horizontal-whitespace-p (char)
+  "check if a character is horizontal whitespace (space or tab)."
+  (or (char= char #\space) (char= char #\tab)))
+
+(defun position-non-horizontal-whitespace (reader start end)
+  "return the index of the first non-space/tab char in [START, END), or NIL."
+  (reader-position-if-not reader #'horizontal-whitespace-p start end))
+
+(defun position-non-horizontal-whitespace-from-end (reader start end)
+  "return the index of the last non-space/tab char in [START, END), or NIL."
+  (declare (type fixnum start end))
+  (loop for i fixnum from (1- end) downto start
+        for c = (reader-char reader i)
+        unless (horizontal-whitespace-p c)
+          return i))
 
 (defun is-punctuation-p (char)
   "check if a character is punctuation (check the source to see which chars are considered)."

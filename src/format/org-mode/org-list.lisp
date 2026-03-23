@@ -11,13 +11,17 @@
                                      return i)
                              -1))
              (actual-line-start (the fixnum (1+ line-start)))
-             (line-end (or (position #\newline reader :start actual-line-start)
+             (line-end (or (cltpt/reader:reader-position
+                            reader
+                            #\newline
+                            actual-line-start
+                            (cltpt/reader:reader-buffer-fill reader))
                            (cltpt/reader:reader-buffer-fill reader))))
         (values actual-line-start line-end))))
 
 (defun count-leading-spaces (reader start end)
-  (loop for i from start below end
-        while (char= (elt reader i) #\space)
+  (loop for i fixnum from start below end
+        while (char= (cltpt/reader:reader-char reader i) #\space)
         count 1))
 
 (defun split-string-lines (str)
@@ -44,7 +48,9 @@
                            (reduce 'min
                                    non-empty-others
                                    :key (lambda (l)
-                                          (count-leading-spaces l 0 (length l))))
+                                          (loop for i from 0 below (length l)
+                                                while (char= (char l i) #\space)
+                                                count 1)))
                            0)))
                 (with-output-to-string (out)
                   (write-string first-line out)
@@ -67,28 +73,29 @@
   (let ((bullet-start (+ line-start expected-indent)))
     (cond
       ((and (<= (+ bullet-start 2) line-end)
-            (char= (elt reader bullet-start) #\-)
-            (char= (elt reader (1+ bullet-start)) #\space))
+            (char= (cltpt/reader:reader-char reader bullet-start) #\-)
+            (char= (cltpt/reader:reader-char reader (1+ bullet-start)) #\space))
        (values t "-" 2))
       ((and (< bullet-start line-end)
-            (alphanumericp (elt reader bullet-start)))
+            (alphanumericp (cltpt/reader:reader-char reader bullet-start)))
        (let ((marker-dot-pos
-               (position #\.
-                         reader
-                         :start (1+ bullet-start)
-                         :end line-end)))
+               (cltpt/reader:reader-position reader #\. (1+ bullet-start) line-end)))
          (when (and marker-dot-pos
-                    (loop for i from bullet-start below marker-dot-pos
-                          always (alphanumericp (elt reader i))))
+                    (loop for i fixnum from bullet-start below marker-dot-pos
+                          always (alphanumericp (cltpt/reader:reader-char reader i))))
            (let* ((has-space-after
                     (and (< (1+ marker-dot-pos) line-end)
-                         (char= (elt reader (1+ marker-dot-pos)) #\space)))
+                         (char= (cltpt/reader:reader-char reader (1+ marker-dot-pos)) #\space)))
                   (bullet-struct-len
                     (+ (- (1+ marker-dot-pos) bullet-start)
-                       (if has-space-after 1 0))))
-             (values t
-                     (subseq reader bullet-start (1+ marker-dot-pos))
-                     bullet-struct-len)))))
+                       (if has-space-after 1 0)))
+                  ;; build marker string using reader-char instead of CLOS subseq
+                  (marker-len (1+ (- marker-dot-pos bullet-start)))
+                  (marker (make-string marker-len)))
+             (loop for i fixnum from 0 below marker-len
+                   do (setf (schar marker i)
+                            (cltpt/reader:reader-char reader (+ bullet-start i))))
+             (values t marker bullet-struct-len)))))
       (t (values nil nil 0)))))
 
 (defun parse-single-list-item (ctx reader item-start-pos item-indent inline-rules)
@@ -267,7 +274,7 @@
                   ;; if the character before final-pos is a newline, don't include it
                   (when (and (> final-pos 0)
                              (< (1- final-pos) (cltpt/reader:reader-buffer-fill reader))
-                             (char= (elt reader (1- final-pos)) #\newline))
+                             (char= (cltpt/reader:reader-char reader (1- final-pos)) #\newline))
                     (decf list-end))
                   (setf (cltpt/combinator:match-end list-match) list-end))
                 (setf (cltpt/combinator:match-children list-match) nodes)
