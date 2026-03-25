@@ -6,6 +6,9 @@
    :get-cell-at-coordinates :get-cell-coordinates :org-table-matcher
    :get-table-width :get-table-height :reformat-table :list-to-table-string :list-to-list-string
    :table-match-to-list :list-match-to-list
+   :bullet-at-index :renumber-list-items
+   :cycle-next-bullet :bullet-split :roman-to-int :int-to-roman
+   :*bullet-types* :register-bullet-type
    :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
    :org-latex-env :org-keyword :org-prop-drawer :org-drawer :org-export-block
    :org-underline :org-strike-through))
@@ -401,18 +404,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   :documentation "org-mode list.")
 
 (defun get-list-type-from-obj (obj list-match)
-  (let* ((children (cltpt/combinator:match-children list-match))
-         (first-item (when children
-                       (first children)))
-         (bullet-node (when first-item
-                        (cltpt/combinator/match:find-direct-match-child-by-id
-                         first-item
-                         'list-item-bullet)))
-         (marker (when bullet-node
-                   (cltpt/base:text-object-match-text obj bullet-node))))
-    (if (and marker (string= (string-trim " " marker) "-"))
-        :ul
-        :ol)))
+  (if (getf (getf (cltpt/combinator:match-props list-match) :type) :ordered-p)
+      :ol
+      :ul))
 
 (defun generate-list-changes (match backend obj &optional base-offset (depth 0))
   "generate changes for converting an org-list match to HTML/LaTeX.

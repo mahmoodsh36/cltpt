@@ -19,6 +19,7 @@
    :between-whitespace :when-match-after :flanked-by-whitespace :flanked-by-whitespace-or-punctuation
    :horizontal-whitespace-p :position-non-horizontal-whitespace :position-non-horizontal-whitespace-from-end
    :context-parent-begin :context-parent-match :context-copy
+   :digit-p :eng-char-p :eng-alphanump :roman-char-p
    :apply-rule
    :web-link-matcher
 
@@ -301,15 +302,23 @@ to replace and new-rule is the rule to replace it with."
 
 (defun eng-char-p (ctx reader pos)
   "match an english character."
-  (when (alpha-char-p (reader-char reader pos))
+  (when (and (is-before-eof reader pos)
+             (alpha-char-p (reader-char reader pos)))
     1))
 
 (defun eng-alphanump (ctx reader pos)
   "match an english character or a digit."
   (let ((c (reader-char reader pos)))
-    (when (or (alpha-char-p c)
-              (digit-char-p c))
+    (when (and (is-before-eof reader pos)
+               (or (alpha-char-p c)
+                   (digit-char-p c)))
       1)))
+
+(defun roman-char-p (ctx reader pos)
+  "match a single roman numeral character (i v x l c d m, case-insensitive)."
+  (and (is-before-eof reader pos)
+       (find (char-downcase (reader-char reader pos)) "ivxlcdm")
+       1))
 
 (defun symbol-char (ctx reader pos)
   "helper for `symbol-matcher'."
@@ -802,10 +811,10 @@ or a pre-formed plist cons cell for combinators/structured matches, or NIL."
                       (unless (and on-char
                                    (is-before-eof reader pos)
                                    (not (char= (reader-char reader pos) on-char)))
-                        (let ((sub-pattern-match (apply-rule ctx pattern reader pos)))
-                          (when sub-pattern-match
-                            (setf (match-id sub-pattern-match) id)
-                            sub-pattern-match))))))
+                        (let ((m (apply-rule ctx pattern reader pos)))
+                          (when m
+                            (setf (match-id m) id)
+                            m))))))
                  ;; function call rules, we assume symbol is a valid function, which isnt safe
                  ;; but running 'fboundp' seems to be is expensive.
                  ((symbolp head)

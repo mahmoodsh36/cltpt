@@ -66,55 +66,209 @@
       (clean-list-content (subseq str begin end))
       ""))
 
+(defvar *bullet-types*
+  nil
+  "registered bullet types, tried in order by `parse-bullet'.
+each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
+
+(defun register-bullet-type (&key name rule ordered-p first-bullet sequence-func)
+  (setf *bullet-types*
+        (append (remove name
+                        *bullet-types*
+                        :key (lambda (bt) (getf bt :name)))
+                (list (list :name name
+                            :rule rule
+                            :ordered-p ordered-p
+                            :first-bullet first-bullet
+                            :sequence-func sequence-func)))))
+
+(defvar *roman-values*
+  '((1000 "m") (900 "cm") (500 "d") (400 "cd")
+    (100 "c") (90 "xc") (50 "l") (40 "xl")
+    (10 "x") (9 "ix") (5 "v") (4 "iv") (1 "i")))
+
+(defun roman-char-value (ch)
+  "return the integer value of a single roman numeral character, or nil."
+  (loop for (val str) in *roman-values*
+        when (and (= (length str) 1) (char-equal ch (char str 0)))
+          return val))
+
+(defun roman-to-int (str)
+  "parse a roman numeral string. returns the integer value or nil."
+  (when (zerop (length str))
+    (return-from roman-to-int nil))
+  (let ((total 0)
+        (prev 0))
+    (loop for i from (1- (length str)) downto 0
+          for val = (roman-char-value (char str i))
+          do (unless val
+               (return-from roman-to-int nil))
+             (if (< val prev)
+                 (decf total val)
+                 (incf total val))
+             (setf prev val))
+    total))
+
+(defun int-to-roman (n &optional uppercase)
+  "convert integer to a roman numeral string."
+  (let ((result (with-output-to-string (s)
+                  (dolist (pair *roman-values*)
+                    (loop while (>= n (first pair))
+                          do (write-string (second pair) s)
+                             (decf n (first pair)))))))
+    (if uppercase
+        (string-upcase result)
+        result)))
+
+(defun make-numeric-dot-bullet (lst idx)
+  (let ((marker (getf (first (getf lst :children)) :marker)))
+    (format nil "~D." (+ (parse-integer (or marker "1")) idx))))
+
+(defun make-numeric-paren-bullet (lst idx)
+  (let ((marker (getf (first (getf lst :children)) :marker)))
+    (format nil "~D)" (+ (parse-integer (or marker "1")) idx))))
+
+(defun make-roman-dot-bullet (lst idx)
+  (let* ((m (or (getf (first (getf lst :children)) :marker) "i"))
+         (start (or (roman-to-int m) 1))
+         (uppercase (upper-case-p (if (> (length m) 0) (char m 0) #\i))))
+    (format nil "~A." (int-to-roman (+ start idx) uppercase))))
+
+(defun make-roman-paren-bullet (lst idx)
+  (let* ((m (or (getf (first (getf lst :children)) :marker) "i"))
+         (start (or (roman-to-int m) 1))
+         (uppercase (upper-case-p (if (> (length m) 0) (char m 0) #\i))))
+    (format nil "~A)" (int-to-roman (+ start idx) uppercase))))
+
+(defun make-alpha-dot-bullet (lst idx)
+  (let* ((m (or (getf (first (getf lst :children)) :marker) "a"))
+         (start (if (> (length m) 0) (char-code (char m 0)) 97)))
+    (format nil "~C." (code-char (+ start idx)))))
+
+(defun make-alpha-paren-bullet (lst idx)
+  (let* ((m (or (getf (first (getf lst :children)) :marker) "a"))
+         (start (if (> (length m) 0) (char-code (char m 0)) 97)))
+    (format nil "~C)" (code-char (+ start idx)))))
+
+(register-bullet-type
+  :name :dash
+  :rule '(cltpt/combinator:consec (cltpt/combinator:literal "-") (cltpt/combinator:literal " "))
+  :first-bullet "-")
+
+(register-bullet-type
+  :name :plus
+  :rule '(cltpt/combinator:consec (cltpt/combinator:literal "+") (cltpt/combinator:literal " "))
+  :first-bullet "+")
+
+(register-bullet-type
+  :name :numeric-dot
+  :rule '(cltpt/combinator:consec
+          (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
+          (:id suffix :pattern (cltpt/combinator:literal "."))
+          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
+  :ordered-p t
+  :first-bullet "1."
+  :sequence-func #'make-numeric-dot-bullet)
+
+(register-bullet-type
+  :name :numeric-paren
+  :rule '(cltpt/combinator:consec
+          (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
+          (:id suffix :pattern (cltpt/combinator:literal ")"))
+          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
+  :ordered-p t
+  :first-bullet "1)"
+  :sequence-func #'make-numeric-paren-bullet)
+
+;; order matters. types are tried in order by parse-bullet.
+;; roman has to be registered before alphabetic.
+(register-bullet-type
+  :name :roman-dot
+  :rule '(cltpt/combinator:consec
+          (:id marker
+           :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
+          (:id suffix :pattern (cltpt/combinator:literal "."))
+          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
+  :ordered-p t
+  :first-bullet "i."
+  :sequence-func #'make-roman-dot-bullet)
+
+(register-bullet-type
+  :name :roman-paren
+  :rule '(cltpt/combinator:consec
+          (:id marker
+           :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
+          (:id suffix :pattern (cltpt/combinator:literal ")"))
+          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
+  :ordered-p t
+  :first-bullet "i)"
+  :sequence-func #'make-roman-paren-bullet)
+
+(register-bullet-type
+  :name :alpha-dot
+  :rule '(cltpt/combinator:consec
+          (:id marker :pattern (cltpt/combinator:eng-char-p))
+          (:id suffix :pattern (cltpt/combinator:literal "."))
+          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
+  :ordered-p t
+  :first-bullet "a."
+  :sequence-func #'make-alpha-dot-bullet)
+
+(register-bullet-type
+  :name :alpha-paren
+  :rule '(cltpt/combinator:consec
+          (:id marker :pattern (cltpt/combinator:eng-char-p))
+          (:id suffix :pattern (cltpt/combinator:literal ")"))
+          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
+  :ordered-p t
+  :first-bullet "a)"
+  :sequence-func #'make-alpha-paren-bullet)
+
 (defun parse-bullet (reader line-start line-end expected-indent)
+  "try each registered bullet type at (line-start + expected-indent). return match or nil."
   (unless (and (>= (- line-end line-start) expected-indent)
                (= (count-leading-spaces reader line-start line-end) expected-indent))
-    (return-from parse-bullet (values nil nil 0)))
+    (return-from parse-bullet nil))
   (let ((bullet-start (+ line-start expected-indent)))
-    (cond
-      ((and (<= (+ bullet-start 2) line-end)
-            (char= (cltpt/reader:reader-char reader bullet-start) #\-)
-            (char= (cltpt/reader:reader-char reader (1+ bullet-start)) #\space))
-       (values t "-" 2))
-      ((and (< bullet-start line-end)
-            (alphanumericp (cltpt/reader:reader-char reader bullet-start)))
-       (let ((marker-dot-pos
-               (cltpt/reader:reader-position reader #\. (1+ bullet-start) line-end)))
-         (when (and marker-dot-pos
-                    (loop for i fixnum from bullet-start below marker-dot-pos
-                          always (alphanumericp (cltpt/reader:reader-char reader i))))
-           (let* ((has-space-after
-                    (and (< (1+ marker-dot-pos) line-end)
-                         (char= (cltpt/reader:reader-char reader (1+ marker-dot-pos)) #\space)))
-                  (bullet-struct-len
-                    (+ (- (1+ marker-dot-pos) bullet-start)
-                       (if has-space-after 1 0)))
-                  ;; build marker string using reader-char instead of CLOS subseq
-                  (marker-len (1+ (- marker-dot-pos bullet-start)))
-                  (marker (make-string marker-len)))
-             (loop for i fixnum from 0 below marker-len
-                   do (setf (schar marker i)
-                            (cltpt/reader:reader-char reader (+ bullet-start i))))
-             (values t marker bullet-struct-len)))))
-      (t (values nil nil 0)))))
+    (dolist (bt *bullet-types*)
+      (let ((match (cltpt/combinator:apply-rule nil (getf bt :rule) reader bullet-start)))
+        (when match
+          (let* ((bullet-len (- (cltpt/combinator:match-end match)
+                                (cltpt/combinator:match-begin match)))
+                 (end-pos (+ bullet-start bullet-len)))
+            (when (<= end-pos line-end)
+              (setf (cltpt/combinator:match-props match)
+                    (list :type bt))
+              (return match))))))))
 
 (defun parse-single-list-item (ctx reader item-start-pos item-indent inline-rules)
   "parse a single list item. returns (values item-match next-pos)."
   (multiple-value-bind (line-start line-end)
       (get-line-bounds reader item-start-pos)
-    (multiple-value-bind (is-bullet marker bullet-len)
-        (parse-bullet reader line-start line-end item-indent)
-      (unless is-bullet
+    (let ((bullet-match (parse-bullet reader line-start line-end item-indent)))
+      (unless bullet-match
         (return-from parse-single-list-item (values nil item-start-pos)))
-      (let* ((bullet-begin (+ line-start item-indent))
-             (bullet-end (+ bullet-begin (length marker)))
+      (let* ((bprops (cltpt/combinator:match-props bullet-match))
+             (bt (getf bprops :type))
+             (bullet-len (- (cltpt/combinator:match-end bullet-match)
+                            (cltpt/combinator:match-begin bullet-match)))
+             (marker-match (cltpt/combinator:find-submatch bullet-match 'marker))
+             (marker-text (when marker-match
+                            (cltpt/combinator:match-text marker-match reader)))
+             (suffix-match (cltpt/combinator:find-submatch bullet-match 'suffix))
+             (suffix-text (when suffix-match
+                            (cltpt/combinator:match-text suffix-match reader)))
+             (bullet-begin (+ line-start item-indent))
+             (bullet-end (+ bullet-begin (max 0 (1- bullet-len))))
              (first-line-content-begin (+ bullet-begin bullet-len))
              (item-match (cltpt/combinator:make-match
                           :id 'list-item
                           :ctx ctx
                           :parent (cltpt/combinator:context-parent-match ctx)
                           :begin (- item-start-pos (cltpt/combinator:context-parent-begin ctx))
-                          :props (list :indent item-indent)))
+                          :props (list :indent item-indent
+                                       :marker marker-text
+                                       :suffix suffix-text)))
              (item-ctx (cltpt/combinator:context-copy ctx item-match))
              (item-children)
              (content-segments)
@@ -140,7 +294,7 @@
               (get-line-bounds reader current-scan-pos)
             (let ((next-indent (count-leading-spaces reader next-l-start next-l-end)))
               (if (and (> next-indent item-indent)
-                       (not (nth-value 0 (parse-bullet reader next-l-start next-l-end next-indent))))
+                       (not (parse-bullet reader next-l-start next-l-end next-indent)))
                   (progn
                     (let ((extra-start (+ next-l-start next-indent)))
                       (when (< extra-start next-l-end)
@@ -233,7 +387,7 @@
         (let ((indent (count-leading-spaces reader ls le)))
           (unless (= indent expected-indent)
             (return))
-          (if (nth-value 0 (parse-bullet reader ls le indent))
+          (if (parse-bullet reader ls le indent)
               (multiple-value-bind (item-cons-cell new-item-pos)
                   (parse-single-list-item ctx reader current-pos expected-indent inline-rules)
                 (if (and item-cons-cell (> new-item-pos current-pos))
@@ -254,53 +408,65 @@
     (return-from org-list-matcher (values nil pos)))
   (multiple-value-bind (ls le) (get-line-bounds reader pos)
     (let ((indent (count-leading-spaces reader ls le)))
-      (unless (and (>= indent minimum-indent)
-                   (nth-value 0 (parse-bullet reader ls le indent)))
-        (return-from org-list-matcher (values nil pos)))
-      (let* ((list-match (cltpt/combinator:make-match
-                          :id 'org-list
-                          :ctx ctx
-                          :parent (cltpt/combinator:context-parent-match ctx)
-                          :begin (- pos (cltpt/combinator:context-parent-begin ctx))
-                          :props (list :indent indent)))
-             (list-ctx (cltpt/combinator:context-copy ctx list-match)))
-        (multiple-value-bind (nodes final-pos)
-            (parse-list-items-at-indent list-ctx reader pos indent inline-rules)
-          (if nodes
-              (progn
-                ;; final-pos points after the trailing newline for next parsing,
-                ;; but the list match should end before it.
-                (let ((list-end (- final-pos (cltpt/combinator:context-parent-begin ctx))))
-                  ;; if the character before final-pos is a newline, don't include it
-                  (when (and (> final-pos 0)
-                             (< (1- final-pos) (cltpt/reader:reader-buffer-fill reader))
-                             (char= (cltpt/reader:reader-char reader (1- final-pos)) #\newline))
-                    (decf list-end))
-                  (setf (cltpt/combinator:match-end list-match) list-end))
-                (setf (cltpt/combinator:match-children list-match) nodes)
-                (cltpt/combinator:match-set-children-parent list-match)
-                (values list-match final-pos))
-              (values nil pos)))))))
+        (let ((first-bullet-match (parse-bullet reader ls le indent)))
+          (unless (and (>= indent minimum-indent) first-bullet-match)
+            (return-from org-list-matcher (values nil pos)))
+          (let* ((fbprops (cltpt/combinator:match-props first-bullet-match))
+                 (first-bt (getf fbprops :type))
+                 (list-match (cltpt/combinator:make-match
+                               :id 'org-list
+                               :ctx ctx
+                               :parent (cltpt/combinator:context-parent-match ctx)
+                               :begin (- pos (cltpt/combinator:context-parent-begin ctx))
+                               :props (list :indent indent
+                                            :type first-bt)))
+                 (list-ctx (cltpt/combinator:context-copy ctx list-match)))
+          (multiple-value-bind (nodes final-pos)
+              (parse-list-items-at-indent list-ctx reader pos indent inline-rules)
+            (if nodes
+                (progn
+                  (let ((list-end (- final-pos (cltpt/combinator:context-parent-begin ctx))))
+                    (when (and (> final-pos 0)
+                               (< (1- final-pos) (cltpt/reader:reader-buffer-fill reader))
+                               (char= (cltpt/reader:reader-char reader (1- final-pos))
+                                      #\newline))
+                      (decf list-end))
+                    (setf (cltpt/combinator:match-end list-match) list-end))
+                  (setf (cltpt/combinator:match-children list-match) nodes)
+                  (cltpt/combinator:match-set-children-parent list-match)
+                  (values list-match final-pos))
+                (values nil pos))))))))
 
 (defun list-match-to-list (str list-match)
-  "converts an org-list match tree into a nested lisp list structure."
+  "converts an org-list match tree into a nested list."
   (unless (and list-match (eq (cltpt/combinator:match-id list-match) 'org-list))
     (return-from list-match-to-list nil))
   (let ((items (cltpt/combinator:match-children list-match))
+        (list-type (getf (cltpt/combinator:match-props list-match) :type))
         (result-list))
     (dolist (item items)
       (when (eq (cltpt/combinator:match-id item) 'list-item)
-        (let* ((bullet-node (cltpt/combinator/match:find-direct-match-child-by-id item 'list-item-bullet))
-               (content-node (cltpt/combinator/match:find-direct-match-child-by-id item 'list-item-content))
+        (let* ((bullet-node
+                 (cltpt/combinator/match:find-direct-match-child-by-id
+                  item
+                  'list-item-bullet))
+               (content-node
+                 (cltpt/combinator/match:find-direct-match-child-by-id
+                  item
+                  'list-item-content))
                (bullet-text (if bullet-node
                                 (cltpt/combinator:match-text bullet-node str)
                                 "-"))
-               (item-data (list :bullet bullet-text
-                                :content ""
-                                :children nil)))
+               (props (cltpt/combinator:match-props item))
+               (item-data (list* :bullet bullet-text
+                                 :content ""
+                                 :children nil
+                                 props)))
           (when content-node
             (let* ((content-begin (cltpt/combinator:match-begin-absolute content-node))
-                   (sub-list-node (cltpt/combinator/match:find-direct-match-child-by-id content-node 'org-list))
+                   (sub-list-node (cltpt/combinator/match:find-direct-match-child-by-id
+                                   content-node
+                                   'org-list))
                    (text-end (if sub-list-node
                                  (cltpt/combinator:match-begin-absolute sub-list-node)
                                  (cltpt/combinator:match-end-absolute content-node))))
@@ -309,40 +475,37 @@
               (when sub-list-node
                 (setf (getf item-data :children) (list-match-to-list str sub-list-node)))))
           (push item-data result-list))))
-    (nreverse result-list)))
+    (list :type list-type :children (nreverse result-list))))
 
 (defun list-to-list-string (lst &optional (indent-level 0))
-  "converts nested list structure to an org-list string."
+  "converts a nested list to an org-list string."
   (with-output-to-string (s)
-    ;; child indent is based on the first item's bullet width (bullet + space)
-    (let* ((first-bullet (getf (first lst) :bullet))
-           (content-offset (1+ (length first-bullet)))
-           (content-indent-str (make-string content-offset :initial-element #\space)))
-      (loop for (item . rest) on lst
-            do (let ((bullet (getf item :bullet))
-                     (content (getf item :content))
-                     (children (getf item :children))
-                     (indent-str (make-string indent-level :initial-element #\space)))
-                 ;; write bullet and indent
-                 (format s "~a~a " indent-str bullet)
-                 ;; write content
-                 (let ((lines (split-string-lines content))
-                       (own-content-indent
-                         (make-string (1+ (length bullet)) :initial-element #\space)))
-                   (when lines
-                     (write-string (first lines) s)
-                     (dolist (line (cdr lines))
-                       (format s "~%~a~a~a" indent-str own-content-indent line))))
-                 ;; write children (if any)
-                 (when children
-                   ;; need newline before entering sub-list
-                   (write-char #\newline s)
-                   (write-string
-                    (list-to-list-string children (+ indent-level content-offset))
-                    s))
-                 ;; write separator (only if there is another item following)
-                 (when rest
-                   (write-char #\newline s)))))))
+    (loop for (item . rest) on (getf lst :children)
+          do (let ((bullet (getf item :bullet))
+                   (content (getf item :content))
+                   (children (getf item :children))
+                   (indent-str (make-string indent-level :initial-element #\space))
+                   (own-content-offset (1+ (length (getf item :bullet)))))
+               ;; write bullet and indent
+               (format s "~a~a " indent-str bullet)
+               ;; write content
+               (let ((lines (split-string-lines content))
+                     (own-content-indent
+                       (make-string own-content-offset :initial-element #\space)))
+                 (when lines
+                   (write-string (first lines) s)
+                   (dolist (line (cdr lines))
+                     (format s "~%~a~a~a" indent-str own-content-indent line))))
+               ;; write children (if any)
+               (when children
+                 ;; need newline before entering sub-list
+                 (write-char #\newline s)
+                 (write-string
+                  (list-to-list-string children (+ indent-level own-content-offset))
+                  s))
+               ;; write separator (only if there is another item following)
+               (when rest
+                 (write-char #\newline s))))))
 
 (defun reformat-list (str parse-tree)
   "normalizes indentation and spacing."
@@ -431,16 +594,59 @@
     depth))
 
 (defun get-list-type (str list-node)
-  (let* ((children (cltpt/combinator:match-children list-node))
-         (first-item (when children
-                       (first children)))
-         (bullet-node (when first-item
-                        (cltpt/combinator/match:find-direct-match-child-by-id first-item 'list-item-bullet)))
-         (marker (when bullet-node
-                   (cltpt/combinator:match-text bullet-node str))))
-    (if (and marker (string= marker "-"))
-        :ul
-        :ol)))
+  (if (getf (getf (cltpt/combinator:match-props list-node) :type) :ordered-p)
+      :ol
+      :ul))
+
+(defun bullet-split (bullet-string)
+  "from a BULLET-STRING, parse and return (values marker suffix)."
+  (let* ((string-with-space (concatenate 'string bullet-string " "))
+         (reader (cltpt/reader:reader-from-string string-with-space))
+         (match (parse-bullet reader 0 (length string-with-space) 0)))
+    (when match
+      (let* ((marker-match (cltpt/combinator:find-submatch match 'marker))
+             (marker-text (when marker-match
+                            (cltpt/combinator:match-text marker-match reader)))
+             (suffix-match (cltpt/combinator:find-submatch match 'suffix))
+             (suffix-text (when suffix-match
+                            (cltpt/combinator:match-text suffix-match reader))))
+        (values marker-text suffix-text)))))
+
+(defun cycle-next-bullet (bt)
+  "return the next bullet type entry in the cycle after BT."
+  (let ((pos (when bt
+               (position
+                (getf bt :name)
+                *bullet-types*
+                :key (lambda (entry)
+                       (getf entry :name))))))
+    (if pos
+        (nth (mod (1+ pos) (length *bullet-types*)) *bullet-types*)
+        (first *bullet-types*))))
+
+(defun bullet-at-index (lst idx)
+  "return the bullet string at IDX for a list plist."
+  (let* ((bt (getf lst :type))
+         (func (when bt (getf bt :sequence-func))))
+    (if func
+        (funcall func lst idx)
+        (if bt
+            (getf bt :first-bullet "-")
+            (getf (first (getf lst :children)) :bullet "-")))))
+
+(defun renumber-list-items (lst &optional (start-idx 0))
+  "renumber :bullet of items in list LST from START-IDX onward.
+resets the first item's marker to the type's base before generating bullets."
+  (let* ((items (getf lst :children))
+         (bt (getf lst :type))
+         (first-item (first items)))
+    (when first-item
+      (when (and bt (getf bt :first-bullet))
+        (multiple-value-bind (marker suffix) (bullet-split (getf bt :first-bullet))
+          (setf (getf first-item :marker) marker)))
+      (loop for item in (nthcdr start-idx items)
+            for i from start-idx
+            do (setf (getf item :bullet) (bullet-at-index lst i))))))
 
 (defun get-html-ol-type (bullet-marker)
   (when (and bullet-marker (> (length bullet-marker) 0))
