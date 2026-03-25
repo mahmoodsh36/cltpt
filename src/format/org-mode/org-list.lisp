@@ -71,7 +71,7 @@
   "registered bullet types, tried in order by `parse-bullet'.
 each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
 
-(defun register-bullet-type (&key name rule ordered-p first-bullet sequence-func)
+(defun register-bullet-type (&key name rule ordered-p first-bullet sequence-func on-char)
   (setf *bullet-types*
         (append (remove name
                         *bullet-types*
@@ -80,7 +80,8 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                             :rule rule
                             :ordered-p ordered-p
                             :first-bullet first-bullet
-                            :sequence-func sequence-func)))))
+                            :sequence-func sequence-func
+                            :on-char on-char)))))
 
 (defvar *roman-values*
   '((1000 "m") (900 "cm") (500 "d") (400 "cd")
@@ -152,16 +153,19 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
 
 (register-bullet-type
   :name :dash
+  :on-char #\-
   :rule '(cltpt/combinator:consec (cltpt/combinator:literal "-") (cltpt/combinator:literal " "))
   :first-bullet "-")
 
 (register-bullet-type
   :name :plus
+  :on-char #\+
   :rule '(cltpt/combinator:consec (cltpt/combinator:literal "+") (cltpt/combinator:literal " "))
   :first-bullet "+")
 
 (register-bullet-type
   :name :numeric-dot
+  :on-char #'digit-char-p
   :rule '(cltpt/combinator:consec
           (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
           (:id suffix :pattern (cltpt/combinator:literal "."))
@@ -172,6 +176,7 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
 
 (register-bullet-type
   :name :numeric-paren
+  :on-char #'digit-char-p
   :rule '(cltpt/combinator:consec
           (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
           (:id suffix :pattern (cltpt/combinator:literal ")"))
@@ -184,6 +189,7 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
 ;; roman has to be registered before alphabetic.
 (register-bullet-type
   :name :roman-dot
+  :on-char #'alpha-char-p
   :rule '(cltpt/combinator:consec
           (:id marker
            :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
@@ -195,6 +201,7 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
 
 (register-bullet-type
   :name :roman-paren
+  :on-char #'alpha-char-p
   :rule '(cltpt/combinator:consec
           (:id marker
            :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
@@ -206,6 +213,7 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
 
 (register-bullet-type
   :name :alpha-dot
+  :on-char #'alpha-char-p
   :rule '(cltpt/combinator:consec
           (:id marker :pattern (cltpt/combinator:eng-char-p))
           (:id suffix :pattern (cltpt/combinator:literal "."))
@@ -216,6 +224,7 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
 
 (register-bullet-type
   :name :alpha-paren
+  :on-char #'alpha-char-p
   :rule '(cltpt/combinator:consec
           (:id marker :pattern (cltpt/combinator:eng-char-p))
           (:id suffix :pattern (cltpt/combinator:literal ")"))
@@ -229,17 +238,23 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
   (unless (and (>= (- line-end line-start) expected-indent)
                (= (count-leading-spaces reader line-start line-end) expected-indent))
     (return-from parse-bullet nil))
-  (let ((bullet-start (+ line-start expected-indent)))
+  (let* ((bullet-start (+ line-start expected-indent))
+         (ch (cltpt/reader:reader-char reader bullet-start)))
     (dolist (bt *bullet-types*)
-      (let ((match (cltpt/combinator:apply-rule nil (getf bt :rule) reader bullet-start)))
-        (when match
-          (let* ((bullet-len (- (cltpt/combinator:match-end match)
-                                (cltpt/combinator:match-begin match)))
-                 (end-pos (+ bullet-start bullet-len)))
-            (when (<= end-pos line-end)
-              (setf (cltpt/combinator:match-props match)
-                    (list :type bt))
-              (return match))))))))
+      (let ((on-char (getf bt :on-char)))
+        (when (or (null on-char)
+                  (if (characterp on-char)
+                      (char= ch on-char)
+                      (funcall on-char ch)))
+          (let ((match (cltpt/combinator:apply-rule nil (getf bt :rule) reader bullet-start)))
+            (when match
+              (let* ((bullet-len (- (cltpt/combinator:match-end match)
+                                    (cltpt/combinator:match-begin match)))
+                     (end-pos (+ bullet-start bullet-len)))
+                (when (<= end-pos line-end)
+                  (setf (cltpt/combinator:match-props match)
+                        (list :type bt))
+                  (return match))))))))))
 
 (defun parse-single-list-item (ctx reader item-start-pos item-indent inline-rules)
   "parse a single list item. returns (values item-match next-pos)."
