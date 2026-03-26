@@ -152,6 +152,10 @@
 (defmethod cltpt/tree:tree-value ((subtree match))
   subtree)
 
+;; match children are always matches, so skip the expensive type-of check
+(defmethod cltpt/tree:is-subtree ((subtree match) child)
+  (match-p child))
+
 ;; implement cltpt/buffer interface (duck typing for match struct)
 
 (defmethod cltpt/buffer:buffer-children ((m match))
