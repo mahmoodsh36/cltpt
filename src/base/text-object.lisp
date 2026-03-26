@@ -784,17 +784,14 @@ contents region is further compressed by COMPRESS-REGION if provided."
 (defmethod text-object-match-text ((obj text-object) (match cltpt/combinator:match))
   "get text from MATCH relative to text object OBJ or string STR."
   (when match
-    (let ((full-text (text-object-text obj))
-          (ascendant-match (text-object-match obj)))
+    (let* ((full-text (text-object-text obj))
+           (ascendant-match (text-object-match obj))
+           ;; compute ascendant absolute position once instead of twice
+           (ascendant-abs (cltpt/combinator:match-begin-absolute ascendant-match)))
       (cltpt/buffer:region-text
        (cltpt/buffer:make-region
-        ;; TODO: use a function that returns the bounds of the descendant match relative
-        ;; to the ascendant instead of doing this manually. this functionality should be
-        ;; present in the buffer structure which matches inherit from.
-        :begin (- (cltpt/combinator:match-begin-absolute match)
-                  (cltpt/combinator:match-begin-absolute ascendant-match))
-        :end (- (cltpt/combinator:match-end-absolute match)
-                (cltpt/combinator:match-begin-absolute ascendant-match)))
+        :begin (- (cltpt/combinator:match-begin-absolute match) ascendant-abs)
+        :end (- (cltpt/combinator:match-end-absolute match) ascendant-abs))
        full-text))))
 
 (defmethod find-child-enclosing-region ((obj text-object) (r cltpt/buffer:region))
