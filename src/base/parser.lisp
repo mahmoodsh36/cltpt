@@ -3,7 +3,7 @@
 ;; receives a match result, returns a text object
 ;; if MATCH has :rule that has :type, or if MATCH has :id, that refers to a `text-object', result will be a `text-object',
 ;; otherwise it will be a list that may contain many instances of `text-object'
-(defun handle-match (input match existing-objects text-object-types)
+(defun handle-match (input match existing-objects text-object-types-hash)
   "recursively processes a match from the parser, creating text-objects.
 
 the function passes the state between recursive calls by returning two values:
@@ -27,7 +27,7 @@ the function passes the state between recursive calls by returning two values:
                  (handle-match input
                                child
                                current-objects
-                               text-object-types)
+                               text-object-types-hash)
                (when obj
                  ;; push the objects returned by the child
                  (if (listp obj)
@@ -37,7 +37,7 @@ the function passes the state between recursive calls by returning two values:
                (setf current-objects updated-objects)))
     ;; create the final, correctly-ordered list of children with one reversal.
     (let ((child-results (nreverse reversed-child-results)))
-      (if (member main-match-type text-object-types)
+      (if (gethash main-match-type text-object-types-hash)
           ;; this match corresponds to a text-object we need to create.
           (let* ((match-begin (cltpt/combinator:match-begin-absolute match))
                  (match-end (cltpt/combinator:match-end-absolute match))
@@ -138,10 +138,13 @@ the function passes the state between recursive calls by returning two values:
                     doc)
   "parse a string, returning a document object tree."
   (let* ((all-objects)
+         (text-object-types-hash (make-hash-table :test 'eq
+                                                  :size (length text-object-types)))
          (data
            (remove-if-not
             'identity
             (loop for type1 in text-object-types
+                  do (setf (gethash type1 text-object-types-hash) t)
                   collect (text-object-rule-from-subclass type1)))))
     (multiple-value-bind (matches escaped) (cltpt/combinator:parse input data)
       (loop for m in matches
@@ -149,7 +152,7 @@ the function passes the state between recursive calls by returning two values:
                    (handle-match input
                                  m
                                  all-objects
-                                 text-object-types)
+                                 text-object-types-hash)
                  (setf all-objects updated-objects)))
       ;; here we build the text object forest (collection of trees) properly.
       ;; once we are done parsing with the combinator we can safely turn it into a string,
@@ -199,10 +202,14 @@ the function passes the state between recursive calls by returning two values:
          (change-start (cltpt/buffer:region-begin change-region))
          (new-text-len (length result-text))
          (post-change-end (+ change-start new-text-len))
+         (text-object-types (text-format-text-object-types format))
+         (text-object-types-hash (make-hash-table :test 'eq
+                                                  :size (length text-object-types)))
          (rules
            (remove-if-not
             'identity
-            (loop for type1 in (text-format-text-object-types format)
+            (loop for type1 in text-object-types
+                  do (setf (gethash type1 text-object-types-hash) t)
                   collect (text-object-rule-from-subclass type1))))
          ;; find the deepest child that encloses the changed region
          (target-obj (or (find-child-enclosing-region
@@ -239,7 +246,7 @@ the function passes the state between recursive calls by returning two values:
                     root-text
                     m
                     new-objects
-                    (text-format-text-object-types format))
+                    text-object-types-hash)
                  (setf new-objects updated-objects)))
       ;; filter to top-level text objects (no parent)
       (setf new-objects
