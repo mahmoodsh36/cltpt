@@ -330,44 +330,42 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   :documentation "a timestamp/date. e.g. <2023-12-28 Thu 18:30:00>.")
 
 (defun org-timestamp-match-to-time (obj match)
-  (labels ((get-text (m)
+  ;; collect all needed submatches in a single tree walk instead of 7 separate walks.
+  (let (day-match month-match year-match hour-match minute-match second-match)
+    (labels ((collect (node)
+               (case (cltpt/combinator:match-id node)
+                 (day (setf day-match node))
+                 (month (setf month-match node))
+                 (year (setf year-match node))
+                 (hour (setf hour-match node))
+                 (minute (setf minute-match node))
+                 (second (setf second-match node)))
+               (dolist (child (cltpt/combinator:match-children node))
+                 (collect child))))
+      (collect match))
+    (flet ((get-text (m)
              (when m
                (if (typep obj 'cltpt/base:text-object)
                    (cltpt/base:text-object-match-text obj m)
                    ;; if its not a text object we consider it a string and use match-text
                    (cltpt/combinator:match-text m obj)))))
-    (let* ((day (parse-integer
-                 (get-text (cltpt/combinator:find-submatch match 'day))
-                 :junk-allowed t))
-           (second-str-match (cltpt/combinator:find-submatch match 'second))
-           (second-str (when second-str-match
-                         (get-text second-str-match)))
-           (second (when second-str
-                     (parse-integer second-str :junk-allowed t)))
-           (year (parse-integer
-                  (get-text (cltpt/combinator:find-submatch match 'year))
-                  :junk-allowed t))
-           (month (parse-integer
-                   (get-text (cltpt/combinator:find-submatch match 'month))
-                   :junk-allowed t))
-           (hour-match (cltpt/combinator:find-submatch match 'hour))
-           (hour-str (when hour-match
-                       (get-text hour-match)))
-           (hour (when hour-str
-                   (parse-integer hour-str :junk-allowed t)))
-           (minute-match (cltpt/combinator:find-submatch match 'minute))
-           (minute-str (when minute-match
-                         (get-text minute-match)))
-           (minute (when minute-str
-                     (parse-integer minute-str :junk-allowed t)))
-           (weekday (cltpt/combinator:find-submatch match 'weekday)))
-      (local-time:encode-timestamp 0
-                                   (or second 0)
-                                   (or minute 0)
-                                   (or hour 0)
-                                   day
-                                   month
-                                   year))))
+      (let* ((day (parse-integer (get-text day-match) :junk-allowed t))
+             (month (parse-integer (get-text month-match) :junk-allowed t))
+             (year (parse-integer (get-text year-match) :junk-allowed t))
+             (hour-str (get-text hour-match))
+             (hour (when hour-str (parse-integer hour-str :junk-allowed t)))
+             (minute-str (get-text minute-match))
+             (minute (when minute-str (parse-integer minute-str :junk-allowed t)))
+             (second-str (get-text second-match))
+             (second (when second-str (parse-integer second-str :junk-allowed t))))
+        (local-time:encode-timestamp
+         0
+         (or second 0)
+         (or minute 0)
+         (or hour 0)
+         day
+         month
+         year)))))
 
 (cltpt/base:define-text-object org-timestamp-bracket
   :rule '(:pattern
