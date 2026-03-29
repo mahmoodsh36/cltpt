@@ -437,6 +437,90 @@ b. item two")
     (is (null (cltpt/org-mode:roman-to-int "")))
     (is (null (cltpt/org-mode:roman-to-int "qwerty")))))
 
+(test checkbox-parse-tree
+  "list items with checkboxes produce correct list-item-checkbox submatches."
+  (let* ((text "- [X] hello
+- [ ] world")
+         (match (cltpt/org-mode::org-list-matcher
+                 nil
+                 (cltpt/reader:reader-from-string text)
+                 0)))
+    (is-match-tree
+     match
+     '((:BEGIN 0 :END 23 :ID CLTPT/ORG-MODE:ORG-LIST)
+       ((:BEGIN 0 :END 11 :ID CLTPT/ORG-MODE::LIST-ITEM)
+        ((:BEGIN 0 :END 1 :ID CLTPT/ORG-MODE::LIST-ITEM-BULLET))
+        ((:BEGIN 2 :END 5 :ID CLTPT/ORG-MODE::LIST-ITEM-CHECKBOX))
+        ((:BEGIN 6 :END 11 :ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT)))
+       ((:BEGIN 12 :END 23 :ID CLTPT/ORG-MODE::LIST-ITEM)
+        ((:BEGIN 0 :END 1 :ID CLTPT/ORG-MODE::LIST-ITEM-BULLET))
+        ((:BEGIN 2 :END 5 :ID CLTPT/ORG-MODE::LIST-ITEM-CHECKBOX))
+        ((:BEGIN 6 :END 11 :ID CLTPT/ORG-MODE::LIST-ITEM-CONTENT)))))))
+
+(test checkbox-state-props
+  "checkbox submatch :state prop is correct for all three states."
+  (let* ((text "- [X] checked
+- [ ] unchecked
+- [-] partial")
+         (reader (cltpt/reader:reader-from-string text))
+         (match (cltpt/org-mode::org-list-matcher nil reader 0))
+         (items (cltpt/combinator:match-children match)))
+    (flet ((checkbox-state (item)
+             (let ((cb (find 'cltpt/org-mode::list-item-checkbox
+                             (cltpt/combinator:match-children item)
+                             :key #'cltpt/combinator:match-id)))
+               (getf (cltpt/combinator:match-props cb) :state))))
+      (is (eq :checked (checkbox-state (first items))))
+      (is (eq :unchecked (checkbox-state (second items))))
+      (is (eq :partial (checkbox-state (third items)))))))
+
+(test checkbox-list-data
+  "list-match-to-list extracts :checkbox and :content correctly for checkbox items."
+  (let* ((text "- [X] inline lisp execution
+- [X] commandline
+- [ ] test")
+         (match (cltpt/org-mode::org-list-matcher
+                 nil
+                 (cltpt/reader:reader-from-string text)
+                 0))
+         (data (cltpt/org-mode:list-match-to-list text match))
+         (items (getf data :children)))
+    (is (= 3 (length items)))
+    (is (eq :checked (getf (first items) :checkbox)))
+    (is (string= "inline lisp execution" (getf (first items) :content)))
+    (is (eq :checked (getf (second items) :checkbox)))
+    (is (string= "commandline" (getf (second items) :content)))
+    (is (eq :unchecked (getf (third items) :checkbox)))
+    (is (string= "test" (getf (third items) :content)))))
+
+(test checkbox-no-false-positive
+  "items without a checkbox bracket produce no list-item-checkbox child and nil :checkbox prop."
+  (let* ((text "- plain item
+- another")
+         (match (cltpt/org-mode::org-list-matcher
+                 nil
+                 (cltpt/reader:reader-from-string text)
+                 0))
+         (items (cltpt/combinator:match-children match)))
+    (dolist (item items)
+      (is (null (find 'cltpt/org-mode::list-item-checkbox
+                      (cltpt/combinator:match-children item)
+                      :key #'cltpt/combinator:match-id))))))
+
+(test checkbox-roundtrip
+  (dolist (text '("- [X] done
+- [ ] todo
+- [-] partial"
+                  "+ [X] item one
++ [ ] item two"))
+    (let* ((match (cltpt/org-mode:org-list-matcher
+                   nil
+                   (cltpt/reader:reader-from-string text)
+                   0))
+           (data (cltpt/org-mode:list-match-to-list text match))
+           (result (cltpt/org-mode:list-to-list-string data)))
+      (is (string= text result)))))
+
 (defun run-org-list-tests ()
   (format t "~&running org-list tests...~%")
   (let ((results (run! 'org-list-suite)))

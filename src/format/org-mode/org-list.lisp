@@ -1,6 +1,7 @@
 (in-package :cltpt/org-mode)
 
-;; this version is much faster than the one above.
+;; org-list parsing currently makes use of `reader-buffer-fill' which will not work well with streams
+
 (defun get-line-bounds (reader pos)
   "returns (values line-start, line-end) for the line at pos."
   (if (cltpt/reader:is-after-eof reader pos)
@@ -8,16 +9,15 @@
         (values len len))
       (let* ((line-start (or (loop for i fixnum from (1- pos) downto 0
                                    when (char= (cltpt/reader:reader-char reader i) #\newline)
-                                     return i)
-                             -1))
-             (actual-line-start (the fixnum (1+ line-start)))
+                                     return (1+ i))
+                             0))
              (line-end (or (cltpt/reader:reader-position
                             reader
                             #\newline
-                            actual-line-start
+                            line-start
                             (cltpt/reader:reader-buffer-fill reader))
                            (cltpt/reader:reader-buffer-fill reader))))
-        (values actual-line-start line-end))))
+        (values line-start line-end))))
 
 (defun count-leading-spaces (reader start end)
   (loop for i fixnum from start below end
@@ -152,91 +152,88 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
     (format nil "~C)" (code-char (+ start idx)))))
 
 (register-bullet-type
-  :name :dash
-  :on-char #\-
-  :rule '(cltpt/combinator:consec (cltpt/combinator:literal "-") (cltpt/combinator:literal " "))
-  :first-bullet "-")
+ :name :dash
+ :on-char #\-
+ :rule '(cltpt/combinator:literal "-")
+ :first-bullet "-")
 
 (register-bullet-type
-  :name :plus
-  :on-char #\+
-  :rule '(cltpt/combinator:consec (cltpt/combinator:literal "+") (cltpt/combinator:literal " "))
-  :first-bullet "+")
+ :name :plus
+ :on-char #\+
+ :rule '(cltpt/combinator:literal "+")
+ :first-bullet "+")
 
 (register-bullet-type
-  :name :numeric-dot
-  :on-char #'digit-char-p
-  :rule '(cltpt/combinator:consec
-          (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
-          (:id suffix :pattern (cltpt/combinator:literal "."))
-          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
-  :ordered-p t
-  :first-bullet "1."
-  :sequence-func #'make-numeric-dot-bullet)
+ :name :numeric-dot
+ :on-char #'digit-char-p
+ :rule '(cltpt/combinator:consec
+         (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
+         (:id suffix :pattern (cltpt/combinator:literal ".")))
+ :ordered-p t
+ :first-bullet "1."
+ :sequence-func #'make-numeric-dot-bullet)
 
 (register-bullet-type
-  :name :numeric-paren
-  :on-char #'digit-char-p
-  :rule '(cltpt/combinator:consec
-          (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
-          (:id suffix :pattern (cltpt/combinator:literal ")"))
-          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
-  :ordered-p t
-  :first-bullet "1)"
-  :sequence-func #'make-numeric-paren-bullet)
+ :name :numeric-paren
+ :on-char #'digit-char-p
+ :rule '(cltpt/combinator:consec
+         (:id marker :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:digit-p)))
+         (:id suffix :pattern (cltpt/combinator:literal ")")))
+ :ordered-p t
+ :first-bullet "1)"
+ :sequence-func #'make-numeric-paren-bullet)
 
 ;; order matters. types are tried in order by parse-bullet.
 ;; roman has to be registered before alphabetic.
 (register-bullet-type
-  :name :roman-dot
-  :on-char #'alpha-char-p
-  :rule '(cltpt/combinator:consec
-          (:id marker
-           :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
-          (:id suffix :pattern (cltpt/combinator:literal "."))
-          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
-  :ordered-p t
-  :first-bullet "i."
-  :sequence-func #'make-roman-dot-bullet)
+ :name :roman-dot
+ :on-char #'alpha-char-p
+ :rule '(cltpt/combinator:consec
+         (:id marker
+          :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
+         (:id suffix :pattern (cltpt/combinator:literal ".")))
+ :ordered-p t
+ :first-bullet "i."
+ :sequence-func #'make-roman-dot-bullet)
 
 (register-bullet-type
-  :name :roman-paren
-  :on-char #'alpha-char-p
-  :rule '(cltpt/combinator:consec
-          (:id marker
-           :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
-          (:id suffix :pattern (cltpt/combinator:literal ")"))
-          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
-  :ordered-p t
-  :first-bullet "i)"
-  :sequence-func #'make-roman-paren-bullet)
+ :name :roman-paren
+ :on-char #'alpha-char-p
+ :rule '(cltpt/combinator:consec
+         (:id marker
+          :pattern (cltpt/combinator:atleast-one-discard (cltpt/combinator:roman-char-p)))
+         (:id suffix :pattern (cltpt/combinator:literal ")")))
+ :ordered-p t
+ :first-bullet "i)"
+ :sequence-func #'make-roman-paren-bullet)
 
 (register-bullet-type
-  :name :alpha-dot
-  :on-char #'alpha-char-p
-  :rule '(cltpt/combinator:consec
-          (:id marker :pattern (cltpt/combinator:eng-char-p))
-          (:id suffix :pattern (cltpt/combinator:literal "."))
-          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
-  :ordered-p t
-  :first-bullet "a."
-  :sequence-func #'make-alpha-dot-bullet)
+ :name :alpha-dot
+ :on-char #'alpha-char-p
+ :rule '(cltpt/combinator:consec
+         (:id marker :pattern (cltpt/combinator:eng-char-p))
+         (:id suffix :pattern (cltpt/combinator:literal ".")))
+ :ordered-p t
+ :first-bullet "a."
+ :sequence-func #'make-alpha-dot-bullet)
 
 (register-bullet-type
-  :name :alpha-paren
-  :on-char #'alpha-char-p
-  :rule '(cltpt/combinator:consec
-          (:id marker :pattern (cltpt/combinator:eng-char-p))
-          (:id suffix :pattern (cltpt/combinator:literal ")"))
-          (cltpt/combinator:consec-atleast-one (cltpt/combinator:literal " ")))
-  :ordered-p t
-  :first-bullet "a)"
-  :sequence-func #'make-alpha-paren-bullet)
+ :name :alpha-paren
+ :on-char #'alpha-char-p
+ :rule '(cltpt/combinator:consec
+         (:id marker :pattern (cltpt/combinator:eng-char-p))
+         (:id suffix :pattern (cltpt/combinator:literal ")")))
+ :ordered-p t
+ :first-bullet "a)"
+ :sequence-func #'make-alpha-paren-bullet)
 
-(defun parse-bullet (reader line-start line-end expected-indent)
-  "try each registered bullet type at (line-start + expected-indent). return match or nil."
+(defun parse-bullet (reader line-start line-end expected-indent &optional pre-computed-indent)
+  "try each registered bullet type at (line-start + expected-indent). return match or nil.
+if PRE-COMPUTED-INDENT is supplied the count-leading-spaces call is skipped."
   (unless (and (>= (- line-end line-start) expected-indent)
-               (= (count-leading-spaces reader line-start line-end) expected-indent))
+               (= (or pre-computed-indent
+                      (count-leading-spaces reader line-start line-end))
+                  expected-indent))
     (return-from parse-bullet nil))
   (let* ((bullet-start (+ line-start expected-indent))
          (ch (when (< bullet-start line-end)
@@ -250,21 +247,22 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                       (funcall on-char ch)))
           (let ((match (cltpt/combinator:apply-rule nil (getf bt :rule) reader bullet-start)))
             (when match
-              (let* ((bullet-len (- (cltpt/combinator:match-end match)
-                                    (cltpt/combinator:match-begin match)))
-                     (end-pos (+ bullet-start bullet-len)))
-                (when (<= end-pos line-end)
+              (let ((marker-end (cltpt/combinator:match-end match)))
+                ;; require exactly one trailing space after the marker
+                (when (and (< marker-end line-end)
+                           (char= (cltpt/reader:reader-char reader marker-end) #\space))
+                  (setf (cltpt/combinator:match-end match) (1+ marker-end))
                   (setf (cltpt/combinator:match-props match)
                         (list :type bt))
                   (return match))))))))))
 
 (defun parse-single-list-item (ctx reader item-start-pos item-indent inline-rules)
-  "parse a single list item. returns (values item-match next-pos)."
+  "parse a single list item. returns the item match, or nil."
   (multiple-value-bind (line-start line-end)
       (get-line-bounds reader item-start-pos)
     (let ((bullet-match (parse-bullet reader line-start line-end item-indent)))
       (unless bullet-match
-        (return-from parse-single-list-item (values nil item-start-pos)))
+        (return-from parse-single-list-item nil))
       (let* ((bprops (cltpt/combinator:match-props bullet-match))
              (bt (getf bprops :type))
              (bullet-len (- (cltpt/combinator:match-end bullet-match)
@@ -277,7 +275,23 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                             (cltpt/combinator:match-text suffix-match reader)))
              (bullet-begin (+ line-start item-indent))
              (bullet-end (+ bullet-begin (max 0 (1- bullet-len))))
-             (first-line-content-begin (+ bullet-begin bullet-len))
+             (after-bullet (+ bullet-begin bullet-len))
+             (checkbox-open after-bullet)
+             (checkbox-state-pos (1+ checkbox-open))
+             (checkbox-close (1+ checkbox-state-pos))
+             (checkbox-end (1+ checkbox-close))
+             (checkbox-state
+               (when (and (< checkbox-end line-end)
+                          (char= (cltpt/reader:reader-char reader checkbox-open) #\[)
+                          (char= (cltpt/reader:reader-char reader checkbox-close) #\])
+                          (char= (cltpt/reader:reader-char reader checkbox-end) #\space))
+                 (let ((state-char (cltpt/reader:reader-char reader checkbox-state-pos)))
+                   (cond ((char= state-char #\space) :unchecked)
+                         ((char-equal state-char #\x) :checked)
+                         ((char= state-char #\-) :partial)))))
+             (content-start (if checkbox-state
+                                (1+ checkbox-end)
+                                after-bullet))
              (item-match (cltpt/combinator:make-match
                           :id 'list-item
                           :ctx ctx
@@ -300,9 +314,18 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                              :begin (- bullet-begin (cltpt/combinator:context-parent-begin item-ctx))
                              :end (- bullet-end (cltpt/combinator:context-parent-begin item-ctx)))))
           (push bullet-match item-children))
+        (when checkbox-state
+          (let ((checkbox-match (cltpt/combinator:make-match
+                                 :id 'list-item-checkbox
+                                 :ctx item-ctx
+                                 :parent (cltpt/combinator:context-parent-match item-ctx)
+                                 :begin (- checkbox-open (cltpt/combinator:context-parent-begin item-ctx))
+                                 :end (- checkbox-end (cltpt/combinator:context-parent-begin item-ctx))
+                                 :props (list :state checkbox-state))))
+            (push checkbox-match item-children)))
         ;; collect content segments from first line
-        (when (< first-line-content-begin line-end)
-          (push (cons first-line-content-begin line-end) content-segments))
+        (when (< content-start line-end)
+          (push (cons content-start line-end) content-segments))
         ;; scan continuation lines
         (loop
           (when (cltpt/reader:is-after-eof reader current-scan-pos)
@@ -311,7 +334,7 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
               (get-line-bounds reader current-scan-pos)
             (let ((next-indent (count-leading-spaces reader next-l-start next-l-end)))
               (if (and (> next-indent item-indent)
-                       (not (parse-bullet reader next-l-start next-l-end next-indent)))
+                       (not (parse-bullet reader next-l-start next-l-end next-indent next-indent)))
                   (progn
                     (let ((extra-start (+ next-l-start next-indent)))
                       (when (< extra-start next-l-end)
@@ -324,14 +347,17 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
         (setf content-segments (nreverse content-segments))
         (let* ((content-node-begin (if content-segments
                                        (caar content-segments)
-                                       first-line-content-begin))
-               (pos-after-children current-scan-pos)
+                                       content-start))
                (end-of-children 0)
                (content-children))
           ;; check for nested list
           (unless (cltpt/reader:is-after-eof reader current-scan-pos)
-            (multiple-value-bind (child-list-match pos-after-child)
-                (org-list-matcher ctx reader current-scan-pos inline-rules (1+ item-indent))
+            (let ((child-list-match (org-list-matcher
+                                     ctx
+                                     reader
+                                     current-scan-pos
+                                     inline-rules
+                                     (1+ item-indent))))
               (when child-list-match
                 (let ((child-abs-begin (+ (cltpt/combinator:match-begin child-list-match)
                                           (cltpt/combinator:context-parent-begin ctx)))
@@ -345,7 +371,6 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                   (setf (cltpt/combinator:match-end child-list-match)
                         (- child-abs-end content-node-begin)))
                 (push child-list-match content-children)
-                (setf pos-after-children pos-after-child)
                 (setf end-of-children (+ (cltpt/combinator:match-begin child-list-match)
                                          content-node-begin
                                          (- (cltpt/combinator:match-end child-list-match)
@@ -370,7 +395,6 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                       (setf (cltpt/combinator:match-end m) (- abs-end content-node-begin))))
                   (setf content-children (nconc content-children matches-in-segment))))))
           (let* ((final-match-end (max end-of-content-text end-of-children))
-                 (final-next-pos (max current-scan-pos pos-after-children))
                  (content-match (cltpt/combinator:make-match
                                  :id 'list-item-content
                                  :ctx item-ctx
@@ -387,12 +411,12 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                   (- final-match-end (cltpt/combinator:context-parent-begin ctx)))
             (setf (cltpt/combinator:match-children item-match) (nreverse item-children))
             (cltpt/combinator:match-set-children-parent item-match)
-            (values item-match final-next-pos)))))))
+            item-match))))))
 
 (defun parse-list-items-at-indent (ctx reader initial-pos expected-indent inline-rules)
   (let ((item-nodes)
         (current-pos initial-pos)
-        (last-successful-pos initial-pos))
+        (ctx-parent-begin (cltpt/combinator:context-parent-begin ctx)))
     (loop
       (when (cltpt/reader:is-after-eof reader current-pos)
         (return))
@@ -404,55 +428,55 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
         (let ((indent (count-leading-spaces reader ls le)))
           (unless (= indent expected-indent)
             (return))
-          (if (parse-bullet reader ls le indent)
-              (multiple-value-bind (item-cons-cell new-item-pos)
-                  (parse-single-list-item ctx reader current-pos expected-indent inline-rules)
-                (if (and item-cons-cell (> new-item-pos current-pos))
+          (if (parse-bullet reader ls le indent indent)
+              (let ((item-match (parse-single-list-item
+                                 ctx
+                                 reader
+                                 current-pos
+                                 expected-indent
+                                 inline-rules)))
+                (if item-match
                     (progn
-                      (push item-cons-cell item-nodes)
-                      (setf current-pos new-item-pos)
-                      (setf last-successful-pos new-item-pos))
+                      (push item-match item-nodes)
+                      (setf current-pos
+                            (min (+ 1
+                                    ctx-parent-begin
+                                    (cltpt/combinator:match-end item-match))
+                                 (cltpt/reader:reader-buffer-fill reader))))
                     (return)))
               (return)))))
-    (values (nreverse item-nodes) last-successful-pos)))
+    (nreverse item-nodes)))
 
 (defun org-list-matcher (ctx reader pos &optional inline-rules (minimum-indent 0))
-  "parse an org-mode list starting at pos. returns (values list-match next-pos)."
-  ;; use a heuristic: if not at line-start, return immediately without an expensive scan
+  "parse an org-mode list starting at pos. returns the list match, or nil."
+  ;; use a heuristic: if not at line-start, return immediately without an expensive scan.
   (unless (or (= pos 0)
               (and (> pos 0)
                    (char= (cltpt/reader:reader-char reader (1- pos)) #\newline)))
-    (return-from org-list-matcher (values nil pos)))
+    (return-from org-list-matcher nil))
   (multiple-value-bind (ls le) (get-line-bounds reader pos)
-    (let ((indent (count-leading-spaces reader ls le)))
-        (let ((first-bullet-match (parse-bullet reader ls le indent)))
-          (unless (and (>= indent minimum-indent) first-bullet-match)
-            (return-from org-list-matcher (values nil pos)))
-          (let* ((fbprops (cltpt/combinator:match-props first-bullet-match))
-                 (first-bt (getf fbprops :type))
-                 (list-match (cltpt/combinator:make-match
-                               :id 'org-list
-                               :ctx ctx
-                               :parent (cltpt/combinator:context-parent-match ctx)
-                               :begin (- pos (cltpt/combinator:context-parent-begin ctx))
-                               :props (list :indent indent
-                                            :type first-bt)))
-                 (list-ctx (cltpt/combinator:context-copy ctx list-match)))
-          (multiple-value-bind (nodes final-pos)
-              (parse-list-items-at-indent list-ctx reader pos indent inline-rules)
-            (if nodes
-                (progn
-                  (let ((list-end (- final-pos (cltpt/combinator:context-parent-begin ctx))))
-                    (when (and (> final-pos 0)
-                               (< (1- final-pos) (cltpt/reader:reader-buffer-fill reader))
-                               (char= (cltpt/reader:reader-char reader (1- final-pos))
-                                      #\newline))
-                      (decf list-end))
-                    (setf (cltpt/combinator:match-end list-match) list-end))
-                  (setf (cltpt/combinator:match-children list-match) nodes)
-                  (cltpt/combinator:match-set-children-parent list-match)
-                  (values list-match final-pos))
-                (values nil pos))))))))
+    (let* ((indent (count-leading-spaces reader ls le))
+           (first-bullet-match (parse-bullet reader ls le indent)))
+      (unless (and (>= indent minimum-indent) first-bullet-match)
+        (return-from org-list-matcher nil))
+      (let* ((fbprops (cltpt/combinator:match-props first-bullet-match))
+             (first-bt (getf fbprops :type))
+             (list-match (cltpt/combinator:make-match
+                          :id 'org-list
+                          :ctx ctx
+                          :parent (cltpt/combinator:context-parent-match ctx)
+                          :begin (- pos (cltpt/combinator:context-parent-begin ctx))
+                          :props (list :indent indent
+                                       :type first-bt)))
+             (list-ctx (cltpt/combinator:context-copy ctx list-match)))
+        (let ((nodes (parse-list-items-at-indent list-ctx reader pos indent inline-rules)))
+          (when nodes
+            (setf (cltpt/combinator:match-end list-match)
+                  (- (cltpt/combinator:match-end-absolute (car (last nodes)))
+                     (cltpt/combinator:context-parent-begin ctx)))
+            (setf (cltpt/combinator:match-children list-match) nodes)
+            (cltpt/combinator:match-set-children-parent list-match)
+            list-match))))))
 
 (defun list-match-to-list (str list-match)
   "converts an org-list match tree into a nested list."
@@ -467,6 +491,10 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                  (cltpt/combinator/match:find-direct-match-child-by-id
                   item
                   'list-item-bullet))
+               (checkbox-node
+                 (cltpt/combinator/match:find-direct-match-child-by-id
+                  item
+                  'list-item-checkbox))
                (content-node
                  (cltpt/combinator/match:find-direct-match-child-by-id
                   item
@@ -474,10 +502,13 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                (bullet-text (if bullet-node
                                 (cltpt/combinator:match-text bullet-node str)
                                 "-"))
+               (checkbox-state (when checkbox-node
+                                 (getf (cltpt/combinator:match-props checkbox-node) :state)))
                (props (cltpt/combinator:match-props item))
                (item-data (list* :bullet bullet-text
                                  :content ""
                                  :children nil
+                                 :checkbox checkbox-state
                                  props)))
           (when content-node
             (let* ((content-begin (cltpt/combinator:match-begin-absolute content-node))
@@ -505,6 +536,15 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
                    (own-content-offset (1+ (length (getf item :bullet)))))
                ;; write bullet and indent
                (format s "~a~a " indent-str bullet)
+               ;; write checkbox (if any)
+               (let ((checkbox (getf item :checkbox)))
+                 (when checkbox
+                   (format s
+                           "[~a] "
+                           (case checkbox
+                             (:unchecked " ")
+                             (:checked "X")
+                             (:partial "-")))))
                ;; write content
                (let ((lines (split-string-lines content))
                      (own-content-indent
