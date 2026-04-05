@@ -18,14 +18,18 @@
          (dest-format (or dest-format (cltpt/base:text-format-by-name dest-format-name)))
          (roamer (or roamer (cltpt/roam:roamer-from-files (or files rules)))))
     (when (and roamer filepath-format dest-format)
-      (cltpt/roam:convert-all
+      (apply
+       #'cltpt/roam:convert-all
        roamer
        dest-format
        filepath-format
-       :dest-dir dest-dir
-       :dest-dir-static dest-dir-static
-       :static-filepath-format static-filepath-format
-       :convert-file-predicate predicate))))
+       (append
+        (list
+         :dest-dir dest-dir
+         :dest-dir-static dest-dir-static
+         :static-filepath-format static-filepath-format)
+        (when predicate
+          (list :convert-file-predicate predicate)))))))
 
 ;; this is a hack to gather all latex previews and compile them all at once
 ;; before exporting. this is to speed things up. one latex conversion commands

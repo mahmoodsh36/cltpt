@@ -406,6 +406,28 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       :ol
       :ul))
 
+(defun get-html-checkbox-replacement (checkbox-state)
+  (case checkbox-state
+    (:checked
+     "<span class='org-checkbox org-checkbox-checked' aria-checked='true'>[X]</span>")
+    (:partial
+     "<span class='org-checkbox org-checkbox-partial' aria-checked='mixed'>[-]</span>")
+    (t
+     "<span class='org-checkbox org-checkbox-unchecked' aria-checked='false'>[ ]</span>")))
+
+(defun get-latex-checkbox-replacement (checkbox-state)
+  (case checkbox-state
+    (:checked "\\fbox{X}")
+    (:partial "\\fbox{-}")
+    (t "\\fbox{\\phantom{X}}")))
+
+(defun get-checkbox-replacement (checkbox-state backend)
+  (cltpt/base:pcase backend
+    (cltpt/html:*html*
+     (get-html-checkbox-replacement checkbox-state))
+    (cltpt/latex:*latex*
+     (get-latex-checkbox-replacement checkbox-state))))
+
 (defun generate-list-changes (match backend obj &optional base-offset (depth 0))
   "generate changes for converting an org-list match to HTML/LaTeX.
 
@@ -461,6 +483,9 @@ used for all region-decf calculations to get positions relative to the text-obje
         (let* ((bullet-match (cltpt/combinator/match:find-direct-match-child-by-id
                               child
                               'list-item-bullet))
+               (checkbox-match (cltpt/combinator/match:find-direct-match-child-by-id
+                                child
+                                'list-item-checkbox))
                (content-match (cltpt/combinator/match:find-direct-match-child-by-id
                                child
                                'list-item-content))
@@ -468,6 +493,10 @@ used for all region-decf calculations to get positions relative to the text-obje
                                (cltpt/combinator:match-begin-absolute bullet-match)))
                (bullet-end (when bullet-match
                              (cltpt/combinator:match-end-absolute bullet-match)))
+               (checkbox-begin (when checkbox-match
+                                 (cltpt/combinator:match-begin-absolute checkbox-match)))
+               (checkbox-end (when checkbox-match
+                               (cltpt/combinator:match-end-absolute checkbox-match)))
                (item-end (cltpt/combinator:match-end-absolute child)))
           ;; bullet replacement
           (when bullet-match
@@ -482,6 +511,20 @@ used for all region-decf calculations to get positions relative to the text-obje
                                 :operator (cltpt/base:pcase backend
                                             (cltpt/html:*html* "<li>")
                                             (cltpt/latex:*latex* "\\item ")))))))
+          ;; checkbox replacement
+          (when checkbox-match
+            (setf changes
+                  (nconc changes
+                         (list (cltpt/buffer:make-change
+                                :region (cltpt/buffer:region-decf
+                                         (cltpt/buffer:make-region
+                                          :begin checkbox-begin
+                                          :end checkbox-end)
+                                         offset)
+                                :operator (get-checkbox-replacement
+                                           (getf (cltpt/combinator:match-props checkbox-match)
+                                                 :state)
+                                           backend))))))
           ;; nested lists (recurse)
           (when content-match
             (dolist (content-child (cltpt/combinator:match-children content-match))

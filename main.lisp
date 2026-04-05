@@ -2,6 +2,10 @@
 (require 'uiop)
 (pushnew #p"./" asdf:*central-registry* :test #'equal)
 (asdf:load-system "cltpt" :force t) ;; force recompilation
+(setf cltpt/latex-previews::*latex-previews-tmp-directory* "cltpt-latex-previews/tmp/")
+(setf cltpt/latex-previews::*latex-previews-cache-directory* "cltpt-latex-previews/cache/")
+(ensure-directories-exist cltpt/latex-previews::*latex-previews-tmp-directory*)
+(ensure-directories-exist cltpt/latex-previews::*latex-previews-cache-directory*)
 (cltpt/zoo:init)
 ;; (asdf:load-system "cltpt")
 ;; (in-package :cltpt)

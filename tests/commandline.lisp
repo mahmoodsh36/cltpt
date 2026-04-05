@@ -10,15 +10,23 @@
 
 (in-suite commandline-suite)
 
-(defun run-cltpt-command (&rest args)
-  "run ./run.sh with ARGS and return stdout as a string. stderr is discarded."
-  (let ((cmd (list* "env" "-u" "CL_SOURCE_REGISTRY" "-u" "ASDF_OUTPUT_TRANSLATIONS" "./run.sh" args)))
+(defun run-cltpt-command-full (&rest args)
+  "run ./run.sh with ARGS and return stdout, stderr, and exit code."
+  (let ((cmd (list* "env"
+                    "-u" "CL_SOURCE_REGISTRY"
+                    "-u" "ASDF_OUTPUT_TRANSLATIONS"
+                    "./run.sh"
+                    args)))
     (multiple-value-bind (stdout stderr exit-code)
         (uiop:run-program cmd
                           :output '(:string)
                           :error-output :string
                           :ignore-error-status t)
-      stdout)))
+      (values stdout stderr exit-code))))
+
+(defun run-cltpt-command (&rest args)
+  "run ./run.sh with ARGS and return stdout as a string. stderr is discarded."
+  (nth-value 0 (apply #'run-cltpt-command-full args)))
 
 (test agenda-with-date-range
   "test the agenda command with --from and --to arguments."
@@ -57,3 +65,30 @@
 "
          "agenda commandline test")
         "agenda commandline test")))
+
+(test convert-single-file
+  (let ((out-file "/tmp/test.html")
+        (expected-file "tests/data/test-org-expected.html"))
+    (unwind-protect
+         (progn
+           (when (uiop:file-exists-p out-file)
+             (delete-file out-file))
+           (multiple-value-bind (stdout stderr exit-code)
+               (run-cltpt-command-full
+                "--enable-macros"
+                "convert"
+                "-i" "tests/test.org"
+                "-d" "html"
+                "-g" "/tmp"
+                "-o" "%(getf *file-info* :filename-no-ext).html")
+             (is (= 0 exit-code))
+             (is (uiop:file-exists-p out-file))
+             (let ((actual-output (uiop:read-file-string out-file))
+                   (expected-output (uiop:read-file-string expected-file)))
+               (is (string=+diff
+                    actual-output
+                    expected-output
+                    "commandline convert output should match expected html")
+                   "commandline convert output should match expected html"))))
+      (when (uiop:file-exists-p out-file)
+        (delete-file out-file)))))
