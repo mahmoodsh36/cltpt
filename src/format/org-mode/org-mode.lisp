@@ -617,7 +617,7 @@ used for all region-decf calculations to get positions relative to the text-obje
                 (:pattern ,tags-rule
                  :id tags
                  :optional t))
-               (eval (org-mode-inline-text-object-rule))
+               ,*org-inline-text-objects-rule*
                t)
               cltpt/combinator:at-line-start-p)
              ;; the following is for detecting metadata following an org header

@@ -322,6 +322,7 @@
 
 it may be necessary to call this function after modifying some customization
 variables such as `cltpt/org-mode::*org-enable-macros*'."
+  (cltpt/base:clear-text-object-rule-cache)
   (cltpt/html:init)
   (cltpt/org-mode:init)
   (cltpt/latex:init))

@@ -39,13 +39,13 @@
   (list
    (clingon:make-option
     :flag
-    :description "enable org text-macro parsing."
+    :description "enable text-macro parsing."
     :long-name "enable-macros"
     :persistent t
     :key :enable-macros)))
 
 (defun apply-shared-options (cmd)
-  (when (clingon:getopt cmd :enable-macros)
+  (when (clingon:getopt* cmd :enable-macros)
     (setf cltpt/org-mode:*org-enable-macros* t)
     (cltpt/zoo:init)))
 

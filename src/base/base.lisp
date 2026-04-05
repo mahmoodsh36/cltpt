@@ -38,6 +38,7 @@
    :find-children-recursively :find-children :list-children-recursively :find-ancestor
    :child-at-pos
    :text-object-rule-from-subclass
+   :clear-text-object-rule-cache
    :text-format-name :text-format-from-alias :text-format-document-type
    :text-object-clone :sort-text-objects :text-object-set-parent
    :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
