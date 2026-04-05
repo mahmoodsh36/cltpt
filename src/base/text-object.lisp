@@ -476,6 +476,10 @@ SPEC is a plist with keys:
 (defvar *text-object-rule-hash*
   (make-hash-table :test 'equal)
   "a hashtable mapping symbols of `text-object' subclasses to their combinator rules.")
+
+(defun clear-text-object-rule-cache ()
+  (clrhash *text-object-rule-hash*))
+
 (defun text-object-rule-from-subclass (subclass)
   ;; we need to finalize it, otherwise it'll error out.
   (ensure-finalized subclass)
