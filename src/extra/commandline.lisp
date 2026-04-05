@@ -36,7 +36,18 @@
    :options (cli-options)))
 
 (defun cli-options ()
-  nil)
+  (list
+   (clingon:make-option
+    :flag
+    :description "enable org text-macro parsing."
+    :long-name "enable-macros"
+    :persistent t
+    :key :enable-macros)))
+
+(defun apply-shared-options (cmd)
+  (when (clingon:getopt cmd :enable-macros)
+    (setf cltpt/org-mode:*org-enable-macros* t)
+    (cltpt/zoo:init)))
 
 (defun top-level-handler (cmd)
   (handle-help cmd))
@@ -47,6 +58,7 @@
   "the handler for the `convert' command"
   (when (handle-help cmd)
     (return-from convert-handler))
+  (apply-shared-options cmd)
   (let* ((args (clingon:command-arguments cmd))
          (dest-dir (clingon:getopt cmd :dest-dir))
          (files (clingon:getopt cmd :files))
@@ -123,6 +135,7 @@
   "the handler for the `roam' command"
   (when (handle-help cmd)
     (return-from roam-handler))
+  (apply-shared-options cmd)
   (let* ((args (clingon:command-arguments cmd))
          (files (clingon:getopt cmd :files))
          (file-rules (clingon:getopt cmd :rules))
@@ -244,6 +257,7 @@
   "the handler for the agenda command"
   (when (handle-help cmd)
     (return-from agenda-handler))
+  (apply-shared-options cmd)
   (let* ((args (clingon:command-arguments cmd))
          (files (clingon:getopt cmd :files))
          (file-rules (clingon:getopt cmd :rules))
@@ -345,6 +359,7 @@
 (defun publish-handler (cmd)
   (when (handle-help cmd)
     (return-from publish-handler))
+  (apply-shared-options cmd)
   (let* ((files         (clingon:getopt cmd :files))
          (file-rules    (mapcar #'read-from-string (clingon:getopt cmd :rules)))
          (dest-dir      (clingon:getopt cmd :dest-dir))
