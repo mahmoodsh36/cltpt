@@ -66,6 +66,42 @@
          "agenda commandline test")
         "agenda commandline test")))
 
+(test agenda-with-include-tags
+  "test the agenda command with --include-tag filters by ancestor tags."
+  (let ((output (run-cltpt-command "agenda"
+                                   "--input" "tests/test.org"
+                                   "--from" "2025-07-25"
+                                   "--to" "2025-08-01"
+                                   "--include-tag" "tag1")))
+    (is (string=+diff
+         output
+         "├─ Friday 25 July 2025
+│ ├─ 00:00
+│ ├─ 02:00
+│ ├─ 04:00
+│ ├─ 06:00
+│ ├─ 08:00
+│ ├─ 10:00
+│ ├─ 12:00
+│ ├─ 14:00
+│ ├─ 16:00
+│ ├─ 18:00
+│ ├─ 20:00
+│ └─ 22:00
+├─ Saturday 26 July 2025
+│ └─ START: (TODO) 10:55 header my secondary header     :tag1:tag2:important:
+├─ Sunday 27 July 2025
+│ ├─ START: (TODO) 10:55 header do something                       :noexport:
+│ └─ START: (TODO) 17:55 do something else
+├─ Monday 28 July 2025
+├─ Tuesday 29 July 2025
+├─ Wednesday 30 July 2025
+│ └─ DEADLINE: TODO 10:00 send the professor a mail
+└─ Thursday 31 July 2025
+"
+         "agenda include-tags commandline test")
+        "agenda include-tags commandline test")))
+
 (test convert-single-file
   (let ((out-file "/tmp/test.html")
         (expected-file "tests/data/test-org-expected.html"))

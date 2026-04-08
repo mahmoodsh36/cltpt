@@ -229,6 +229,11 @@
     :long-name "include-done"
     :key :include-done)
    (clingon:make-option
+    :list
+    :description "only include tasks with atleast one of the provided tags."
+    :long-name "include-tag"
+    :key :include-tags)
+   (clingon:make-option
     :string
     :description "output style/format. one of: lsblk (default), ascii, simple, json, indented-json, sexp, dot, path."
     :long-name "style"
@@ -265,6 +270,7 @@
          (end-ts-str (clingon:getopt cmd :to))
          (first-repeat-only (clingon:getopt cmd :first-repeat-only))
          (include-done (clingon:getopt cmd :include-done))
+         (include-tags (clingon:getopt cmd :include-tags))
          (style-str (clingon:getopt cmd :style))
          (style-obj (when style-str (parse-style style-str)))
          (roamer (if file-rules
@@ -272,7 +278,7 @@
                      (when files
                        (cltpt/roam:roamer-from-files files)))))
     (when roamer
-      (let ((agenda (cltpt/agenda:from-roamer roamer))
+      (let ((agenda (cltpt/agenda:from-roamer roamer :include-tags include-tags))
             (begin-ts (when begin-ts-str
                         (date-str-to-ts begin-ts-str)))
             (end-ts (when end-ts-str
