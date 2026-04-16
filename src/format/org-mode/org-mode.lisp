@@ -1158,10 +1158,11 @@ used for all region-decf calculations to get positions relative to the text-obje
     (setf doc-desc
           (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                                 "description"))
-    ;; denote-style identifier
+    ;; denote-style identifier. we prioritize it over ID from properties
     (setf doc-id
-          (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
-                                "identifier"))
+          (or (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
+                                    "identifier")
+              doc-id))
     (setf doc-date
           (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                                 "date"))
