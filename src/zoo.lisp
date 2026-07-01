@@ -230,19 +230,21 @@
                     dest-dir
                     (cltpt/base:convert-target-filepath resolved))
                    (cltpt/base:convert-target-filepath resolved)))))
-         ;; TODO/FIXME: this will not work when dest-filepath is a directory path that ends with
-         ;; a forward slash.
+         (dest-is-dir (and dest-filepath
+                           (cltpt/file-utils:directory-path-p dest-filepath)))
          (inserted-filepath
-           (or (when new-filepath
-                 (if (and (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
-                          (eq backend cltpt/html:*html*)
-                          cltpt/html:*html-static-route*)
-                     ;; if its html we should respect *html-static-route*
-                     (cltpt/file-utils:join-paths
-                      cltpt/html:*html-static-route*
-                      (cltpt/file-utils:file-basename new-filepath))
-                     (cltpt/file-utils:file-basename new-filepath)))
-               dest-filepath)))
+           (cond
+             (dest-is-dir dest-filepath)
+             (new-filepath
+              (if (and (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
+                       (eq backend cltpt/html:*html*)
+                       cltpt/html:*html-static-route*)
+                  ;; if its html we should respect *html-static-route*
+                  (cltpt/file-utils:join-paths
+                   cltpt/html:*html-static-route*
+                   (cltpt/file-utils:file-basename new-filepath))
+                  (cltpt/file-utils:file-basename new-filepath)))
+             (t dest-filepath))))
     (when dest-filepath
       ;; initialize the tags to the <a> tag, if its a video or an image,
       ;; it gets overwritten later.
