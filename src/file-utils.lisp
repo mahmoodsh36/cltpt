@@ -4,7 +4,7 @@
    :ensure-dir-exists :file-ext
    :file-has-extension-p
    :change-extension :change-dir :path-without-extension
-   :file-basename :base-name-no-ext :file-dirpath
+   :file-basename :base-name-no-ext :file-dirpath :directory-path-p
    :write-file :read-file :join-paths :join-paths-list :walk-dir :as-dir-path
    :delete-files-by-glob :ensure-filepath-pathname :ensure-filepath-string :ensure-absolute
    :temp-file))
@@ -58,6 +58,11 @@
 (defun file-dirpath (path)
   "given a filepath like path/to/file, return parent dir path/to/"
   (directory-namestring (pathname path)))
+
+(defun directory-path-p (path)
+  "return t if PATH is a directory path (ends with a directory separator).
+this is a syntactic check on the path form and doesn't touch the filesystem."
+  (uiop:directory-pathname-p (pathname path)))
 
 (defun base-name-no-ext (path)
   (namestring (make-pathname :name (pathname-name path))))
