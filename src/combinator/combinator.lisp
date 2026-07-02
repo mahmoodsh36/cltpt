@@ -525,13 +525,18 @@ the consecutive matches up to that point."
                                    (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
+    ;; the submatches are discarded, so use apply-rule-raw. for some matchers it returns
+    ;; the bare length (fixnum) and we advance without allocating a throwaway match.
     (loop while (is-before-eof reader pos)
-          for m = (apply-rule child-ctx matcher reader pos)
-          while m
-          for len fixnum = (- (match-end m) (match-begin m))
-          do (if (plusp len)
-                 (setf pos (+ child-parent-begin (match-end m)))
-                 (return)))
+          for raw = (apply-rule-raw child-ctx matcher reader pos)
+          while raw
+          do (if (typep raw 'fixnum)
+                 (if (plusp raw)
+                     (incf pos raw)
+                     (return))
+                 (if (plusp (- (match-end raw) (match-begin raw)))
+                     (setf pos (+ child-parent-begin (match-end raw)))
+                     (return))))
     (when (> pos start)
       (setf (match-end match) (- pos parent-begin))
       (setf (match-children match) nil)
@@ -793,42 +798,45 @@ returns (values success-p end-pos) on success, or (values nil nil) on failure."
                         :id 'lisp-form-content
                         :children nil)))))))
 
-(defun apply-rule (ctx rule reader pos)
-  "returns a 'raw' match: a number (length) for simple successful matches,
-or a pre-formed plist cons cell for combinators/structured matches, or NIL."
+(defun apply-rule-raw (ctx rule reader pos)
+  "returns the raw result WITHOUT wrapping a bare length in a match struct. used in `apply-rule'."
   (declare (type fixnum pos))
-  (let ((result
-          (cond
-            ((consp rule)
-             (let ((head (car rule)))
-               (cond
-                 ;; plist rules (keywordp car)
-                 ((keywordp head)
-                  (let ((pattern (getf rule :pattern))
-                        (on-char (getf rule :on-char))
-                        (id (getf rule :id)))
-                    (when pattern
-                      (unless (and on-char
-                                   (is-before-eof reader pos)
-                                   (not (char= (reader-char reader pos) on-char)))
-                        (let ((m (apply-rule ctx pattern reader pos)))
-                          (when m
-                            (setf (match-id m) id)
-                            m))))))
-                 ;; function call rules, we assume symbol is a valid function, which isnt safe
-                 ;; but running 'fboundp' seems to be is expensive.
-                 ((symbolp head)
-                  (apply head ctx reader pos (cdr rule)))
-                 (t (error "invalid rule: ~A" rule)))))
-            ;; if its a single symbol we resolve the rule from the symbol's value
-            ((symbolp rule)
-             (let ((resolved (symbol-value rule)))
-               (if resolved
-                   (apply-rule ctx resolved reader pos)
-                   (error "invalid rule: ~A" rule))))
-            ((stringp rule)
-             (literal ctx reader pos rule))
-            (t (error "invalid rule: ~A" rule)))))
+  (cond
+    ((consp rule)
+     (let ((head (car rule)))
+       (cond
+         ;; plist rules (keywordp car)
+         ((keywordp head)
+          (let ((pattern (getf rule :pattern))
+                (on-char (getf rule :on-char))
+                (id (getf rule :id)))
+            (when pattern
+              (unless (and on-char
+                           (is-before-eof reader pos)
+                           (not (char= (reader-char reader pos) on-char)))
+                (let ((m (apply-rule ctx pattern reader pos)))
+                  (when m
+                    (setf (match-id m) id)
+                    m))))))
+         ;; function call rules, we assume symbol is a valid function, which isnt safe
+         ;; but running 'fboundp' seems to be is expensive.
+         ((symbolp head)
+          (apply head ctx reader pos (cdr rule)))
+         (t (error "invalid rule: ~A" rule)))))
+    ;; if its a single symbol we resolve the rule from the symbol's value
+    ((symbolp rule)
+     (let ((resolved (symbol-value rule)))
+       (if resolved
+           (apply-rule ctx resolved reader pos)
+           (error "invalid rule: ~A" rule))))
+    ((stringp rule)
+     (literal ctx reader pos rule))
+    (t (error "invalid rule: ~A" rule))))
+
+(defun apply-rule (ctx rule reader pos)
+  "apply RULE at POS and return a normalized match (or NIL)."
+  (declare (type fixnum pos))
+  (let ((result (apply-rule-raw ctx rule reader pos)))
     (when result
       (setf result (normalize-match result ctx rule pos))
       (setf (match-rule result) rule)
