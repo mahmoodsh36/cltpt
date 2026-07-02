@@ -10,6 +10,7 @@
    :match-id :match-begin :match-end :match-children
    :match-begin-absolute :match-end-absolute
    :make-match :make-match-simple :match-clone :match-rule :match-parent
+   :acquire-match :release-match
    :match-set-children-parent :match-props :match :match-region
    :find-submatch :find-submatch-last :find-submatch-all
    :match-text
@@ -96,6 +97,45 @@
   "fast match constructor for hot paths. no region handling, no auto parent-child linkage."
   (declare (type fixnum begin end))
   (%make-match :begin begin :end end :parent parent))
+
+;; wrapper match recycle pool.
+;; combinators allocate a wrapper match up front and parse their children under a context pointing
+;; at it, so a child is always aware of its true parent. these combinators are attempted
+;; at huge numbers of positions and fail most of the time, so the wrapper is usually discarded
+;; immediately. instead of letting each failed wrapper become garbage (and paying to zero a fresh
+;; struct next time), the parser returns it here on its failure path and gets one back on the
+;; next `acquire-match'.
+(defconstant +match-pool-capacity+ 2048)
+(declaim (type simple-vector *match-pool*)
+         (type fixnum *match-pool-count*))
+(defvar *match-pool* (make-array +match-pool-capacity+ :initial-element nil))
+(defvar *match-pool-count* 0)
+
+(defun acquire-match (begin end parent)
+  "return a wrapper match with BEGIN/END/PARENT, reusing a recycled struct from the pool when one
+is available. analogous to `make-match-simple'."
+  (declare (type fixnum begin end))
+  (if (plusp *match-pool-count*)
+      (let* ((idx (decf *match-pool-count*))
+             (m (svref *match-pool* idx)))
+        (setf (svref *match-pool* idx) nil)
+        (setf (match-id m) nil
+              (match-props m) nil
+              (match-rule m) nil
+              (match-begin m) begin
+              (match-end m) end
+              (match-children m) nil
+              (match-parent m) parent)
+        m)
+      (make-match-simple begin end parent)))
+
+(defun release-match (m)
+  "return wrapper match M to the pool for reuse."
+  (let ((count *match-pool-count*))
+    (declare (type fixnum count))
+    (when (< count +match-pool-capacity+)
+      (setf (svref *match-pool* count) m)
+      (setf *match-pool-count* (1+ count)))))
 
 (defun find-submatch (match submatch-id &optional (test 'string=))
   "from a combinator-returned MATCH, find a sub-match by its SUBMATCH-ID."
