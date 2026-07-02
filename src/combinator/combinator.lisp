@@ -23,7 +23,7 @@
    :apply-rule
    :web-link-matcher
 
-   :match-id :match-begin :match-end :match-ctx :match-children
+   :match-id :match-begin :match-end :match-children
    :match-begin-absolute :match-end-absolute
    :make-match :make-match-simple :match-clone :match-rule :match-parent
    :match-set-children-parent :match-props :match :match-region
@@ -46,7 +46,7 @@
 ;; 7. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
 ;; 8. avoid calling (and perhaps cache calls to) match-{begin,end}-absolute.
 
-(declaim (inline context-parent-begin normalize-match))
+(declaim (inline context-parent-begin normalize-match context-copy make-context))
 
 ;; this is used to keep track of the rules being processed, so that a matcher
 ;; may be aware of other matches
@@ -240,7 +240,6 @@ to replace and new-rule is the rule to replace it with."
       (let ((parent-begin (context-parent-begin ctx)))
         (make-match :begin (- pos parent-begin)
                     :end (- (+ pos match) parent-begin)
-                    :ctx ctx
                     :rule rule
                     :parent (context-parent-match ctx)
                     :children nil))
@@ -253,6 +252,7 @@ to replace and new-rule is the rule to replace it with."
         (parent-begin (context-parent-begin ctx))
         (wrapper)
         (child-ctx))
+    (declare (dynamic-extent child-ctx))
     (loop for one in all
           for first-char = (extract-literal-from-rule-cached one)
           when (or (null first-char)
@@ -263,7 +263,6 @@ to replace and new-rule is the rule to replace it with."
                  (setf wrapper (make-match-simple
                                 (- pos parent-begin)
                                 0
-                                ctx
                                 (context-parent-match ctx)))
                  (setf child-ctx (context-copy ctx wrapper)))
                (let ((match (apply-rule child-ctx one reader pos)))
@@ -403,10 +402,10 @@ to replace and new-rule is the rule to replace it with."
          (children)
          (match (make-match-simple (- start parent-begin)
                                    0
-                                   ctx
                                    (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (dynamic-extent child-ctx))
     (loop for one in all
           for m = (apply-rule child-ctx one reader pos)
           for len fixnum = (if m
@@ -433,10 +432,10 @@ the consecutive matches up to that point."
          (children)
          (match (make-match-simple (- start parent-begin)
                                    0
-                                   ctx
                                    (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (dynamic-extent child-ctx))
     (loop for one in all
           for m = (apply-rule child-ctx one reader pos)
           for len fixnum = (if m
@@ -464,10 +463,10 @@ the consecutive matches up to that point."
          (pos-after-sep pos)
          (match (make-match-simple (- start parent-begin)
                                    0
-                                   ctx
                                    (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (dynamic-extent child-ctx))
     (loop
       do (unless first
            (let ((m (apply-rule child-ctx sep-matcher reader pos)))
@@ -496,10 +495,10 @@ the consecutive matches up to that point."
          (matches)
          (match (make-match-simple (- start parent-begin)
                                    0
-                                   ctx
                                    (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (dynamic-extent child-ctx))
     (loop while (is-before-eof reader pos)
           for m = (apply-rule child-ctx matcher reader pos)
           while m
@@ -521,10 +520,10 @@ the consecutive matches up to that point."
          (start pos)
          (match (make-match-simple (- start parent-begin)
                                    0
-                                   ctx
                                    (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (dynamic-extent child-ctx))
     ;; the submatches are discarded, so use apply-rule-raw. for some matchers it returns
     ;; the bare length (fixnum) and we advance without allocating a throwaway match.
     (loop while (is-before-eof reader pos)
@@ -554,10 +553,10 @@ the consecutive matches up to that point."
   (let* ((parent-begin (context-parent-begin ctx))
          (wrapper (make-match-simple (- pos parent-begin)
                                      0
-                                     ctx
                                      (context-parent-match ctx)))
          (child-ctx (context-copy ctx wrapper))
          (child (apply-rule child-ctx rule reader pos)))
+    (declare (dynamic-extent child-ctx))
     (when child
       (setf (match-rule wrapper) rule)
       (setf (match-end wrapper) (+ (match-begin wrapper) (match-end child)))
@@ -586,13 +585,13 @@ if ALLOW-EMPTY is NIL, the match will fail if the pair surrounds no content."
          (start pos)
          (parent-match (make-match-simple (- start parent-begin)
                                           0
-                                          ctx
                                           (context-parent-match ctx)))
          (child-ctx (context-copy ctx parent-match))
          (child-parent-begin (context-parent-begin child-ctx))
          (opening-match (apply-rule child-ctx opening-rule reader pos))
          (closing-first-char (extract-literal-from-rule-cached closing-rule))
          (opening-first-char (extract-literal-from-rule-cached opening-rule)))
+    (declare (dynamic-extent child-ctx))
     (when opening-match
       (let ((current-search-pos (+ child-parent-begin (match-end opening-match)))
             ;; the nesting-level thing is for nesting the rule unless the rule is in rules-for-content
@@ -794,7 +793,6 @@ returns (values success-p end-pos) on success, or (values nil nil) on failure."
           (let ((parent-begin (context-parent-begin ctx)))
             (make-match :begin (- pos parent-begin)
                         :end (- (1+ last-char-pos) parent-begin)
-                        :ctx ctx
                         :id 'lisp-form-content
                         :children nil)))))))
 
@@ -924,7 +922,6 @@ an optional escape-char can be provided, defaulting to backslash."
             (push (make-match :begin (1- pos)
                               :end (1+ pos)
                               :props (list :replace (string (reader-char reader pos)))
-                              :ctx ctx
                               :id 'escape
                               :children nil)
                   *escaped*)))
@@ -1012,7 +1009,6 @@ returns the matched substring and its bounds."
     (when (> pos start)
       (make-match :begin (- start parent-begin)
                   :end (- pos parent-begin)
-                  :ctx ctx
                   :children nil))))
 
 (defun all-upto-without (ctx reader pos delimiter-rule without-rule)
@@ -1030,7 +1026,6 @@ returns the matched substring and its bounds."
     (when (> pos start)
       (make-match :begin (- start parent-begin)
                   :end (- pos parent-begin)
-                  :ctx ctx
                   :children nil))))
 
 ;; ended up not using this, but will keep it.
@@ -1046,7 +1041,6 @@ returns the matched substring and its bounds."
     (when (> pos start)
       (make-match :begin (- start parent-begin)
                   :end (- pos parent-begin)
-                  :ctx ctx
                   :children nil))))
 
 (defun consec-with-optional (ctx reader pos &rest parsers)
@@ -1061,10 +1055,10 @@ but if they don't match, parsing continues without them."
          (matches)
          (match (make-match-simple (- start parent-begin)
                                    0
-                                   ctx
                                    (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (dynamic-extent child-ctx))
     (loop for parser in parsers
           do (cond
                ;; if the parser is marked as optional
@@ -1153,10 +1147,10 @@ first suffix) using scan-all-rules."
            (children)
            (match (make-match-simple (- start parent-begin)
                                      0
-                                     ctx
                                      (context-parent-match ctx)))
            (child-ctx (context-copy ctx match))
            (child-parent-begin (context-parent-begin child-ctx)))
+    (declare (dynamic-extent child-ctx))
       ;; match prefixes left-to-right
       (loop for parser in prefix-rules
             do (let ((is-optional (and (consp parser)
@@ -1198,7 +1192,6 @@ first suffix) using scan-all-rules."
           (let ((middle-match (make-match-simple
                                (- pos child-parent-begin)
                                (- right-bound child-parent-begin)
-                               child-ctx
                                (context-parent-match child-ctx))))
             (setf (match-id middle-match) middle-id)
             (when (and middle-rules (< pos right-bound))

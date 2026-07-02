@@ -57,7 +57,6 @@
              (cltpt/combinator:position-non-horizontal-whitespace reader line-start line-end))
            (row-match (cltpt/combinator:make-match
                        :id 'table-row
-                       :ctx ctx
                        :parent (cltpt/combinator:context-parent-match ctx)
                        :begin (- trimmed-line-start (cltpt/combinator:context-parent-begin ctx))))
            (row-ctx (cltpt/combinator:context-copy ctx row-match))
@@ -77,7 +76,6 @@
                   (find-content-bounds reader cell-begin cell-end)
                 (let* ((cell-match (cltpt/combinator:make-match
                                     :id 'table-cell
-                                    :ctx row-ctx
                                     :parent (cltpt/combinator:context-parent-match row-ctx)
                                     :begin (- cell-begin (cltpt/combinator:context-parent-begin row-ctx))
                                     :end (- cell-end (cltpt/combinator:context-parent-begin row-ctx))))
@@ -86,7 +84,6 @@
                          (when (< content-begin content-end)
                            (let* ((cell-content-match (cltpt/combinator:make-match
                                                        :id 'table-cell-content
-                                                       :ctx cell-ctx
                                                        :parent (cltpt/combinator:context-parent-match cell-ctx)
                                                        :begin (- content-begin cell-begin)
                                                        :end (- content-end cell-begin)))
@@ -111,7 +108,6 @@
                   (push cell-match row-children)))))
           (let ((delimiter-node (cltpt/combinator:make-match
                                  :id 'table-cell-delimiter
-                                 :ctx row-ctx
                                  :parent (cltpt/combinator:context-parent-match row-ctx)
                                  :begin (- delimiter-pos (cltpt/combinator:context-parent-begin row-ctx))
                                  :end (- (1+ delimiter-pos) (cltpt/combinator:context-parent-begin row-ctx)))))
@@ -127,7 +123,6 @@
                  (cell-end line-end)
                  (cell-match (cltpt/combinator:make-match
                               :id 'table-cell
-                              :ctx row-ctx
                               :parent (cltpt/combinator:context-parent-match row-ctx)
                               :begin (- cell-begin (cltpt/combinator:context-parent-begin row-ctx))
                               :end (- cell-end (cltpt/combinator:context-parent-begin row-ctx))))
@@ -136,7 +131,6 @@
                    (when (< content-begin content-end)
                      (let* ((cell-content-match (cltpt/combinator:make-match
                                                  :id 'table-cell-content
-                                                 :ctx cell-ctx
                                                  :parent (cltpt/combinator:context-parent-match cell-ctx)
                                                  :begin (- content-begin cell-begin)
                                                  :end (- content-end cell-begin)))
@@ -178,7 +172,6 @@
       (return-from org-table-matcher (values nil pos))))
   (let* ((table-match (cltpt/combinator:make-match
                        :id 'org-table
-                       :ctx ctx
                        :parent (cltpt/combinator:context-parent-match ctx)
                        :begin (- pos (cltpt/combinator:context-parent-begin ctx))))
          (table-ctx (cltpt/combinator:context-copy ctx table-match))
@@ -201,7 +194,6 @@
                                    line-end))
                    (hrule-match (cltpt/combinator:make-match
                                  :id 'table-hrule
-                                 :ctx table-ctx
                                  :parent (cltpt/combinator:context-parent-match table-ctx)
                                  :begin (- trimmed-start
                                            (cltpt/combinator:context-parent-begin table-ctx))
@@ -218,7 +210,6 @@
           (when (< line-end (cltpt/reader:reader-buffer-fill reader))
             (let ((separator-match (cltpt/combinator:make-match
                                     :id 'table-row-separator
-                                    :ctx table-ctx
                                     :parent (cltpt/combinator:context-parent-match table-ctx)
                                     :begin (- line-end
                                               (cltpt/combinator:context-parent-begin table-ctx))
