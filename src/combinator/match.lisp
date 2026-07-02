@@ -7,7 +7,7 @@
    :buffer-begin-absolute :buffer-end-absolute
    :make-region :region-begin :region-end)
   (:export
-   :match-id :match-begin :match-end :match-ctx :match-children
+   :match-id :match-begin :match-end :match-children
    :match-begin-absolute :match-end-absolute
    :make-match :make-match-simple :match-clone :match-rule :match-parent
    :match-set-children-parent :match-props :match :match-region
@@ -23,8 +23,6 @@
 ;; a match represents a parsed region. inherits from buffer for parent/children/region.
 (defstruct (match (:print-function print-match)
                   (:constructor %make-match))
-  ;; the parsing context
-  (ctx nil :type t)
   ;; identifier for this match
   (id nil :type symbol)
   ;; additional properties
@@ -69,12 +67,11 @@
              (setf m parent))
     pos))
 
-(defun make-match (&key begin end ctx id props rule children parent region)
+(defun make-match (&key begin end id props rule children parent region)
   "create a match. if REGION is provided, its used directly. otherwise a region is created from BEGIN/END."
   (let* ((b (if region (cltpt/buffer:region-begin region) (or begin 0)))
          (e (if region (cltpt/buffer:region-end region) (or end 0)))
          (m (%make-match
-             :ctx ctx
              :id id
              :props props
              :rule rule
@@ -95,10 +92,10 @@
   match)
 
 (declaim (inline make-match-simple))
-(defun make-match-simple (begin end ctx parent)
+(defun make-match-simple (begin end parent)
   "fast match constructor for hot paths. no region handling, no auto parent-child linkage."
   (declare (type fixnum begin end))
-  (%make-match :begin begin :end end :ctx ctx :parent parent))
+  (%make-match :begin begin :end end :parent parent))
 
 (defun find-submatch (match submatch-id &optional (test 'string=))
   "from a combinator-returned MATCH, find a sub-match by its SUBMATCH-ID."
@@ -134,7 +131,6 @@
   (make-match
    :begin (match-begin match)
    :end (match-end match)
-   :ctx (match-ctx match)
    :id (match-id match)
    :props (match-props match)
    :rule (match-rule match)

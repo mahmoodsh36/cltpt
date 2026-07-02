@@ -135,7 +135,6 @@ returns T if all trees match, NIL otherwise."
        :id (getf parent-info :id)
        :begin (getf parent-info :begin)
        :end (getf parent-info :end)
-       :ctx nil
        :children (mapcar #'plist-to-match children)))))
 
 (defun string=+diff (actual expected &optional (test-name "String comparison"))

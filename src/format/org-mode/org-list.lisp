@@ -294,7 +294,6 @@ if PRE-COMPUTED-INDENT is supplied the count-leading-spaces call is skipped."
                                 after-bullet))
              (item-match (cltpt/combinator:make-match
                           :id 'list-item
-                          :ctx ctx
                           :parent (cltpt/combinator:context-parent-match ctx)
                           :begin (- item-start-pos (cltpt/combinator:context-parent-begin ctx))
                           :props (list :indent item-indent
@@ -309,7 +308,6 @@ if PRE-COMPUTED-INDENT is supplied the count-leading-spaces call is skipped."
              (end-of-content-text line-end))
         (let ((bullet-match (cltpt/combinator:make-match
                              :id 'list-item-bullet
-                             :ctx item-ctx
                              :parent (cltpt/combinator:context-parent-match item-ctx)
                              :begin (- bullet-begin (cltpt/combinator:context-parent-begin item-ctx))
                              :end (- bullet-end (cltpt/combinator:context-parent-begin item-ctx)))))
@@ -317,7 +315,6 @@ if PRE-COMPUTED-INDENT is supplied the count-leading-spaces call is skipped."
         (when checkbox-state
           (let ((checkbox-match (cltpt/combinator:make-match
                                  :id 'list-item-checkbox
-                                 :ctx item-ctx
                                  :parent (cltpt/combinator:context-parent-match item-ctx)
                                  :begin (- checkbox-open (cltpt/combinator:context-parent-begin item-ctx))
                                  :end (- checkbox-end (cltpt/combinator:context-parent-begin item-ctx))
@@ -397,7 +394,6 @@ if PRE-COMPUTED-INDENT is supplied the count-leading-spaces call is skipped."
           (let* ((final-match-end (max end-of-content-text end-of-children))
                  (content-match (cltpt/combinator:make-match
                                  :id 'list-item-content
-                                 :ctx item-ctx
                                  :parent (cltpt/combinator:context-parent-match item-ctx)
                                  :begin (- content-node-begin (cltpt/combinator:context-parent-begin item-ctx))
                                  :end (- final-match-end (cltpt/combinator:context-parent-begin item-ctx))
@@ -463,7 +459,6 @@ if PRE-COMPUTED-INDENT is supplied the count-leading-spaces call is skipped."
              (first-bt (getf fbprops :type))
              (list-match (cltpt/combinator:make-match
                           :id 'org-list
-                          :ctx ctx
                           :parent (cltpt/combinator:context-parent-match ctx)
                           :begin (- pos (cltpt/combinator:context-parent-begin ctx))
                           :props (list :indent indent
