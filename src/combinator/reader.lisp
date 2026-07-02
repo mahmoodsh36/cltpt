@@ -32,10 +32,7 @@
     :initarg :stream
     :accessor reader-stream)
    (buffer
-    :initform (make-array +default-initial-size+
-                          :element-type 'character
-                          :adjustable t
-                          :fill-pointer 0)
+    :initform nil
     :accessor reader-buffer)
    (start-position
     :initform nil
@@ -66,11 +63,11 @@
   (let ((r (make-instance 'reader
                           :stream stream
                           :growth-factor growth-factor)))
-    (when (/= initial-size +default-initial-size+)
-      (setf (reader-buffer r)
-            (make-array initial-size :element-type 'character
-                                     :adjustable t
-                                     :fill-pointer 0)))
+    (setf (reader-buffer r)
+          (make-array initial-size
+                      :element-type 'character
+                      :adjustable t
+                      :fill-pointer 0))
     ;; capture starting position for seekable streams
     (setf (reader-start-position r)
           (ignore-errors (file-position stream)))
