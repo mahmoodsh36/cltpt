@@ -141,7 +141,8 @@ returns the character if the rule starts with a known literal, NIL otherwise."
 
 (defun extract-literal-from-rule-cached (rule)
   (multiple-value-bind (val found) (gethash rule *literal-char-cache*)
-    (if found val
+    (if found
+        val
         (setf (gethash rule *literal-char-cache*)
               (extract-literal-from-rule rule)))))
 
