@@ -589,12 +589,13 @@ the consecutive matches up to that point."
   (simple-wrapper ctx reader pos '(atleast-one-discard (digit-p))))
 
 (defun pair (ctx reader pos opening-rule closing-rule
-             &optional rules-for-content pair-id (allow-multiline t) (allow-empty t))
+             &key rules-for-content pair-id (allow-multiline t) (allow-empty t) nest-self)
   "matches an opening-rule, then content parsed by rules-for-content, then a closing-rule.
 handles nesting of the same pair structure.
-if ALLOW-MULTILINE is NIL, the match will fail if a newline is encountered
-before the final closing rule is found.
-if ALLOW-EMPTY is NIL, the match will fail if the pair surrounds no content."
+if ALLOW-MULTILINE is NIL, the match will fail if a newline is encountered before the final
+closing rule is found.
+if ALLOW-EMPTY is NIL, the match will fail if the pair surrounds no content.
+if NEST-SELF is T, nested occurrences of the same pair will be parsed as children."
   (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
@@ -667,10 +668,28 @@ if ALLOW-EMPTY is NIL, the match will fail if the pair surrounds no content."
                                                    reader
                                                    current-search-pos))))
                                (if potential-open
-                                   (progn
-                                     (incf nesting-level)
-                                     (setf current-search-pos
-                                           (+ child-parent-begin (match-end potential-open))))
+                                   (if nest-self
+                                       (let* ((nested-ctx (context-copy child-ctx parent-match))
+                                              (nested-match
+                                                (pair
+                                                 nested-ctx
+                                                 reader
+                                                 current-search-pos
+                                                 opening-rule
+                                                 closing-rule
+                                                 :rules-for-content rules-for-content
+                                                 :pair-id pair-id
+                                                 :allow-multiline allow-multiline
+                                                 :allow-empty allow-empty
+                                                 :nest-self nest-self)))
+                                         (when nested-match
+                                           (setf current-search-pos
+                                                 (+ child-parent-begin (match-end nested-match)))
+                                           (push nested-match content-matches)))
+                                       (progn
+                                         (incf nesting-level)
+                                         (setf current-search-pos
+                                               (+ child-parent-begin (match-end potential-open)))))
                                    (incf current-search-pos)))))))))
         (when (and final-closing-match (= nesting-level 0))
           (let ((opening-end (match-end opening-match))

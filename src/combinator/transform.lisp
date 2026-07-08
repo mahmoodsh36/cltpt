@@ -106,9 +106,10 @@
 
 (defun reconstruct-consec (reader match &rest all)
   (let ((parts (loop for child in all
-                     for res = (reconstruct reader match child)
+                     for submatch in (cltpt/combinator:match-children match)
+                     for res = (reconstruct reader submatch child)
                      unless res return nil
-                     collect res)))
+                       collect res)))
     (when parts
       (apply #'concatenate 'string parts))))
 
@@ -119,3 +120,22 @@
 
 (defun reconstruct-literal (reader str)
   str)
+
+(defun reconstruct-pair (reader match opening closing &key rules-for-content)
+  (let* ((children (cltpt/combinator:match-children match))
+         (content-children (butlast (cdr children)))
+         (full-pair-rule (list 'cltpt/combinator:pair
+                               opening
+                               closing
+                               :rules-for-content rules-for-content))
+         (content-parts (loop for child in content-children
+                              for rule in rules-for-content
+                              for res = (or (reconstruct reader child full-pair-rule)
+                                            (reconstruct reader child rule))
+                              unless res return nil
+                                collect res)))
+    (when content-parts
+      (concatenate 'string
+                   opening
+                   (apply #'concatenate 'string content-parts)
+                   closing))))

@@ -27,8 +27,7 @@
      0
      '((:pattern (cltpt/combinator::pair
                   (cltpt/combinator::literal "\\(")
-                  (cltpt/combinator::literal "\\)")
-                  nil)
+                  (cltpt/combinator::literal "\\)"))
         :id mypair)))))
 
 (test org-list-test-1

@@ -97,8 +97,7 @@ some more text")
      0
      '((:pattern (cltpt/combinator::pair
                   (cltpt/combinator::literal "\\(")
-                  (cltpt/combinator::literal "\\)")
-                  nil)
+                  (cltpt/combinator::literal "\\)"))
         :id mypair)))))
 
 (defun test-org-table-1-func ()
@@ -117,8 +116,7 @@ some more text")
      0
      '((:pattern (cltpt/combinator::pair
                   (cltpt/combinator::literal "\\(")
-                  (cltpt/combinator::literal "\\)")
-                  nil)
+                  (cltpt/combinator::literal "\\)"))
         :id mypair)))))
 
 (defun test-org-table-2 ()
