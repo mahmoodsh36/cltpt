@@ -80,7 +80,7 @@
                :id opening)
               (:pattern (cltpt/combinator::literal ")")
                :id ending)
-              ,other-rules))))
+              :rules-for-content ,other-rules))))
     (cltpt/combinator::scan-all-rules
      nil
      "(my nested (text) (more (#+nested)))"
@@ -108,9 +108,8 @@
                :id openingg)
               (:pattern (cltpt/combinator::literal "*")
                :id endingg)
-              ,other-rules
-              nil
-              nil))))
+              :rules-for-content ,other-rules
+              :allow-multiline nil))))
     (cltpt/combinator:scan-all-rules
      nil
      "\\**my text #+here* *hello there* *more
@@ -142,9 +141,8 @@ here* here"
                :id openingg)
               (:pattern (cltpt/combinator::literal "*")
                :id endingg)
-              ,other-rules
-              nil
-              nil))))
+              :rules-for-content ,other-rules
+              :allow-multiline nil))))
     (cltpt/combinator::scan-all-rules
      nil
      "\\**my text #+here* *hello there* *more

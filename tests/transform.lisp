@@ -29,9 +29,14 @@
          (parsed (plist-to-match parsed-plist))
          (dest-rule
            '(cltpt/combinator:consec
-             "\\ref{"
+             "" ;; [[
+             "" ;; link-type
+             "\\ref{" ;; :
              (:pattern (cltpt/combinator:symbol-matcher) :id link-dest)
-             "}")))
+             "" ;; ][
+             "" ;; link-desc
+             "}" ;; ]]
+             )))
     (cltpt/transform:reconstruct reader parsed dest-rule)))
 
 (defun transformer-test-2-func ()
@@ -62,22 +67,6 @@
    (string= (transformer-test-1-func)
             "\\ref{here1}")))
 
-(defun transformer-test-3-func ()
-  (let* ((str "[[id:myid][desc]]")
-         (reader (cltpt/reader:reader-from-string str))
-         (parsed (cltpt/combinator:parse
-                  str
-                  cltpt/org-mode::org-link))
-         (dest-rule
-           '(:pattern
-             (cltpt/combinator:consec
-              "\\ref{"
-              (:pattern (cltpt/combinator:symbol-matcher)
-               :id link-dest)
-              "}")
-             :id latex-link)))
-    (cltpt/transform:reconstruct reader (car parsed) dest-rule)))
-
 (defun transformer-test-4-func ()
   (let* ((full-string "[[attachment:sliding]]")
          (reader (cltpt/reader:reader-from-string full-string))
@@ -100,6 +89,36 @@
   (fiveam:is
    (string= (transformer-test-4-func)
             "[[,attachment,:,sliding,]]")))
+
+(defun transformer-test-5-func ()
+  (let* ((str "(([[test]]))")
+         (reader (cltpt/reader:reader-from-string str))
+         (src-rule
+           '(cltpt/combinator:pair
+             "("
+             ")"
+             :rules-for-content ((cltpt/combinator:consec
+                                  "[["
+                                  (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+                                  "]]"))
+             :nest-self t))
+         (dest-rule
+           '(cltpt/combinator:pair
+             "{{ "
+             " }}"
+             :rules-for-content ((cltpt/combinator:consec
+                                  "\\ref{"
+                                  (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
+                                  "}"))))
+         (parsed (cltpt/combinator:parse
+                  str
+                  `(,src-rule))))
+    (cltpt/transform:reconstruct reader (car parsed) dest-rule)))
+
+(test transformer-test-5
+  (fiveam:is
+   (string= (transformer-test-5-func)
+             "{{ {{ \\ref{test} }} }}")))
 
 (defun run-transform-tests ()
   (format t "~&running transform tests...~%")

@@ -1231,7 +1231,7 @@ some math here
          :id opening)
         (:pattern (cltpt/combinator::literal "\\)")
          :id ending)
-        ,other-rules)))))
+        :rules-for-content ,other-rules)))))
 
 (test inline-latex-test
   (is-match-tree

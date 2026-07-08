@@ -127,16 +127,16 @@
            (cltpt/combinator:when-match
             (cltpt/combinator:literal-casein ":end:")
             cltpt/combinator:at-line-start-p)
-           ((:pattern
-             (cltpt/combinator:consec
-              (cltpt/combinator:literal ":")
-              (:pattern (cltpt/combinator:symbol-matcher)
-               :id drawer-key)
-              (cltpt/combinator:literal ":")
-              (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
-              (:pattern (cltpt/combinator:all-but-newline)
-               :id drawer-value))
-             :id drawer-entry)))
+           :rules-for-content ((:pattern
+                                (cltpt/combinator:consec
+                                 (cltpt/combinator:literal ":")
+                                 (:pattern (cltpt/combinator:symbol-matcher)
+                                  :id drawer-key)
+                                 (cltpt/combinator:literal ":")
+                                 (cltpt/combinator:atleast-one-discard (cltpt/combinator:literal " "))
+                                 (:pattern (cltpt/combinator:all-but-newline)
+                                  :id drawer-value))
+                                :id drawer-entry)))
           :on-char #\:)
   :documentation "org-mode properties drawer.")
 
@@ -937,7 +937,7 @@ used for all region-decf calculations to get positions relative to the text-obje
           (cltpt/combinator:pair
            (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
            (cltpt/combinator:unescaped (cltpt/combinator:literal "~"))
-           nil nil nil)
+           :allow-multiline nil)
           :on-char #\~)
   :documentation "org-mode inline code (surrounded by tildes).")
 
@@ -1284,10 +1284,8 @@ used for all region-decf calculations to get positions relative to the text-obje
            (cltpt/combinator:pair
             (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
             (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
-            nil
-            nil
-            nil
-            nil))
+            :allow-multiline nil
+            :allow-empty nil))
           :on-char #\*)
   :documentation "org-mode emphasized text (surrounded by asterisks).")
 
@@ -1321,10 +1319,8 @@ used for all region-decf calculations to get positions relative to the text-obje
            (cltpt/combinator:pair
             (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
             (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-            nil
-            nil
-            nil
-            nil))
+            :allow-multiline nil
+            :allow-empty nil))
           :on-char #\/)
   :documentation "org-mode italicized text (surrounded by forward slahes).")
 
@@ -1349,10 +1345,8 @@ used for all region-decf calculations to get positions relative to the text-obje
            (cltpt/combinator:pair
             (cltpt/combinator:unescaped (cltpt/combinator:literal "_"))
             (cltpt/combinator:unescaped (cltpt/combinator:literal "_"))
-            nil
-            nil
-            nil
-            nil))
+            :allow-multiline nil
+            :allow-empty nil))
           :on-char #\_)
   :documentation "org-mode underlined text (surrounded by underscores).")
 
@@ -1375,10 +1369,8 @@ used for all region-decf calculations to get positions relative to the text-obje
            (cltpt/combinator:pair
             (cltpt/combinator:unescaped (cltpt/combinator:literal "+"))
             (cltpt/combinator:unescaped (cltpt/combinator:literal "+"))
-            nil
-            nil
-            nil
-            nil))
+            :allow-multiline nil
+            :allow-empty nil))
           :on-char #\+)
   :documentation "org-mode strike-through text (surrounded by plus signs).")
 
@@ -1524,9 +1516,7 @@ used for all region-decf calculations to get positions relative to the text-obje
       :id begin))
     (cltpt/combinator:unescaped
      (:pattern (cltpt/combinator:literal-casein "#+end_src")
-      :id end))
-    ;; unlike an `org-block', org-src-block shouldnt contain children (for now)
-    nil))
+      :id end))))
 (cltpt/base:define-text-object org-src-block
   :rule `(:pattern
           (cltpt/combinator:any
@@ -1983,8 +1973,7 @@ returns a list of changes that remove the indentation spaces from each line."
              :id begin))
            (cltpt/combinator:unescaped
             (:pattern (cltpt/combinator:literal-casein "#+end_example")
-             :id end))
-           nil)
+             :id end)))
           :id org-example-block
           :on-char #\#)
   :documentation "org-mode example block.")
@@ -2032,8 +2021,8 @@ returns a list of changes that remove the indentation spaces from each line."
         :id end-type))
       :id end))
     ;; an org-block can contain every other object except headers
-    (eval
-     (org-mode-text-object-types-except '(org-header)))))
+    :rules-for-content (eval
+                        (org-mode-text-object-types-except '(org-header)))))
 (cltpt/base:define-text-object org-block
   :rule `(:pattern
           (cltpt/combinator:any
@@ -2118,7 +2107,7 @@ returns a list of changes that remove the indentation spaces from each line."
             (:pattern (cltpt/combinator:literal-casein ":end:")
              :id drawer-close-tag)
             cltpt/combinator:at-line-start-p)
-           (eval (org-mode-text-object-types-except '(org-header org-drawer))))
+           :rules-for-content (eval (org-mode-text-object-types-except '(org-header org-drawer))))
           :on-char #\:)
   :documentation "org-mode drawer.")
 
