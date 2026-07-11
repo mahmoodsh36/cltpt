@@ -30,6 +30,8 @@
                (result (when match
                          (or (when reconstruct-rule
                                (cltpt/transform:reconstruct out-rdr match reconstruct-rule))
+                             (when transform-property
+                               (funcall transform-property out-rdr match))
                              (cltpt/combinator:match-text match out-rdr)))))
           (when result
             (cltpt/reader:reader-from-string result)))))))

@@ -41,15 +41,7 @@ block2
 <br>
 block2
 <br>
-<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk1' data-reconstruct='(ID ORG-LINK PATTERN
-                   (ANY
-                    (CONSEC [[ (PATTERN (SYMBOL-MATCHER) ID LINK-TYPE) :
-                            (PATTERN (ALL-BUT []) ID LINK-DEST) ][
-                            (PATTERN (ALL-BUT []) ID LINK-DESC) ]])
-                    (CONSEC [[ (PATTERN (SYMBOL-MATCHER) ID LINK-TYPE) :
-                            (PATTERN (ALL-BUT []) ID LINK-DEST) ]])
-                    (CONSEC [[ (PATTERN (ALL-BUT []) ID LINK-DEST) ]]))
-                   ON-CHAR [)'><pre><code>filepath = &quot;out.png&quot;
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk1'><pre><code>filepath = &quot;out.png&quot;
 print(filepath)
 </code></pre></div>
 
