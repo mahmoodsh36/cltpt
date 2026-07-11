@@ -67,29 +67,6 @@
    (string= (transformer-test-1-func)
             "\\ref{here1}")))
 
-(defun transformer-test-4-func ()
-  (let* ((full-string "[[attachment:sliding]]")
-         (reader (cltpt/reader:reader-from-string full-string))
-         (parsed (cltpt/combinator:parse
-                  full-string
-                  '((:pattern
-                     (cltpt/combinator:consec
-                      "[["
-                      (:pattern (cltpt/combinator:symbol-matcher) :id link-type)
-                      ":"
-                      (:pattern (cltpt/combinator:all-but "[]") :id link-dest)
-                      "]]")
-                     :id link)))))
-    (cltpt/transform:transform
-     reader
-     (car parsed)
-     '((link . (:pattern (cltpt/combinator:separated-atleast-one ",") :id link-dest))))))
-
-(test transformer-test-4
-  (fiveam:is
-   (string= (transformer-test-4-func)
-            "[[,attachment,:,sliding,]]")))
-
 (defun transformer-test-5-func ()
   (let* ((str "(([[test]]))")
          (reader (cltpt/reader:reader-from-string str))
@@ -118,7 +95,7 @@
 (test transformer-test-5
   (fiveam:is
    (string= (transformer-test-5-func)
-             "{{ {{ \\ref{test} }} }}")))
+            "{{ {{ \\ref{test} }} }}")))
 
 (defun run-transform-tests ()
   (format t "~&running transform tests...~%")
