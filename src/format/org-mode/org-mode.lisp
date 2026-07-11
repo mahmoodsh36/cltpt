@@ -1637,7 +1637,7 @@ returns a list of changes that remove the indentation spaces from each line."
                  (cltpt/base:text-object-property obj :keywords-alist)))
               (props
                 (loop for (key . value) in all-keywords
-                      for result = (unless (or (member key '("exports" "results")
+                      for result = (unless (or (member key '("exports" "results" "transform" "reconstruct")
                                                        :test 'string=)
                                                (null value))
                                      (format nil
