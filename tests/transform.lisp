@@ -97,6 +97,108 @@
    (string= (transformer-test-5-func)
             "{{ {{ \\ref{test} }} }}")))
 
+(test transform-generate-number
+  (fiveam:is (string= (cltpt/transform:generate '(cltpt/combinator:number-matcher) 42)
+                      "42"))
+  (fiveam:is (string= (cltpt/transform:generate '(cltpt/combinator:number-matcher) -3.5)
+                      "-3.5")))
+
+(defvar *transform-test-list-rule*
+  '(cltpt/combinator:any
+    (:pattern "[]" :value nil)
+    (:pattern
+     (cltpt/combinator:consec
+      "["
+      (cltpt/combinator:separated-atleast-one
+       ", "
+       *transform-test-value-rule*)
+      "]")
+     :get list)))
+(defvar *transform-test-value-rule*
+  '(cltpt/combinator:any
+    *transform-test-list-rule*
+    (cltpt/combinator:number-matcher)))
+
+(test transform-generate-recursive-nesting
+  (fiveam:is (string= (cltpt/transform:generate '*transform-test-value-rule* nil)
+                      "[]"))
+  (fiveam:is (string= (cltpt/transform:generate '*transform-test-value-rule* '(1 2 3))
+                      "[1, 2, 3]"))
+  (fiveam:is (string= (cltpt/transform:generate '*transform-test-value-rule* '(1 (2 (3 4)) nil))
+                      "[1, [2, [3, 4]], []]")))
+
+(test transform-babel-python-encode
+  (fiveam:is
+   (string= (cltpt/babel:babel-encode 'cltpt/babel::python 42)
+            "42"))
+  (fiveam:is
+   (string= (cltpt/babel:babel-encode 'cltpt/babel::python "hey")
+            "'hey'"))
+  (fiveam:is
+   (string= (cltpt/babel:babel-encode 'cltpt/babel::python nil)
+            "[]"))
+  (fiveam:is
+   (string= (cltpt/babel:babel-encode 'cltpt/babel::python '(1 (2 "x" (4 5)) nil 3.5))
+            "[1, [2, 'x', [4, 5]], [], 3.5]")))
+
+(test transform-babel-python-decode
+  (fiveam:is (eql (cltpt/babel:babel-decode 'cltpt/babel::python "42") 42))
+  (fiveam:is (string= (cltpt/babel:babel-decode 'cltpt/babel::python "'hey'") "hey"))
+  (fiveam:is (null (cltpt/babel:babel-decode 'cltpt/babel::python "[]")))
+  (fiveam:is (equal (cltpt/babel:babel-decode 'cltpt/babel::python "[1, 2, 3]")
+                    '(1 2 3)))
+  (fiveam:is (equal (cltpt/babel:babel-decode 'cltpt/babel::python "[1, [2, 'x', [4, 5]], [], 3.5]")
+                    '(1 (2 "x" (4 5)) nil 3.5))))
+
+(defvar *transform-test-literal-consec-rule*
+  '(cltpt/combinator:consec
+    (cltpt/combinator:literal "<")
+    (cltpt/combinator:number-matcher)
+    (cltpt/combinator:literal ">")))
+
+(test transform-decode-skips-literal-parts
+  (let* ((text "<42>")
+         (reader (cltpt/reader:reader-from-string text))
+         (match (car (cltpt/combinator:parse
+                      reader
+                      (list '*transform-test-literal-consec-rule*)))))
+    (fiveam:is (eql 42
+                    (cltpt/transform:decode
+                     reader
+                     match
+                     '*transform-test-literal-consec-rule*)))))
+
+(test transform-decode-number
+  (fiveam:is (eql 42 (cltpt/babel:babel-decode 'cltpt/babel::python "42")))
+  (fiveam:is (eql -3 (cltpt/babel:babel-decode 'cltpt/babel::python "-3")))
+  (fiveam:is (= 0.125 (cltpt/babel:babel-decode 'cltpt/babel::python "0.125")))
+  (fiveam:is (= -3.5 (cltpt/babel:babel-decode 'cltpt/babel::python "-3.5"))))
+
+;; decode is the inverse of encode: encoding a value then decoding the text recovers it.
+(test transform-babel-python-roundtrip
+  (dolist (value '(42 "hey" nil (1 2 3) (1 (2 "x" (4 5)) nil)))
+    (fiveam:is (equal value
+                      (cltpt/babel:babel-decode
+                       'cltpt/babel::python
+                       (cltpt/babel:babel-encode 'cltpt/babel::python value))))))
+
+;; :get lets a `consec' target a non-list value, e.g. a CONS cell: it spreads the cons into
+;; the list `generate-consec' distributes across the parts.
+(defun transform-test-cons-to-list (c)
+  (list (car c) (cdr c)))
+
+(defvar *transform-test-pair-rule*
+  '(:pattern
+    (cltpt/combinator:consec
+     (cltpt/combinator:number-matcher)
+     ","
+     (cltpt/combinator:number-matcher))
+    :get transform-test-cons-to-list))
+
+(test transform-generate-get-slices-cons
+  (fiveam:is (string= (cltpt/transform:generate '*transform-test-pair-rule* (cons 3 4))
+                      "3,4")))
+
 (defun run-transform-tests ()
   (format t "~&running transform tests...~%")
   (let ((results (run! 'transform-suite)))

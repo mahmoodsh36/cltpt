@@ -18,8 +18,12 @@
   return { "path": "link-path", "type": "link-type" }
 #+end_src
 
-#+begin_src python :name word-handler
-  return "word"
+#+begin_src python :results value :name blk8
+  return [1, 2, 3]
+#+end_src
+
+#+begin_src python :name word-handler :var a1=blk8
+  print('word ' + str(a1))
 #+end_src
 
 #+begin_src python :name blk0-child-handler
@@ -40,4 +44,26 @@
   print(blk1)
   for word in %'blk0-tree-handler:
       print(word)
+#+end_src
+
+#+begin_src c
+  printf("hello from C\n");
+#+end_src
+
+#+begin_src python :results value :name pynums
+  return [10, 20, 30]
+#+end_src
+
+#+begin_src c :var xs=pynums
+  int total = 0;
+  for (unsigned int i = 0; i < xs_len; i++) total += xs[i];
+  printf("sum of %lu items = %ld\n", xs_len, total);
+#+end_src
+
+#+begin_src c :main no
+  #include <stdio.h>
+  int main(void) {
+      printf("unwrapped %d\n", 99);
+      return 0;
+  }
 #+end_src

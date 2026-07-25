@@ -1,41 +1,59 @@
 (defpackage :cltpt/babel
   (:use :cl)
-  (:export :babel-eval))
+  (:export :babel-eval :babel-eval* :babel-encode :babel-decode :babel-value-rule
+           :babel-lexical-wrap))
 
 (in-package :cltpt/babel)
 
 (defgeneric babel-eval (lang code))
 
-(defgeneric babel-eval* (lang code assignments result-type))
+(defgeneric babel-eval* (lang code assignments result-type &key &allow-other-keys))
 
 (defgeneric babel-lexical-wrap (lang code assignments)
-  (:documentation "given CODE and variable ASSIGNMENTS, generate code in which ASSIGNMENTS (list of variable and value conses) are lexically bound."))
+  (:documentation "given CODE and variable ASSIGNMENTS, generate code in which ASSIGNMENTS (list
+of variable and value conses) are lexically bound."))
 
-(defgeneric babel-encode (lang type value)
-  (:documentation "given VALUE, convert it into a form representing an object of type TYPE, that will be readable by language LANG.
+(defgeneric babel-value-rule (lang)
+  (:documentation "combinator rule describing LANG's values.
+drives `babel-encode' through `cltpt/transform:generate'."))
 
-possible examples for TYPE are: list, string, dictionary."))
+(defgeneric babel-encode (lang value)
+  (:documentation "given VALUE, convert it into a string readable by language LANG."))
 
-(defgeneric babel-decode (lang type str)
-  (:documentation "given STR, which is suppsoedly an object that was \"stringified\" and returned from the target LANG, read it as an object of type TYPE.
+;; this is mostly a placeholder. will need to replace it with proper escape handling and whatnot.
+(defvar *python-string-rule*
+  '(:pattern (cltpt/combinator:consec "'" (cltpt/combinator:all-but "'") "'")
+    :get list))
 
-possible examples for TYPE are: list, string, dictionary."))
+(defvar *python-list-rule*
+  '(cltpt/combinator:any
+    (:pattern "[]" :value nil)
+    (:pattern
+     (cltpt/combinator:consec
+      "["
+      (cltpt/combinator:separated-atleast-one
+       (cltpt/combinator:any ", " ",")
+       *python-value-rule*)
+      "]")
+     :get list)))
 
-;; handles "lexical" bindings (simply variables) for python
-(defmethod babel-lexical-wrap ((lang (eql 'python))
-                               code
-                               assignments)
-  (with-output-to-string (out)
-    (loop for (name . value) in assignments
-          do (format out "~A = ~A~%" name value))
-    (write-string code out)))
+(defvar *python-value-rule*
+  '(cltpt/combinator:any
+    *python-list-rule*
+    *python-string-rule*
+    (cltpt/combinator:number-matcher)))
 
-(defmethod babel-decode (lang
-                         (type (eql 'string))
-                         str)
-  str)
+(defmethod babel-value-rule ((lang (eql 'python)))
+  '*python-value-rule*)
 
-(defmethod babel-encode (lang
-                         (type (eql 'string))
-                         value)
-  (format t "~S" value))
+(defmethod babel-encode (lang value)
+  (cltpt/transform:generate (babel-value-rule lang) value))
+
+(defmethod babel-decode (lang text)
+  "parse TEXT as a LANG value and recover the lisp value it represents (the inverse of
+`babel-encode'). returns NIL if TEXT does not parse as a value."
+  (let* ((reader (cltpt/reader:reader-from-string text))
+         (rule (babel-value-rule lang))
+         (match (car (cltpt/combinator:parse reader (list rule)))))
+    (when match
+      (values (cltpt/transform:decode reader match rule)))))
