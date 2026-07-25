@@ -11,7 +11,7 @@
    :literal :literal-casein :consec :parse :word-matcher :upcase-word-matcher
    :consec-atleast-one :symbol-matcher :scan-all-rules :any :all-but
    :all-but-newline :atleast-one :atleast-one-discard :lisp-sexp :pair
-   :unescaped :natural-number-matcher :when-match :at-line-start-p
+   :unescaped :natural-number-matcher :number-matcher :when-match :at-line-start-p
    :at-line-end-p :followed-by :separated-atleast-one
    :all-but-whitespace :handle-rule-string :all-upto
    :all-upto-included :succeeded-by :all-upto-without
@@ -587,6 +587,32 @@ the consecutive matches up to that point."
 (defun natural-number-matcher (ctx reader pos)
   "matches a natural number."
   (simple-wrapper ctx reader pos '(atleast-one-discard (digit-p))))
+
+(defun number-matcher (ctx reader pos)
+  "matches a number that may be negative or may have a decimal point."
+  (declare (type fixnum pos))
+  (let ((start pos))
+    (when (and (is-before-eof reader pos)
+               (let ((c (reader-char reader pos)))
+                 (or (char= c #\-)
+                     (char= c #\+))))
+      (incf pos))
+    (let ((digits-start pos))
+      (loop while (and (is-before-eof reader pos)
+                       (digit-char-p (reader-char reader pos)))
+            do (incf pos))
+      (when (= pos digits-start)
+        (return-from number-matcher nil)))
+    ;; only consume a `.' if at least one digit follows it
+    (when (and (is-before-eof reader pos)
+               (char= (reader-char reader pos) #\.)
+               (is-before-eof reader (1+ pos))
+               (digit-char-p (reader-char reader (1+ pos))))
+      (incf pos)
+      (loop while (and (is-before-eof reader pos)
+                       (digit-char-p (reader-char reader pos)))
+            do (incf pos)))
+    (- pos start)))
 
 (defun pair (ctx reader pos opening-rule closing-rule
              &key rules-for-content pair-id (allow-multiline t) (allow-empty t) nest-self)

@@ -65,9 +65,10 @@
                              (:file "agenda")))
                (:module "babel"
                 :pathname "src/babel"
-                :depends-on ("tree")
+                :depends-on ("tree" "combinator")
                 :components ((:file "babel")
-                             (:file "python")))
+                             (:file "python")
+                             (:file "c")))
                ;; TODO: maybe org-mode should not directly depend on roam/agenda/babel.
                (:module "org-mode"
                 :pathname "src/format/org-mode"
