@@ -3,6 +3,7 @@
   (:export
    :*latex-previews-tmp-directory*
    :*latex-previews-cache-directory*
+   :preview-directory
    :*latex-compiler-command-map*
    :*latex-compiler-key*
    :*latex-preview-pipelines*
@@ -21,22 +22,31 @@
 
 (in-package :cltpt/latex-previews)
 
-(defun get-cltpt-subdirectory (name)
-  "creates and returns a subdirectory within the system's temporary directory."
-  (let ((path (uiop:ensure-directory-pathname
-               (uiop:merge-pathnames*
-                (make-pathname
-                 :directory (list :relative "cltpt-latex-previews" name))
-                (uiop:temporary-directory)))))
-    (ensure-directories-exist path)
-    (uiop:native-namestring path)))
-
 (defvar *latex-previews-tmp-directory*
-  (get-cltpt-subdirectory "tmp")
-  "path to the directory for intermediate compilation files. can be absolute or relative.")
+  nil
+  "path to the directory for intermediate compilation files. can be absolute or relative.
+NIL, the default, means a subdirectory of the temporary directory of the running process, which
+is resolved on use rather than here: a directory resolved when this file is loaded is baked into
+an image saved by `uiop:dump-image' or save-lisp-and-die, and the temporary directory of whatever
+built the image may not exist by the time the image runs.")
 (defvar *latex-previews-cache-directory*
-  (get-cltpt-subdirectory "cache")
-  "path to the directory for storing final, cached images. can be absolute or relative.")
+  nil
+  "path to the directory for storing final, cached images. can be absolute or relative.
+NIL, the default, means a subdirectory of the temporary directory of the running process, see
+`*latex-previews-tmp-directory*'.")
+
+(defun preview-directory (which)
+  "the directory previews use for WHICH, either :tmp or :cache.
+the variable set for it, or a subdirectory of the temporary directory of the running process."
+  (or (ecase which
+        (:tmp *latex-previews-tmp-directory*)
+        (:cache *latex-previews-cache-directory*))
+      (uiop:native-namestring
+       (uiop:ensure-directory-pathname
+        (uiop:merge-pathnames*
+         (make-pathname
+          :directory (list :relative "cltpt-latex-previews" (string-downcase which)))
+         (uiop:temporary-directory))))))
 
 (defvar *latex-compiler-command-map*
   '((:latex    . "latex")
@@ -133,18 +143,19 @@ the preamble automatically invalidate the old compiled format."
 
 (defun clear-all ()
   "deletes all preview-related files from temporary and cache directories."
-  ;; delete precompiled preambles
-  (cltpt/file-utils:delete-files-by-glob
-   *latex-previews-tmp-directory* "preamble-*.fmt")
-  ;; delete temporary previews
-  (cltpt/file-utils:delete-files-by-glob
-   *latex-previews-tmp-directory*
-   (format nil "~A*" *preview-filename-prefix*))
-  ;; delete cached previews
-  (cltpt/file-utils:delete-files-by-glob
-   *latex-previews-cache-directory*
-   (format nil "~A*" *preview-filename-prefix*))
-  (format t "~&cleared temporary files, cached previews, and all precompiled preambles.~%"))
+  (let ((tmp-dir (preview-directory :tmp))
+        (cache-dir (preview-directory :cache)))
+    ;; delete precompiled preambles
+    (cltpt/file-utils:delete-files-by-glob tmp-dir "preamble-*.fmt")
+    ;; delete temporary previews
+    (cltpt/file-utils:delete-files-by-glob
+     tmp-dir
+     (format nil "~A*" *preview-filename-prefix*))
+    ;; delete cached previews
+    (cltpt/file-utils:delete-files-by-glob
+     cache-dir
+     (format nil "~A*" *preview-filename-prefix*))
+    (format t "~&cleared temporary files, cached previews, and all precompiled preambles.~%")))
 
 (defun format-command (template-string substitutions)
   (let ((result template-string))
@@ -283,13 +294,13 @@ this function now uses a random batch name internally and expects a list of
 returns an association list of (hash . string-file-path)."
   (unless snippets
     (return-from generate-previews-for-latex nil))
-  (cltpt/file-utils:ensure-dir-exists *latex-previews-tmp-directory*)
-  (cltpt/file-utils:ensure-dir-exists *latex-previews-cache-directory*)
   ;; NOTE: we convert to absolute paths internally for all file operations.
   ;; *latex-previews-tmp-directory* is for intermediate compilation files (.tex, .aux, .dvi, .log)
   ;; *latex-previews-cache-directory* is for final hash-named cached images (.svg, .png)
   ;; the workflow is: compile in tmp → convert to images in tmp → copy to cache → return cache paths
-  (let* ((abs-tmp-dir (cltpt/file-utils:ensure-absolute *latex-previews-tmp-directory*))
+  (let* ((*latex-previews-tmp-directory* (preview-directory :tmp))
+         (*latex-previews-cache-directory* (preview-directory :cache))
+         (abs-tmp-dir (cltpt/file-utils:ensure-absolute *latex-previews-tmp-directory*))
          (abs-cache-dir (cltpt/file-utils:ensure-absolute *latex-previews-cache-directory*))
          (pipeline-config (cdr (assoc pipeline *latex-preview-pipelines*)))
          (output-ext (getf pipeline-config :image-output-type))
@@ -307,6 +318,8 @@ returns an association list of (hash . string-file-path)."
                    transparent
                    (cltpt/str-utils:md5-str (get-preamble-source-string)))))
     (unless pipeline-config (error "unknown preview pipeline: ~A" pipeline))
+    (cltpt/file-utils:ensure-dir-exists *latex-previews-tmp-directory*)
+    (cltpt/file-utils:ensure-dir-exists *latex-previews-cache-directory*)
     ;; checking the cache
     (let ((missing-snippets)
           (all-snippets-with-hashes))
