@@ -150,7 +150,7 @@
    (equalp
     (org-list-test-3-func)
     "<ul>
-<li> we have <img src='cltpt-latex-previews/cache/cltpt-snippet-57445dda3eae04b5c8affc6fa2037263.svg' class='inline-math' />
+<li> we have <img src='cltpt-latex-previews/cache/cltpt-snippet-ee8ac55557b1144defe52597f7c75a15.svg' class='inline-math' style='vertical-align: -3.49px' />
 <ol type=\"a\">
    <li> nested item one
       more nested text

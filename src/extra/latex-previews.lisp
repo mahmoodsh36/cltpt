@@ -4,6 +4,13 @@
    :*latex-previews-tmp-directory*
    :*latex-previews-cache-directory*
    :preview-directory
+   :preview
+   :preview-snippet
+   :preview-hash
+   :preview-path
+   :preview-width
+   :preview-height
+   :preview-depth
    :*latex-compiler-command-map*
    :*latex-compiler-key*
    :*latex-preview-pipelines*
@@ -41,12 +48,12 @@ the variable set for it, or a subdirectory of the temporary directory of the run
   (or (ecase which
         (:tmp *latex-previews-tmp-directory*)
         (:cache *latex-previews-cache-directory*))
-      (uiop:native-namestring
-       (uiop:ensure-directory-pathname
-        (uiop:merge-pathnames*
-         (make-pathname
-          :directory (list :relative "cltpt-latex-previews" (string-downcase which)))
-         (uiop:temporary-directory))))))
+      (cltpt/file-utils:as-dir-path
+       (cltpt/file-utils:join-paths
+        (uiop:native-namestring
+         (uiop:merge-pathnames* (make-pathname :directory '(:relative "cltpt-latex-previews"))
+                                (uiop:temporary-directory)))
+        (string-downcase which)))))
 
 (defvar *latex-compiler-command-map*
   '((:latex    . "latex")
@@ -98,10 +105,18 @@ the variable set for it, or a subdirectory of the temporary directory of the run
 \\usepackage{amssymb}"
   "the preamble used in latex preview compilation.")
 
+(defvar *preview-geometry-marker*
+  "Preview: Snippet "
+  "what a geometry line starts with. the preview package's `lyx' option prints one such line per
+snippet, carrying its number, height, depth and width in scaled points. the option names no
+dependency, it only makes preview.sty input `prlyx.def', which ships beside preview.sty.")
+
 (defun get-preamble-source-string ()
   "constructs the full preamble source, including the preview package options."
+  ;; tightpage crops each page to its snippet and reports the padding it added, lyx prints the
+  ;; snippet's dimensions. `parse-preview-geometry' needs both to place an image on the baseline.
   (format nil
-          "~A~%\\usepackage[active,tightpage]{preview}~%"
+          "~A~%\\usepackage[active,tightpage,lyx]{preview}~%"
           *latex-preview-preamble*))
 
 (defun get-precompiled-preamble-path ()
@@ -157,6 +172,18 @@ the preamble automatically invalidate the old compiled format."
      (format nil "~A*" *preview-filename-prefix*))
     (format t "~&cleared temporary files, cached previews, and all precompiled preambles.~%")))
 
+(defstruct preview
+  "one generated preview. PATH is NIL when the snippet did not compile."
+  snippet
+  hash
+  path
+  ;; in em of the document the snippet was typeset in, so they say nothing about the size the
+  ;; image was rendered at. DEPTH is the part of HEIGHT below the baseline. NIL when the compiler
+  ;; reported no geometry.
+  width
+  height
+  depth)
+
 (defun format-command (template-string substitutions)
   (let ((result template-string))
     (dolist (sub substitutions result)
@@ -182,11 +209,125 @@ the preamble automatically invalidate the old compiled format."
       tmp-dir
       (format nil "~A-~9,'0d.~A" base-name page-num output-ext)))))
 
+(defvar *preview-geometry-ext*
+  ".geom"
+  "extension of the file holding an image's size and baseline, see `write-preview-geometry'.")
+
+(defvar *preview-tightpage-marker*
+  "Preview: Tightpage"
+  "what the tightpage option's line of margins starts with.")
+
+(defvar *preview-fontsize-marker*
+  "Preview: Fontsize "
+  "what the line naming the document's font size starts with. preview.sty prints one per run.")
+
+(defvar *preview-default-fontsize*
+  10
+  "font size to assume when a run did not print one, latex's own default.")
+
+(defconstant +scaled-points-per-point+
+  (* 65536 (/ 72.27d0 72))
+  "scaled points to the printer's point: 65536 to the tex point, 72.27 tex points to 72 of these.")
+
+(defun digit-or-sign-p (char)
+  (or (digit-char-p char) (char= char #\-)))
+
+(defun parse-integers-in-line (line start count)
+  "read COUNT integers out of LINE from START on, skipping whatever separates them.
+returns them as a list, or NIL if the line runs out of numbers first."
+  (loop :repeat count
+        :for pos := start :then next
+        :for (value next) := (multiple-value-list
+                              (parse-integer
+                               line
+                               :start (or (position-if #'digit-or-sign-p
+                                                       line
+                                                       :start pos)
+                                          (length line))
+                               :junk-allowed t))
+        :unless value :do (return nil)
+        :collect value))
+
+(defun parse-preview-geometry (log)
+  "one (:width W :height H :depth D) plist per snippet in LOG, a compiler run's output, in em and
+in the order they appear. three kinds of line are read:
+
+  Preview: Fontsize NNpt                       once per run, the document's font size
+  Preview: Tightpage LEFT BOTTOM RIGHT TOP     once per run, from the tightpage option
+  Preview: Snippet NUMBER HEIGHT DEPTH WIDTH   once per snippet, from the lyx option
+
+the last two are in scaled points. the snippet line measures the material, the tightpage line the
+crop around it, whose LEFT and BOTTOM are negative, the directions it grows in. dividing by the
+font size is what makes the result em, and so independent of the size the image is rendered at."
+  (let ((geometry)
+        (fontsize *preview-default-fontsize*)
+        (margins (list 0 0 0 0)))
+    (dolist (line (uiop:split-string log :separator '(#\Newline)) (nreverse geometry))
+      (let ((fontsize-line (search *preview-fontsize-marker* line))
+            (tightpage (search *preview-tightpage-marker* line))
+            (snippet (search *preview-geometry-marker* line)))
+        (cond
+          (fontsize-line
+           (let ((size (parse-integers-in-line
+                        line
+                        (+ fontsize-line (length *preview-fontsize-marker*))
+                        1)))
+             (when (and size (plusp (first size)))
+               (setf fontsize (first size)))))
+          (tightpage
+           (let ((parsed (parse-integers-in-line
+                          line
+                          (+ tightpage (length *preview-tightpage-marker*))
+                          4)))
+             (when parsed
+               (setf margins parsed))))
+          (snippet
+           (let ((numbers (parse-integers-in-line
+                           line
+                           (+ snippet (length *preview-geometry-marker*))
+                           4)))
+             (when numbers
+               (destructuring-bind (left bottom right top) margins
+                 (destructuring-bind (number height depth width) numbers
+                   (declare (ignore number))
+                   (flet ((em (scaled-points)
+                            (/ (max 0 scaled-points)
+                               (* +scaled-points-per-point+ fontsize))))
+                     (push (list :width (em (- (+ width right) left))
+                                 :height (+ (em (+ height top)) (em (- depth bottom)))
+                                 :depth (em (- depth bottom)))
+                           geometry))))))))))))
+
+(defun preview-geometry-path (directory hash)
+  (cltpt/file-utils:join-paths
+   directory
+   (concatenate 'string *preview-filename-prefix* hash *preview-geometry-ext*)))
+
+(defun write-preview-geometry (directory hash geometry)
+  "record GEOMETRY beside the image HASH names, for later runs that find the image cached."
+  (cltpt/file-utils:write-file
+   (preview-geometry-path directory hash)
+   (format nil
+           "(:width ~,4F :height ~,4F :depth ~,4F)~%"
+           (getf geometry :width)
+           (getf geometry :height)
+           (getf geometry :depth))))
+
+(defun read-preview-geometry (directory hash)
+  "the geometry recorded for HASH, or NIL if there is none.
+`ignore-errors' so that a half-written file counts as none rather than signalling."
+  (let ((path (probe-file (preview-geometry-path directory hash))))
+    (when path
+      (ignore-errors
+       (read-from-string (cltpt/file-utils:read-file (namestring path)))))))
+
 (defun run-compilation-pipeline (snippets-to-compile pipeline-config density transparent)
   "compiles a batch of snippets and renames the output to match their final hashes.
 this function now uses a random batch name internally and expects a list of
 (hash . snippet-text) cons cells."
   (let* ((use-precomp-p (equal *latex-compiler-key* :latex))
+         ;; a geometry per snippet, filled in from the compiler's output below.
+         (geometry)
          ;; use a random base name for the temporary batch file to avoid collisions
          (batch-base-name (format nil "batch-~A" (random (expt 2 32))))
          (tmp-dir *latex-previews-tmp-directory*)
@@ -235,12 +376,14 @@ this function now uses a random batch name internally and expects a list of
            (substitutions `(("%l" . ,final-compiler-command)
                             ("%o" . ,(uiop:native-namestring abs-tmp-dir))
                             ("%f" . ,(uiop:native-namestring tex-file))))
-           (command-str (format-command latex-template substitutions)))
-      (uiop:run-program (uiop:split-string command-str :separator " ")
-                        ;; :directory *default-pathname-defaults*
-                        :output t
-                        :error-output t
-                        :ignore-error-status t))
+           (command-str (format-command latex-template substitutions))
+           (log (uiop:run-program (uiop:split-string command-str :separator " ")
+                                  :output '(:string)
+                                  :error-output t
+                                  :ignore-error-status t)))
+      ;; captured rather than let through, so echo it: a failed compilation is diagnosed from it.
+      (write-string log *standard-output*)
+      (setf geometry (parse-preview-geometry log)))
     (let* ((converter-template
              (if (and transparent
                       (getf pipeline-config :transparent-image-converter))
@@ -279,7 +422,10 @@ this function now uses a random batch name internally and expects a list of
                                           "."
                                           output-ext))
           do (when (probe-file numbered-file)
-               (rename-file numbered-file hashed-file)))
+               (rename-file numbered-file hashed-file)
+               (let ((snippet-geometry (nth i geometry)))
+                 (when snippet-geometry
+                   (write-preview-geometry abs-tmp-dir hash snippet-geometry)))))
     ;; we dont want to always claean up those temp files, especially not .log files.
     ;; (cleanup-temp-files batch-base-name (concatenate 'string "." intermediate-ext))
     ))
@@ -291,7 +437,8 @@ this function now uses a random batch name internally and expects a list of
                                       (density 200)
                                       (transparent t))
   "generates image files for a list of LaTeX snippets, compiling only what is needed.
-returns an association list of (hash . string-file-path)."
+returns a list of `preview' structs, one per snippet in SNIPPETS and in the same order, whose
+PATH is NIL for a snippet that produced no image."
   (unless snippets
     (return-from generate-previews-for-latex nil))
   ;; NOTE: we convert to absolute paths internally for all file operations.
@@ -359,17 +506,30 @@ returns an association list of (hash . string-file-path)."
                     (concatenate 'string *preview-filename-prefix* hash file-ext))))
             (when (probe-file tmp-file)
               (uiop:copy-file tmp-file cached-file)
+              ;; the geometry travels with the image, so a run that reuses it still has it.
+              (let ((tmp-geometry (probe-file (preview-geometry-path abs-tmp-dir hash))))
+                (when tmp-geometry
+                  (uiop:copy-file tmp-geometry (preview-geometry-path abs-cache-dir hash))))
               ;; (delete-file tmp-file)
               ))))
-      ;; return the full list of cache paths
+      ;; describe what each snippet ended up with.
       (mapcar
        (lambda (snippet-cons)
          (let* ((hash (car snippet-cons))
-                (file-ext (concatenate 'string "." output-ext))
                 (filename (concatenate 'string
                                        *preview-filename-prefix*
                                        hash
-                                       file-ext)))
-           (cons hash
-                 (cltpt/file-utils:join-paths *latex-previews-cache-directory* filename))))
+                                       "."
+                                       output-ext))
+                ;; probed for existence only, the path is handed back as built so a relative
+                ;; cache directory stays relative.
+                (path (cltpt/file-utils:join-paths *latex-previews-cache-directory* filename))
+                (compiled (probe-file path)))
+           (let ((geometry (when compiled (read-preview-geometry abs-cache-dir hash))))
+             (make-preview :snippet (cdr snippet-cons)
+                           :hash hash
+                           :path (when compiled path)
+                           :width (getf geometry :width)
+                           :height (getf geometry :height)
+                           :depth (getf geometry :depth)))))
        all-snippets-with-hashes))))
