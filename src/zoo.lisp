@@ -100,19 +100,30 @@
                 :escape nil))
         (text-block-convert-helper obj backend))))
 
+(defun latex-baseline-style (preview)
+  "css that puts PREVIEW's image on the baseline of the text around it.
+an image sits on the baseline by its bottom edge, so it has to be pushed down by its depth.
+empty when there is no depth."
+  (let ((depth (cltpt/latex-previews:preview-depth preview)))
+    (if (and depth (plusp depth))
+        (format nil " style='vertical-align: -~,2Fpx'" depth)
+        "")))
+
 (defun latex-fragment-to-html (latex-code is-inline)
   (case cltpt/html:*html-export-latex-method*
     (cltpt/html::svg
-     (let* ((img-filepath (cdar (cltpt/latex-previews:generate-previews-for-latex
-                                 (list latex-code))))
+     (let* ((preview (first (cltpt/latex-previews:generate-previews-for-latex
+                             (list latex-code))))
+            (img-filepath (cltpt/latex-previews:preview-path preview))
             (filename (cltpt/file-utils:file-basename img-filepath))
             (img-url (if cltpt/html:*html-static-route*
                          (cltpt/file-utils:join-paths cltpt/html:*html-static-route* filename)
                          img-filepath)))
        (if is-inline
            (format nil
-                   "<img src='~A' class='inline-math' />"
-                   img-url)
+                   "<img src='~A' class='inline-math'~A />"
+                   img-url
+                   (latex-baseline-style preview))
            (format nil
                    "<img src='~A' class='display-math' />"
                    img-url))))))
