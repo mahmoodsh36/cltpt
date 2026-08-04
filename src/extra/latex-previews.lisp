@@ -482,7 +482,9 @@ PATH is NIL for a snippet that produced no image."
                   abs-cache-dir
                   (concatenate 'string *preview-filename-prefix* hash file-ext))))
           (push (cons hash snippet-text) all-snippets-with-hashes)
-          (unless (and (not recompile) (probe-file cached-file))
+          (unless (and (not recompile)
+                       (probe-file cached-file)
+                       (read-preview-geometry abs-cache-dir hash))
             (push (cons hash snippet-text) missing-snippets))))
       (setf all-snippets-with-hashes (nreverse all-snippets-with-hashes))
       (setf missing-snippets (nreverse missing-snippets))
