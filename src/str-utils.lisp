@@ -2,6 +2,7 @@
   (:use :cl)
   (:export
    :md5-str :str-join :str-prune :str-split :str-dupe
+   :parse-number
    :replace-all
    :replace-substr
    :unindent :ensure-min-indent
@@ -15,6 +16,20 @@
                (subseq original 0 begin)
                replacement
                (subseq original end)))
+
+(defun parse-number (str &key (start 0))
+  "the first number in STR from START on, or NIL if there is none."
+  (let* ((from (position-if (lambda (char)
+                              (or (digit-char-p char) (char= char #\-)))
+                            str
+                            :start start))
+         ;; from the character after the sign, so that a lone "-" leaves nothing to read.
+         (end (and from (position-if-not (lambda (char)
+                                           (or (digit-char-p char) (char= char #\.)))
+                                         str
+                                         :start (1+ from))))
+         (value (and from (read-from-string (subseq str from end) nil nil))))
+    (and (realp value) value)))
 
 (defun md5-str (s)
   (ironclad:byte-array-to-hex-string
