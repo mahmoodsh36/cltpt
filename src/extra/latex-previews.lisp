@@ -268,12 +268,11 @@ font size is what makes the result em, and so independent of the size the image 
             (snippet (search *preview-geometry-marker* line)))
         (cond
           (fontsize-line
-           (let ((size (parse-integers-in-line
+           (let ((size (cltpt/str-utils:parse-number
                         line
-                        (+ fontsize-line (length *preview-fontsize-marker*))
-                        1)))
-             (when (and size (plusp (first size)))
-               (setf fontsize (first size)))))
+                        :start (+ fontsize-line (length *preview-fontsize-marker*)))))
+             (when (and size (plusp size))
+               (setf fontsize size))))
           (tightpage
            (let ((parsed (parse-integers-in-line
                           line
