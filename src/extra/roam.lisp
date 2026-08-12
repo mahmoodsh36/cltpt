@@ -1,7 +1,7 @@
 (defpackage :cltpt/roam
   (:use :cl)
   (:export
-   :roamer-from-files :roamer-rescan :roamer-nodes
+   :roamer-from-files :roamer-rescan :roamer-nodes :roamer-files
    :node-id :node-title :node-desc :node-file :node-text-obj :node-file-rule
    :roamer-node-id-hashtable :get-node-by-id :convert-all
    :node-format :node-info-format-str :make-node :text-object-roam-data
