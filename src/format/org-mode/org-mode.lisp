@@ -248,7 +248,8 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
               (let ((dest-text-obj
                       (cond
                         ((cltpt/base:target-text-object resolved)
-                         (cltpt/roam:node-text-obj resolved))
+                         (cltpt/base:text-object-clone
+                          (cltpt/roam:node-text-obj resolved)))
                         ((cltpt/base:target-filepath resolved)
                          ;; (cltpt/base:parse-file *org-mode* resolved)
                          )
@@ -1932,9 +1933,13 @@ returns a list of changes that remove the indentation spaces from each line."
 
 (defmethod handle-block-keywords ((obj cltpt/base:text-object) str1)
   (let* ((match (cltpt/base:text-object-match obj))
-         (entries (cltpt/combinator:find-submatch-all
-                   (cltpt/combinator:find-submatch match 'keywords)
-                   'keywords-entry)))
+         ;; only look at the block's own opening line, the match tree also holds the matches of
+         ;; nested blocks and we'd otherwise adopt their keywords.
+         (begin-match (cltpt/combinator:find-submatch match 'begin))
+         (entries (when begin-match
+                    (cltpt/combinator:find-submatch-all
+                     (cltpt/combinator:find-submatch begin-match 'keywords)
+                     'keywords-entry))))
     (loop for entry in entries
           for kw-match = (cltpt/combinator:find-submatch entry 'keyword)
           for val-match = (cltpt/combinator:find-submatch entry 'value)

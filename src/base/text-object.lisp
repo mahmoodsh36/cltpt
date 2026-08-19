@@ -591,6 +591,15 @@ SPEC is a plist with keys:
                                 (clone-parent t)
                                 (clone-children t))
   (let ((new-obj (make-instance (class-of text-obj))))
+    ;; copy every bound slot, so state a subclass sets during init survives (e.g.
+    ;; `text-link's link, `document's escapes).
+    (loop for slot-def in (sb-mop:class-slots (class-of text-obj))
+          for slot-name = (sb-mop:slot-definition-name slot-def)
+          do (when (slot-boundp text-obj slot-name)
+               (setf (slot-value new-obj slot-name)
+                     (slot-value text-obj slot-name))))
+    ;; a clone shouldnt inherit changes pending on the original's buffer.
+    (setf (cltpt/buffer:buffer-scheduled-levels new-obj) nil)
     (if (and clone-parent (text-object-parent text-obj))
         (setf (text-object-parent new-obj)
               (text-object-clone
