@@ -976,6 +976,38 @@ used for all region-decf calculations to get positions relative to the text-obje
           :on-char #\|)
   :documentation "org-mode table.")
 
+(defmethod org-affiliated-keywords ((obj cltpt/base:text-object))
+  "collect the '#+key: value' keywords sitting on the lines directly above OBJ.
+
+unlike `handle-parsed-org-keywords', the keywords here arent children of OBJ,
+they are preceding siblings. this is the case for objects whose rule doesnt
+\"absorb\" the keywords, like `org-table'."
+  (let ((result)
+        (child obj))
+    (loop for prev = (cltpt/base:text-object-prev-sibling child)
+          while (and (typep prev 'org-keyword)
+                     ;; the keyword has to be on the line right above
+                     (<= (- (cltpt/base:text-object-begin-in-root child)
+                            (cltpt/base:text-object-end-in-root prev))
+                         1))
+          do (push (org-keyword-cons prev) result)
+             (setf child prev))
+    result))
+
+(defmethod cltpt/base:text-object-finalize ((obj org-table))
+  ;; '#+name: my-table' above a table turns it into an anchor we can link to by id.
+  (let* ((keywords (org-affiliated-keywords obj))
+         (name (cdr (assoc "name" keywords :test 'string-equal)))
+         (caption (cdr (assoc "caption" keywords :test 'string-equal))))
+    (setf (cltpt/base:text-object-property obj :keywords-alist) keywords)
+    (setf (cltpt/base:text-object-property obj :roam-node)
+          (when name
+            (cltpt/roam:make-node
+             :id name
+             :title caption
+             :desc nil
+             :text-obj obj)))))
+
 ;; TODO: this uses nconc all the time which causes squared complexity
 (defmethod cltpt/base:text-object-convert ((obj org-table)
                                            (backend cltpt/base:text-format))
