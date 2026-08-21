@@ -2093,8 +2093,7 @@ returns a list of changes that remove the indentation spaces from each line."
     (handle-block-keywords obj str1)
     (let ((block-title (org-block-keyword-value obj "title"))
           (block-name (org-block-keyword-value obj "name")))
-      ;; handle :name <id> as an anchor for blocks. construct a roam node for each.
-      (when block-name
+      (when (or block-name block-title)
         (setf (cltpt/base:text-object-property obj :roam-node)
               (cltpt/roam:make-node
                :id block-name
