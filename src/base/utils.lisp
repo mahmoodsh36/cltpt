@@ -4,7 +4,7 @@
   (car (last seq)))
 
 ;; this is a temporary workaround because `find-class' is really slow..
-(defparameter *class-map* (make-hash-table))
+(defparameter *class-map* (make-hash-table :synchronized t))
 (defun find-class-faster (class-sym)
   (let ((result (gethash class-sym *class-map*)))
     (unless result
