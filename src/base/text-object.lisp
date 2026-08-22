@@ -360,9 +360,34 @@ SPEC is a plist with keys:
   (cltpt/buffer:region-text (text-object-contents-region obj)
                             (text-object-text obj)))
 
+(defvar *text-object-rule-builders* nil
+  "alist of (name . builder) in definition order, see `rebuild-text-object-rules'.")
+
+(defun register-text-object-rule (name builder)
+  (let ((existing (assoc name *text-object-rule-builders*)))
+    (if existing
+        (setf (cdr existing) builder)
+        (setf *text-object-rule-builders*
+              (append *text-object-rule-builders* (list (cons name builder)))))))
+
+(defun normalize-rule (name rule)
+  "give RULE the shape its consumers expect: a plist carrying its own :id."
+  (let ((result (if (plistp rule) rule (list :pattern rule))))
+    (if (getf result :id)
+        result
+        (list* :id name result))))
+
+(defun rebuild-text-object-rules ()
+  "re-derive every rule, in definition order, and reassign it to the symbol naming it.
+rules can read customization variables and embed earlier rules, so the value built at
+definition time may be incomplete."
+  (loop for (name . builder) in *text-object-rule-builders*
+        do (setf (symbol-value name) (funcall builder))))
+
 (defmacro define-text-object (name &rest args &key (superclass 'text-object) rule documentation)
   `(progn
-     (defvar ,name ,rule)
+     (defvar ,name (normalize-rule ',name ,rule))
+     (register-text-object-rule ',name (lambda () (normalize-rule ',name ,rule)))
      (defclass ,name (,superclass)
        ((rule :allocation :class :initform ,name))
        ,@(when documentation
@@ -447,60 +472,8 @@ SPEC is a plist with keys:
 (defmethod text-object-convert ((obj post-lexer-text-macro) backend)
   (convert-post-lexer-macro-obj obj backend))
 
-;; we need to "finalize" the classes to be able to use MOP, a temporary workaround..
-(defparameter *finalized-map* (make-hash-table :synchronized t))
-(defun ensure-finalized (mytype)
-  (unless (gethash mytype *finalized-map*)
-    (sb-mop:finalize-inheritance (find-class-faster mytype))
-    (setf (gethash mytype *finalized-map*) t))
-  t)
-
-;; modifies the tree of a rule, replaces 'eval' instance with the evaluation result
-;; TODO: get rid of this, i dont like how i did it.
-(defun post-process-rule (rule)
-  (if (listp rule)
-      (if (null rule)
-          nil
-          (if (and (symbolp (car rule)) (string= (car rule) 'eval))
-              (loop for child in (eval (cadr rule))
-                    collect (post-process-rule child))
-              (if (symbolp (car rule))
-                  (cons (car rule)
-                        (loop for child in (cdr rule)
-                              collect (post-process-rule child)))
-                  (loop for child in rule
-                        collect (post-process-rule child)))))
-      rule))
-
-;; this is a workaround because MOP lookup is very slow.
-(defvar *text-object-rule-hash*
-  (make-hash-table :test 'equal :synchronized t)
-  "a hashtable mapping symbols of `text-object' subclasses to their combinator rules.")
-
-(defun clear-text-object-rule-cache ()
-  (clrhash *text-object-rule-hash*))
-
 (defun text-object-rule-from-subclass (subclass)
-  ;; we need to finalize it, otherwise it'll error out.
-  (ensure-finalized subclass)
-  ;; (sb-mop:finalize-inheritance (find-class-faster subclass))
-  (let ((stored-rule (gethash subclass *text-object-rule-hash*))
-        (rule))
-    (if stored-rule
-        (setf rule stored-rule)
-        (progn
-          (setf rule
-                (post-process-rule
-                 (slot-value
-                  (sb-mop:class-prototype (find-class-faster subclass))
-                  'rule)))
-          (setf (gethash subclass *text-object-rule-hash*) rule)))
-    (unless (plistp rule)
-      (setf rule (list :pattern rule :id subclass)))
-    (unless (getf rule :id)
-      (setf (getf rule :id) subclass))
-    (setf (symbol-value subclass) rule)
-    rule))
+  (symbol-value subclass))
 
 (defmethod cltpt/tree:tree-children ((subtree text-object))
   (text-object-children subtree))

@@ -3,15 +3,6 @@
 (defun last-atom (seq)
   (car (last seq)))
 
-;; this is a temporary workaround because `find-class' is really slow..
-(defparameter *class-map* (make-hash-table :synchronized t))
-(defun find-class-faster (class-sym)
-  (let ((result (gethash class-sym *class-map*)))
-    (unless result
-      (setf result (find-class class-sym))
-      (setf (gethash class-sym *class-map*) result))
-    result))
-
 (defun change-symbol-package (symbol pkg)
   "change the package to which SYMBOL refers."
   ;; we use `symbol-name' and then `intern' to change the package of a symbol.

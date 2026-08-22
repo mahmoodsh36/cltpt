@@ -84,10 +84,6 @@
                    exceptions
                    :test 'equal)))
 
-(defvar *org-inline-text-objects-rule*
-  '(eval
-    (org-mode-inline-text-object-rule)))
-
 ;; this is in order to try and reduce the work required to parse files
 ;; when fetching metadata through roam.
 ;; TODO: we dont really need most of these object types to be scanned for
@@ -399,7 +395,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (cltpt/base:define-text-object org-list
   :rule `(org-list-matcher
-          ,*org-inline-text-objects-rule*)
+          ,(org-mode-inline-text-object-rule))
   :documentation "org-mode list.")
 
 (defun get-list-type-from-obj (obj list-match)
@@ -618,7 +614,7 @@ used for all region-decf calculations to get positions relative to the text-obje
                 (:pattern ,tags-rule
                  :id tags
                  :optional t))
-               ,*org-inline-text-objects-rule*
+               ,(org-mode-inline-text-object-rule)
                t)
               cltpt/combinator:at-line-start-p)
              ;; the following is for detecting metadata following an org header
@@ -970,9 +966,8 @@ used for all region-decf calculations to get positions relative to the text-obje
            ;; is something like `| cell / 1 | cell / 2 |` where the
            ;; forward slashes may correspond to an org-italic instance
            ;; which might break the text-object tree.
-           (eval
-            (set-difference (org-mode-inline-text-object-types)
-                            '(org-italic org-emph))))
+           ,(set-difference (org-mode-inline-text-object-types)
+                            '(org-italic org-emph)))
           :on-char #\|)
   :documentation "org-mode table.")
 
@@ -2022,7 +2017,7 @@ returns a list of changes that remove the indentation spaces from each line."
                                            (backend cltpt/base:text-format))
   (convert-block obj backend "example" nil t))
 
-(defvar *org-block-no-kw-rule*
+(defun org-block-no-kw-rule ()
   `(cltpt/combinator:pair
     (cltpt/combinator:unescaped
      (:pattern
@@ -2058,15 +2053,14 @@ returns a list of changes that remove the indentation spaces from each line."
         :id end-type))
       :id end))
     ;; an org-block can contain every other object except headers
-    :rules-for-content (eval
-                        (org-mode-text-object-types-except '(org-header)))))
+    :rules-for-content ,(org-mode-text-object-types-except '(org-header))))
 (cltpt/base:define-text-object org-block
   :rule `(:pattern
           (cltpt/combinator:any
            (cltpt/combinator:consec
             ,(cltpt/combinator:copy-rule org-keyword 'org-keyword)
-            ,*org-block-no-kw-rule*)
-           ,*org-block-no-kw-rule*)
+            ,(org-block-no-kw-rule))
+           ,(org-block-no-kw-rule))
           :on-char #\#)
   :documentation "org-mode block.")
 
@@ -2143,7 +2137,7 @@ returns a list of changes that remove the indentation spaces from each line."
             (:pattern (cltpt/combinator:literal-casein ":end:")
              :id drawer-close-tag)
             cltpt/combinator:at-line-start-p)
-           :rules-for-content (eval (org-mode-text-object-types-except '(org-header org-drawer))))
+           :rules-for-content ,(org-mode-text-object-types-except '(org-header org-drawer)))
           :on-char #\:)
   :documentation "org-mode drawer.")
 
