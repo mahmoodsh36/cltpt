@@ -448,7 +448,7 @@ SPEC is a plist with keys:
   (convert-post-lexer-macro-obj obj backend))
 
 ;; we need to "finalize" the classes to be able to use MOP, a temporary workaround..
-(defparameter *finalized-map* (make-hash-table))
+(defparameter *finalized-map* (make-hash-table :synchronized t))
 (defun ensure-finalized (mytype)
   (unless (gethash mytype *finalized-map*)
     (sb-mop:finalize-inheritance (find-class-faster mytype))
@@ -474,7 +474,7 @@ SPEC is a plist with keys:
 
 ;; this is a workaround because MOP lookup is very slow.
 (defvar *text-object-rule-hash*
-  (make-hash-table :test 'equal)
+  (make-hash-table :test 'equal :synchronized t)
   "a hashtable mapping symbols of `text-object' subclasses to their combinator rules.")
 
 (defun clear-text-object-rule-cache ()

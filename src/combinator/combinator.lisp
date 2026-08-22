@@ -137,7 +137,7 @@ returns the character if the rule starts with a known literal, NIL otherwise."
     (t nil)))
 
 (defvar *literal-char-cache*
-  (make-hash-table :test 'eq))
+  (make-hash-table :test 'eq :synchronized t))
 
 (defun extract-literal-from-rule-cached (rule)
   (multiple-value-bind (val found) (gethash rule *literal-char-cache*)
@@ -261,7 +261,7 @@ to replace and new-rule is the rule to replace it with."
                    (char= current-char first-char)
                    (char= (char-downcase current-char) first-char))
             do (unless wrapper
-                 (setf wrapper (acquire-match
+                 (setf wrapper (make-match-simple
                                 (- pos parent-begin)
                                 0
                                 (context-parent-match ctx)))
@@ -272,11 +272,7 @@ to replace and new-rule is the rule to replace it with."
                    (setf (match-end wrapper)
                          (+ (match-begin wrapper) (match-end match)))
                    (match-set-children-parent wrapper)
-                   (return-from any wrapper))))
-    ;; no candidate matched, recycle the wrapper if one was allocated.
-    (when wrapper
-      (release-match wrapper))
-    nil))
+                   (return-from any wrapper))))))
 
 (defun literal (ctx reader pos substr)
   "match a literal string."
@@ -405,9 +401,9 @@ to replace and new-rule is the rule to replace it with."
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (children)
-         (match (acquire-match (- start parent-begin)
-                               0
-                               (context-parent-match ctx)))
+         (match (make-match-simple (- start parent-begin)
+                                   0
+                                   (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
     (declare (dynamic-extent child-ctx))
@@ -420,17 +416,11 @@ to replace and new-rule is the rule to replace it with."
                  (progn
                    (setf pos (+ child-parent-begin (match-end m)))
                    (push m children))
-                 (progn
-                   (release-match match)
-                   (return-from consec nil))))
-    (if children
-        (progn
-          (setf (match-end match) (- pos parent-begin))
-          (setf (match-children match) (nreverse children))
-          (match-set-children-parent match))
-        (progn
-          (release-match match)
-          nil))))
+                 (return-from consec nil)))
+    (when children
+      (setf (match-end match) (- pos parent-begin))
+      (setf (match-children match) (nreverse children))
+      (match-set-children-parent match))))
 
 (defun consec-atleast-one (ctx reader pos &rest all)
   "match a consecutive set of rules, atleast the first has to be present.
@@ -441,9 +431,9 @@ the consecutive matches up to that point."
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
          (children)
-         (match (acquire-match (- start parent-begin)
-                               0
-                               (context-parent-match ctx)))
+         (match (make-match-simple (- start parent-begin)
+                                   0
+                                   (context-parent-match ctx)))
          (child-ctx (context-copy ctx match))
          (child-parent-begin (context-parent-begin child-ctx)))
     (declare (dynamic-extent child-ctx))
@@ -457,14 +447,10 @@ the consecutive matches up to that point."
                    (setf pos (+ child-parent-begin (match-end m)))
                    (push m children))
                  (return)))
-    (if children
-        (progn
-          (setf (match-end match) (- pos parent-begin))
-          (setf (match-children match) (nreverse children))
-          (match-set-children-parent match))
-        (progn
-          (release-match match)
-          nil))))
+    (when children
+      (setf (match-end match) (- pos parent-begin))
+      (setf (match-children match) (nreverse children))
+      (match-set-children-parent match))))
 
 ;; a consecutive set of matchers, separated by a specific matcher. atleast one
 (defun separated-atleast-one (ctx reader pos sep-matcher matcher)
@@ -625,9 +611,9 @@ if NEST-SELF is T, nested occurrences of the same pair will be parsed as childre
   (declare (type fixnum pos))
   (let* ((parent-begin (context-parent-begin ctx))
          (start pos)
-         (parent-match (acquire-match (- start parent-begin)
-                                      0
-                                      (context-parent-match ctx)))
+         (parent-match (make-match-simple (- start parent-begin)
+                                          0
+                                          (context-parent-match ctx)))
          (child-ctx (context-copy ctx parent-match))
          (child-parent-begin (context-parent-begin child-ctx))
          (opening-match (apply-rule child-ctx opening-rule reader pos))
@@ -649,7 +635,6 @@ if NEST-SELF is T, nested occurrences of the same pair will be parsed as childre
                    (when (and (not allow-multiline)
                               (= nesting-level 1)
                               (char= current-char #\newline))
-                     (release-match parent-match)
                      (return-from pair nil))
                    ;; only try closing rule if first char could match (or we don't know the first char)
                    (let ((potential-close
@@ -721,7 +706,6 @@ if NEST-SELF is T, nested occurrences of the same pair will be parsed as childre
           (let ((opening-end (match-end opening-match))
                 (closing-start (match-begin final-closing-match)))
             (when (and (not allow-empty) (= opening-end closing-start))
-              (release-match parent-match)
               (return-from pair nil))
             (let ((overall-end-pos (+ child-parent-begin
                                       (match-end final-closing-match))))
@@ -733,11 +717,7 @@ if NEST-SELF is T, nested occurrences of the same pair will be parsed as childre
               (when pair-id
                 (setf (match-id parent-match) pair-id))
               (match-set-children-parent parent-match)
-              (return-from pair parent-match))))))
-    ;; only reached when the pair failed to match (no opening rule matched, or no closing rule
-    ;; found before eof). recycle the wrapper, return NIL.
-    (release-match parent-match)
-    nil))
+              (return-from pair parent-match))))))))
 
 (defun compile-rule-string-helper (spec bindings)
   (let ((result)
@@ -1217,7 +1197,7 @@ first suffix) using scan-all-rules."
                                      (context-parent-match ctx)))
            (child-ctx (context-copy ctx match))
            (child-parent-begin (context-parent-begin child-ctx)))
-    (declare (dynamic-extent child-ctx))
+      (declare (dynamic-extent child-ctx))
       ;; match prefixes left-to-right
       (loop for parser in prefix-rules
             do (let ((is-optional (and (consp parser)
