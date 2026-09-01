@@ -2,7 +2,7 @@
   (:use :cl)
   (:export
    :roamer-from-files :roamer-rescan :roamer-nodes :roamer-files
-   :node-id :node-title :node-desc :node-file :node-text-obj :node-file-rule
+   :node-id :node-title :node-titles :node-desc :node-file :node-text-obj :node-file-rule
    :roamer-node-id-hashtable :get-node-by-id :convert-all
    :node-format :node-info-format-str :make-node :text-object-roam-data
    :roamer :*convert-roamer* :*roam-convert-data* :*roam-parse-data*
@@ -10,15 +10,38 @@
 
 (in-package :cltpt/roam)
 
-(defstruct node
+(defstruct (node (:constructor %make-node))
   id
-  title
+  titles
   desc
   text-obj
   file ;; we can do this better
   file-rule ;; file rule from which the node was constructed we, can do this better
   format ;; text-format, do we need this?
   )
+
+(defun node-title (node)
+  (car (node-titles node)))
+
+(defun (setf node-title) (val node)
+  (if (node-titles node)
+      (setf (car (node-titles node)) val)
+      (setf (node-titles node) (when val (list val))))
+  val)
+
+(defun make-node (&rest args &key id title titles desc text-obj file file-rule format &allow-other-keys)
+  (let ((titles-val
+          (cond (titles (if (listp titles)
+                            titles
+                            (when titles (list titles))))
+                (title (if (listp title)
+                           title
+                           (when title (list title))))
+                (t nil)))
+        (plist (loop for (k v) on args by #'cddr
+                     unless (member k '(:title :titles))
+                       append (list k v))))
+    (apply #'%make-node :titles titles-val plist)))
 
 (defvar *roam-convert-data*
   nil
