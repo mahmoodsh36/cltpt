@@ -1180,9 +1180,11 @@ they are preceding siblings. this is the case for objects whose rule doesnt
       (setf doc-id (org-prop-drawer-get first-child "ID")))
     (setf (cltpt/base:text-object-property obj :keywords-alist)
           (handle-parsed-org-keywords obj))
-    (setf doc-title
-          (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
-                                "title"))
+    (let ((all-titles (loop for (k . v) in (cltpt/base:text-object-property obj :keywords-alist)
+                            when (string-equal k "title") collect v)))
+      (let ((doc-titles (nreverse all-titles)))
+        (setf doc-title (car doc-titles))
+        (setf (cltpt/base:text-object-property obj :titles) doc-titles)))
     (setf doc-desc
           (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                                 "description"))
@@ -1208,7 +1210,7 @@ they are preceding siblings. this is the case for objects whose rule doesnt
     (setf (cltpt/base:text-object-property obj :roam-node)
           (cltpt/roam:make-node
            :id doc-id
-           :title doc-title
+           :titles (cltpt/base:text-object-property obj :titles)
            :desc doc-desc
            :text-obj obj))
     (let ((header-stack))
@@ -2085,13 +2087,16 @@ returns a list of changes that remove the indentation spaces from each line."
                 :find-last-end t))
     ;; handle keywords
     (handle-block-keywords obj str1)
-    (let ((block-title (org-block-keyword-value obj "title"))
-          (block-name (org-block-keyword-value obj "name")))
-      (when (or block-name block-title)
+    (let* ((kw-alist (cltpt/base:text-object-property obj :keywords-alist))
+           (all-titles (loop for (k . v) in kw-alist when (string-equal k "title") collect v))
+           (block-titles (nreverse all-titles))
+           (block-title (car block-titles))
+           (block-name (org-block-keyword-value obj "name")))
+      (when (or block-name block-titles)
         (setf (cltpt/base:text-object-property obj :roam-node)
               (cltpt/roam:make-node
                :id block-name
-               :title block-title
+               :titles block-titles
                :desc nil
                :text-obj obj))))))
 
