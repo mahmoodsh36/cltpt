@@ -96,11 +96,12 @@ if 'end' is nil, it defaults to the end of the sequence."
                              ((< end 0) (+ len end))
                              (t end))))
     ;; to prevent errors from out-of-bounds calculations, clamp the indices
-    ;; to the valid range [0, len]. the real `subseq' will handle cases where
-    ;; the final start >= end by returning an empty sequence.
+    ;; to the valid range [0, len]. if start >= end, return an empty sequence.
     (let ((clamped-start (max 0 (min len resolved-start)))
           (clamped-end (max 0 (min len resolved-end))))
-      (subseq sequence clamped-start clamped-end))))
+      (if (>= clamped-start clamped-end)
+          ""
+          (subseq sequence clamped-start clamped-end)))))
 
 (defun find-cdr-where-greater (list x &key (key #'identity))
   "return the cons cell whose CDR starts with the first element whose

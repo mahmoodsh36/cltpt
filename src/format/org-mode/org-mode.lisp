@@ -1199,7 +1199,10 @@ they are preceding siblings. this is the case for objects whose rule doesnt
     (let ((tags-str (cltpt/base:alist-get (cltpt/base:text-object-property obj :keywords-alist)
                                           "filetags")))
       ;; avoid first and last ':', split by ':' to get tags
-      (setf doc-tags (cltpt/str-utils:str-split (cltpt/base:subseq* tags-str 1 -1) ":")))
+      (when (and tags-str (> (length tags-str) 0))
+        (let ((inner (cltpt/base:subseq* tags-str 1 -1)))
+          (when (> (length inner) 0)
+            (setf doc-tags (cltpt/str-utils:str-split inner ":"))))))
     ;; set metadata in the object itself
     (setf (cltpt/base:text-object-property obj :title) doc-title)
     (setf (cltpt/base:text-object-property obj :tags) doc-tags)
