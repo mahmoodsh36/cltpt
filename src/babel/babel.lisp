@@ -1,9 +1,14 @@
 (defpackage :cltpt/babel
   (:use :cl)
   (:export :babel-eval :babel-eval* :babel-encode :babel-decode :babel-value-rule
-           :babel-lexical-wrap))
+           :babel-lexical-wrap :babel-supported-p))
 
 (in-package :cltpt/babel)
+
+;; currently hardcoded until we take the proper 'registry' approach.
+(defun babel-supported-p (lang)
+  "whether LANG (a string) has a babel backend."
+  (member lang '("python" "c") :test #'equal))
 
 (defgeneric babel-eval (lang code))
 

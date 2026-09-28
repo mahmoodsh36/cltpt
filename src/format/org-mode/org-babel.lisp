@@ -84,7 +84,7 @@ VAL is read as a lisp value."
          (reconstruct-rule (when (consp reconstruct-property)
                              reconstruct-property)))
     (when (and should-eval
-               (member lang '("python" "c") :test #'string=))
+               (cltpt/babel:babel-supported-p lang))
       (multiple-value-bind (out-rdr err-rdr)
           (cltpt/babel:babel-eval*
            (intern (string-upcase lang) :cltpt/babel)
@@ -101,8 +101,9 @@ VAL is read as a lisp value."
                              (when transform-property
                                (funcall transform-property out-rdr match))
                              (cltpt/combinator:match-text match out-rdr)))))
-          (when result
-            (cltpt/reader:reader-from-string result)))))))
+          (values (when result
+                    (cltpt/reader:reader-from-string result))
+                  err-rdr))))))
 
 (defmethod eval-blocks ((doc org-document))
   "evaluate the code of org-src-block instances in DOC and register the results as scheduled changes."
