@@ -145,11 +145,8 @@ returns T if target position is available, NIL if EOF reached before target."
                  ;; create simple-string copy for fast path
                  (let ((simple-buf (make-string new-fill)))
                    (replace simple-buf buf)
-                   (setf (reader-fast-buffer reader) simple-buf)
-                   ;; propagate to thread-local specials so callers get the fast path immediately
-                   (setf *reader-fast-buffer* simple-buf))
+                   (setf (reader-fast-buffer reader) simple-buf))
                  (setf (reader-fast-buffer-length reader) new-fill)
-                 (setf *reader-fast-buffer-length* new-fill)
                  (return-from reader-ensure-fill-upto (< target-pos new-fill)))
                 ;; got some data - check if we have enough
                 ((< target-pos new-fill)
