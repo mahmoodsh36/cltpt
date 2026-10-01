@@ -29,6 +29,10 @@
   "whether SRC-BLOCK wants value results formatted as an org table."
   (member "table" (org-src-block-results-options src-block) :test #'equal))
 
+(defun org-src-block-results-list-p (src-block)
+  "whether SRC-BLOCK wants value results formatted as an org list."
+  (member "list" (org-src-block-results-options src-block) :test #'equal))
+
 ;; TODO: i cant yet think of how to do this through the transform.lisp module to make it more generic.
 (defun babel-value-to-org-table (value)
   "format lisp VALUE as org table text. scalars become one cell, flat lists one row."
@@ -51,6 +55,29 @@
            (row value))
           (t
            (row (list value))))))
+
+(defun babel-value-to-org-list (value)
+  "format lisp VALUE as org list text. scalars become one item, lists one item per element."
+  (labels ((item (v)
+             (format nil
+                     "- ~A"
+                     (if (listp v)
+                         (cltpt/str-utils:str-join
+                          (mapcar (lambda (e)
+                                    (if (stringp e)
+                                        e
+                                        (princ-to-string e)))
+                                  v)
+                          " ")
+                         (if (stringp v)
+                             v
+                             (princ-to-string v))))))
+    (cond ((null value)
+           "")
+          ((listp value)
+           (cltpt/str-utils:str-join (mapcar #'item value) (string #\newline)))
+          (t
+           (item value)))))
 
 (defun parse-babel-var-spec (str)
   "parse a :var value like \"a=blk1\" into a (NAME . VALUE) cons."
@@ -169,15 +196,20 @@ VAL is read as a lisp value."
                  (when result
                    (cltpt/reader:reader-fully-consume result)
                    (let ((body (coerce result 'string)))
-                     ;; table results need value text (e.g. [1, 2, 3]) decoded and re-emitted
-                     ;; as org table text (e.g. | 1 | 2 | 3 |) for the parser to pick up.
-                     (when (and (org-src-block-results-table-p obj)
-                                (eq (org-src-block-result-type obj) :value))
-                       (let ((value (cltpt/babel:babel-decode
-                                     (intern (string-upcase (org-src-block-lang obj))
-                                             :cltpt/babel)
-                                     body)))
-                         (setf body (babel-value-to-org-table value))))
+                     ;; table/list/etc. results need value text (e.g. [1, 2, 3]) decoded and
+                     ;; re-emitted as org markup for the parser to pick up.
+                     (when (eq (org-src-block-result-type obj) :value)
+                       (let ((formatter (cond ((org-src-block-results-table-p obj)
+                                               #'babel-value-to-org-table)
+                                              ((org-src-block-results-list-p obj)
+                                               #'babel-value-to-org-list))))
+                         (when formatter
+                           (setf body
+                                 (funcall formatter
+                                          (cltpt/babel:babel-decode
+                                           (intern (string-upcase (org-src-block-lang obj))
+                                                   :cltpt/babel)
+                                           body))))))
                      ;; drawer results are wrapped in a :RESULTS: drawer, otherwise inserted raw.
                      (when (org-src-block-results-drawer-p obj)
                        (setf body (format nil ":RESULTS:~%~A~%:END:" body)))
