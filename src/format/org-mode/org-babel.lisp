@@ -74,6 +74,8 @@ VAL is read as a lisp value."
          (result-type (org-src-block-result-type obj))
          (reconstruct-property (org-block-keyword-value obj "reconstruct"))
          (transform-property (org-block-keyword-value obj "transform"))
+         ;; results-rule is for when we want to grab a specific portion of the output and transform
+         ;; it into something else.
          (results-rule (cond
                          ((consp results-property) results-property)
                          ;; ((equal results-property "file")

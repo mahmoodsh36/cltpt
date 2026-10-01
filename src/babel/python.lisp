@@ -6,7 +6,7 @@
 
 (defvar *python-main-func-name*
   "cltpt_babel"
-  "the name of the python interpreter to use")
+  "the name of the python function to use where the main code from babel gets placed.")
 
 (defun python-run-source (source)
   (uiop:with-temporary-file (:pathname p :keep t)
