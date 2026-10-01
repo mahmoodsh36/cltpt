@@ -6,11 +6,24 @@
                      'lang)))
     (cltpt/base:text-object-match-text obj lang-match)))
 
-(defun org-src-block-result-type (obj)
+(defun org-src-block-results-options (obj)
+  "the list of :results options for OBJ, split and downcased. NIL when absent or non-string."
   (let ((results (org-block-keyword-value obj "results")))
-    (if (stringp results)
-        (intern (string-upcase results) :keyword)
-        :output)))
+    (when (stringp results)
+      (remove ""
+              (mapcar #'string-downcase
+                      (cltpt/str-utils:str-split results " "))
+              :test #'equal))))
+
+(defun org-src-block-result-type (obj)
+  (let ((options (org-src-block-results-options obj)))
+    (cond ((member "value" options :test #'equal) :value)
+          ((member "output" options :test #'equal) :output)
+          (t :output))))
+
+(defun org-src-block-results-drawer-p (src-block)
+  "whether SRC-BLOCK requests drawer-wrapped results (e.g. :results value drawer)."
+  (member "drawer" (org-src-block-results-options src-block) :test #'equal))
 
 (defun parse-babel-var-spec (str)
   "parse a :var value like \"a=blk1\" into a (NAME . VALUE) cons."
@@ -128,16 +141,20 @@ VAL is read as a lisp value."
                                        (+ base-begin (cltpt/base:text-object-text-length obj)))))
                  (when result
                    (cltpt/reader:reader-fully-consume result)
-                   (cltpt/buffer:schedule-change*
-                    doc
-                    (cltpt/buffer:make-change
-                     :region (cltpt/buffer:make-region :begin results-begin :end results-end)
-                     :operator (concatenate 'string
-                                            (format nil (if results-match
-                                                            "#+RESULTS:~%"
-                                                            "~%~%#+RESULTS:~%"))
-                                            (coerce result 'string))
-                     :args '(:delegate nil :reparse t))))))))
+                   (let ((body (coerce result 'string)))
+                     ;; drawer results are wrapped in a :RESULTS: drawer, otherwise inserted raw.
+                     (when (org-src-block-results-drawer-p obj)
+                       (setf body (format nil ":RESULTS:~%~A~%:END:" body)))
+                     (cltpt/buffer:schedule-change*
+                      doc
+                      (cltpt/buffer:make-change
+                       :region (cltpt/buffer:make-region :begin results-begin :end results-end)
+                       :operator (concatenate 'string
+                                              (format nil (if results-match
+                                                              "#+RESULTS:~%"
+                                                              "~%~%#+RESULTS:~%"))
+                                              body)
+                       :args '(:delegate nil :reparse t)))))))))
     (cltpt/base:map-text-object
      doc
      #'handle-obj)
