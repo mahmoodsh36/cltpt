@@ -67,3 +67,7 @@
       return 0;
   }
 #+end_src
+
+#+begin_src python :exports both :results value table :name table-test
+  return [[1, 2, 3], [4, 5, 6]]
+#+end_src

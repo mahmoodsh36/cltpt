@@ -93,7 +93,11 @@ int main(void) {
 <br>
 unwrapped 99
 <br>
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='table-test'><pre><code>return [[1, 2, 3], [4, 5, 6]]
+</code></pre></div>
 
+<div class='org-babel-results'><table><tr><td> 1 </td><td> 2 </td><td> 3 </td></tr>
+<tr><td> 4 </td><td> 5 </td><td> 6 </td></tr></table></div></div>
   </div>
 </body>
 </html>"
