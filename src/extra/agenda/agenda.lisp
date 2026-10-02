@@ -40,15 +40,16 @@
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
    :make-state-desc :make-state-sequence-desc
-   :state-sequence-desc :state-sequence-desc-state-descs :cycle
+   :state-sequence-desc :state-sequence-desc-state-descs
+   :cycle
 
    :repeat-task :deadline :start-task
 
    :text-object-task
 
    :*agenda-time-format*
-
-   :cycle :state-by-name))
+   :*agenda-seqs*
+   :make-state-desc :make-state-sequence-desc))
 
 (in-package :cltpt/agenda)
 
