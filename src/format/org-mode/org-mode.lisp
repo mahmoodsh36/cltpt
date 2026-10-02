@@ -11,7 +11,8 @@
    :*bullet-types* :register-bullet-type
    :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
    :org-latex-env :org-keyword :org-prop-drawer :org-drawer :org-export-block
-   :org-underline :org-strike-through))
+   :org-underline :org-strike-through
+   :org-header-prop-drawer))
 
 (in-package :cltpt/org-mode)
 
@@ -717,6 +718,20 @@ used for all region-decf calculations to get positions relative to the text-obje
     (setf (cltpt/agenda:task-record-repeat record) repeat-interval)
     record))
 
+(defun org-header-prop-drawer (header)
+  "return HEADER's property drawer."
+  ;; body drawers are children of the header too, so only accept ones the metadata rule matched.
+  (let ((metadata-positions
+          (mapcar #'cltpt/combinator:match-begin-absolute
+                  (cltpt/combinator:find-submatch-all
+                   (cltpt/base:text-object-match header)
+                   'org-prop-drawer))))
+    (find-if
+     (lambda (child)
+       (and (typep child 'org-prop-drawer)
+            (member (cltpt/base:text-object-begin-in-root child) metadata-positions)))
+     (cltpt/base:text-object-children header))))
+
 (defmethod cltpt/base:text-object-finalize ((obj org-header))
   (let* ((match (cltpt/base:text-object-match obj))
          (title-match (cltpt/combinator:find-submatch match 'title))
@@ -734,17 +749,15 @@ used for all region-decf calculations to get positions relative to the text-obje
     (loop for ts-match in timestamp-matches
           do (let ((new-record (handle-time-match obj ts-match)))
                (push new-record task-records)))
-    (labels ((is-drawer (obj2)
-               (typep obj2 'org-prop-drawer)))
-      (let ((drawers (cltpt/base:find-children obj #'is-drawer)))
-        (loop for drawer in drawers
-              do (loop for (key . value) in (org-prop-drawer-alist drawer)
-                       do (cond
-                            ((string-equal key "id")
-                             (setf header-id value))
-                            ((string-equal key "last_repeat")
-                             (setf last-repeat-ts
-                                   (parse-inactive-timestamp-string value))))))))
+    (let ((drawer (org-header-prop-drawer obj)))
+      (when drawer
+        (loop for (key . value) in (org-prop-drawer-alist drawer)
+              do (cond
+                   ((string-equal key "id")
+                    (setf header-id value))
+                   ((string-equal key "last_repeat")
+                    (setf last-repeat-ts
+                          (parse-inactive-timestamp-string value)))))))
     (loop for action-match in action-active-matches
           do (let ((action-name
                      (cltpt/base:text-object-match-text

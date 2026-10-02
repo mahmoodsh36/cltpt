@@ -14,7 +14,7 @@
 
    :repeat-task :deadline :start-task
    :task-node :text-object-task
-   :task-last-repeat))
+   :task-last-repeat :task-repeating-p))
 
 (in-package :cltpt/agenda/task)
 
@@ -22,6 +22,7 @@
   type ;; what do we call the keywords "SCHEDULED", "DEADLINE", etc?
   task
   time
+  ;; repeat interval plist like (:day 1), (:week 2) or (:hour 3), nil when not repeating
   repeat)
 
 ;; CLOSED: [2024-04-02 Tue 19:27:34] SCHEDULED: <2024-04-02 Tue>
@@ -44,6 +45,18 @@
   parent
   ;; timestamp from :LAST_REPEAT: property, repeated entries on or before this are ignored
   last-repeat)
+
+;; it might look redundant that we're explicitly checking whether some repeat plist has a positive
+;; value but its not, in org, having a 0 increment is supported and implies the increment is
+;; 'disabled', and it happens when you permanently cancel a repeating timestamp.
+;; e.g. the following timestamp shouldnt be interpretered as a repeating one.
+;; <2025-05-05 Mon 13:00-16:00 +0w>
+(defun task-repeating-p (task)
+  (some
+   (lambda (rec)
+     (loop for (nil value) on (task-record-repeat rec) by #'cddr
+           thereis (and value (plusp value))))
+   (task-records task)))
 
 (defmethod text-object-task ((obj cltpt/base:text-object))
   (cltpt/base:text-object-property obj :task))
