@@ -1,5 +1,9 @@
 (in-package :cltpt/org-mode)
 
+(defvar *org-babel-min-lines-for-block-output*
+  10
+  "verbatim results with at least this many lines go in an example block instead of \": \" lines.")
+
 (defun org-src-block-lang (obj)
   (let ((lang-match (cltpt/combinator:find-submatch
                      (cltpt/base:text-object-match obj)
@@ -173,6 +177,19 @@ VAL is read as a lisp value."
                     (cltpt/reader:reader-from-string result))
                   err-rdr))))))
 
+;; note that org-mode strips the last newline in the text, but we dont do that, it doesnt make
+;; much sense, it makes babel output text lossy. 
+(defun babel-result-text-to-org-verbatim (text)
+  "format TEXT as verbatim org results."
+  (let ((lines (cltpt/str-utils:str-split text (string #\newline))))
+    (if (>= (length lines) *org-babel-min-lines-for-block-output*)
+        (format nil "#+begin_example~%~A~%#+end_example" text)
+        (cltpt/str-utils:str-join
+         (mapcar (lambda (line)
+                   (concatenate 'string ": " line))
+                 lines)
+         (string #\newline)))))
+
 (defun org-src-block-results-change (src-block result-text)
   "the `cltpt/buffer:change' replacing SRC-BLOCK's results with RESULT-TEXT, in absolute offsets.
 when SRC-BLOCK has no results yet, the change's region is zero-width at the block's end, so it
@@ -193,9 +210,17 @@ inserts rather than replaces."
                          (cltpt/babel:babel-decode
                           (intern (string-upcase (org-src-block-lang src-block)) :cltpt/babel)
                           result-text))))))
-    ;; drawer results are wrapped in a :RESULTS: drawer, otherwise inserted raw.
-    (when (org-src-block-results-drawer-p src-block)
-      (setf result-text (format nil ":RESULTS:~%~A~%:END:" result-text)))
+    (cond
+      ((org-src-block-results-drawer-p src-block)
+       (setf result-text (format nil ":RESULTS:~%~A~%:END:" result-text)))
+      ;; plain text gets ": " lines like org does, so it parses back as results and a rerun
+      ;; replaces it instead of appending.
+      ((not (or (org-src-block-results-table-p src-block)
+                (org-src-block-results-list-p src-block)
+                (member "raw" (org-src-block-results-options src-block) :test #'equal)
+                (org-block-keyword-value src-block "transform")
+                (org-block-keyword-value src-block "reconstruct")))
+       (setf result-text (babel-result-text-to-org-verbatim result-text))))
     (cltpt/buffer:make-change
      :region (cltpt/buffer:make-region
               :begin (if results-match

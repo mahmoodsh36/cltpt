@@ -29,17 +29,23 @@
   <div class=\"post-content\">
     <h1> NIL - NIL </h1>
     <div class='org-src-block-container'><div class='org-src' data-lang='python'><pre><code>text = &quot;block1&quot;
-print(text)</code></pre></div></div>
+print(text)
+</code></pre></div>
+
+<div class='org-babel-results'>block1
 <br>
-block1
+</div></div>
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk0'><pre><code>text = &quot;block2&quot;
 print(text)
-print(text)</code></pre></div></div>
+print(text)
+</code></pre></div>
+
+<div class='org-babel-results'>block2
 <br>
 block2
 <br>
-block2
+</div></div>
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk1'><pre><code>filepath = &quot;out.png&quot;
 print(filepath)
@@ -49,13 +55,17 @@ print(filepath)
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='image-handler'><pre><code>return { &quot;path&quot;: &quot;link-path&quot;, &quot;type&quot;: &quot;link-type&quot; }</code></pre></div></div>
 <br>
-<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk8'><pre><code>return [1, 2, 3]</code></pre></div></div>
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk8'><pre><code>return [1, 2, 3]
+</code></pre></div>
+
+<div class='org-babel-results'>[1, 2, 3]</div></div>
 <br>
-[1, 2, 3]
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-var='a1=blk8' data-name='word-handler'><pre><code>print(&apos;word &apos; + str(a1))
+</code></pre></div>
+
+<div class='org-babel-results'>word [1, 2, 3]
 <br>
-<div class='org-src-block-container'><div class='org-src' data-lang='python' data-var='a1=blk8' data-name='word-handler'><pre><code>print(&apos;word &apos; + str(a1))</code></pre></div></div>
-<br>
-word [1, 2, 3]
+</div></div>
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='blk0-child-handler'><pre><code>child = [%(getf child :match), %(getf child :begin), %(getf child :end)]
 return child</code></pre></div></div>
@@ -71,27 +81,37 @@ tree = blk0_tree()
 for word in %&apos;blk0-tree-handler:
     print(word)</code></pre></div></div>
 <br>
-<div class='org-src-block-container'><div class='org-src' data-lang='c'><pre><code>printf(&quot;hello from C\\n&quot;);</code></pre></div></div>
+<div class='org-src-block-container'><div class='org-src' data-lang='c'><pre><code>printf(&quot;hello from C\\n&quot;);
+</code></pre></div>
+
+<div class='org-babel-results'>hello from C
 <br>
-hello from C
+</div></div>
 <br>
-<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='pynums'><pre><code>return [10, 20, 30]</code></pre></div></div>
-<br>
-[10, 20, 30]
+<div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='pynums'><pre><code>return [10, 20, 30]
+</code></pre></div>
+
+<div class='org-babel-results'>[10, 20, 30]</div></div>
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='c' data-var='xs=pynums'><pre><code>int total = 0;
 for (unsigned int i = 0; i &lt; xs_len; i++) total += xs[i];
-printf(&quot;sum of %lu items = %ld\\n&quot;, xs_len, total);</code></pre></div></div>
+printf(&quot;sum of %lu items = %ld\\n&quot;, xs_len, total);
+</code></pre></div>
+
+<div class='org-babel-results'>sum of 3 items = 60
 <br>
-sum of 3 items = 60
+</div></div>
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='c' data-main='no'><pre><code>#include &lt;stdio.h&gt;
 int main(void) {
     printf(&quot;unwrapped %d\\n&quot;, 99);
     return 0;
-}</code></pre></div></div>
+}
+</code></pre></div>
+
+<div class='org-babel-results'>unwrapped 99
 <br>
-unwrapped 99
+</div></div>
 <br>
 <div class='org-src-block-container'><div class='org-src' data-lang='python' data-name='table-test'><pre><code>return [[1, 2, 3], [4, 5, 6]]
 </code></pre></div>

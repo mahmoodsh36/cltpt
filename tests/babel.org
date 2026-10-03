@@ -1,9 +1,9 @@
-#+begin_src python
+#+begin_src python :exports both
   text = "block1"
   print(text)
 #+end_src
 
-#+begin_src python :name blk0
+#+begin_src python :exports both :name blk0
   text = "block2"
   print(text)
   print(text)
@@ -18,11 +18,11 @@
   return { "path": "link-path", "type": "link-type" }
 #+end_src
 
-#+begin_src python :results value :name blk8
+#+begin_src python :exports both :results value :name blk8
   return [1, 2, 3]
 #+end_src
 
-#+begin_src python :name word-handler :var a1=blk8
+#+begin_src python :exports both :name word-handler :var a1=blk8
   print('word ' + str(a1))
 #+end_src
 
@@ -46,21 +46,21 @@
       print(word)
 #+end_src
 
-#+begin_src c
+#+begin_src c :exports both
   printf("hello from C\n");
 #+end_src
 
-#+begin_src python :results value :name pynums
+#+begin_src python :exports both :results value :name pynums
   return [10, 20, 30]
 #+end_src
 
-#+begin_src c :var xs=pynums
+#+begin_src c :exports both :var xs=pynums
   int total = 0;
   for (unsigned int i = 0; i < xs_len; i++) total += xs[i];
   printf("sum of %lu items = %ld\n", xs_len, total);
 #+end_src
 
-#+begin_src c :main no
+#+begin_src c :exports both :main no
   #include <stdio.h>
   int main(void) {
       printf("unwrapped %d\n", 99);
