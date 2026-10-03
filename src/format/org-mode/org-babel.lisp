@@ -122,8 +122,7 @@ VAL is read as a lisp value."
   "the value OBJ produces, to be consumed by another block's :var."
   (let ((result (eval-block obj)))
     (when result
-      (cltpt/reader:reader-fully-consume result)
-      (let ((text (coerce result 'string)))
+      (let ((text (cltpt/reader:reader-to-string result)))
         (if (eq (org-src-block-result-type obj) :value)
             (cltpt/babel:babel-decode
              (intern (string-upcase (org-src-block-lang obj)) :cltpt/babel)
@@ -217,8 +216,9 @@ inserts rather than replaces."
              (when (typep obj 'org-src-block)
                (let ((result (eval-block obj)))
                  (when result
-                   (cltpt/reader:reader-fully-consume result)
-                   (let ((change (org-src-block-results-change obj (coerce result 'string))))
+                   (let ((change (org-src-block-results-change
+                                  obj
+                                  (cltpt/reader:reader-to-string result))))
                      (setf (cltpt/buffer:change-args change)
                            '(:delegate nil
                              :reparse t))

@@ -4,7 +4,7 @@
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
    :reader-buffer :reader-stream :reader-start-position :reader :reader-input-stream :stream-index
    :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached
-   :reader-fully-consume :reader-ensure-fill-upto
+   :reader-fully-consume :reader-to-string :reader-ensure-fill-upto
    :reader-fast-buffer :reader-fast-buffer-length
    :reader-position :reader-position-if :reader-position-if-not
    :*reader-fast-buffer* :*reader-fast-buffer-length*))
@@ -159,6 +159,11 @@ returns T if target position is available, NIL if EOF reached before target."
 blocks until the stream is fully consumed."
   (loop until (reader-eof-reached reader)
         do (reader-ensure-fill-upto reader (fill-pointer (reader-buffer reader)))))
+
+(defun reader-to-string (reader)
+  "fully consume READER and return its contents as a string."
+  (reader-fully-consume reader)
+  (coerce reader 'string))
 
 (defun reader-char (reader idx)
   "read character at a specific position. returns NIL if it is beyond EOF."
