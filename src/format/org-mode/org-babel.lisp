@@ -174,55 +174,55 @@ VAL is read as a lisp value."
                     (cltpt/reader:reader-from-string result))
                   err-rdr))))))
 
+(defun org-src-block-results-change (src-block result-text)
+  "the `cltpt/buffer:change' replacing SRC-BLOCK's results with RESULT-TEXT, in absolute offsets.
+when SRC-BLOCK has no results yet, the change's region is zero-width at the block's end, so it
+inserts rather than replaces."
+  (let* ((base-begin (cltpt/base:text-object-begin-in-root src-block))
+         (results-match (cltpt/base:text-object-find-submatch src-block 'results))
+         (block-end (+ base-begin (cltpt/base:text-object-text-length src-block))))
+    ;; table/list/etc. results need value text (e.g. [1, 2, 3]) decoded and re-emitted as org
+    ;; markup for the parser to pick up.
+    (when (eq (org-src-block-result-type src-block) :value)
+      (let ((formatter (cond ((org-src-block-results-table-p src-block)
+                              #'babel-value-to-org-table)
+                             ((org-src-block-results-list-p src-block)
+                              #'babel-value-to-org-list))))
+        (when formatter
+          (setf result-text
+                (funcall formatter
+                         (cltpt/babel:babel-decode
+                          (intern (string-upcase (org-src-block-lang src-block)) :cltpt/babel)
+                          result-text))))))
+    ;; drawer results are wrapped in a :RESULTS: drawer, otherwise inserted raw.
+    (when (org-src-block-results-drawer-p src-block)
+      (setf result-text (format nil ":RESULTS:~%~A~%:END:" result-text)))
+    (cltpt/buffer:make-change
+     :region (cltpt/buffer:make-region
+              :begin (if results-match
+                         (cltpt/combinator:match-begin-absolute results-match)
+                         block-end)
+              :end (if results-match
+                       (cltpt/combinator:match-end-absolute results-match)
+                       block-end))
+     :operator (concatenate 'string
+                            (format nil (if results-match
+                                            "#+RESULTS:~%"
+                                            "~%~%#+RESULTS:~%"))
+                            result-text))))
+
 (defmethod eval-blocks ((doc org-document))
   "evaluate the code of org-src-block instances in DOC and register the results as scheduled changes."
   (labels ((handle-obj (obj)
              (when (typep obj 'org-src-block)
-               (let* ((result (eval-block obj))
-                      (base-begin (cltpt/base:text-object-begin-in-root obj))
-                      (results-match (cltpt/base:text-object-find-submatch
-                                      obj
-                                      'results))
-                      ;; if the code block already contains results, we want results-begin and
-                      ;; results-end to point to the region of the pre-existing results, causing
-                      ;; a replacement operation. otherwise, we want them to point to the end of the
-                      ;; src-block, causing an insertion operation.
-                      (results-begin (if results-match
-                                         (cltpt/combinator:match-begin-absolute results-match)
-                                         (+ base-begin (cltpt/base:text-object-text-length obj))))
-                      (results-end (if results-match
-                                       (cltpt/combinator:match-end-absolute results-match)
-                                       (+ base-begin (cltpt/base:text-object-text-length obj)))))
+               (let ((result (eval-block obj)))
                  (when result
                    (cltpt/reader:reader-fully-consume result)
-                   (let ((body (coerce result 'string)))
-                     ;; table/list/etc. results need value text (e.g. [1, 2, 3]) decoded and
-                     ;; re-emitted as org markup for the parser to pick up.
-                     (when (eq (org-src-block-result-type obj) :value)
-                       (let ((formatter (cond ((org-src-block-results-table-p obj)
-                                               #'babel-value-to-org-table)
-                                              ((org-src-block-results-list-p obj)
-                                               #'babel-value-to-org-list))))
-                         (when formatter
-                           (setf body
-                                 (funcall formatter
-                                          (cltpt/babel:babel-decode
-                                           (intern (string-upcase (org-src-block-lang obj))
-                                                   :cltpt/babel)
-                                           body))))))
-                     ;; drawer results are wrapped in a :RESULTS: drawer, otherwise inserted raw.
-                     (when (org-src-block-results-drawer-p obj)
-                       (setf body (format nil ":RESULTS:~%~A~%:END:" body)))
-                     (cltpt/buffer:schedule-change*
-                      doc
-                      (cltpt/buffer:make-change
-                       :region (cltpt/buffer:make-region :begin results-begin :end results-end)
-                       :operator (concatenate 'string
-                                              (format nil (if results-match
-                                                              "#+RESULTS:~%"
-                                                              "~%~%#+RESULTS:~%"))
-                                              body)
-                       :args '(:delegate nil :reparse t)))))))))
+                   (let ((change (org-src-block-results-change obj (coerce result 'string))))
+                     (setf (cltpt/buffer:change-args change)
+                           '(:delegate nil
+                             :reparse t))
+                     (cltpt/buffer:schedule-change* doc change)))))))
     (cltpt/base:map-text-object
      doc
      #'handle-obj)

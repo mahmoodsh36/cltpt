@@ -12,7 +12,8 @@
    :org-link :org-header :org-block :org-list :org-table :org-block :org-src-block
    :org-latex-env :org-keyword :org-prop-drawer :org-drawer :org-export-block
    :org-underline :org-strike-through
-   :org-header-prop-drawer))
+   :org-header-prop-drawer
+   :eval-block :org-src-block-lang :org-src-block-results-change))
 
 (in-package :cltpt/org-mode)
 
