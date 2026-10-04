@@ -47,9 +47,17 @@ as readers. if compilation fails, stdout is empty and stderr carries the compile
 (defun c-wrap-source (code)
   "wrap CODE in a `main' function preceded by the default includes."
   (format nil
-          "~{#include <~A>~%~}~%int main(void) {~%~A~%    return 0;~%}~%"
+          "~{#include <~A>~%~}
+int main(void) {
+~A
+~A
+  return 0;
+}"
           *c-default-includes*
-          (cltpt/str-utils:ensure-min-indent code 4)))
+          ;; stdout is fully buffered when its a pipe, so output would only arrive at exit. turn
+          ;; buffering off (like python's -u) so results can be shown as theyre printed.
+          "  setvbuf(stdout, NULL, _IONBF, 0);"
+          (cltpt/str-utils:ensure-min-indent code 2)))
 
 (defun c-type-for-value (value)
   "the C type used to declare a scalar variable holding VALUE, for `:var' bindings."

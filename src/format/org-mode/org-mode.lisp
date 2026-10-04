@@ -13,7 +13,7 @@
    :org-latex-env :org-keyword :org-prop-drawer :org-drawer :org-export-block
    :org-underline :org-strike-through
    :org-header-prop-drawer
-   :eval-block :org-src-block-lang :org-src-block-results-change))
+   :eval-block :eval-block-streaming :org-src-block-lang :org-src-block-results-change :org-src-block-result-type))
 
 (in-package :cltpt/org-mode)
 

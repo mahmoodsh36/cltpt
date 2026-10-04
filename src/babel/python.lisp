@@ -14,8 +14,9 @@
       ;; write code file
       (with-open-file (f temp-file :direction :output :if-exists :supersede)
         (write-string source f))
-      ;; run the interpreter on the file we wrote
-      (let* ((process (uiop:launch-program (list *python-interpreter* temp-file)
+      ;; run the interpreter on the file we wrote. -u so output reaches us as it is printed
+      ;; instead of when python's buffer fills.
+      (let* ((process (uiop:launch-program (list *python-interpreter* "-u" temp-file)
                                            :output :stream
                                            :error-output :stream))
              (stdout (cltpt/reader:make-reader (uiop:process-info-output process)))

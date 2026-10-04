@@ -4,7 +4,7 @@
    :reader-char :reader-string= :reader-string-equal :is-before-eof :is-after-eof :make-reader
    :reader-buffer :reader-stream :reader-start-position :reader :reader-input-stream :stream-index
    :is-le-eof :reader-from-string :reader-buffer-fill :reader-from-input :reader-eof-reached
-   :reader-fully-consume :reader-to-string :reader-ensure-fill-upto
+   :reader-fully-consume :reader-to-string :reader-ensure-fill-upto :reader-fill-available
    :reader-fast-buffer :reader-fast-buffer-length
    :reader-position :reader-position-if :reader-position-if-not
    :*reader-fast-buffer* :*reader-fast-buffer-length*))
@@ -111,6 +111,31 @@
      input)
     (t (error "invalid input type ~A" (type-of input)))))
 
+(defun reader-mark-eof (reader)
+  (let* ((buf (reader-buffer reader))
+         (fill (fill-pointer buf))
+         ;; simple-string copy for the fast path
+         (simple-buf (make-string fill)))
+    (replace simple-buf buf)
+    (setf (reader-eof-reached reader) t
+          (reader-fast-buffer reader) simple-buf
+          (reader-fast-buffer-length reader) fill)))
+
+(defun reader-fill-available (reader)
+  "block until READER's stream has more data or ends, then read whatever is available without
+blocking further, so a stream can be followed as it is written. returns NIL once EOF is reached."
+  (unless (reader-eof-reached reader)
+    (let* ((buf (reader-buffer reader))
+           (stream (reader-stream reader))
+           (char (read-char stream nil :eof)))
+      ;; read-char-no-hang returns NIL when nothing is available yet.
+      (loop while (characterp char)
+            do (vector-push-extend char buf (max 1 (array-dimension buf 0)))
+               (setf char (read-char-no-hang stream nil :eof)))
+      (when (eq char :eof)
+        (reader-mark-eof reader))
+      (not (reader-eof-reached reader)))))
+
 (defun reader-ensure-fill-upto (reader target-pos)
   "fill the buffer up to TARGET-POS (or EOF). blocks until TARGET-POS is available.
 reads all available data, not just up to target, to minimize I/O calls.
@@ -141,12 +166,7 @@ returns T if target position is available, NIL if EOF reached before target."
               (cond
                 ;; EOF - no more data
                 ((= new-fill current-fill)
-                 (setf (reader-eof-reached reader) t)
-                 ;; create simple-string copy for fast path
-                 (let ((simple-buf (make-string new-fill)))
-                   (replace simple-buf buf)
-                   (setf (reader-fast-buffer reader) simple-buf))
-                 (setf (reader-fast-buffer-length reader) new-fill)
+                 (reader-mark-eof reader)
                  (return-from reader-ensure-fill-upto (< target-pos new-fill)))
                 ;; got some data - check if we have enough
                 ((< target-pos new-fill)

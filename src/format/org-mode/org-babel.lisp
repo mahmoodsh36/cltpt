@@ -124,26 +124,26 @@ VAL is read as a lisp value."
 
 (defun org-src-block-value (obj)
   "the value OBJ produces, to be consumed by another block's :var."
-  (let ((result (eval-block obj)))
-    (when result
-      (let ((text (cltpt/reader:reader-to-string result)))
-        (if (eq (org-src-block-result-type obj) :value)
-            (cltpt/babel:babel-decode
-             (intern (string-upcase (org-src-block-lang obj)) :cltpt/babel)
-             text)
-            text)))))
+  (let ((text (eval-block-streaming obj)))
+    (when (and text (string/= text ""))
+      (if (eq (org-src-block-result-type obj) :value)
+          (cltpt/babel:babel-decode
+           (intern (string-upcase (org-src-block-lang obj)) :cltpt/babel)
+           text)
+          text))))
 
-(defmethod eval-block ((obj org-src-block))
-  (let* ((code (org-src-block-code obj))
-         (lang (org-src-block-lang obj))
-         (eval-property (org-block-keyword-value obj "eval"))
+(defmethod eval-block ((blk org-src-block))
+  "run BLK's code and return (values output-reader error-reader). empty output means no results."
+  (let* ((code (org-src-block-code blk))
+         (lang (org-src-block-lang blk))
+         (eval-property (org-block-keyword-value blk "eval"))
          (should-eval (not (member eval-property
                                    (list "no" "no-export")
                                    :test #'string=)))
-         (results-property (org-block-keyword-value obj "results"))
-         (result-type (org-src-block-result-type obj))
-         (reconstruct-property (org-block-keyword-value obj "reconstruct"))
-         (transform-property (org-block-keyword-value obj "transform"))
+         (results-property (org-block-keyword-value blk "results"))
+         (result-type (org-src-block-result-type blk))
+         (reconstruct-property (org-block-keyword-value blk "reconstruct"))
+         (transform-property (org-block-keyword-value blk "transform"))
          ;; results-rule is for when we want to grab a specific portion of the output and transform
          ;; it into something else.
          (results-rule (cond
@@ -152,7 +152,7 @@ VAL is read as a lisp value."
                          ;;  )
                          ;; ((equal results-property "output")
                          ;;  )
-                         (t '(cltpt/combinator:atleast-one-discard (cltpt/combinator:all-but nil)))))
+                         ))
          (reconstruct-rule (when (consp reconstruct-property)
                              reconstruct-property)))
     (when (and should-eval
@@ -161,12 +161,20 @@ VAL is read as a lisp value."
           (cltpt/babel:babel-eval*
            (intern (string-upcase lang) :cltpt/babel)
            code
-           (org-src-block-assignments obj)
+           (org-src-block-assignments blk)
            result-type
-           :main (not (equal (org-block-keyword-value obj "main") "no")))
+           :main (not (equal (org-block-keyword-value blk "main") "no")))
+        ;; plain output is handed back while the process may still be writing it, so
+        ;; `eval-block-streaming' can stream it.
+        (unless (or results-rule reconstruct-rule transform-property)
+          (return-from eval-block (values out-rdr err-rdr)))
         ;; ideally we should be working with streams.. transformer should work in an "async" manner
         ;; with the parser.
-        (let* ((match (car (cltpt/combinator:parse out-rdr (list results-rule))))
+        (let* ((match (car (cltpt/combinator:parse
+                            out-rdr
+                            (list (or results-rule
+                                      '(cltpt/combinator:atleast-one-discard
+                                        (cltpt/combinator:all-but nil)))))))
                (result (when match
                          (or (when reconstruct-rule
                                (cltpt/transform:reconstruct out-rdr match reconstruct-rule))
@@ -176,6 +184,30 @@ VAL is read as a lisp value."
           (values (when result
                     (cltpt/reader:reader-from-string result))
                   err-rdr))))))
+
+(defun eval-block-streaming (blk &optional on-output)
+  "run BLK and return (values output errors) as strings, or NIL if it was not run. ON-OUTPUT is
+called with each piece of output as it arrives."
+  (multiple-value-bind (out-rdr err-rdr) (eval-block blk)
+    (when out-rdr
+      ;; stderr is read alongside stdout to avoid getting stuck reading one or the other.
+      (let ((err-thread (when err-rdr
+                          (bt:make-thread
+                           (lambda ()
+                             (cltpt/reader:reader-fully-consume err-rdr))
+                           :name "babel-stderr"))))
+        (loop for start = (cltpt/reader:reader-buffer-fill out-rdr)
+              for more = (cltpt/reader:reader-fill-available out-rdr)
+              for end = (cltpt/reader:reader-buffer-fill out-rdr)
+              when (and on-output (< start end))
+              do (funcall on-output (subseq (cltpt/reader:reader-buffer out-rdr) start end))
+              while more)
+        (when err-thread
+          (bt:join-thread err-thread))
+        (values (cltpt/reader:reader-to-string out-rdr)
+                (if err-rdr
+                    (cltpt/reader:reader-to-string err-rdr)
+                    ""))))))
 
 ;; note that org-mode strips the last newline in the text, but we dont do that, it doesnt make
 ;; much sense, it makes babel output text lossy. 
@@ -239,11 +271,9 @@ inserts rather than replaces."
   "evaluate the code of org-src-block instances in DOC and register the results as scheduled changes."
   (labels ((handle-obj (obj)
              (when (typep obj 'org-src-block)
-               (let ((result (eval-block obj)))
-                 (when result
-                   (let ((change (org-src-block-results-change
-                                  obj
-                                  (cltpt/reader:reader-to-string result))))
+               (let ((text (eval-block-streaming obj)))
+                 (when (and text (string/= text ""))
+                   (let ((change (org-src-block-results-change obj text)))
                      (setf (cltpt/buffer:change-args change)
                            '(:delegate nil
                              :reparse t))
