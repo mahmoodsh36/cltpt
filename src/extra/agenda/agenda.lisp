@@ -48,6 +48,7 @@
    :text-object-task
 
    :*agenda-time-format*
+   :*agenda-json-time-format*
    :*agenda-seqs*
    :make-state-desc :make-state-sequence-desc))
 
@@ -81,6 +82,10 @@
                    :name 'done
                    :is-terminal t))))
   "list of state-sequence definitions that are used to determine agenda state changing behavior.")
+
+(defvar *agenda-json-time-format*
+  local-time:+iso-8601-format+
+  "time format for begin/end in agenda json output.")
 
 ;; this grabs a state by its name, its not very smart and it cant tell the
 ;; difference between two states of the same name from different sequences.
@@ -341,3 +346,47 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
                        (format-time (task-record-time rec))
                        (task-title task1))
                tags))))))
+
+(defun midnight-p (ts)
+  (and (zerop (local-time:timestamp-hour ts))
+       (zerop (local-time:timestamp-minute ts))
+       (zerop (local-time:timestamp-second ts))))
+
+(defun json-time (ts)
+  (when ts
+    (local-time:format-timestring nil ts :format *agenda-json-time-format*)))
+
+(defmethod cltpt/tree/outline:outline-json-fields ((node agenda-outline-node))
+  (let ((rng (agenda-outline-node-time-range node)))
+    (list (cons "begin" (json-time (time-range-begin rng)))
+          (cons "end" (json-time (time-range-end rng))))))
+
+(defmethod cltpt/tree/outline:outline-json-fields ((rec task-record))
+  (let* ((task1 (task-record-task rec))
+         (time (task-record-time rec))
+         (begin (if (typep time 'time-range)
+                    (time-range-begin time)
+                    time))
+         (end (when (typep time 'time-range)
+                (time-range-end time)))
+         (state (task-state task1))
+         (node (task-node task1)))
+    (list (cons "title" (task-title task1))
+          (cons "state" (when state (state-name state)))
+          (cons "done" (if (and state (state-is-terminal state))
+                           t
+                           :false))
+          (cons "type" (cond ((deadline rec) "deadline")
+                             ((start-task rec) "scheduled")
+                             (t "timestamp")))
+          (cons "repeat" (if (eq (task-record-type rec) :dupe)
+                             t
+                             :false))
+          (cons "begin" (json-time begin))
+          (cons "end" (json-time end))
+          ;; dates without a time parse to midnight
+          (cons "all_day" (if (and (null end) (midnight-p begin))
+                              t
+                              :false))
+          (cons "tags" (map 'vector #'princ-to-string (task-tags task1)))
+          (cons "file" (when node (cltpt/roam:node-file node))))))

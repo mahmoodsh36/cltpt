@@ -3,6 +3,7 @@
   (:export
    :should-expand
    :outline-text
+   :outline-json-fields
    :render-tree
    :render-forest
    :render-outline
@@ -20,6 +21,13 @@
 
 (defgeneric could-expand (node)
   (:documentation "whether a node can be expanded."))
+
+(defgeneric outline-json-fields (node)
+  (:documentation "extra (key . value) pairs for json output. values are strings, numbers, t, :false,
+nil or arrays."))
+
+(defmethod outline-json-fields ((node t))
+  nil)
 
 (defmethod should-expand ((node cons))
   "returns true only if the node has a branch structure AND the :expanded flag."
@@ -128,31 +136,83 @@
                    text))))
     (format nil "(~{~a~^ ~})" (mapcar #'to-sexp nodes))))
 
+(defun json-escape (str)
+  (with-output-to-string (out)
+    (loop for c across str
+          do (case c
+               (#\"
+                (write-string "\\\"" out))
+               (#\\
+                (write-string "\\\\" out))
+               (#\newline
+                (write-string "\\n" out))
+               (#\return
+                (write-string "\\r" out))
+               (#\tab
+                (write-string "\\t" out))
+               ;; other control chars (code < 32) must be escaped too, as \u plus 4 hex digits
+               (t
+                (if (< (char-code c) 32)
+                    (format out "\\u~4,'0x" (char-code c))
+                    (write-char c out)))))))
+
+(defun json-value (value)
+  (cond ((stringp value)
+         (format nil "\"~A\"" (json-escape value)))
+        ((eq value t)
+         "true")
+        ((eq value :false)
+         "false")
+        ((null value)
+         "null")
+        ((integerp value)
+         (format nil "~D" value))
+        ((realp value)
+         (format nil "~F" value))
+        ((vectorp value)
+         (format nil "[~{~A~^,~}]" (map 'list #'json-value value)))
+        (t
+         (json-value (princ-to-string value)))))
+
+(defun json-fields (node &optional (sep ":"))
+  "NODE's json fields as <key><SEP><value> strings."
+  (loop for (key . value) in (acons "text"
+                                    (princ-to-string (outline-text node))
+                                    (outline-json-fields node))
+        collect (format nil
+                        "~A~A~A"
+                        (json-value key)
+                        sep
+                        (json-value value))))
+
 (defmethod render-outline (nodes (style json-style))
   (labels ((to-json (node)
-             (let ((text (outline-text node))
-                   (children (cltpt/tree:tree-children node)))
+             (let ((children (cltpt/tree:tree-children node)))
                (if (and (should-expand node) children)
                    (format nil
-                           "{\"text\":\"~a\",\"children\":[~{~a~^,~}]}"
-                           text
+                           "{~{~A~^,~},\"children\":[~{~A~^,~}]}"
+                           (json-fields node)
                            (mapcar #'to-json children))
-                   (format nil "{\"text\":\"~a\"}" text)))))
-    (format nil "[~{~a~^,~}]" (mapcar #'to-json nodes))))
+                   (format nil "{~{~A~^,~}}" (json-fields node))))))
+    (format nil "[~{~A~^,~}]" (mapcar #'to-json nodes))))
 
 (defmethod render-outline (nodes (style indented-json-style))
   (with-output-to-string (out)
     (labels ((to-json (node indent)
                (let* ((n (indent style))
-                      (text (outline-text node))
                       (children (cltpt/tree:tree-children node))
                       (indent-str (make-string indent :initial-element #\space))
                       (prop-indent (make-string (+ indent n) :initial-element #\space)))
-                 (format out "~a{~%" indent-str)
-                 (format out "~a\"text\": \"~a\"" prop-indent text)
+                 (format out "~A{~%" indent-str)
+                 (format out
+                         "~{~A~^,~%~}"
+                         (mapcar
+                          (lambda (field)
+                            (concatenate 'string prop-indent field))
+                          (json-fields node ": ")))
                  (when (and (should-expand node) children)
                    (write-string "," out)
-                   (format out "~%~a\"children\": [~%" prop-indent)
+                   (format out "~%~A\"children\": [~%" prop-indent)
                    (loop for child in children
                          for i from 0
                          for child-count = (length children)
@@ -160,8 +220,8 @@
                             (unless (= (1+ i) child-count)
                               (write-string "," out))
                             (format out "~%"))
-                   (format out "~a]" (make-string (+ indent n) :initial-element #\space)))
-                 (format out "~%~a}" indent-str))))
+                   (format out "~A]" (make-string (+ indent n) :initial-element #\space)))
+                 (format out "~%~A}" indent-str))))
       (format out "[~%")
       (loop for node in nodes
             for i from 0
