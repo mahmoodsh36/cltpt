@@ -16,7 +16,7 @@
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time :task-record-type
+   :task-record-repeat :task-record-time :task-record-generated-p
 
    :repeat-task :deadline :start-task
 
@@ -27,7 +27,7 @@
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time :task-record-type
+   :task-record-repeat :task-record-time :task-record-generated-p
    :task-last-repeat :task-repeating-p
 
    :from-roamer :task-node :tasks-between
@@ -264,10 +264,10 @@ INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
                         for my-record
                           in (agenda-records-between agn hour next-hour :include-done include-done)
                         do (when (or (not first-repeat-only)
-                                     (not (eq (task-record-type my-record) :dupe))
+                                     (not (task-record-generated-p my-record))
                                      (not (gethash (task-record-task my-record)
                                                    seen-repeat-tasks)))
-                             (when (eq (task-record-type my-record) :dupe)
+                             (when (task-record-generated-p my-record)
                                (setf (gethash (task-record-task my-record)
                                               seen-repeat-tasks)
                                      t))
@@ -379,7 +379,7 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
           (cons "type" (cond ((deadline rec) "deadline")
                              ((start-task rec) "scheduled")
                              (t "timestamp")))
-          (cons "repeat" (if (eq (task-record-type rec) :dupe)
+          (cons "repeat" (if (task-record-generated-p rec)
                              t
                              :false))
           (cons "begin" (json-time begin))

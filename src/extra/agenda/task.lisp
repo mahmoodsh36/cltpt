@@ -9,7 +9,7 @@
 
    :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time :task-record-type
+   :task-record-repeat :task-record-time :task-record-generated-p
    :make-record-scheduled
 
    :repeat-task :deadline :start-task
@@ -19,7 +19,8 @@
 (in-package :cltpt/agenda/task)
 
 (defstruct task-record
-  type ;; what do we call the keywords "SCHEDULED", "DEADLINE", etc?
+  ;; t for instances made by repeat-task
+  generated-p
   task
   time
   ;; repeat interval plist like (:day 1), (:week 2) or (:hour 3), nil when not repeating
@@ -114,13 +115,15 @@
               ;; skip entries on or before the LAST_REPEAT date
               unless (and last-repeat
                           (local-time:timestamp<= date1 last-repeat))
-                collect (make-task-record
-                         :type :dupe
-                         :task (task-record-task rec)
-                         :time (if date2
-                                   (make-time-range :begin date1
-                                                    :end date2)
-                                   date1)))))))
+                ;; copy so the dupe keeps its struct type (record-deadline etc)
+                collect (let ((dupe (copy-structure rec)))
+                          (setf (task-record-generated-p dupe) t
+                                (task-record-time dupe) (if date2
+                                                            (make-time-range :begin date1
+                                                                             :end date2)
+                                                            date1)
+                                (task-record-repeat dupe) nil)
+                          dupe))))))
 
 ;; without this printing a node might cause an infinite loop
 (defmethod print-object ((obj task-record) stream)
