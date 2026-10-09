@@ -92,6 +92,7 @@ returns 0 if ctx is nil or has no parent match. result is cached."
 ;; this really helps with performance. perhaps we should find a way to make the detection of the
 ;; first char a rule would need to match easier and work for all rules by default. (a better idea
 ;; would to to generalize it to even more than one char, using some form of trie.)
+;; this is a hacky heuristic, but i guess we're bind to have to do something like this for performance.
 (defun extract-literal-from-rule (rule)
   "extract the first character that a rule would match, if determinable.
 returns the character if the rule starts with a known literal, NIL otherwise."
@@ -118,21 +119,32 @@ returns the character if the rule starts with a known literal, NIL otherwise."
     ;; (consec ...) - extract from first element
     ((and (eq (car rule) 'consec) (cdr rule))
      (extract-literal-from-rule (cadr rule)))
-    ;; (any ...) - can't determine (multiple possibilities)
+    ;; (any ...) - determinable when every alternative starts with the same char
     ((eq (car rule) 'any)
-     nil)
+     (let ((first-char (extract-literal-from-rule (cadr rule))))
+       (when (and first-char
+                  (loop for alternative in (cddr rule)
+                        always (eql (extract-literal-from-rule alternative) first-char)))
+         first-char)))
+    ;; wrappers that only constrain the surroundings, their match starts where RULE's does
+    ((and (member (car rule)
+                  '(unescaped
+                    when-match
+                    followed-by
+                    succeeded-by
+                    unsucceeded-by
+                    when-match-after
+                    between-whitespace
+                    flanked-by-whitespace
+                    flanked-by-whitespace-or-punctuation))
+          (cadr rule))
+     (extract-literal-from-rule (cadr rule)))
     ;; (:pattern ... :on-char #\c) - plist with :on-char
     ((and (keywordp (car rule)) (getf rule :on-char))
      (getf rule :on-char))
     ;; (:pattern (literal ...) ...) - plist with :pattern
     ((and (keywordp (car rule)) (getf rule :pattern))
      (extract-literal-from-rule (getf rule :pattern)))
-    ;; (unescaped (literal ...))
-    ((and (eq (car rule) 'unescaped) (cadr rule))
-     (extract-literal-from-rule (cadr rule)))
-    ;; (when-match rule fn) or (followed-by rule fn)
-    ((and (member (car rule) '(when-match followed-by)) (cadr rule))
-     (extract-literal-from-rule (cadr rule)))
     ;; unknown pattern
     (t nil)))
 
