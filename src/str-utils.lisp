@@ -74,7 +74,7 @@ returns the pruned string, or the original string if it's short enough."
 (defun str-dupe (str count)
   "return STR concatenated COUNT times."
   (with-output-to-string (out)
-    (loop for i from 0 upto count
+    (loop for i from 0 below count
           do (write-sequence str out))))
 
 (defun replace-all (string part replacement &key (test #'string=))
