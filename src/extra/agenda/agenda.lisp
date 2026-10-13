@@ -36,6 +36,7 @@
    :make-record-timestamp :make-record-deadline :render-agenda
    :build-agenda-forest :agenda-outline-node :agenda-outline-node-expansion-state
    :agenda-outline-node-parent
+   :agenda-overdue-node :agenda-overdue-node-record :agenda-overdue-node-days
 
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
@@ -49,7 +50,6 @@
 
    :*agenda-time-format*
    :*agenda-json-time-format*
-   :*agenda-begin-ts*
    :*agenda-seqs*
    :make-state-desc :make-state-sequence-desc))
 
@@ -87,13 +87,6 @@
 (defvar *agenda-json-time-format*
   local-time:+iso-8601-format+
   "time format for begin/end in agenda json output.")
-
-(defvar *agenda-begin-ts*
-  nil
-  "dynamically bound beginning timestamp of an agenda forest.
-used to derive overdue text (text such as \"N d. ago:\" / \"Sched. Nx:\") during agenda forest
-construction. bound by `render-agenda'.
-when nil, records render without these overdue text prefixes.")
 
 (defclass agenda ()
   ((tasks
@@ -197,8 +190,7 @@ for ranged times this is the begin of the range."
           thereis (plusp value))))
 
 (defmethod agenda-overdue-records ((agn agenda) begin-ts &key include-done)
-  "return non-repeating DEADLINE/SCHEDULED records with time before BEGIN-TS, oldest first.
-overdue age is derived at display time from `*agenda-begin-ts*' (see `record-overdue-days')."
+  "return non-repeating DEADLINE/SCHEDULED records with time before BEGIN-TS, oldest first."
   (let ((overdue
           (loop for task1 in (agenda-tasks agn)
                 unless (and (state-is-terminal (task-state task1))
@@ -211,19 +203,20 @@ overdue age is derived at display time from `*agenda-begin-ts*' (see `record-ove
                              collect rec))))
     (sort overdue #'local-time:timestamp< :key #'task-record-effective-start)))
 
-(defun record-overdue-days (record &optional (timestamp *agenda-begin-ts*))
-  "whole days RECORD is overdue relative to TIMESTAMP, or nil.
-only DEADLINE/SCHEDULED records with effective start before TIMESTAMP count, this is displayed with
-the \"Sched. Nx:\" / \"N d. ago:\" prefix text."
-  (when (and timestamp
-             (or (deadline record)
-                 (start-task record)))
-    (let ((start (task-record-effective-start record)))
-      (when (local-time:timestamp< start timestamp)
-        (round (/ (local-time:timestamp-difference
-                   (cltpt/base:truncate-to-day timestamp)
-                   (cltpt/base:truncate-to-day start))
-                  local-time:+seconds-per-day+))))))
+(defun record-overdue-days (record timestamp)
+  "whole days between RECORD's effective start and TIMESTAMP."
+  (round (/ (local-time:timestamp-difference
+             (cltpt/base:truncate-to-day timestamp)
+             (cltpt/base:truncate-to-day (task-record-effective-start record)))
+            local-time:+seconds-per-day+)))
+
+;; an overdue node is simply a task-record that 'records' (points to) an overdue task.
+(defstruct agenda-overdue-node
+  record
+  days)
+
+(defmethod cltpt/tree:tree-children ((node agenda-overdue-node))
+  nil)
 
 (defstruct agenda-outline-node
   parent
@@ -245,8 +238,11 @@ the \"Sched. Nx:\" / \"N d. ago:\" prefix text."
   ;; if it has another agenda-outline-node as a child then it should be expandable
   ;; if it has any tasks as children then it also is expandable/collapsable
   (loop for child in (agenda-outline-node-children node)
-        thereis (or (typep child 'agenda-outline-node)
-                    (typep child 'task-record))))
+        thereis (typep child
+                       '(or
+                         agenda-outline-node
+                         agenda-overdue-node
+                         task-record))))
 
 (defmethod cltpt/tree:tree-parent ((node agenda-outline-node))
   (agenda-outline-node-parent node))
@@ -256,6 +252,10 @@ the \"Sched. Nx:\" / \"N d. ago:\" prefix text."
 
 (defmethod cltpt/tree:is-subtree ((node agenda-outline-node)
                                   (child task-record))
+  t)
+
+(defmethod cltpt/tree:is-subtree ((node agenda-outline-node)
+                                  (child agenda-overdue-node))
   t)
 
 ;; without this printing a node might cause an infinite loop
@@ -334,7 +334,12 @@ INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
                          ;; overdue DEADLINE/SCHEDULED go at the end of the first day's children
                          ;; (i=0 means its the first day in the displayed forest).
                          (if (zerop i)
-                             (append hours overdue-records)
+                             (append hours
+                                     (mapcar (lambda (rec)
+                                               (make-agenda-overdue-node
+                                                :record rec
+                                                :days (record-overdue-days rec begin-ts)))
+                                             overdue-records))
                              hours))))))
     (nreverse agenda-forest)))
 
@@ -342,14 +347,9 @@ INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
   "render AGN as a string agenda tree.
 
 BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
- STYLE: a render-style object from cltpt/tree/outline (e.g., *lsblk-style*, *json-style*)
-binds `*agenda-begin-ts*' around forest building and rendering so overdue record calculations
-can be done."
+ STYLE: a render-style object from cltpt/tree/outline (e.g., *lsblk-style*, *json-style*)"
   (with-output-to-string (out)
-    (let* ((*agenda-begin-ts* (if begin-ts
-                                  (cltpt/base:truncate-to-day begin-ts)
-                                  (cltpt/base:today-timestamp)))
-           (agenda-forest (build-agenda-forest agn
+    (let* ((agenda-forest (build-agenda-forest agn
                                                :begin-ts begin-ts
                                                :end-ts end-ts
                                                :first-repeat-only first-repeat-only
@@ -359,7 +359,8 @@ can be done."
       (write-sequence rendered out)
       out)))
 
-(defmethod cltpt/tree/outline:outline-text ((rec task-record))
+(defun record-outline-text (rec &optional overdue-days)
+  "outline line for REC, OVERDUE-DAYS swaps the DEADLINE/SCHEDULED keyword for an overdue prefix."
   (labels ((format-time-from-ts (ts)
              (local-time:format-timestring
               nil
@@ -367,7 +368,8 @@ can be done."
               :format *agenda-time-format*))
            (format-time (time)
              (if (typep time 'time-range)
-                 (format nil "~A--~A"
+                 (format nil
+                         "~A--~A"
                          (format-time-from-ts (time-range-begin time))
                          (format-time-from-ts (time-range-end time)))
                  (format-time-from-ts time)))
@@ -379,50 +381,43 @@ can be done."
              (if (string= tags "")
                  text
                  (let* ((padding (max 1 (- target-col (length text) (length tags)))))
-                   (format nil "~A~A~A"
+                   (format nil
+                           "~A~A~A"
                            text
                            (make-string padding :initial-element #\space)
                            tags)))))
     (let* ((task1 (task-record-task rec))
-           (tags (format-tags (task-tags task1)))
-           (overdue (record-overdue-days rec)))
-      (if (deadline rec)
-          (pad-tags
-           (if overdue
-               (format nil
-                       "~2d d. ago: ~A ~A ~A"
-                       overdue
-                       (state-name (task-state task1))
-                       (format-time (task-record-time rec))
-                       (task-title task1))
-               (format nil
-                       "Deadline: ~A ~A ~A"
-                       (state-name (task-state task1))
-                       (format-time (task-record-time rec))
-                       (task-title task1)))
-           tags)
-          (if (start-task rec)
-              (pad-tags
-               (if overdue
-                   (format nil
-                           "Sched.~2dx: (~A) ~A ~A"
-                           overdue
-                           (state-name (task-state task1))
-                           (format-time (task-record-time rec))
-                           (task-title task1))
-                   (format nil
-                           "Scheduled: (~A) ~A ~A"
-                           (state-name (task-state task1))
-                           (format-time (task-record-time rec))
-                           (task-title task1)))
-               tags)
-              (pad-tags
-               (format nil
-                       "~A (~A) ~A"
-                       (state-name (task-state task1))
-                       (format-time (task-record-time rec))
-                       (task-title task1))
-               tags))))))
+           (state (state-name (task-state task1)))
+           (time (format-time (task-record-time rec)))
+           (title (task-title task1)))
+      (pad-tags
+       (cond
+         ((deadline rec)
+          (format nil
+                  "~A ~A ~A ~A"
+                  (if overdue-days
+                      (format nil "~2d d. ago:" overdue-days)
+                      "Deadline:")
+                  state
+                  time
+                  title))
+         ((start-task rec)
+          (format nil
+                  "~A (~A) ~A ~A"
+                  (if overdue-days
+                      (format nil "Sched.~2dx:" overdue-days)
+                      "Scheduled:")
+                  state
+                  time
+                  title))
+         (t (format nil "~A (~A) ~A" state time title)))
+       (format-tags (task-tags task1))))))
+
+(defmethod cltpt/tree/outline:outline-text ((rec task-record))
+  (record-outline-text rec))
+
+(defmethod cltpt/tree/outline:outline-text ((node agenda-overdue-node))
+  (record-outline-text (agenda-overdue-node-record node) (agenda-overdue-node-days node)))
 
 (defun midnight-p (ts)
   (and (zerop (local-time:timestamp-hour ts))
@@ -457,7 +452,6 @@ can be done."
           (cons "repeat" (if (task-record-generated-p rec)
                              t
                              :false))
-          (cons "overdue_days" (record-overdue-days rec))
           (cons "begin" (json-time begin))
           (cons "end" (json-time end))
           ;; dates without a time parse to midnight
@@ -466,3 +460,7 @@ can be done."
                               :false))
           (cons "tags" (map 'vector #'princ-to-string (task-tags task1)))
           (cons "file" (when node (cltpt/roam:node-file node))))))
+
+(defmethod cltpt/tree/outline:outline-json-fields ((node agenda-overdue-node))
+  (append (cltpt/tree/outline:outline-json-fields (agenda-overdue-node-record node))
+          (list (cons "overdue_days" (agenda-overdue-node-days node)))))
