@@ -1532,7 +1532,7 @@ plt.close()
          (agenda (cltpt/agenda:from-roamer rmr))
          (begin-ts (local-time:encode-timestamp 0 0 0 0 25 7 2025))
          (end-ts (local-time:encode-timestamp 0 0 0 0 1 8 2025)))
-    (cltpt/agenda:render-agenda agenda :begin-ts begin-ts :end-ts end-ts)))
+    (cltpt/agenda:render-agenda agenda :begin-ts begin-ts :end-ts end-ts :today begin-ts)))
 
 (test test-agenda-rendering
   (let ((actual (test-agenda-rendering-func))
@@ -1555,7 +1555,8 @@ plt.close()
                                              :begin-ts begin-ts
                                              :end-ts end-ts
                                              :first-repeat-only t
-                                             :include-done t)))
+                                             :include-done t
+                                             :today begin-ts)))
     (is (string=+diff
          actual
          "├─ Friday 25 July 2025
@@ -1571,8 +1572,8 @@ plt.close()
 │ ├─ 18:00
 │ ├─ 20:00
 │ ├─ 22:00
-│ ├─ Sched.283x: (TODO) 16:41 another due task
-│ └─ 283 d. ago: TODO 16:51 another due task
+│ ├─ Sched.283x: (TODO) another due task
+│ └─ 283 d. ago: TODO another due task
 ├─ Saturday 26 July 2025
 │ └─ Scheduled: (TODO) 10:55 header my secondary header :tag1:tag2:important:
 ├─ Sunday 27 July 2025
@@ -1583,11 +1584,49 @@ plt.close()
 │ ├─ Scheduled: (DONE) 09:00 completed task                            :test:
 │ └─ TODO (10:00) repeating task with last repeat                      :test:
 ├─ Wednesday 30 July 2025
-│ └─ Deadline: TODO 10:00 send the professor a mail
+│ └─ Deadline:  TODO 10:00 send the professor a mail
 └─ Thursday 31 July 2025
 "
          "agenda options")
         "agenda options")))
+
+(test test-agenda-date-only-and-overdue
+  "date-only entries go after the time grid without a time, overdue entries go under TODAY."
+  (let* ((rmr (cltpt/roam:roamer-from-files
+               '((:path ("./tests/data/agenda-date-only.org")
+                  :format "org-mode"))))
+         (agenda (cltpt/agenda:from-roamer rmr))
+         (begin-ts (local-time:encode-timestamp 0 0 0 0 25 7 2025))
+         (end-ts (local-time:encode-timestamp 0 0 0 0 27 7 2025))
+         (actual (cltpt/agenda:render-agenda
+                  agenda
+                  :begin-ts begin-ts
+                  :end-ts end-ts
+                  :today (local-time:encode-timestamp 0 0 0 0 26 7 2025))))
+    (is (string=+diff
+         actual
+         "├─ Friday 25 July 2025
+│ ├─ 00:00
+│ ├─ 02:00
+│ ├─ 04:00
+│ ├─ 06:00
+│ ├─ 08:00
+│ ├─ 10:00
+│ ├─ 12:00
+│ ├─ 14:00
+│ ├─ 16:00
+│ ├─ 18:00
+│ ├─ 20:00
+│ └─ 22:00
+└─ Saturday 26 July 2025
+  ├─ Scheduled: (TODO) 00:00 midnight item
+  ├─ Scheduled: (TODO) 09:00 timed item
+  ├─ Scheduled: (TODO) dated item
+  ├─ TODO dated range
+  └─  6 d. ago: TODO old deadline
+"
+         "agenda date-only and overdue")
+        "agenda date-only and overdue")))
 
 (defun test-org-header-bounded-tree-func ()
   (let ((input "** TODO [#A] header text [50%] :tag1:tag2:"))

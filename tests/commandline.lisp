@@ -48,9 +48,7 @@
 │ ├─ 16:00
 │ ├─ 18:00
 │ ├─ 20:00
-│ ├─ 22:00
-│ ├─ Sched.283x: (TODO) 16:41 another due task
-│ └─ 283 d. ago: TODO 16:51 another due task
+│ └─ 22:00
 ├─ Saturday 26 July 2025
 │ └─ Scheduled: (TODO) 10:55 header my secondary header :tag1:tag2:important:
 ├─ Sunday 27 July 2025
@@ -61,7 +59,7 @@
 │ └─ TODO (10:00) repeating task with last repeat                      :test:
 ├─ Wednesday 30 July 2025
 │ ├─ TODO (10:00) repeating task with last repeat                      :test:
-│ └─ Deadline: TODO 10:00 send the professor a mail
+│ └─ Deadline:  TODO 10:00 send the professor a mail
 └─ Thursday 31 July 2025
   └─ TODO (10:00) repeating task with last repeat                      :test:
 "
@@ -98,7 +96,7 @@
 ├─ Monday 28 July 2025
 ├─ Tuesday 29 July 2025
 ├─ Wednesday 30 July 2025
-│ └─ Deadline: TODO 10:00 send the professor a mail
+│ └─ Deadline:  TODO 10:00 send the professor a mail
 └─ Thursday 31 July 2025
 "
          "agenda include-tags commandline test")

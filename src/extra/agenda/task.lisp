@@ -9,7 +9,7 @@
 
    :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time :task-record-generated-p
+   :task-record-repeat :task-record-time :task-record-generated-p :task-record-date-only-p
    :make-record-scheduled
 
    :repeat-task :deadline :start-task
@@ -24,7 +24,9 @@
   task
   time
   ;; repeat interval plist like (:day 1), (:week 2) or (:hour 3), nil when not repeating
-  repeat)
+  repeat
+  ;; t when the source timestamp has a date but no time
+  date-only-p)
 
 ;; CLOSED: [2024-04-02 Tue 19:27:34] SCHEDULED: <2024-04-02 Tue>
 (defstruct (record-scheduled (:include task-record))

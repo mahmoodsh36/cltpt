@@ -717,6 +717,8 @@ used for all region-decf calculations to get positions relative to the text-obje
         (setf (cltpt/agenda:task-record-time record)
               begin-time))
     (setf (cltpt/agenda:task-record-repeat record) repeat-interval)
+    (setf (cltpt/agenda:task-record-date-only-p record)
+          (null (cltpt/combinator:find-submatch begin-ts-match 'hour)))
     record))
 
 (defun org-header-prop-drawer (header)

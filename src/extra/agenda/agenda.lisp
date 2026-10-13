@@ -16,7 +16,7 @@
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time :task-record-generated-p
+   :task-record-repeat :task-record-time :task-record-generated-p :task-record-date-only-p
 
    :repeat-task :deadline :start-task
 
@@ -27,7 +27,7 @@
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
    :task-record :make-task-record :task-record-task :task-parent :task-children
-   :task-record-repeat :task-record-time :task-record-generated-p
+   :task-record-repeat :task-record-time :task-record-generated-p :task-record-date-only-p
    :task-last-repeat :task-repeating-p
 
    :from-roamer :task-node :tasks-between
@@ -264,7 +264,7 @@ for ranged times this is the begin of the range."
     (format stream "-> agenda-outline-node with ~A children."
             (length (cltpt/tree:tree-children obj)))))
 
-(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts first-repeat-only include-done)
+(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts first-repeat-only include-done today)
   "build a forest representing the data of AGN for the given dates.
 
 the returned list of trees should be implemented using the `cltpt/tree' and `cltpt/tree/outline' interface.
@@ -272,95 +272,105 @@ the returned list of trees should be implemented using the `cltpt/tree' and `clt
 BEGIN-TS: start of the date range (defaults to today, truncated to day).
 END-TS: end of the date range (defaults to 7 days after BEGIN-TS).
 FIRST-REPEAT-ONLY: when non-nil, show only the first occurrence of each repeating task in the range.
-INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
+INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state.
+TODAY: the day overdue entries are listed under, defaults to the current day."
   (let* ((agenda-forest)
          ;; tracks tasks that have already had a repeat instance shown
          (seen-repeat-tasks (make-hash-table)))
-    (let* ((fully-displayed-days 1)
-           (hour-diff 2)
-           (begin-ts (if begin-ts
-                         (cltpt/base:truncate-to-day begin-ts)
-                         (cltpt/base:today-timestamp)))
-           (end-ts (or end-ts
-                       (cltpt/base:add-duration begin-ts '(:day 7))))
-           (overdue-records (agenda-overdue-records agn begin-ts :include-done include-done)))
-      (loop for (day . next-day)
-              in (cltpt/base:list-date-pairs begin-ts end-ts '(:day 1))
-            for i from 0
-            do (let ((day-node (make-agenda-outline-node
-                                :time-range (make-time-range
-                                             :begin day
-                                             :end next-day))))
-                 (setf (agenda-outline-node-text day-node)
-                       (local-time:format-timestring nil day :format *agenda-day-time-format*))
-                 (loop
-                   for (hour . next-hour)
-                     in (cltpt/base:list-date-pairs
-                         day
-                         next-day
-                         (list :hour hour-diff))
-                   for hour-node = (make-agenda-outline-node
-                                    :time-range (make-time-range
-                                                 :begin hour
-                                                 :end next-hour))
-                   do (push hour-node (agenda-outline-node-children day-node))
-                      (setf (agenda-outline-node-parent hour-node) day-node)
-                      (setf (agenda-outline-node-text hour-node)
-                            (local-time:format-timestring
-                             nil
-                             hour
-                             :format '((:hour 2 #\0)
-                                       #\:
-                                       (:min 2 #\0))))
-                      (loop
-                        for my-record
-                          in (agenda-records-between agn hour next-hour :include-done include-done)
-                        do (when (or (not first-repeat-only)
-                                     (not (task-record-generated-p my-record))
-                                     (not (gethash (task-record-task my-record)
-                                                   seen-repeat-tasks)))
-                             (when (task-record-generated-p my-record)
-                               (setf (gethash (task-record-task my-record)
-                                              seen-repeat-tasks)
-                                     t))
-                             (push my-record
-                                   (agenda-outline-node-children hour-node)))))
-                 (when (< i fully-displayed-days)
-                   (setf (agenda-outline-node-expansion-state day-node)
-                         'expanded))
-                 (push day-node agenda-forest)
-                 (setf (agenda-outline-node-children day-node)
-                       (let ((hours (reverse (agenda-outline-node-children day-node))))
-                         ;; overdue DEADLINE/SCHEDULED go at the end of the first day's children
-                         ;; (i=0 means its the first day in the displayed forest).
-                         (if (zerop i)
-                             (append hours
-                                     (mapcar (lambda (rec)
-                                               (make-agenda-overdue-node
-                                                :record rec
-                                                :days (record-overdue-days rec begin-ts)))
-                                             overdue-records))
-                             hours))))))
+    (labels ((filtered-records-between (begin end)
+               "records between BEGIN and END, filtered by FIRST-REPEAT-ONLY."
+               (loop for my-record
+                       in (agenda-records-between agn begin end :include-done include-done)
+                     when (or (not first-repeat-only)
+                              (not (task-record-generated-p my-record))
+                              (not (gethash (task-record-task my-record) seen-repeat-tasks)))
+                       collect (progn
+                                 (when (task-record-generated-p my-record)
+                                   (setf (gethash (task-record-task my-record) seen-repeat-tasks)
+                                         t))
+                                 my-record))))
+      (let* ((fully-displayed-days 1)
+             (hour-diff 2)
+             (begin-ts (if begin-ts
+                           (cltpt/base:truncate-to-day begin-ts)
+                           (cltpt/base:today-timestamp)))
+             (end-ts (or end-ts
+                         (cltpt/base:add-duration begin-ts '(:day 7))))
+             (today (if today
+                        (cltpt/base:truncate-to-day today)
+                        (cltpt/base:today-timestamp)))
+             (overdue-nodes
+               (mapcar
+                (lambda (rec)
+                  (make-agenda-overdue-node
+                   :record rec
+                   :days (record-overdue-days rec today)))
+                (agenda-overdue-records agn today :include-done include-done))))
+        (loop for (day . next-day)
+                in (cltpt/base:list-date-pairs begin-ts end-ts '(:day 1))
+              for i from 0
+              do (let ((day-node (make-agenda-outline-node
+                                  :time-range (make-time-range
+                                               :begin day
+                                               :end next-day)))
+                       (date-only-records))
+                   (setf (agenda-outline-node-text day-node)
+                         (local-time:format-timestring nil day :format *agenda-day-time-format*))
+                   (loop
+                     for (hour . next-hour)
+                       in (cltpt/base:list-date-pairs
+                           day
+                           next-day
+                           (list :hour hour-diff))
+                     for hour-node = (make-agenda-outline-node
+                                      :time-range (make-time-range
+                                                   :begin hour
+                                                   :end next-hour))
+                     do (push hour-node (agenda-outline-node-children day-node))
+                        (setf (agenda-outline-node-parent hour-node) day-node)
+                        (setf (agenda-outline-node-text hour-node)
+                              (local-time:format-timestring
+                               nil
+                               hour
+                               :format '((:hour 2 #\0)
+                                         #\:
+                                         (:min 2 #\0))))
+                        (loop for my-record in (filtered-records-between hour next-hour)
+                              do (if (task-record-date-only-p my-record)
+                                     (push my-record date-only-records)
+                                     (push my-record
+                                           (agenda-outline-node-children hour-node)))))
+                   (when (< i fully-displayed-days)
+                     (setf (agenda-outline-node-expansion-state day-node)
+                           'expanded))
+                   (push day-node agenda-forest)
+                   ;; untimed entries go after the time grid
+                   (setf (agenda-outline-node-children day-node)
+                         (append (reverse (agenda-outline-node-children day-node))
+                                 (reverse date-only-records)
+                                 (when (local-time:timestamp= day today)
+                                   overdue-nodes)))))))
     (nreverse agenda-forest)))
 
-(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done style)
+(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done today style)
   "render AGN as a string agenda tree.
 
-BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
+BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY: see `build-agenda-forest'.
  STYLE: a render-style object from cltpt/tree/outline (e.g., *lsblk-style*, *json-style*)"
   (with-output-to-string (out)
     (let* ((agenda-forest (build-agenda-forest agn
                                                :begin-ts begin-ts
                                                :end-ts end-ts
                                                :first-repeat-only first-repeat-only
-                                               :include-done include-done))
+                                               :include-done include-done
+                                               :today today))
            (style-obj (or style cltpt/tree/outline:*lsblk-style*))
            (rendered (cltpt/tree/outline:render-outline agenda-forest style-obj)))
       (write-sequence rendered out)
       out)))
 
 (defun record-outline-text (rec &optional overdue-days)
-  "outline line for REC, OVERDUE-DAYS swaps the DEADLINE/SCHEDULED keyword for an overdue prefix."
+  "outline line for REC, OVERDUE-DAYS swaps the DEADLINE/SCHEDULED leader for an overdue one."
   (labels ((format-time-from-ts (ts)
              (local-time:format-timestring
               nil
@@ -388,29 +398,32 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
                            tags)))))
     (let* ((task1 (task-record-task rec))
            (state (state-name (task-state task1)))
-           (time (format-time (task-record-time rec)))
+           ;; overdue and date-only entries carry no time value
+           (time (unless (or overdue-days (task-record-date-only-p rec))
+                   (format-time (task-record-time rec))))
            (title (task-title task1)))
       (pad-tags
        (cond
          ((deadline rec)
           (format nil
-                  "~A ~A ~A ~A"
+                  "~A~A ~@[~A ~]~A"
                   (if overdue-days
-                      (format nil "~2d d. ago:" overdue-days)
-                      "Deadline:")
+                      (format nil "~2d d. ago: " overdue-days)
+                      "Deadline:  ")
                   state
                   time
                   title))
          ((start-task rec)
           (format nil
-                  "~A (~A) ~A ~A"
+                  "~A(~A) ~@[~A ~]~A"
                   (if overdue-days
-                      (format nil "Sched.~2dx:" overdue-days)
-                      "Scheduled:")
+                      (format nil "Sched.~2dx: " overdue-days)
+                      "Scheduled: ")
                   state
                   time
                   title))
-         (t (format nil "~A (~A) ~A" state time title)))
+         (time (format nil "~A (~A) ~A" state time title))
+         (t (format nil "~A ~A" state title)))
        (format-tags (task-tags task1))))))
 
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))
@@ -418,11 +431,6 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
 
 (defmethod cltpt/tree/outline:outline-text ((node agenda-overdue-node))
   (record-outline-text (agenda-overdue-node-record node) (agenda-overdue-node-days node)))
-
-(defun midnight-p (ts)
-  (and (zerop (local-time:timestamp-hour ts))
-       (zerop (local-time:timestamp-minute ts))
-       (zerop (local-time:timestamp-second ts))))
 
 (defun json-time (ts)
   (when ts
@@ -454,8 +462,7 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
                              :false))
           (cons "begin" (json-time begin))
           (cons "end" (json-time end))
-          ;; dates without a time parse to midnight
-          (cons "all_day" (if (and (null end) (midnight-p begin))
+          (cons "all_day" (if (task-record-date-only-p rec)
                               t
                               :false))
           (cons "tags" (map 'vector #'princ-to-string (task-tags task1)))

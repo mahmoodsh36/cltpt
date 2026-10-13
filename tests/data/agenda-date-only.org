@@ -1,0 +1,10 @@
+* TODO dated item
+SCHEDULED: <2025-07-26 Sat>
+* TODO timed item
+SCHEDULED: <2025-07-26 Sat 09:00>
+* TODO old deadline
+DEADLINE: <2025-07-20 Sun>
+* TODO midnight item
+SCHEDULED: <2025-07-26 Sat 00:00>
+* TODO dated range
+<2025-07-26 Sat>--<2025-07-27 Sun>
