@@ -49,6 +49,7 @@
 
    :*agenda-time-format*
    :*agenda-json-time-format*
+   :*agenda-begin-ts*
    :*agenda-seqs*
    :make-state-desc :make-state-sequence-desc))
 
@@ -87,6 +88,20 @@
   local-time:+iso-8601-format+
   "time format for begin/end in agenda json output.")
 
+(defvar *agenda-begin-ts*
+  nil
+  "dynamically bound beginning timestamp of an agenda forest.
+used to derive overdue text (text such as \"N d. ago:\" / \"Sched. Nx:\") during agenda forest
+construction. bound by `render-agenda'.
+when nil, records render without these overdue text prefixes.")
+
+(defclass agenda ()
+  ((tasks
+    :initform nil
+    :initarg :tasks
+    :accessor agenda-tasks
+    :documentation "collection of tasks in this agenda.")))
+
 ;; this grabs a state by its name, its not very smart and it cant tell the
 ;; difference between two states of the same name from different sequences.
 ;; but this is the way that org-mode does it so we use that for now.
@@ -97,13 +112,6 @@
                       (return-from state-by-name
                         (make-state :desc state-desc
                                     :sequence-desc seq-desc))))))
-
-(defclass agenda ()
-  ((tasks
-   :initform nil
-   :initarg :tasks
-   :accessor agenda-tasks
-   :documentation "collection of tasks in this agenda.")))
 
 (defun text-obj-has-tag-in-ancestors-p (text-obj include-tags)
   (or (intersection (cltpt/base:text-object-property text-obj :tags)
@@ -174,6 +182,49 @@ ancestor that contains atleast one of the given tags."
                             (not include-done))
                   (records-between (task-records task1) begin-ts end-ts))))
 
+(defun task-record-effective-start (record)
+  "return the timestamp by which RECORD should be ordered/compared.
+for ranged times this is the begin of the range."
+  (let ((time (task-record-time record)))
+    (if (typep time 'time-range)
+        (time-range-begin time)
+        time)))
+
+(defun task-record-repeating-p (record)
+  "whether RECORD has a positive repeat interval. like `task-repeating-p' but per-record."
+  (let ((repeat (task-record-repeat record)))
+    (loop for (nil value) on repeat by #'cddr
+          thereis (plusp value))))
+
+(defmethod agenda-overdue-records ((agn agenda) begin-ts &key include-done)
+  "return non-repeating DEADLINE/SCHEDULED records with time before BEGIN-TS, oldest first.
+overdue age is derived at display time from `*agenda-begin-ts*' (see `record-overdue-days')."
+  (let ((overdue
+          (loop for task1 in (agenda-tasks agn)
+                unless (and (state-is-terminal (task-state task1))
+                            (not include-done))
+                append (loop for rec in (task-records task1)
+                             when (and (or (deadline rec) (start-task rec))
+                                       (not (task-record-repeating-p rec))
+                                       (local-time:timestamp< (task-record-effective-start rec)
+                                                              begin-ts))
+                             collect rec))))
+    (sort overdue #'local-time:timestamp< :key #'task-record-effective-start)))
+
+(defun record-overdue-days (record &optional (timestamp *agenda-begin-ts*))
+  "whole days RECORD is overdue relative to TIMESTAMP, or nil.
+only DEADLINE/SCHEDULED records with effective start before TIMESTAMP count, this is displayed with
+the \"Sched. Nx:\" / \"N d. ago:\" prefix text."
+  (when (and timestamp
+             (or (deadline record)
+                 (start-task record)))
+    (let ((start (task-record-effective-start record)))
+      (when (local-time:timestamp< start timestamp)
+        (round (/ (local-time:timestamp-difference
+                   (cltpt/base:truncate-to-day timestamp)
+                   (cltpt/base:truncate-to-day start))
+                  local-time:+seconds-per-day+))))))
+
 (defstruct agenda-outline-node
   parent
   text
@@ -231,7 +282,8 @@ INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
                          (cltpt/base:truncate-to-day begin-ts)
                          (cltpt/base:today-timestamp)))
            (end-ts (or end-ts
-                       (cltpt/base:add-duration begin-ts '(:day 7)))))
+                       (cltpt/base:add-duration begin-ts '(:day 7))))
+           (overdue-records (agenda-overdue-records agn begin-ts :include-done include-done)))
       (loop for (day . next-day)
               in (cltpt/base:list-date-pairs begin-ts end-ts '(:day 1))
             for i from 0
@@ -278,16 +330,26 @@ INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state."
                          'expanded))
                  (push day-node agenda-forest)
                  (setf (agenda-outline-node-children day-node)
-                       (reverse (agenda-outline-node-children day-node))))))
+                       (let ((hours (reverse (agenda-outline-node-children day-node))))
+                         ;; overdue DEADLINE/SCHEDULED go at the end of the first day's children
+                         ;; (i=0 means its the first day in the displayed forest).
+                         (if (zerop i)
+                             (append hours overdue-records)
+                             hours))))))
     (nreverse agenda-forest)))
 
 (defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done style)
   "render AGN as a string agenda tree.
 
 BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
- STYLE: a render-style object from cltpt/tree/outline (e.g., *lsblk-style*, *json-style*)"
+ STYLE: a render-style object from cltpt/tree/outline (e.g., *lsblk-style*, *json-style*)
+binds `*agenda-begin-ts*' around forest building and rendering so overdue record calculations
+can be done."
   (with-output-to-string (out)
-    (let* ((agenda-forest (build-agenda-forest agn
+    (let* ((*agenda-begin-ts* (if begin-ts
+                                  (cltpt/base:truncate-to-day begin-ts)
+                                  (cltpt/base:today-timestamp)))
+           (agenda-forest (build-agenda-forest agn
                                                :begin-ts begin-ts
                                                :end-ts end-ts
                                                :first-repeat-only first-repeat-only
@@ -322,22 +384,37 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
                            (make-string padding :initial-element #\space)
                            tags)))))
     (let* ((task1 (task-record-task rec))
-           (tags (format-tags (task-tags task1))))
+           (tags (format-tags (task-tags task1)))
+           (overdue (record-overdue-days rec)))
       (if (deadline rec)
           (pad-tags
-           (format nil
-                   "DEADLINE: ~A ~A ~A"
-                   (state-name (task-state task1))
-                   (format-time (task-record-time rec))
-                   (task-title task1))
-           tags)
-          (if (start-task rec)
-              (pad-tags
+           (if overdue
                (format nil
-                       "START: (~A) ~A ~A"
+                       "~2d d. ago: ~A ~A ~A"
+                       overdue
                        (state-name (task-state task1))
                        (format-time (task-record-time rec))
                        (task-title task1))
+               (format nil
+                       "Deadline: ~A ~A ~A"
+                       (state-name (task-state task1))
+                       (format-time (task-record-time rec))
+                       (task-title task1)))
+           tags)
+          (if (start-task rec)
+              (pad-tags
+               (if overdue
+                   (format nil
+                           "Sched.~2dx: (~A) ~A ~A"
+                           overdue
+                           (state-name (task-state task1))
+                           (format-time (task-record-time rec))
+                           (task-title task1))
+                   (format nil
+                           "Scheduled: (~A) ~A ~A"
+                           (state-name (task-state task1))
+                           (format-time (task-record-time rec))
+                           (task-title task1)))
                tags)
               (pad-tags
                (format nil
@@ -364,9 +441,7 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
 (defmethod cltpt/tree/outline:outline-json-fields ((rec task-record))
   (let* ((task1 (task-record-task rec))
          (time (task-record-time rec))
-         (begin (if (typep time 'time-range)
-                    (time-range-begin time)
-                    time))
+         (begin (task-record-effective-start rec))
          (end (when (typep time 'time-range)
                 (time-range-end time)))
          (state (task-state task1))
@@ -382,6 +457,7 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE: see `build-agenda-forest'.
           (cons "repeat" (if (task-record-generated-p rec)
                              t
                              :false))
+          (cons "overdue_days" (record-overdue-days rec))
           (cons "begin" (json-time begin))
           (cons "end" (json-time end))
           ;; dates without a time parse to midnight
