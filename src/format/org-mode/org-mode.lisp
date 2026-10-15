@@ -1,7 +1,7 @@
 (defpackage :cltpt/org-mode
   (:use :cl)
   (:export
-   :org-list-matcher :*org-mode* :org-mode-text-object-types :init :*org-enable-macros*
+   :org-list-matcher :*org-mode* :org-mode-text-object-types :init
    :org-example-block
    :get-cell-at-coordinates :get-cell-coordinates :org-table-matcher
    :get-table-width :get-table-height :reformat-table :list-to-table-string :list-to-list-string
@@ -17,7 +17,6 @@
 
 (in-package :cltpt/org-mode)
 
-(defvar *org-enable-macros* nil)
 
 (defvar *org-enable-babel* nil)
 
@@ -53,11 +52,7 @@
            org-inline-code
            org-comment
            web-link)
-         (when *org-enable-macros*
-           ;; TODO: make it so that *org-enable-macros* is a non-org-specific var
-           ;; and use it for all formats. handle it in text-format.lisp
-           '(cltpt/base:text-macro
-             cltpt/base:post-lexer-text-macro))))
+         (cltpt/base:macro-text-object-types)))
   ;; (setf (cltpt/base:text-format-name *org-mode*)
   ;;       "org-mode")
   (setf (cltpt/base:text-format-document-type *org-mode*)
@@ -1314,7 +1309,7 @@ they are preceding siblings. this is the case for objects whose rule doesnt
        (when (or (typep obj 'cltpt/latex:inline-math)
                  (typep obj 'cltpt/latex:display-math)
                  (typep obj 'cltpt/latex:latex-env))
-         (push (cltpt/base:text-object-contents obj) mylist))))
+         (push (cltpt/latex:expanded-latex obj) mylist))))
     (cltpt/latex-previews:generate-previews-for-latex mylist)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-document)

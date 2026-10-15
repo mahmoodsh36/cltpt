@@ -13,7 +13,7 @@
 (defun test-org-convert ()
   (let ((filepath
           "tests/test.org")
-        (cltpt/org-mode:*org-enable-macros* t))
+        (cltpt/base:*enable-macros* t))
     (cltpt/zoo:init)
     (cltpt/tree:tree-show
      (cltpt/base:parse-file cltpt/org-mode:*org-mode* filepath))

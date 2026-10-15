@@ -416,6 +416,11 @@ definition time may be incomplete."
 (defmethod cltpt/base:text-object-init :after ((obj post-lexer-text-macro) str1 match)
   (setf (cltpt/base:text-object-property obj :is-inline) t))
 
+(defun macro-text-object-types ()
+  "the macro types a format should include, given `*enable-macros*'."
+  (when *enable-macros*
+    '(text-macro post-lexer-text-macro)))
+
 (defvar *cache-post-lexer-macro-evals* nil)
 (defun eval-post-lexer-macro (obj &optional force)
   ;; TODO: we can cache results to avoid re-eval which is log(n). i tried this

@@ -130,19 +130,19 @@ empty when there is no depth."
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)
                                            (fmt (eql cltpt/html:*html*)))
-  (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) t)
-        :recurse t
+  (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) t)
+        :recurse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:display-math)
                                            (fmt (eql cltpt/html:*html*)))
-  (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
+  (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) nil)
         :recurse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
                                            (fmt (eql cltpt/html:*html*)))
-  (list :text (latex-fragment-to-html (cltpt/base:text-object-text obj) nil)
+  (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) nil)
         :recurse nil
         :escape nil))
 
@@ -334,7 +334,7 @@ empty when there is no depth."
   "function to run any necessary initialization code for cltpt.
 
 it may be necessary to call this function after modifying some customization
-variables such as `cltpt/org-mode::*org-enable-macros*'."
+variables such as `cltpt/base:*enable-macros*'."
   (cltpt/html:init)
   (cltpt/org-mode:init)
   (cltpt/latex:init)

@@ -46,7 +46,7 @@
 
 (defun apply-shared-options (cmd)
   (when (clingon:getopt* cmd :enable-macros)
-    (setf cltpt/org-mode:*org-enable-macros* t)
+    (setf cltpt/base:*enable-macros* t)
     (cltpt/zoo:init)))
 
 (defun top-level-handler (cmd)

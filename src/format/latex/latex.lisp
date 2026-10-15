@@ -4,6 +4,7 @@
    :*latex* :display-math
    :inline-math :display-math
    :latex-env :latex-link
+   :expanded-latex
    :*latex-code-env*
    :init))
 
@@ -30,9 +31,8 @@
 (defun make-latex ()
   (cltpt/base:make-text-format
    "latex"
-   '(display-math inline-math latex-env
-     latex-link
-     cltpt/base:text-macro cltpt/base:post-lexer-text-macro)))
+   (append '(display-math inline-math latex-env latex-link)
+           (cltpt/base:macro-text-object-types))))
 
 (defun init ()
   )
@@ -66,10 +66,11 @@
        escapable-chars)))
 
 (cltpt/base:define-text-object inline-math
-  :rule '(:pattern
+  :rule `(:pattern
           (cltpt/combinator:pair
            (cltpt/combinator:unescaped (cltpt/combinator:literal "\\("))
-           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\)")))
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\)"))
+           :rules-for-content ,(cltpt/base:macro-text-object-types))
           :on-char #\\))
 
 (defmethod cltpt/base:text-object-init :after ((obj inline-math) str1 match)
@@ -83,10 +84,11 @@
         :escape nil))
 
 (cltpt/base:define-text-object display-math
-  :rule '(:pattern
+  :rule `(:pattern
           (cltpt/combinator:pair
            (cltpt/combinator:unescaped (cltpt/combinator:literal "\\["))
-           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\]")))
+           (cltpt/combinator:unescaped (cltpt/combinator:literal "\\]"))
+           :rules-for-content ,(cltpt/base:macro-text-object-types))
           :on-char #\\))
 
 (defmethod cltpt/base:text-object-convert ((obj display-math)
@@ -123,6 +125,14 @@
   (list :text (cltpt/base:text-object-text obj)
         :recurse nil
         :escape nil))
+
+(defun expanded-latex (obj)
+  ;; we use a clone, since conversion edits the tree it walks.
+  (cltpt/base:convert-tree
+   (cltpt/base:text-object-clone obj)
+   (or (getf cltpt/base:*convert-info* :src-fmt)
+       cltpt/base:*simple-format*)
+   *latex*))
 
 (defmethod cltpt/base:text-format-conversion-template ((fmt (eql *latex*)))
   *latex-template*)

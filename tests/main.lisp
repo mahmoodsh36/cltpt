@@ -34,7 +34,7 @@
   ;; ensure directories exist
   (ensure-directories-exist cltpt/latex-previews::*latex-previews-tmp-directory*)
   (ensure-directories-exist cltpt/latex-previews::*latex-previews-cache-directory*)
-  (setf cltpt/org-mode:*org-enable-macros* t)
+  (setf cltpt/base:*enable-macros* t)
   (cltpt/zoo:init)
   (let ((results (run! 'cltpt-suite)))
     (unless results

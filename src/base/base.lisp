@@ -21,6 +21,7 @@
    :convert-tree :convert-document
    :*convert-escape-newlines*
    :*convert-info*
+   :*enable-macros* :macro-text-object-types
    :rewrap-within-tags
    :convert-simple-format
    :filepath-format
@@ -92,3 +93,7 @@
 (defvar *author*
   nil
   "author name used when generating a document.")
+
+(defvar *enable-macros*
+  nil
+  "whether formats parse text-macros. we need to rerun `cltpt/zoo:init' after modifying this.")
