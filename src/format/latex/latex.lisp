@@ -107,7 +107,8 @@
            (:pattern
             (cltpt/combinator:unescaped
              ,(cltpt/combinator:handle-rule-string "\\end{%W}"))
-            :id close-tag))
+            :id close-tag)
+           :rules-for-content ,(cltpt/base:macro-text-object-types))
           :on-char #\\)
   :documentation "latex environment.")
 
@@ -123,7 +124,7 @@
 
 (defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql *latex*)))
   (list :text (cltpt/base:text-object-text obj)
-        :recurse nil
+        :recurse t
         :escape nil))
 
 (defun expanded-latex (obj)

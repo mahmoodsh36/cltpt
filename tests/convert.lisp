@@ -127,6 +127,20 @@ plt.close()
          "LaTeX conversion of test.org should match expected output")
         "LaTeX conversion of test.org should match expected output")))
 
+(test test-latex-macro-expansion
+  (is (string=
+       (cltpt/base:convert-tree
+        (cltpt/base:parse
+         cltpt/org-mode:*org-mode*
+         "\\(x^#(+ 1 2)\\)
+#+name: eq-1
+\\begin{equation}y^#(+ 2 2)\\end{equation}")
+        cltpt/org-mode:*org-mode*
+        cltpt/latex:*latex*)
+       "\\(x^3\\)
+\\\\
+\\begin{equation}y^4\\end{equation}")))
+
 (defun run-conversion-tests ()
   (format t "~&running conversion tests...~%")
   (let ((results (run! 'conversion-suite)))

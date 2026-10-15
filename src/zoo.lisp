@@ -148,29 +148,24 @@ empty when there is no depth."
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
                                            (fmt (eql cltpt/latex:*latex*)))
-  (let* ((match (cltpt/base:text-object-match obj))
-         (keywords-alist (cltpt/org-mode::handle-parsed-org-keywords obj))
-         (name (cltpt/base:alist-get keywords-alist "name"))
-         (caption (cltpt/base:alist-get keywords-alist "caption"))
-         (latex-env-match (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1))
-         (latex-env-contents (cltpt/base:text-object-match-text obj latex-env-match)))
-    ;; TODO: handle \caption and \label properly.
-    (list :text latex-env-contents
-          :recurse nil
-          :escape nil)))
+  ;; TODO: handle \caption and \label properly.
+  ;; we recurse so macros in the env get expanded, and drop the keywords before it.
+  (list :text (cltpt/base:text-object-text obj)
+        :changes (list (cltpt/buffer:make-change
+                        :operator ""
+                        :region (cltpt/buffer:make-region
+                                 :begin 0
+                                 :end (cltpt/base:text-object-contents-begin obj))
+                        :args '(:discard-contained t)))
+        :recurse t
+        :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
                                            (fmt (eql cltpt/html:*html*)))
-  (let* ((match (cltpt/base:text-object-match obj))
-         (keywords-alist (cltpt/org-mode::handle-parsed-org-keywords obj))
-         (name (cltpt/base:alist-get keywords-alist "name"))
-         (caption (cltpt/base:alist-get keywords-alist "caption"))
-         (latex-env-match (cltpt/combinator:find-submatch match 'cltpt/org-mode::latex-env-1))
-         (latex-env-contents (cltpt/base:text-object-match-text obj latex-env-match)))
-    ;; TODO: handle \caption and \label properly.
-    (list :text (latex-fragment-to-html latex-env-contents nil)
-          :recurse nil
-          :escape nil)))
+  ;; TODO: handle \caption and \label properly.
+  (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) nil)
+        :recurse nil
+        :escape nil))
 
 (defmethod cltpt/base:convert-target-filepath ((target pathname))
   (cltpt/base:convert-target-filepath (cltpt/file-utils:ensure-filepath-string target)))
