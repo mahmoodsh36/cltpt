@@ -37,3 +37,10 @@ end
 #(cltpt/base::block-end)
 
 end
+
+#(cltpt/base::make-block :loop `(row (list (list 1 2) (list 3 4))))
+  row is %row
+  #(cltpt/base::make-block :loop `(cell row))
+    cell is %cell
+  #(cltpt/base::block-end)
+#(cltpt/base::block-end)

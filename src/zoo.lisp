@@ -36,7 +36,6 @@
          ""
          :escape (cltpt/base:text-object-property obj :escape t)))))
 
-;; TODO: conversion with :loop doesnt work for nested text-block's with :loop
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-block)
                                            backend)
   ;; use string on type to ensure its not a symbol
@@ -75,11 +74,9 @@
                                   t)
                             (setf (cltpt/base:text-object-property clone :let*)
                                   (list*
-                                   ;; TODO: this is a hack, that we're wrapping
-                                   ;; the var-value with a call to 'identity'
-                                   ;; to prevent bind-and-eval from running
-                                   ;; eval on var-value itself.
-                                   (list var-name `,var-value)
+                                   ;; quote the value so the later eval in bind-and-eval*
+                                   ;; returns it as-is
+                                   (list var-name `',var-value)
                                    (cltpt/base:text-object-property
                                     clone
                                     :let*))))
