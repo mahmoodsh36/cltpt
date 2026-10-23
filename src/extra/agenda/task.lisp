@@ -130,7 +130,8 @@
 ;; without this printing a node might cause an infinite loop
 (defmethod print-object ((obj task-record) stream)
   (print-unreadable-object (obj stream :type t)
-    (format stream "-> ~A."
+    (format stream
+            "-> ~A."
             (cltpt/tree/outline:outline-text obj))))
 
 (defmethod cltpt/tree:tree-children ((node task-record))

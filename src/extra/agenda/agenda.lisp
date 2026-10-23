@@ -95,6 +95,21 @@
     :accessor agenda-tasks
     :documentation "collection of tasks in this agenda.")))
 
+;; an overdue node is simply a task-record that 'records' (points to) an overdue task.
+(defstruct agenda-overdue-node
+  record
+  days)
+
+(defmethod cltpt/tree:tree-children ((node agenda-overdue-node))
+  nil)
+
+(defstruct agenda-outline-node
+  parent
+  text
+  time-range
+  children
+  expansion-state)
+
 ;; this grabs a state by its name, its not very smart and it cant tell the
 ;; difference between two states of the same name from different sequences.
 ;; but this is the way that org-mode does it so we use that for now.
@@ -209,21 +224,6 @@ for ranged times this is the begin of the range."
              (cltpt/base:truncate-to-day timestamp)
              (cltpt/base:truncate-to-day (task-record-effective-start record)))
             local-time:+seconds-per-day+)))
-
-;; an overdue node is simply a task-record that 'records' (points to) an overdue task.
-(defstruct agenda-overdue-node
-  record
-  days)
-
-(defmethod cltpt/tree:tree-children ((node agenda-overdue-node))
-  nil)
-
-(defstruct agenda-outline-node
-  parent
-  text
-  time-range
-  children
-  expansion-state)
 
 (defmethod cltpt/tree:tree-children ((node agenda-outline-node))
   (case (agenda-outline-node-expansion-state node)

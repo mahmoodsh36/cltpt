@@ -121,35 +121,42 @@ each entry is a plist with :name, :rule, :ordered-p, and :first-bullet.")
         (string-upcase result)
         result)))
 
+(defun bullet-start-marker (lst &optional default)
+  "extract the :marker string of the first list item in LST, or DEFAULT."
+  (or (getf (first (getf lst :children)) :marker) default))
+
+(defun make-ordered-bullet (lst idx kind suffix)
+  "utility for ordered bullet sequence functions. KIND is :numeric, :roman or :alpha,
+SUFFIX is the trailing \".\" or \")\" string."
+  (case kind
+    (:numeric
+     (format nil "~D~A" (+ (parse-integer (bullet-start-marker lst "1")) idx) suffix))
+    (:roman
+     (let* ((m (bullet-start-marker lst "i"))
+            (start (or (roman-to-int m) 1))
+            (uppercase (upper-case-p (char m 0))))
+       (format nil "~A~A" (int-to-roman (+ start idx) uppercase) suffix)))
+    (:alpha
+     (let ((start (char-code (char (bullet-start-marker lst "a") 0))))
+       (format nil "~C~A" (code-char (+ start idx)) suffix)))))
+
 (defun make-numeric-dot-bullet (lst idx)
-  (let ((marker (getf (first (getf lst :children)) :marker)))
-    (format nil "~D." (+ (parse-integer (or marker "1")) idx))))
+  (make-ordered-bullet lst idx :numeric "."))
 
 (defun make-numeric-paren-bullet (lst idx)
-  (let ((marker (getf (first (getf lst :children)) :marker)))
-    (format nil "~D)" (+ (parse-integer (or marker "1")) idx))))
+  (make-ordered-bullet lst idx :numeric ")"))
 
 (defun make-roman-dot-bullet (lst idx)
-  (let* ((m (or (getf (first (getf lst :children)) :marker) "i"))
-         (start (or (roman-to-int m) 1))
-         (uppercase (upper-case-p (if (> (length m) 0) (char m 0) #\i))))
-    (format nil "~A." (int-to-roman (+ start idx) uppercase))))
+  (make-ordered-bullet lst idx :roman "."))
 
 (defun make-roman-paren-bullet (lst idx)
-  (let* ((m (or (getf (first (getf lst :children)) :marker) "i"))
-         (start (or (roman-to-int m) 1))
-         (uppercase (upper-case-p (if (> (length m) 0) (char m 0) #\i))))
-    (format nil "~A)" (int-to-roman (+ start idx) uppercase))))
+  (make-ordered-bullet lst idx :roman ")"))
 
 (defun make-alpha-dot-bullet (lst idx)
-  (let* ((m (or (getf (first (getf lst :children)) :marker) "a"))
-         (start (if (> (length m) 0) (char-code (char m 0)) 97)))
-    (format nil "~C." (code-char (+ start idx)))))
+  (make-ordered-bullet lst idx :alpha "."))
 
 (defun make-alpha-paren-bullet (lst idx)
-  (let* ((m (or (getf (first (getf lst :children)) :marker) "a"))
-         (start (if (> (length m) 0) (char-code (char m 0)) 97)))
-    (format nil "~C)" (code-char (+ start idx)))))
+  (make-ordered-bullet lst idx :alpha ")"))
 
 (register-bullet-type
  :name :dash

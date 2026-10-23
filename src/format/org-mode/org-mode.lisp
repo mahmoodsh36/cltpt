@@ -400,20 +400,25 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
       :ol
       :ul))
 
+(defvar *html-checkbox-replacements*
+  '((:checked . "<span class='org-checkbox org-checkbox-checked' aria-checked='true'>[X]</span>")
+    (:partial . "<span class='org-checkbox org-checkbox-partial' aria-checked='mixed'>[-]</span>")
+    (:unchecked . "<span class='org-checkbox org-checkbox-unchecked' aria-checked='false'>[ ]</span>"))
+  "alist from checkbox state to html replacement.")
+
+(defvar *latex-checkbox-replacements*
+  '((:checked . "\\fbox{X}")
+    (:partial . "\\fbox{-}")
+    (:unchecked . "\\fbox{\\phantom{X}}"))
+  "alist from checkbox state to latex replacement.")
+
 (defun get-html-checkbox-replacement (checkbox-state)
-  (case checkbox-state
-    (:checked
-     "<span class='org-checkbox org-checkbox-checked' aria-checked='true'>[X]</span>")
-    (:partial
-     "<span class='org-checkbox org-checkbox-partial' aria-checked='mixed'>[-]</span>")
-    (t
-     "<span class='org-checkbox org-checkbox-unchecked' aria-checked='false'>[ ]</span>")))
+  (or (cdr (assoc checkbox-state *html-checkbox-replacements*))
+      (cdr (assoc :unchecked *html-checkbox-replacements*))))
 
 (defun get-latex-checkbox-replacement (checkbox-state)
-  (case checkbox-state
-    (:checked "\\fbox{X}")
-    (:partial "\\fbox{-}")
-    (t "\\fbox{\\phantom{X}}")))
+  (or (cdr (assoc checkbox-state *latex-checkbox-replacements*))
+      (cdr (assoc :unchecked *latex-checkbox-replacements*))))
 
 (defun get-checkbox-replacement (checkbox-state backend)
   (cltpt/base:pcase backend
@@ -800,6 +805,16 @@ used for all region-decf calculations to get positions relative to the text-obje
               do (setf (cltpt/agenda:task-record-task record) task))
         (setf (cltpt/base:text-object-property obj :task) task)))))
 
+(defun discard-whole-object-change (obj)
+  "make a change discarding OBJ's entire text.
+used for noexport headers, `:exports none' blocks, and non-exported code."
+  (cltpt/buffer:make-change
+   :operator ""
+   :region (cltpt/buffer:make-region
+            :begin 0
+            :end (length (cltpt/base:text-object-text obj)))
+   :args '(:discard-contained t)))
+
 (defmethod cltpt/base:text-object-convert ((obj org-header)
                                            (backend cltpt/base:text-format))
   (let ((to-not-export
@@ -809,12 +824,7 @@ used for all region-decf calculations to get positions relative to the text-obje
                    :tags)
                   :test 'equal)))
     (if to-not-export
-        (list :changes (list (cltpt/buffer:make-change
-                              :operator ""
-                              :region (cltpt/buffer:make-region
-                                       :begin 0
-                                       :end (length (cltpt/base:text-object-text obj)))
-                              :args '(:discard-contained t))))
+        (list :changes (list (discard-whole-object-change obj)))
         (let* ((obj-text (cltpt/base:text-object-text obj))
                (changes)
                (match (cltpt/base:text-object-match obj))
@@ -1322,21 +1332,6 @@ they are preceding siblings. this is the case for objects whose rule doesnt
         :escape t
         :recurse t))
 
-(cltpt/base:define-text-object org-emph
-  :rule '(:pattern
-          (cltpt/combinator:flanked-by-whitespace-or-punctuation
-           (cltpt/combinator:pair
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "*"))
-            :allow-multiline nil
-            :allow-empty nil))
-          :on-char #\*)
-  :documentation "org-mode emphasized text (surrounded by asterisks).")
-
-(defmethod cltpt/base:text-object-init :after ((obj org-emph) str1 match)
-  (setf (cltpt/base:text-object-property obj :is-inline)
-        t))
-
 ;; this function shouldnt have a repeated effect on repeated calls, since
 ;; it is called in finalization methods and those are called when
 ;; handling incremental changes.
@@ -1345,91 +1340,52 @@ they are preceding siblings. this is the case for objects whose rule doesnt
   (setf (cltpt/base:text-object-property obj :contents-region-spec)
         (list :compress 1)))
 
-(defmethod cltpt/base:text-object-finalize ((obj org-emph))
-  (compress-contents-region-by-one obj))
+(defmacro define-inline-emph (name delimiter on-char documentation
+                              latex-open latex-close html-open html-close)
+  "define an inline emphasis-like text object NAME delimited by DELIMITER.
+GENERATES the text-object definition with init/finalize/convert methods."
+  `(progn
+     (cltpt/base:define-text-object ,name
+       :rule '(:pattern
+               (cltpt/combinator:flanked-by-whitespace-or-punctuation
+                (cltpt/combinator:pair
+                 (cltpt/combinator:unescaped (cltpt/combinator:literal ,delimiter))
+                 (cltpt/combinator:unescaped (cltpt/combinator:literal ,delimiter))
+                 :allow-multiline nil
+                 :allow-empty nil))
+               :on-char ,on-char)
+       :documentation ,documentation)
+     (defmethod cltpt/base:text-object-init :after ((obj ,name) str1 match)
+       (setf (cltpt/base:text-object-property obj :is-inline)
+             t))
+     (defmethod cltpt/base:text-object-finalize ((obj ,name))
+       (compress-contents-region-by-one obj))
+     (defmethod cltpt/base:text-object-convert ((obj ,name) (backend cltpt/base:text-format))
+       (cond
+         ((eq backend cltpt/latex:*latex*)
+          (cltpt/base:rewrap-within-tags obj ,latex-open ,latex-close))
+         ((eq backend cltpt/html:*html*)
+          (cltpt/base:rewrap-within-tags obj ,html-open ,html-close))))))
 
-(defmethod cltpt/base:text-object-convert ((obj org-emph) (backend cltpt/base:text-format))
-  (cond
-    ((eq backend cltpt/latex:*latex*)
-     (cltpt/base:rewrap-within-tags obj "\\textbf{" "}"))
-    ((eq backend cltpt/html:*html*)
-     (cltpt/base:rewrap-within-tags obj "<b>" "</b>"))))
+(define-inline-emph org-emph
+  "*" #\*
+  "org-mode emphasized text (surrounded by asterisks)."
+  "\\textbf{" "}" "<b>" "</b>")
 
-;; TODO: in org-mode, slashes are interpreted as italic text only if they are
-;; preceded/succeeded by spaces.
-(cltpt/base:define-text-object org-italic
-  :rule '(:pattern
-          (cltpt/combinator:flanked-by-whitespace-or-punctuation
-           (cltpt/combinator:pair
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "/"))
-            :allow-multiline nil
-            :allow-empty nil))
-          :on-char #\/)
-  :documentation "org-mode italicized text (surrounded by forward slahes).")
+(define-inline-emph org-italic
+  "/" #\/
+  "org-mode italicized text (surrounded by forward slahes)."
+  "\\textit{" "}" "<i>" "</i>")
 
-(defmethod cltpt/base:text-object-init :after ((obj org-italic) str1 match)
-  (setf (cltpt/base:text-object-property obj :is-inline)
-        t))
+(define-inline-emph org-underline
+  "_" #\_
+  "org-mode underlined text (surrounded by underscores)."
+  "\\underline{" "}" "<u>" "</u>")
 
-(defmethod cltpt/base:text-object-finalize ((obj org-italic))
-  (compress-contents-region-by-one obj))
-
-(defmethod cltpt/base:text-object-convert ((obj org-italic)
-                                           (backend cltpt/base:text-format))
-  (cond
-    ((eq backend cltpt/latex:*latex*)
-     (cltpt/base:rewrap-within-tags obj "\\textit{" "}"))
-    ((eq backend cltpt/html:*html*)
-     (cltpt/base:rewrap-within-tags obj "<i>" "</i>"))))
-
-(cltpt/base:define-text-object org-underline
-  :rule '(:pattern
-          (cltpt/combinator:flanked-by-whitespace-or-punctuation
-           (cltpt/combinator:pair
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "_"))
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "_"))
-            :allow-multiline nil
-            :allow-empty nil))
-          :on-char #\_)
-  :documentation "org-mode underlined text (surrounded by underscores).")
-
-(defmethod cltpt/base:text-object-init :after ((obj org-underline) str1 match)
-  (setf (cltpt/base:text-object-property obj :is-inline) t))
-
-(defmethod cltpt/base:text-object-finalize ((obj org-underline))
-  (compress-contents-region-by-one obj))
-
-(defmethod cltpt/base:text-object-convert ((obj org-underline) (backend cltpt/base:text-format))
-  (cond
-    ((eq backend cltpt/latex:*latex*)
-     (cltpt/base:rewrap-within-tags obj "\\underline{" "}"))
-    ((eq backend cltpt/html:*html*)
-     (cltpt/base:rewrap-within-tags obj "<u>" "</u>"))))
-
-(cltpt/base:define-text-object org-strike-through
-  :rule '(:pattern
-          (cltpt/combinator:flanked-by-whitespace-or-punctuation
-           (cltpt/combinator:pair
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "+"))
-            (cltpt/combinator:unescaped (cltpt/combinator:literal "+"))
-            :allow-multiline nil
-            :allow-empty nil))
-          :on-char #\+)
-  :documentation "org-mode strike-through text (surrounded by plus signs).")
-
-(defmethod cltpt/base:text-object-init :after ((obj org-strike-through) str1 match)
-  (setf (cltpt/base:text-object-property obj :is-inline) t))
-
-(defmethod cltpt/base:text-object-finalize ((obj org-strike-through))
-  (compress-contents-region-by-one obj))
-
-(defmethod cltpt/base:text-object-convert ((obj org-strike-through) (backend cltpt/base:text-format))
-  (cond
-    ((eq backend cltpt/latex:*latex*)
-     (cltpt/base:rewrap-within-tags obj "\\sout{" "}"))
-    ((eq backend cltpt/html:*html*)
-     (cltpt/base:rewrap-within-tags obj "<s>" "</s>"))))
+(define-inline-emph org-strike-through
+  "+" #\+
+  "org-mode strike-through text (surrounded by plus signs)."
+  "\\sout{" "}" "<s>" "</s>")
 
 ;; we dont want a keyword to be matched as a value, e.g. ":keyword1 :keyword2".
 ;; so we discard any match starting with ":".
@@ -1662,12 +1618,7 @@ returns a list of changes that remove the indentation spaces from each line."
       ;; if we have `:exports none', we shouldnt export
       ((or (and exports-keyword (string= exports-keyword "none"))
            (member block-type (list "comment" "my_comment") :test 'string=))
-       (list :changes (list (cltpt/buffer:make-change
-                             :operator ""
-                             :region (cltpt/buffer:make-region
-                                      :begin 0
-                                      :end (length (cltpt/base:text-object-text obj)))
-                             :args '(:discard-contained t)))))
+       (list :changes (list (discard-whole-object-change obj))))
       (t
        (let* ((all-keywords
                 (concatenate
@@ -1939,12 +1890,7 @@ returns a list of changes that remove the indentation spaces from each line."
              ;; (default behavior for src blocks without :exports keyword),
              ;; we should not export the code block at all
              (if (and is-code (not export-code))
-                 (list :changes (list (cltpt/buffer:make-change
-                                       :operator ""
-                                       :region (cltpt/buffer:make-region
-                                                :begin 0
-                                                :end (length (cltpt/base:text-object-text obj)))
-                                       :args '(:discard-contained t))))
+                 (list :changes (list (discard-whole-object-change obj)))
                  ;; use rewrap-within-tags but also add unindent changes
                  (let* ((rewrap-result
                           (cltpt/base:rewrap-within-tags
