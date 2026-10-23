@@ -100,9 +100,6 @@
   record
   days)
 
-(defmethod cltpt/tree:tree-children ((node agenda-overdue-node))
-  nil)
-
 (defstruct agenda-outline-node
   parent
   text
@@ -471,3 +468,6 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY: see `build-agenda-fore
 (defmethod cltpt/tree/outline:outline-json-fields ((node agenda-overdue-node))
   (append (cltpt/tree/outline:outline-json-fields (agenda-overdue-node-record node))
           (list (cons "overdue_days" (agenda-overdue-node-days node)))))
+
+(defmethod cltpt/tree:tree-children ((node agenda-overdue-node))
+  nil)
