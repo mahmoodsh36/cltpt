@@ -2,7 +2,7 @@
   (:use :cl)
   (:export
    :tree-find :pcase :plistp
-   :bind-and-eval :bind-and-eval* :eval-in-text-object-lexical-scope
+   :bind-and-eval* :eval-in-text-object-lexical-scope
    :concat :alist-get :subseq* :sorted-insert :last-atom
    :merge-plist :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day

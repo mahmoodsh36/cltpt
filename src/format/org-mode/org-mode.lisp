@@ -427,6 +427,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
     (cltpt/latex:*latex*
      (get-latex-checkbox-replacement checkbox-state))))
 
+(defun backend-tag (backend html latex)
+  "return HTML or LATEX static tag string depending on BACKEND.
+only for tag pairs with no per-backend logic; dynamic tags keep their `pcase'."
+  (cltpt/base:pcase backend
+    (cltpt/html:*html* html)
+    (cltpt/latex:*latex* latex)))
+
 (defun generate-list-changes (match backend obj &optional base-offset (depth 0))
   "generate changes for converting an org-list match to HTML/LaTeX.
 
@@ -507,9 +514,7 @@ used for all region-decf calculations to get positions relative to the text-obje
                                           :begin bullet-begin
                                           :end bullet-end)
                                          offset)
-                                :operator (cltpt/base:pcase backend
-                                            (cltpt/html:*html* "<li>")
-                                            (cltpt/latex:*latex* "\\item ")))))))
+                                :operator (backend-tag backend "<li>" "\\item "))))))
           ;; checkbox replacement
           (when checkbox-match
             (setf changes
@@ -542,9 +547,7 @@ used for all region-decf calculations to get positions relative to the text-obje
                               :region (cltpt/buffer:region-decf
                                        (cltpt/buffer:make-region :begin item-end :end item-end)
                                        offset)
-                              :operator (cltpt/base:pcase backend
-                                          (cltpt/html:*html* "</li>")
-                                          (cltpt/latex:*latex* "")))))))))
+                              :operator (backend-tag backend "</li>" ""))))))))
     ;; closing tag last
     (let ((match-end (cltpt/combinator:match-end-absolute match)))
       (setf changes
@@ -1048,24 +1051,16 @@ they are preceding siblings. this is the case for objects whose rule doesnt
                         "\\begin{tabular} { |~{~a~^|~}| } \\hline~%"
                         (loop repeat num-cols collect "l"))))))
          (close-tag
-           (cltpt/base:pcase backend
-             (cltpt/html:*html* "</table>")
-             (cltpt/latex:*latex* "\\\\ \\hline\\end{tabular}")))
+           (backend-tag backend "</table>" "\\\\ \\hline\\end{tabular}"))
          ;; if separators are defined, they should be used along with
          ;; open/close tags. so the behavior may differ from one format
          ;; to another.
-         (row-open-tag (cltpt/base:pcase backend
-                         (cltpt/html:*html* "<tr>")))
-         (row-close-tag (cltpt/base:pcase backend
-                          (cltpt/html:*html* "</tr>")))
-         (cell-open-tag (cltpt/base:pcase backend
-                          (cltpt/html:*html* "<td>")))
-         (cell-close-tag (cltpt/base:pcase backend
-                           (cltpt/html:*html* "</td>")))
-         (cell-separator (cltpt/base:pcase backend
-                           (cltpt/latex:*latex* "&")))
-         (row-separator (cltpt/base:pcase backend
-                          (cltpt/latex:*latex* "\\\\ \\hline"))))
+         (row-open-tag (backend-tag backend "<tr>" nil))
+         (row-close-tag (backend-tag backend "</tr>" nil))
+         (cell-open-tag (backend-tag backend "<td>" nil))
+         (cell-close-tag (backend-tag backend "</td>" nil))
+         (cell-separator (backend-tag backend nil "&"))
+         (row-separator (backend-tag backend nil "\\\\ \\hline")))
     ;; opening tag
     (setf changes
           (list (cltpt/buffer:make-change
@@ -1587,16 +1582,28 @@ returns a list of changes that remove the indentation spaces from each line."
               (incf current-pos (1+ line-len))))
           (nreverse changes))))))
 
+(defun resolve-block-export-flags (exports-keyword is-code)
+  "resolve :exports keyword to (EXPORT-CODE EXPORT-RESULTS).
+code blocks without :exports default to code-only."
+  (let ((export-code (or (string= exports-keyword "code")
+                         (string= exports-keyword "both")))
+        (export-results (or (string= exports-keyword "results")
+                            (string= exports-keyword "both"))))
+    ;; export "results" by default, if :exports wasnt provided.
+    (when (and is-code (not exports-keyword))
+      (setf export-code t)
+      (setf export-results nil))
+    (list export-code export-results)))
+
 (defmethod convert-block ((obj cltpt/base:text-object)
                           (backend cltpt/base:text-format)
                           block-type
                           is-code
                           &optional is-verbatim)
   (let* ((exports-keyword (org-block-keyword-value obj "exports"))
-         (export-code (or (string= exports-keyword "code")
-                          (string= exports-keyword "both")))
-         (export-results (or (string= exports-keyword "results")
-                             (string= exports-keyword "both")))
+         (export-flags (resolve-block-export-flags exports-keyword is-code))
+         (export-code (first export-flags))
+         (export-results (second export-flags))
          (text (cltpt/base:text-object-text obj))
          (match (cltpt/base:text-object-match obj))
          ;; TODO: code-end-match is really just block-end-match, should be renamed
@@ -1610,10 +1617,6 @@ returns a list of changes that remove the indentation spaces from each line."
                (cltpt/combinator:find-submatch match 'end)
                (cltpt/combinator:find-submatch-last match 'end)))
          (results-match (cltpt/combinator:find-submatch match 'results)))
-    ;; export "results" by default, if :exports wasnt provided.
-    (when (and is-code (not exports-keyword))
-      (setf export-code t)
-      (setf export-results nil))
     (cond
       ;; if we have `:exports none', we shouldnt export
       ((or (and exports-keyword (string= exports-keyword "none"))
@@ -1703,15 +1706,10 @@ returns a list of changes that remove the indentation spaces from each line."
               ;; outer wrapper for org-src-block (wraps both code and results)
               (wrapper-open-tag
                 (when is-code
-                  (cltpt/base:pcase backend
-                    (cltpt/html:*html*
-                     (format nil "<div class='org-src-block-container'>"))
-                    (cltpt/latex:*latex* nil))))
+                  (backend-tag backend "<div class='org-src-block-container'>" nil)))
               (wrapper-close-tag
                 (when is-code
-                  (cltpt/base:pcase backend
-                    (cltpt/html:*html* "</div>")
-                    (cltpt/latex:*latex* nil))))
+                  (backend-tag backend "</div>" nil)))
               (escape-regions))
          ;; if there are results, we need to handle them according to :exports value.
          ;; if :exports both or :exports results, the results should be converted.
