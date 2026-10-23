@@ -506,58 +506,53 @@ used for all region-decf calculations to get positions relative to the text-obje
                (item-end (cltpt/combinator:match-end-absolute child)))
           ;; bullet replacement
           (when bullet-match
-            (setf changes
-                  (nconc changes
-                         (list (cltpt/buffer:make-change
-                                :region (cltpt/buffer:region-decf
-                                         (cltpt/buffer:make-region
-                                          :begin bullet-begin
-                                          :end bullet-end)
-                                         offset)
-                                :operator (backend-tag backend "<li>" "\\item "))))))
+            (push (cltpt/buffer:make-change
+                   :region (cltpt/buffer:region-decf
+                            (cltpt/buffer:make-region
+                             :begin bullet-begin
+                             :end bullet-end)
+                            offset)
+                   :operator (backend-tag backend "<li>" "\\item "))
+                  changes))
           ;; checkbox replacement
           (when checkbox-match
-            (setf changes
-                  (nconc changes
-                         (list (cltpt/buffer:make-change
-                                :region (cltpt/buffer:region-decf
-                                         (cltpt/buffer:make-region
-                                          :begin checkbox-begin
-                                          :end checkbox-end)
-                                         offset)
-                                :operator (get-checkbox-replacement
-                                           (getf (cltpt/combinator:match-props checkbox-match)
-                                                 :state)
-                                           backend))))))
+            (push (cltpt/buffer:make-change
+                   :region (cltpt/buffer:region-decf
+                            (cltpt/buffer:make-region
+                             :begin checkbox-begin
+                             :end checkbox-end)
+                            offset)
+                   :operator (get-checkbox-replacement
+                              (getf (cltpt/combinator:match-props checkbox-match)
+                                    :state)
+                              backend))
+                  changes))
           ;; nested lists (recurse)
           (when content-match
             (dolist (content-child (cltpt/combinator:match-children content-match))
               (when (eq (cltpt/combinator:match-id content-child) 'org-list)
-                (setf changes
-                      (nconc changes
-                             (generate-list-changes content-child
-                                                    backend
-                                                    obj
-                                                    offset
-                                                    (1+ depth)))))))
+                (dolist (sub-change (generate-list-changes content-child
+                                                           backend
+                                                           obj
+                                                           offset
+                                                           (1+ depth)))
+                  (push sub-change changes)))))
           ;; item close
-          (setf changes
-                (nconc changes
-                       (list (cltpt/buffer:make-change
-                              :region (cltpt/buffer:region-decf
-                                       (cltpt/buffer:make-region :begin item-end :end item-end)
-                                       offset)
-                              :operator (backend-tag backend "</li>" ""))))))))
+          (push (cltpt/buffer:make-change
+                 :region (cltpt/buffer:region-decf
+                          (cltpt/buffer:make-region :begin item-end :end item-end)
+                          offset)
+                 :operator (backend-tag backend "</li>" ""))
+                changes))))
     ;; closing tag last
     (let ((match-end (cltpt/combinator:match-end-absolute match)))
-      (setf changes
-            (nconc changes
-                   (list (cltpt/buffer:make-change
-                          :region (cltpt/buffer:region-decf
-                                   (cltpt/buffer:make-region :begin match-end :end match-end)
-                                   offset)
-                          :operator close-tag)))))
-    changes))
+      (push (cltpt/buffer:make-change
+             :region (cltpt/buffer:region-decf
+                      (cltpt/buffer:make-region :begin match-end :end match-end)
+                      offset)
+             :operator close-tag)
+            changes))
+    (nreverse changes)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-list)
                                            (backend cltpt/base:text-format))
