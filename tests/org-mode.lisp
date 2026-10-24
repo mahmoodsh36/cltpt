@@ -1585,7 +1585,8 @@ plt.close()
 │ └─ TODO (10:00) repeating task with last repeat                      :test:
 ├─ Wednesday 30 July 2025
 │ └─ Deadline:  TODO 10:00 send the professor a mail
-└─ Thursday 31 July 2025
+├─ Thursday 31 July 2025
+└─ DONE due task                                      :here:there:noexport:
 "
          "agenda options")
         "agenda options")))

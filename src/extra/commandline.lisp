@@ -229,6 +229,11 @@
     :long-name "include-done"
     :key :include-done)
    (clingon:make-option
+    :flag
+    :description "exclude tasks with no timestamp (undated section)."
+    :long-name "exclude-undated"
+    :key :exclude-undated)
+   (clingon:make-option
     :list
     :description "only include tasks with atleast one of the provided tags."
     :long-name "include-tag"
@@ -270,6 +275,7 @@
          (end-ts-str (clingon:getopt cmd :to))
          (first-repeat-only (clingon:getopt cmd :first-repeat-only))
          (include-done (clingon:getopt cmd :include-done))
+         (exclude-undated (clingon:getopt cmd :exclude-undated))
          (include-tags (clingon:getopt cmd :include-tags))
          (style-str (clingon:getopt cmd :style))
          (style-obj (when style-str (parse-style style-str)))
@@ -290,6 +296,7 @@
                  :end-ts end-ts
                  :first-repeat-only first-repeat-only
                  :include-done include-done
+                 :include-undated (not exclude-undated)
                  :style style-obj))))))
 
 (defun publish-options ()

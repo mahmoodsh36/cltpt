@@ -22,7 +22,7 @@
 
    :task-node
    :text-object-task
-   :task-last-repeat :task-repeating-p)
+   :task-last-repeat :task-repeating-p :task-undated-p)
   (:export
    :task :make-task :task :agenda-tasks
    :task-state :task-tags :task-title :task-description :task-records
@@ -37,6 +37,7 @@
    :build-agenda-forest :agenda-outline-node :agenda-outline-node-expansion-state
    :agenda-outline-node-parent
    :agenda-overdue-node :agenda-overdue-node-record :agenda-overdue-node-days
+   :agenda-undated-node :agenda-undated-node-task
 
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
@@ -99,6 +100,11 @@
 (defstruct agenda-overdue-node
   record
   days)
+
+;; the node for a task that has no timestamp (displayed at the end of the tree of the first node in
+;; the agenda forest)
+(defstruct agenda-undated-node
+  task)
 
 (defstruct agenda-outline-node
   parent
@@ -215,6 +221,14 @@ for ranged times this is the begin of the range."
                              collect rec))))
     (sort overdue #'local-time:timestamp< :key #'task-record-effective-start)))
 
+(defmethod agenda-undated-tasks ((agn agenda) &key include-done)
+  "return tasks with no timestamp records."
+  (loop for task in (agenda-tasks agn)
+        when (and (task-undated-p task)
+                  (or include-done
+                      (not (state-is-terminal (task-state task)))))
+        collect task))
+
 (defun record-overdue-days (record timestamp)
   "whole days between RECORD's effective start and TIMESTAMP."
   (round (/ (local-time:timestamp-difference
@@ -239,6 +253,7 @@ for ranged times this is the begin of the range."
                        '(or
                          agenda-outline-node
                          agenda-overdue-node
+                         agenda-undated-node
                          task-record))))
 
 (defmethod cltpt/tree:tree-parent ((node agenda-outline-node))
@@ -255,13 +270,22 @@ for ranged times this is the begin of the range."
                                   (child agenda-overdue-node))
   t)
 
+(defmethod cltpt/tree:is-subtree ((node agenda-outline-node)
+                                  (child agenda-undated-node))
+  t)
+
 ;; without this printing a node might cause an infinite loop
 (defmethod print-object ((obj agenda-outline-node) stream)
   (print-unreadable-object (obj stream :type t)
     (format stream "-> agenda-outline-node with ~A children."
             (length (cltpt/tree:tree-children obj)))))
 
-(defmethod build-agenda-forest ((agn agenda) &key begin-ts end-ts first-repeat-only include-done today)
+(defmethod build-agenda-forest ((agn agenda)
+                                &key
+                                begin-ts end-ts
+                                first-repeat-only
+                                today
+                                include-done (include-undated t))
   "build a forest representing the data of AGN for the given dates.
 
 the returned list of trees should be implemented using the `cltpt/tree' and `cltpt/tree/outline' interface.
@@ -270,7 +294,9 @@ BEGIN-TS: start of the date range (defaults to today, truncated to day).
 END-TS: end of the date range (defaults to 7 days after BEGIN-TS).
 FIRST-REPEAT-ONLY: when non-nil, show only the first occurrence of each repeating task in the range.
 INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state.
-TODAY: the day overdue entries are listed under, defaults to the current day."
+TODAY: the day overdue entries are listed under, defaults to the current day.
+INCLUDE-UNDATED: when non-nil (default), append tasks that have no timestamp records (no SCHEDULED,
+DEADLINE or active timestamp)."
   (let* ((agenda-forest)
          ;; tracks tasks that have already had a repeat instance shown
          (seen-repeat-tasks (make-hash-table)))
@@ -346,13 +372,20 @@ TODAY: the day overdue entries are listed under, defaults to the current day."
                          (append (reverse (agenda-outline-node-children day-node))
                                  (reverse date-only-records)
                                  (when (local-time:timestamp= day today)
-                                   overdue-nodes)))))))
+                                   overdue-nodes)))))
+        (when include-undated
+          (let ((undated-nodes
+                  (mapcar (lambda (task1)
+                            (make-agenda-undated-node :task task1))
+                          (agenda-undated-tasks agn :include-done include-done))))
+            (dolist (node undated-nodes)
+              (push node agenda-forest))))))
     (nreverse agenda-forest)))
 
-(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done today style)
+(defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done today (include-undated t) style)
   "render AGN as a string agenda tree.
 
-BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY: see `build-agenda-forest'.
+BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY, INCLUDE-UNDATED: see `build-agenda-forest'.
  STYLE: a render-style object from cltpt/tree/outline (e.g., *lsblk-style*, *json-style*)"
   (with-output-to-string (out)
     (let* ((agenda-forest (build-agenda-forest agn
@@ -360,11 +393,29 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY: see `build-agenda-fore
                                                :end-ts end-ts
                                                :first-repeat-only first-repeat-only
                                                :include-done include-done
-                                               :today today))
+                                               :today today
+                                               :include-undated include-undated))
            (style-obj (or style cltpt/tree/outline:*lsblk-style*))
            (rendered (cltpt/tree/outline:render-outline agenda-forest style-obj)))
       (write-sequence rendered out)
       out)))
+
+(defun format-agenda-tags (tags)
+  "format TAGS list as \":tag1:tag2:\" or \"\" when empty."
+  (if tags
+      (format nil ":~{~A~^:~}:" tags)
+      ""))
+
+(defun pad-agenda-tags (text tags &optional (target-col 72))
+  "pad TEXT so TAGS ends at TARGET-COL."
+  (if (string= tags "")
+      text
+      (let* ((padding (max 1 (- target-col (length text) (length tags)))))
+        (format nil
+                "~A~A~A"
+                text
+                (make-string padding :initial-element #\space)
+                tags))))
 
 (defun record-outline-text (rec &optional overdue-days)
   "outline line for REC, OVERDUE-DAYS swaps the DEADLINE/SCHEDULED leader for an overdue one."
@@ -379,27 +430,14 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY: see `build-agenda-fore
                          "~A--~A"
                          (format-time-from-ts (time-range-begin time))
                          (format-time-from-ts (time-range-end time)))
-                 (format-time-from-ts time)))
-           (format-tags (tags)
-             (if tags
-                 (format nil ":~{~A~^:~}:" tags)
-                 ""))
-           (pad-tags (text tags &optional (target-col 72))
-             (if (string= tags "")
-                 text
-                 (let* ((padding (max 1 (- target-col (length text) (length tags)))))
-                   (format nil
-                           "~A~A~A"
-                           text
-                           (make-string padding :initial-element #\space)
-                           tags)))))
+                 (format-time-from-ts time))))
     (let* ((task1 (task-record-task rec))
            (state (state-name (task-state task1)))
            ;; overdue and date-only entries carry no time value
            (time (unless (or overdue-days (task-record-date-only-p rec))
                    (format-time (task-record-time rec))))
            (title (task-title task1)))
-      (pad-tags
+      (pad-agenda-tags
        (cond
          ((deadline rec)
           (format nil
@@ -421,13 +459,25 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY: see `build-agenda-fore
                   title))
          (time (format nil "~A (~A) ~A" state time title))
          (t (format nil "~A ~A" state title)))
-       (format-tags (task-tags task1))))))
+       (format-agenda-tags (task-tags task1))
+       72))))
 
 (defmethod cltpt/tree/outline:outline-text ((rec task-record))
   (record-outline-text rec))
 
 (defmethod cltpt/tree/outline:outline-text ((node agenda-overdue-node))
   (record-outline-text (agenda-overdue-node-record node) (agenda-overdue-node-days node)))
+
+(defun undated-outline-text (task1)
+  "outline line for an undated TASK1 (no timestamp records): \"STATE title :tags:\"."
+  (pad-agenda-tags
+   (format nil "~A ~A"
+           (state-name (task-state task1))
+           (task-title task1))
+   (format-agenda-tags (task-tags task1))))
+
+(defmethod cltpt/tree/outline:outline-text ((node agenda-undated-node))
+  (undated-outline-text (agenda-undated-node-task node)))
 
 (defun json-time (ts)
   (when ts
@@ -470,4 +520,24 @@ BEGIN-TS, END-TS, FIRST-REPEAT-ONLY, INCLUDE-DONE, TODAY: see `build-agenda-fore
           (list (cons "overdue_days" (agenda-overdue-node-days node)))))
 
 (defmethod cltpt/tree:tree-children ((node agenda-overdue-node))
+  nil)
+
+(defmethod cltpt/tree/outline:outline-json-fields ((node agenda-undated-node))
+  (let* ((task1 (agenda-undated-node-task node))
+         (state (task-state task1))
+         (roam-node (task-node task1)))
+    (list (cons "title" (task-title task1))
+          (cons "state" (when state (state-name state)))
+          (cons "done" (if (and state (state-is-terminal state))
+                           t
+                           :false))
+          (cons "type" "undated")
+          (cons "repeat" :false)
+          (cons "begin" nil)
+          (cons "end" nil)
+          (cons "all_day" :false)
+          (cons "tags" (map 'vector #'princ-to-string (task-tags task1)))
+          (cons "file" (when roam-node (cltpt/roam:node-file roam-node))))))
+
+(defmethod cltpt/tree:tree-children ((node agenda-undated-node))
   nil)

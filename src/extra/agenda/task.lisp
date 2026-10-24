@@ -14,7 +14,7 @@
 
    :repeat-task :deadline :start-task
    :task-node :text-object-task
-   :task-last-repeat :task-repeating-p))
+   :task-last-repeat :task-repeating-p :task-undated-p))
 
 (in-package :cltpt/agenda/task)
 
@@ -48,6 +48,10 @@
   parent
   ;; timestamp from :LAST_REPEAT: property, repeated entries on or before this are ignored
   last-repeat)
+
+(defun task-undated-p (task)
+  "whether TASK has no timestamp records (no SCHEDULED, DEADLINE or active timestamp)."
+  (null (task-records task)))
 
 ;; it might look redundant that we're explicitly checking whether some repeat plist has a positive
 ;; value but its not, in org, having a 0 increment is supported and implies the increment is
