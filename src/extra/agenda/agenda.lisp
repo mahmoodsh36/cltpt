@@ -138,12 +138,14 @@
    (cltpt/roam:node-text-obj (task-node task))
    include-tags))
 
-(defmethod from-roamer ((rmr cltpt/roam:roamer) &key include-tags)
+(defmethod from-roamer ((rmr cltpt/roam:roamer) &key include-tags exclude-tags)
   "takes a cltpt/roam:roamer RMR and constructs an agenda object from it.
 the new agenda object will contain all the tasks found in the nodes of the roamer.
 
-INCLUDE-TAGS: when provided, only include tasks that correspond to a text-object that has some
-ancestor that contains atleast one of the given tags."
+INCLUDE-TAGS: only include tasks that correspond to a text-object that has some ancestor that
+contains atleast one of the given tags.
+EXCLUDE-TAGS: drop tasks that correspond to a text-object that has some ancestor containing atleast
+one of the given tags. exclusion wins over inclusion."
   (let ((results))
     (loop for node in (cltpt/roam:roamer-nodes rmr)
           for obj = (cltpt/roam:node-text-obj node)
@@ -167,9 +169,16 @@ ancestor that contains atleast one of the given tags."
                           (push task (task-children other-task))))))
     (when include-tags
       (setf results
-            (remove-if-not (lambda (task)
-                             (task-has-tag-in-ancestors-p task include-tags))
-                           results)))
+            (remove-if-not
+             (lambda (task)
+               (task-has-tag-in-ancestors-p task include-tags))
+             results)))
+    (when exclude-tags
+      (setf results
+            (remove-if
+             (lambda (task)
+               (task-has-tag-in-ancestors-p task exclude-tags))
+             results)))
     (make-instance 'agenda :tasks results)))
 
 (defun records-between (records begin-ts end-ts)
