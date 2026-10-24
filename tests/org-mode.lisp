@@ -1573,7 +1573,8 @@ plt.close()
 │ ├─ 20:00
 │ ├─ 22:00
 │ ├─ Sched.283x: (TODO) another due task
-│ └─ 283 d. ago: TODO another due task
+│ ├─ 283 d. ago: TODO another due task
+│ └─ DONE due task                                      :here:there:noexport:
 ├─ Saturday 26 July 2025
 │ └─ Scheduled: (TODO) 10:55 header my secondary header :tag1:tag2:important:
 ├─ Sunday 27 July 2025
@@ -1585,8 +1586,7 @@ plt.close()
 │ └─ TODO (10:00) repeating task with last repeat                      :test:
 ├─ Wednesday 30 July 2025
 │ └─ Deadline:  TODO 10:00 send the professor a mail
-├─ Thursday 31 July 2025
-└─ DONE due task                                      :here:there:noexport:
+└─ Thursday 31 July 2025
 "
          "agenda options")
         "agenda options")))

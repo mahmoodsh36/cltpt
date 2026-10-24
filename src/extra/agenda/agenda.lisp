@@ -38,6 +38,7 @@
    :agenda-outline-node-parent
    :agenda-overdue-node :agenda-overdue-node-record :agenda-overdue-node-days
    :agenda-undated-node :agenda-undated-node-task
+   :agenda-node-task
 
    :state-name :state-is-terminal :make-state :state-by-name
    :state-desc-name :state-desc-is-terminal
@@ -229,6 +230,21 @@ for ranged times this is the begin of the range."
                       (not (state-is-terminal (task-state task)))))
         collect task))
 
+(defgeneric agenda-node-task (node)
+  (:documentation "the task behind agenda display NODE, or nil for nodes with no task (e.g. day headers)."))
+
+(defmethod agenda-node-task ((rec task-record))
+  (task-record-task rec))
+
+(defmethod agenda-node-task ((node agenda-overdue-node))
+  (task-record-task (agenda-overdue-node-record node)))
+
+(defmethod agenda-node-task ((node agenda-undated-node))
+  (agenda-undated-node-task node))
+
+(defmethod agenda-node-task ((node t))
+  nil)
+
 (defun record-overdue-days (record timestamp)
   "whole days between RECORD's effective start and TIMESTAMP."
   (round (/ (local-time:timestamp-difference
@@ -295,8 +311,8 @@ END-TS: end of the date range (defaults to 7 days after BEGIN-TS).
 FIRST-REPEAT-ONLY: when non-nil, show only the first occurrence of each repeating task in the range.
 INCLUDE-DONE: when non-nil, include tasks that are in a terminal (done) state.
 TODAY: the day overdue entries are listed under, defaults to the current day.
-INCLUDE-UNDATED: when non-nil (default), append tasks that have no timestamp records (no SCHEDULED,
-DEADLINE or active timestamp)."
+INCLUDE-UNDATED: when non-nil (default), show tasks that have no timestamp records (no SCHEDULED,
+DEADLINE or active timestamp). they appear as children of the first displayed day's entry."
   (let* ((agenda-forest)
          ;; tracks tasks that have already had a repeat instance shown
          (seen-repeat-tasks (make-hash-table)))
@@ -328,7 +344,11 @@ DEADLINE or active timestamp)."
                   (make-agenda-overdue-node
                    :record rec
                    :days (record-overdue-days rec today)))
-                (agenda-overdue-records agn today :include-done include-done))))
+                (agenda-overdue-records agn today :include-done include-done)))
+             (undated-nodes
+               (mapcar (lambda (task1)
+                         (make-agenda-undated-node :task task1))
+                       (agenda-undated-tasks agn :include-done include-done))))
         (loop for (day . next-day)
                 in (cltpt/base:list-date-pairs begin-ts end-ts '(:day 1))
               for i from 0
@@ -372,14 +392,9 @@ DEADLINE or active timestamp)."
                          (append (reverse (agenda-outline-node-children day-node))
                                  (reverse date-only-records)
                                  (when (local-time:timestamp= day today)
-                                   overdue-nodes)))))
-        (when include-undated
-          (let ((undated-nodes
-                  (mapcar (lambda (task1)
-                            (make-agenda-undated-node :task task1))
-                          (agenda-undated-tasks agn :include-done include-done))))
-            (dolist (node undated-nodes)
-              (push node agenda-forest))))))
+                                   overdue-nodes)
+                                 (when (and include-undated (zerop i))
+                                   undated-nodes)))))))
     (nreverse agenda-forest)))
 
 (defmethod render-agenda ((agn agenda) &key begin-ts end-ts first-repeat-only include-done today (include-undated t) style)
