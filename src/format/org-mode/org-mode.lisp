@@ -573,6 +573,16 @@ used for all region-decf calculations to get positions relative to the text-obje
      'list-item-content)
     reader)))
 
+(defun is-known-todo-keyword (ctx reader pos rule match)
+  "predicate for `when-match-after' that only accepts a todo-keyword match when the keyword names a
+known agenda state (see `cltpt/agenda:*agenda-seqs*').
+unrecognized uppercase words (e.g. MY in \"* MY header title\") fail this check so they remain part
+of the header's title instead of being parsed as a todo keyword."
+  (let ((kw-match (cltpt/combinator:find-submatch match 'todo-keyword)))
+    (when kw-match
+      (let ((kw-text (cltpt/combinator:match-text kw-match reader)))
+        (not (null (cltpt/agenda:state-by-name kw-text)))))))
+
 (let ((tags-rule
         '(cltpt/combinator:consec
           (cltpt/combinator:literal " :")
@@ -583,10 +593,12 @@ used for all region-decf calculations to get positions relative to the text-obje
             :id tag))
           (cltpt/combinator:literal ":")))
       (todo-rule
-        '(:pattern (cltpt/combinator:consec
-                    (:pattern (cltpt/combinator:upcase-word-matcher)
-                     :id todo-keyword)
-                    (cltpt/combinator:literal " "))
+        '(:pattern (cltpt/combinator:when-match-after
+                    (cltpt/combinator:consec
+                     (:pattern (cltpt/combinator:upcase-word-matcher)
+                      :id todo-keyword)
+                     (cltpt/combinator:literal " "))
+                    is-known-todo-keyword)
           :optional t)))
   (cltpt/base:define-text-object org-header
     :rule `(:pattern
@@ -790,18 +802,18 @@ used for all region-decf calculations to get positions relative to the text-obje
            :desc nil
            :text-obj obj))
     (when todo-keyword-match
-      (let ((task (cltpt/agenda:make-task
-                   :title (cltpt/base:text-object-match-text obj title-match)
-                   :description nil
-                   :state (or (cltpt/agenda:state-by-name
-                               (cltpt/base:text-object-match-text obj todo-keyword-match))
-                              (cltpt/agenda:state-by-name "TODO"))
-                   :tags (cltpt/base:text-object-property obj :tags)
-                   :records task-records
-                   :last-repeat last-repeat-ts)))
-        (loop for record in task-records
-              do (setf (cltpt/agenda:task-record-task record) task))
-        (setf (cltpt/base:text-object-property obj :task) task)))))
+      (let ((state (cltpt/agenda:state-by-name
+                    (cltpt/base:text-object-match-text obj todo-keyword-match))))
+        (let ((task (cltpt/agenda:make-task
+                     :title (cltpt/base:text-object-match-text obj title-match)
+                     :description nil
+                     :state state
+                     :tags (cltpt/base:text-object-property obj :tags)
+                     :records task-records
+                     :last-repeat last-repeat-ts)))
+          (loop for record in task-records
+                do (setf (cltpt/agenda:task-record-task record) task))
+          (setf (cltpt/base:text-object-property obj :task) task))))))
 
 (defun discard-whole-object-change (obj)
   "make a change discarding OBJ's entire text.

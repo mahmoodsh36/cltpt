@@ -101,15 +101,15 @@ SCHEDULED: <2025-07-26 Sat 10:55>
 
 test text1
 
-** YOU header do something :noexport:
+** TODO header do something :noexport:
 SCHEDULED: <2025-07-27 Sun 10:55:00>
 
 more text that shouldnt be exported
 
-** HERE do something else
+** TODO do something else
 SCHEDULED: <2025-07-27 Sun 17:55:00>
 
-** HER send the professor a mail
+** TODO send the professor a mail
 DEADLINE: <2025-07-30 Wed 10:00>
 
 * DONE completed task :test:

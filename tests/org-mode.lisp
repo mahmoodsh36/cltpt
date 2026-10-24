@@ -97,6 +97,21 @@
        ((:BEGIN 4 :END 5)))
       ((:BEGIN 7 :END 16 :ID CLTPT/ORG-MODE::TITLE))))))
 
+(defun org-header-with-unknown-todo-func ()
+  (let ((result (cltpt/combinator:parse
+                 "* MY header title"
+                 (list cltpt/org-mode::org-header))))
+    result))
+
+(test org-header-with-unknown-todo
+  (is-match-tree
+   (car (org-header-with-unknown-todo-func))
+   '((:BEGIN 0 :END 17 :ID CLTPT/ORG-MODE:ORG-HEADER)
+     ((:BEGIN 0 :END 17)
+      ((:BEGIN 0 :END 1 :ID CLTPT/ORG-MODE::STARS))
+      ((:BEGIN 1 :END 2))
+      ((:BEGIN 2 :END 17 :ID CLTPT/ORG-MODE::TITLE))))))
+
 (defun org-header-with-tags-func ()
   (let ((result (cltpt/combinator:parse
                  "* my header :tag1:tag2:"
