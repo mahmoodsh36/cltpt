@@ -208,25 +208,6 @@ the '\\' and processes the char normally (replace or emit)."
       (cltpt/buffer:apply-scheduled-changes text-obj))
     (text-object-text text-obj)))
 
-;; this barely handles simple patterns, it cannot be relied on, but it may make some things easier.
-(defun convert-rule-with-shared-patterns (tree)
-  (let ((mycar (car tree)))
-    (if (equal mycar 'consec)
-        (concatenate
-         'string
-         (loop for item in (cdr tree)
-               collect (if (stringp item)
-                           item
-                           (if (getf item :pattern)
-                               (convert-rule-with-shared-patterns
-                                (getf item :pattern))
-                               (convert-rule-with-shared-patterns
-                                item)))))
-        (loop for subrule in (cdr tree)
-              for result = (convert-rule-with-shared-patterns subrule)
-              when result
-                return result))))
-
 (defmethod convert-document ((src-fmt text-format)
                              (dest-fmt text-format)
                              (doc document))

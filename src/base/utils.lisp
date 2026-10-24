@@ -1,17 +1,9 @@
 (in-package :cltpt/base)
 
-(defun last-atom (seq)
-  (car (last seq)))
-
 (defun change-symbol-package (symbol pkg)
   "change the package to which SYMBOL refers."
   ;; we use `symbol-name' and then `intern' to change the package of a symbol.
   (intern (symbol-name symbol) pkg))
-
-(defun eval-in-package (expr pkg)
-  "takes expression EXPR and package name PKG, evaluates EXPR in the scope of PKG."
-  (let ((*package* (find-package pkg)))
-    (eval expr)))
 
 (defun bind-and-eval* (bindings func &optional (pkg-to-eval-in :cl-user))
   (if (null bindings)

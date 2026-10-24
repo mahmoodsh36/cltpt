@@ -3,7 +3,7 @@
   (:export
    :tree-find :pcase :plistp
    :bind-and-eval* :eval-in-text-object-lexical-scope
-   :concat :alist-get :subseq* :sorted-insert :last-atom
+   :concat :alist-get :subseq* :sorted-insert
    :merge-plist :add-duration :list-dates :list-date-pairs
    :today-timestamp :truncate-to-day
    :find-cons-if
