@@ -47,7 +47,7 @@
                '((:path ("/home/mahmooz/notes/")
                   :regex ".*\\.org"
                   :format "org-mode")))))
-    (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html")
+    (cltpt/roam:convert-all rmr :html
                             "~/blog/%(cl-user::title-to-filename title).html")))
 
 ;; (generate)

@@ -20,7 +20,7 @@
 (defun org-rules ()
   (remove-if-not
    'identity
-   (loop for type1 in (cltpt/base:text-format-text-object-types cltpt/org-mode:*org-mode*)
+   (loop for type1 in (cltpt/base:text-format-text-object-types :org-mode)
          collect (cltpt/base:text-object-rule-from-subclass type1))))
 
 (defun run-benchmark (name iterations org-files parse-fn total-bytes-per-iteration)
@@ -83,5 +83,5 @@
                  iterations
                  org-file-contents
                  (lambda (content)
-                   (cltpt/base:parse cltpt/org-mode:*org-mode* content))
+                   (cltpt/base:parse :org-mode content))
                  total-bytes-per-iteration))

@@ -1272,7 +1272,7 @@ hey
 
 something more
 "))
-    (cltpt/base:parse cltpt/org-mode:*org-mode* text)))
+    (cltpt/base:parse :org-mode text)))
 
 (defun keywords-test-1 ()
   (cltpt/combinator:parse
@@ -1385,7 +1385,7 @@ my equation here
 
 (defun test-org-src-block-with-image-result-func ()
   (cltpt/base:parse
-   cltpt/org-mode:*org-mode*
+   :org-mode
    "#+begin_src python :results file :exports both
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1406,7 +1406,7 @@ plt.close()
 
 (defun test-comprehensive-org-document-func ()
   (let ((content (uiop:read-file-string "tests/data/comprehensive-org-test.org")))
-    (cltpt/base:parse cltpt/org-mode:*org-mode* content)))
+    (cltpt/base:parse :org-mode content)))
 
 (defun create-expected-types-tree ()
   '(cltpt/org-mode::org-document
@@ -1705,7 +1705,7 @@ plt.close()
 
 (test test-header-hierarchy-nesting
   (let* ((doc (cltpt/base:parse
-               cltpt/org-mode:*org-mode*
+               :org-mode
                "* test
 ** test2
 **** hello1

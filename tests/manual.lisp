@@ -8,7 +8,7 @@
 
 (defun test-org-parse ()
   (cltpt/tree:tree-show
-   (cltpt/base:parse-file cltpt/org-mode:*org-mode* "tests/test.org")))
+   (cltpt/base:parse-file :org-mode "tests/test.org")))
 
 (defun test-org-convert ()
   (let ((filepath
@@ -16,17 +16,17 @@
         (cltpt/base:*enable-macros* t))
     (cltpt/zoo:init)
     (cltpt/tree:tree-show
-     (cltpt/base:parse-file cltpt/org-mode:*org-mode* filepath))
+     (cltpt/base:parse-file :org-mode filepath))
     (time
      (progn
        (cltpt/base:convert-file
-        (cltpt/base:text-format-by-name "org-mode")
-        (cltpt/base:text-format-by-name "latex")
+        :org-mode
+        :latex
         filepath
         "test.out.tex")
        (cltpt/base:convert-file
-        (cltpt/base:text-format-by-name "org-mode")
-        (cltpt/base:text-format-by-name "html")
+        :org-mode
+        :html
         filepath
         "test.out.html")
        nil))))
@@ -100,7 +100,7 @@
                 '((:path ("/home/mahmooz/brain/notes/" "/home/mahmooz/brain/daily/")
                    :glob "*.org"
                    :format "org-mode")))))
-     (cltpt/roam:convert-all rmr (cltpt/base:text-format-by-name "html") "/tmp/out-%(identity title).html"))))
+     (cltpt/roam:convert-all rmr :html "/tmp/out-%(identity title).html"))))
 
 (defun roam-convert-test-2 ()
   (time
@@ -110,7 +110,7 @@
                    :format "org-mode")))))
      (cltpt/roam:convert-all
       rmr
-      (cltpt/base:text-format-by-name "html")
+      :html
       "/tmp/out-%(identity title).html"))))
 
 (defun test-babel-eval ()

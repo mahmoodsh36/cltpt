@@ -1,24 +1,17 @@
 (defpackage :cltpt/html
   (:use :cl)
   (:export
-   :*html* :*html-static-route* :*html-template* :init :*html-export-latex-method*))
+   :*html-static-route* :*html-template* :*html-export-latex-method*))
 
 (in-package :cltpt/html)
 
-(defvar *html*
-  (cltpt/base:make-text-format "html")
-  "the instance of `cltpt/base:text-object' for the html format.")
+(defmethod cltpt/base:text-format-text-object-types ((fmt (eql :html)))
+  '(cltpt/latex:display-math
+    cltpt/latex:inline-math
+    cltpt/latex:latex-env))
 
-(defun init ()
-  (setf
-   (cltpt/base:text-format-text-object-types *html*)
-   '(cltpt/latex:display-math
-     cltpt/latex:inline-math
-     cltpt/latex:latex-env
-     ;; text-macro
-     ;; post-lexer-text-macro
-     ))
-  (setf (cltpt/base:text-format-name *html*) "html"))
+(defmethod cltpt/base:text-format-document-type ((fmt (eql :html)))
+  'cltpt/base::document)
 
 ;; should be able to generate svg's (perhaps png's too) and have another 'mathjax option (atleast)
 (defvar *html-export-latex-method*
@@ -57,7 +50,7 @@ directory path.")
     ;; (#\space . "&nbsp;")
     ))
 
-(defmethod cltpt/base:text-format-escape ((fmt (eql *html*))
+(defmethod cltpt/base:text-format-escape ((fmt (eql :html))
                                           text
                                           escapable-chars
                                           escape-newlines)
@@ -73,5 +66,5 @@ directory path.")
        (remove #\newline *html-escape-table* :key #'car)
        escapable-chars)))
 
-(defmethod cltpt/base:text-format-conversion-template ((fmt (eql *html*)))
+(defmethod cltpt/base:text-format-conversion-template ((fmt (eql :html)))
   *html-template*)

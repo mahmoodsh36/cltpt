@@ -141,8 +141,8 @@
       2. test2
    b. nested item two
 - item three")
-         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* text))
-         (html-output (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/html:*html*)))
+         (parsed (cltpt/base:parse :org-mode text))
+         (html-output (cltpt/base:convert-tree parsed :org-mode :html)))
     html-output))
 
 (test org-list-test-3
@@ -170,8 +170,8 @@
       2. test2
    b. nested item two
 - item three")
-         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* text))
-         (latex-output (cltpt/base:convert-tree parsed cltpt/org-mode:*org-mode* cltpt/latex:*latex*)))
+         (parsed (cltpt/base:parse :org-mode text))
+         (latex-output (cltpt/base:convert-tree parsed :org-mode :latex)))
     latex-output))
 
 (defun org-list-test-6-func ()

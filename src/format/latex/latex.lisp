@@ -1,12 +1,11 @@
 (defpackage :cltpt/latex
   (:use :cl)
   (:export
-   :*latex* :display-math
+   :display-math
    :inline-math :display-math
    :latex-env :latex-link
    :expanded-latex
-   :*latex-code-env*
-   :init))
+   :*latex-code-env*))
 
 (in-package :cltpt/latex)
 
@@ -28,18 +27,11 @@
 (defvar *latex-code-env*
   "lstlisting")
 
-(defun make-latex ()
-  (cltpt/base:make-text-format
-   "latex"
-   (append '(display-math inline-math latex-env latex-link)
-           (cltpt/base:macro-text-object-types))))
+(defmethod cltpt/base:text-format-text-object-types ((fmt (eql :latex)))
+  nil)
 
-(defun init ()
-  )
-
-(defvar *latex*
-  (cltpt/base:make-text-format "latex")
-  "`text-format' instance of the latex format.")
+(defmethod cltpt/base:text-format-document-type ((fmt (eql :latex)))
+  'cltpt/base::document)
 
 (defvar *latex-escape-table*
   `((#\& . "\\&")
@@ -48,22 +40,6 @@
     (#\_ . "\\_")
     (#\# . "\\#")
     (#\newline . ,(format nil "~%\\\\~%"))))
-
-(defmethod cltpt/base:text-format-escape ((fmt (eql *latex*))
-                                          text
-                                          escapable-chars
-                                          escape-newlines)
-  (if escape-newlines
-      (cltpt/base:replace-chars-and-escapes
-       ;; replace any sequence of newlines with a single newline
-       ;; TODO: make into customizable behavior
-       (cltpt/str-utils:compress-consec text #\newline)
-       *latex-escape-table*
-       escapable-chars)
-      (cltpt/base:replace-chars-and-escapes
-       text
-       (remove #\newline *latex-escape-table* :key #'car)
-       escapable-chars)))
 
 (cltpt/base:define-text-object inline-math
   :rule `(:pattern
@@ -78,7 +54,7 @@
         t))
 
 (defmethod cltpt/base:text-object-convert ((obj inline-math)
-                                           (fmt (eql *latex*)))
+                                           (fmt (eql :latex)))
   (list :text (cltpt/base:text-object-text obj)
         :recurse t
         :escape nil))
@@ -92,7 +68,7 @@
           :on-char #\\))
 
 (defmethod cltpt/base:text-object-convert ((obj display-math)
-                                           (fmt (eql *latex*)))
+                                           (fmt (eql :latex)))
   (list :text (cltpt/base:text-object-text obj)
         :recurse t
         :escape nil))
@@ -122,7 +98,7 @@
           :on-char #\\)
   :documentation "latex link.")
 
-(defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql *latex*)))
+(defmethod cltpt/base:text-object-convert ((obj latex-env) (fmt (eql :latex)))
   (list :text (cltpt/base:text-object-text obj)
         :recurse t
         :escape nil))
@@ -132,8 +108,24 @@
   (cltpt/base:convert-tree
    (cltpt/base:text-object-clone obj)
    (or (getf cltpt/base:*convert-info* :src-fmt)
-       cltpt/base:*simple-format*)
-   *latex*))
+       :simple)
+   :latex))
 
-(defmethod cltpt/base:text-format-conversion-template ((fmt (eql *latex*)))
+(defmethod cltpt/base:text-format-escape ((fmt (eql :latex))
+                                          text
+                                          escapable-chars
+                                          escape-newlines)
+  (if escape-newlines
+      (cltpt/base:replace-chars-and-escapes
+       ;; replace any sequence of newlines with a single newline
+       ;; TODO: make into customizable behavior
+       (cltpt/str-utils:compress-consec text #\newline)
+       *latex-escape-table*
+       escapable-chars)
+      (cltpt/base:replace-chars-and-escapes
+       text
+       (remove #\newline *latex-escape-table* :key #'car)
+       escapable-chars)))
+
+(defmethod cltpt/base:text-format-conversion-template ((fmt (eql :latex)))
   *latex-template*)

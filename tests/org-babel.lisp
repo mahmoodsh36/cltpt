@@ -14,10 +14,10 @@
 
 (defun test-org-babel-1-func ()
   (let* ((cltpt/org-mode::*org-enable-babel* t)
-         (parsed (cltpt/base:parse-file cltpt/org-mode:*org-mode* "tests/babel.org"))
+         (parsed (cltpt/base:parse-file :org-mode "tests/babel.org"))
          (actual-output (cltpt/base:convert-document
-                         cltpt/org-mode:*org-mode*
-                         cltpt/html:*html*
+                         :org-mode
+                         :html
                          parsed))
          (expected-output "<!DOCTYPE html>
 <html>

@@ -18,7 +18,7 @@
 
 (defun test-org-src-block-with-image-result-func ()
   (cltpt/base:parse
-   cltpt/org-mode:*org-mode*
+   :org-mode
    "#+begin_src python :results file :exports both :eval no
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,7 +35,7 @@ plt.close()
 
 (defun org-src-block-with-image-result-html-conversion ()
   (let* ((doc (test-org-src-block-with-image-result-func))
-         (html-output (cltpt/base:convert-tree doc cltpt/org-mode:*org-mode* cltpt/html:*html*)))
+         (html-output (cltpt/base:convert-tree doc :org-mode :html)))
     html-output))
 
 (test test-org-src-block-with-image-result-html-conversion
@@ -60,11 +60,11 @@ plt.close()
 (defun test-comprehensive-org-document-func ()
   "test parsing a comprehensive org document with many features."
   (let ((content (uiop:read-file-string "tests/data/comprehensive-org-test.org")))
-    (cltpt/base:parse cltpt/org-mode:*org-mode* content)))
+    (cltpt/base:parse :org-mode content)))
 
 (defun comprehensive-org-document-html-conversion ()
   (let* ((doc (test-comprehensive-org-document-func))
-         (html-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/html:*html* doc)))
+         (html-output (cltpt/base:convert-document :org-mode :html doc)))
     html-output))
 
 (test test-comprehensive-org-document-html-conversion
@@ -79,8 +79,8 @@ plt.close()
 (defun text-block-test-conversion-func ()
   "Test conversion of text-block-test.txt using simple format and compare with expected output."
   (let* ((content (uiop:read-file-string "tests/data/text-block-test.txt"))
-         (parsed (cltpt/base:parse cltpt/base:*simple-format* content))
-         (actual-output (cltpt/base:convert-document cltpt/base:*simple-format* cltpt/base:*simple-format* parsed))
+         (parsed (cltpt/base:parse :simple content))
+         (actual-output (cltpt/base:convert-document :simple :simple parsed))
          (expected-output (uiop:read-file-string "tests/data/text-block-test-expected.txt")))
     (values actual-output expected-output)))
 
@@ -96,8 +96,8 @@ plt.close()
 (defun test-org-html-conversion-func ()
   "Test conversion of test.org to HTML and compare with expected output."
   (let* ((content (uiop:read-file-string "tests/test.org"))
-         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* content))
-         (actual-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/html:*html* parsed))
+         (parsed (cltpt/base:parse :org-mode content))
+         (actual-output (cltpt/base:convert-document :org-mode :html parsed))
          (expected-output (uiop:read-file-string "tests/data/test-org-expected.html")))
     (values actual-output expected-output)))
 
@@ -113,8 +113,8 @@ plt.close()
 (defun test-org-latex-conversion-func ()
   "Test conversion of test.org to LaTeX and compare with expected output."
   (let* ((content (uiop:read-file-string "tests/test.org"))
-         (parsed (cltpt/base:parse cltpt/org-mode:*org-mode* content))
-         (actual-output (cltpt/base:convert-document cltpt/org-mode:*org-mode* cltpt/latex:*latex* parsed))
+         (parsed (cltpt/base:parse :org-mode content))
+         (actual-output (cltpt/base:convert-document :org-mode :latex parsed))
          (expected-output (uiop:read-file-string "tests/data/test-org-expected.tex")))
     (values actual-output expected-output)))
 
@@ -131,12 +131,12 @@ plt.close()
   (is (string=
        (cltpt/base:convert-tree
         (cltpt/base:parse
-         cltpt/org-mode:*org-mode*
+         :org-mode
          "\\(x^#(+ 1 2)\\)
 #+name: eq-1
 \\begin{equation}y^#(+ 2 2)\\end{equation}")
-        cltpt/org-mode:*org-mode*
-        cltpt/latex:*latex*)
+        :org-mode
+        :latex)
        "\\(x^3\\)
 \\\\
 \\begin{equation}y^4\\end{equation}")))

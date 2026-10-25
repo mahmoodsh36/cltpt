@@ -17,16 +17,16 @@
          obj
          (format nil
                  (cltpt/base:pcase backend
-                   (cltpt/latex:*latex*
+                   (:latex
                     "\\begin{~A}")
-                   (cltpt/html:*html*
+                   (:html
                     "<~A>"))
                  type1)
          (format nil
                  (cltpt/base:pcase backend
-                   (cltpt/latex:*latex*
+                   (:latex
                     "\\end{~A}")
-                   (cltpt/html:*html*
+                   (:html
                     "</~A>"))
                  type1)
          :escape (cltpt/base:text-object-property obj :escape t))
@@ -90,7 +90,7 @@
                                  (cltpt/base:convert-tree
                                   clone
                                   (or (getf cltpt/base:*convert-info* :src-fmt)
-                                      cltpt/base:*simple-format*)
+                                      :simple)
                                   backend)))))
           (list :text (cltpt/base:concat result 'string)
                 :recurse nil
@@ -126,25 +126,25 @@ empty when there is no depth."
                    img-url))))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)
-                                           (fmt (eql cltpt/html:*html*)))
+                                           (fmt (eql :html)))
   (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) t)
         :recurse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:display-math)
-                                           (fmt (eql cltpt/html:*html*)))
+                                           (fmt (eql :html)))
   (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) nil)
         :recurse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:latex-env)
-                                           (fmt (eql cltpt/html:*html*)))
+                                           (fmt (eql :html)))
   (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) nil)
         :recurse nil
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
-                                           (fmt (eql cltpt/latex:*latex*)))
+                                           (fmt (eql :latex)))
   ;; TODO: handle \caption and \label properly.
   ;; we recurse so macros in the env get expanded, and drop the keywords before it.
   (list :text (cltpt/base:text-object-text obj)
@@ -158,7 +158,7 @@ empty when there is no depth."
         :escape nil))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/org-mode::org-latex-env)
-                                           (fmt (eql cltpt/html:*html*)))
+                                           (fmt (eql :html)))
   ;; TODO: handle \caption and \label properly.
   (list :text (latex-fragment-to-html (cltpt/latex:expanded-latex obj) nil)
         :recurse nil
@@ -202,7 +202,7 @@ empty when there is no depth."
           (cltpt/base:link-resolve src 'cltpt/base::file dest desc)))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/base:text-link)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (let* ((link (cltpt/base:text-link-link obj))
          (desc (cltpt/base:link-desc link))
          (dest (cltpt/base:link-dest link))
@@ -240,7 +240,7 @@ empty when there is no depth."
              (dest-is-dir dest-filepath)
              (new-filepath
               (if (and (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
-                       (eq backend cltpt/html:*html*)
+                       (eq backend :html)
                        cltpt/html:*html-static-route*)
                   ;; if its html we should respect *html-static-route*
                   (cltpt/file-utils:join-paths
@@ -253,18 +253,18 @@ empty when there is no depth."
       ;; it gets overwritten later.
       (setf open-tag
             (cltpt/base:pcase backend
-              (cltpt/html:*html*
+              (:html
                (format nil
                        "<a href='~A'>"
                        inserted-filepath))
-              (cltpt/latex:*latex*
+              (:latex
                (format nil
                        "\\href{~A}{"
                        inserted-filepath))))
       (setf close-tag
             (cltpt/base:pcase backend
-              (cltpt/html:*html* "</a>")
-              (cltpt/latex:*latex* "}")))
+              (:html "</a>")
+              (:latex "}")))
       (when (cltpt/file-utils:file-has-extension-p dest-filepath static-ext)
         ;; we should check if its the same file, otherwise copy-file will break
         (unless (string= dest-filepath new-filepath)
@@ -274,18 +274,18 @@ empty when there is no depth."
         ;; if its an image or video we need to "display" it in html.
         (setf open-tag
               (cltpt/base:pcase backend
-                (cltpt/html:*html*
+                (:html
                  (format nil
                          "<img src='~A' />"
                          inserted-filepath))
-                (cltpt/latex:*latex*
+                (:latex
                  (format nil
                          "\\href{~A}{"
                          inserted-filepath))))
         (setf close-tag
               (cltpt/base:pcase backend
-                (cltpt/html:*html* "")
-                (cltpt/latex:*latex* "}")))
+                (:html "")
+                (:latex "}")))
         (setf final-desc ""))
       ;; when there's no description for the link the resulting text
       ;; would just be an html snippet with no need for escaping or recursing.
@@ -327,9 +327,6 @@ empty when there is no depth."
 
 it may be necessary to call this function after modifying some customization
 variables such as `cltpt/base:*enable-macros*'."
-  (cltpt/html:init)
-  (cltpt/org-mode:init)
-  (cltpt/latex:init)
   (cltpt/base:rebuild-text-object-rules))
 
 (init)

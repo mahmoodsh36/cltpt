@@ -1,7 +1,7 @@
 (defpackage :cltpt/org-mode
   (:use :cl)
   (:export
-   :org-list-matcher :*org-mode* :org-mode-text-object-types :init
+   :org-list-matcher :org-mode-text-object-types
    :org-example-block
    :get-cell-at-coordinates :get-cell-coordinates :org-table-matcher
    :get-table-width :get-table-height :reformat-table :list-to-table-string :list-to-list-string
@@ -20,46 +20,39 @@
 
 (defvar *org-enable-babel* nil)
 
-(defvar *org-mode*
-  (cltpt/base:make-text-format "org-mode")
-  "`text-format' instance of the org-mode format.")
+;; crucial to keep the order of types, especially types like
+;; org-src-block and org-block because we want org-src-block
+;; to be attempted first, otherwise org-block might match first.
+(defmethod cltpt/base:text-format-text-object-types ((fmt (eql :org-mode)))
+  (append
+   '(org-list
+     org-table
+     org-header
+     org-link
+     org-timestamp
+     org-src-block
+     org-example-block
+     org-export-block
+     org-block
+     org-prop-drawer
+     org-drawer
+     org-latex-env
+     org-keyword ;; has to be after org-latex-env and before cltpt/latex:latex-env
+     cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
+     org-italic
+     org-emph
+     org-underline
+     org-strike-through
+     org-inline-code
+     org-comment
+     web-link)
+   (cltpt/base:macro-text-object-types)))
 
-(defun init ()
-  (setf (cltpt/base:text-format-text-object-types *org-mode*)
-        (concatenate
-         'list
-         ;; crucial to keep the order of types, especially types like
-         ;; org-src-block and org-block because we want org-src-block
-         ;; to be attempted first, otherwise org-block might match first
-         '(org-list
-           org-table
-           org-header
-           org-link
-           org-timestamp
-           org-src-block
-           org-example-block
-           org-export-block
-           org-block
-           org-prop-drawer
-           org-drawer
-           org-latex-env
-           org-keyword ;; has to be after org-latex-env and before cltpt/latex:latex-env
-           cltpt/latex:display-math cltpt/latex:inline-math cltpt/latex:latex-env
-           org-italic
-           org-emph
-           org-underline
-           org-strike-through
-           org-inline-code
-           org-comment
-           web-link)
-         (cltpt/base:macro-text-object-types)))
-  ;; (setf (cltpt/base:text-format-name *org-mode*)
-  ;;       "org-mode")
-  (setf (cltpt/base:text-format-document-type *org-mode*)
-        'org-document))
+(defmethod cltpt/base:text-format-document-type ((fmt (eql :org-mode)))
+  'org-document)
 
 (defun org-mode-text-object-types ()
-  (cltpt/base:text-format-text-object-types *org-mode*))
+  (cltpt/base:text-format-text-object-types :org-mode))
 
 (defun org-mode-inline-text-object-types ()
   (intersection
@@ -68,12 +61,14 @@
    (org-mode-text-object-types)))
 
 (defun org-mode-inline-text-object-rule ()
-  (mapcar
-   (lambda (subclass-name)
-     (cltpt/combinator:copy-rule
-      (cltpt/base:text-object-rule-from-subclass subclass-name)
-      subclass-name))
-   (org-mode-inline-text-object-types)))
+  ;; we use `boundp' because rules embedding this are evaluated at definition time, when types
+  ;; defined later may have no value yet. `rebuild-text-object-rules' re-derives complete rules
+  ;; after everything is loaded.
+  (loop for subclass-name in (org-mode-inline-text-object-types)
+        when (boundp subclass-name)
+        collect (cltpt/combinator:copy-rule
+                 (cltpt/base:text-object-rule-from-subclass subclass-name)
+                 subclass-name)))
 
 (defun org-mode-text-object-types-except (exceptions)
   (reverse
@@ -161,7 +156,7 @@
 ;; simply dont convert drawers (this isnt the correct org-mode behavior tho)
 ;; TODO: properly convert drawers. drawers can include any elements but headers.
 (defmethod cltpt/base:text-object-convert ((obj org-prop-drawer)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   "")
 
 (cltpt/base:define-text-object org-keyword
@@ -226,13 +221,13 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   (car (org-keyword-cons obj)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-keyword)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (let* ((kw (org-keyword-keyword obj))
          (value (org-keyword-value obj))
          (final-result))
     ;; handle transclusions: #+transclude: [[id:some-id]] or #+transclude: [[file:path]]
     (when (and kw (string-equal kw "transclude") value)
-      (let* ((org-link-parse-result (cltpt/base:parse *org-mode* value))
+      (let* ((org-link-parse-result (cltpt/base:parse :org-mode value))
              (first-child (car (cltpt/base:text-object-children org-link-parse-result))))
         (when (typep first-child 'org-link)
           ;; resolve the link to get the target (could be a roam node, filepath, or text-object)
@@ -248,7 +243,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
                          )
                         (t nil))))
                 (when dest-text-obj
-                  (let ((result (cltpt/base:convert-tree dest-text-obj *org-mode* backend)))
+                  (let ((result (cltpt/base:convert-tree dest-text-obj :org-mode backend)))
                     (setf final-result
                           (list :text result
                                 :recurse nil
@@ -269,7 +264,7 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
   :documentation "comment line in org-mode.")
 
 (defmethod cltpt/base:text-object-convert ((obj org-comment)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   "")
 
 (defvar *org-single-timestamp-rule*
@@ -422,17 +417,17 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
 
 (defun get-checkbox-replacement (checkbox-state backend)
   (cltpt/base:pcase backend
-    (cltpt/html:*html*
+    (:html
      (get-html-checkbox-replacement checkbox-state))
-    (cltpt/latex:*latex*
+    (:latex
      (get-latex-checkbox-replacement checkbox-state))))
 
 (defun backend-tag (backend html latex)
   "return HTML or LATEX static tag string depending on BACKEND.
 only for tag pairs with no per-backend logic; dynamic tags keep their `pcase'."
   (cltpt/base:pcase backend
-    (cltpt/html:*html* html)
-    (cltpt/latex:*latex* latex)))
+    (:html html)
+    (:latex latex)))
 
 (defun generate-list-changes (match backend obj &optional base-offset (depth 0))
   "generate changes for converting an org-list match to HTML/LaTeX.
@@ -454,23 +449,23 @@ used for all region-decf calculations to get positions relative to the text-obje
                           (cltpt/base:text-object-match-text obj bullet-node)))
          (open-tag
            (cltpt/base:pcase backend
-             (cltpt/html:*html*
+             (:html
               (if (eq list-type :ul)
                   (format nil "<ul>~%")
                   (let ((ol-type (get-html-ol-type bullet-marker)))
                     (format nil "<ol~@[ type=\"~A\"~]>~%" ol-type))))
-             (cltpt/latex:*latex*
+             (:latex
               (if (eq list-type :ul)
                   (format nil "\\begin{itemize}~%")
                   (let ((renew-cmd (get-latex-label-command bullet-marker depth)))
                     (format nil "\\begin{enumerate}~%~@[~A~%~]" renew-cmd))))))
          (close-tag
            (cltpt/base:pcase backend
-             (cltpt/html:*html*
+             (:html
               (if (eq list-type :ul)
                   (format nil "</ul>~%")
                   (format nil "</ol>~%")))
-             (cltpt/latex:*latex*
+             (:latex
               (if (eq list-type :ul)
                   (format nil "~%\\end{itemize}~%")
                   (format nil "~%\\end{enumerate}~%"))))))
@@ -555,7 +550,7 @@ used for all region-decf calculations to get positions relative to the text-obje
     (nreverse changes)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-list)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (let ((changes (generate-list-changes (cltpt/base:text-object-match obj) backend obj)))
     (list :changes changes
           :recurse t
@@ -826,7 +821,7 @@ used for noexport headers, `:exports none' blocks, and non-exported code."
    :args '(:discard-contained t)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-header)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (let ((to-not-export
           (member "noexport"
                   (cltpt/base:text-object-property
@@ -843,20 +838,20 @@ used for noexport headers, `:exports none' blocks, and non-exported code."
                (match-end-abs (cltpt/combinator:match-end-absolute match))
                (close-tag
                  (cltpt/base:pcase backend
-                   (cltpt/html:*html*
+                   (:html
                     (format nil
                             "</h~A>"
                             ;; we want to start from h2, not h1 in html.
                             (1+ (cltpt/base:text-object-property obj :level))))
-                   (cltpt/latex:*latex* "}")))
+                   (:latex "}")))
                (open-tag
                  (cltpt/base:pcase backend
-                   (cltpt/html:*html*
+                   (:html
                     (format nil
                             "<h~A>"
                             ;; we want to start from h2, not h1 in html.
                             (1+ (cltpt/base:text-object-property obj :level))))
-                   (cltpt/latex:*latex*
+                   (:latex
                     (format nil
                             "\\~Asection{"
                             (cltpt/str-utils:str-dupe
@@ -950,9 +945,9 @@ used for noexport headers, `:exports none' blocks, and non-exported code."
   (setf (cltpt/base:text-object-property obj :is-inline)
         t))
 
-(defmethod cltpt/base:text-object-convert ((obj web-link) (backend cltpt/base:text-format))
+(defmethod cltpt/base:text-object-convert ((obj web-link) backend)
   (cond
-    ((eq backend cltpt/html:*html*)
+    ((eq backend :html)
      (list :text
            (format nil
                    "<a href='~A'>~A</a>"
@@ -976,14 +971,14 @@ used for noexport headers, `:exports none' blocks, and non-exported code."
   (compress-contents-region-by-one obj))
 
 (defmethod cltpt/base:text-object-convert ((obj org-inline-code)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (cond
-    ((eq backend cltpt/latex:*latex*)
+    ((eq backend :latex)
      (cltpt/base:rewrap-within-tags
       obj
       "\\verb{"
       "}"))
-    ((eq backend cltpt/html:*html*)
+    ((eq backend :html)
      (cltpt/base:rewrap-within-tags
       obj
       "<code>"
@@ -1036,15 +1031,15 @@ they are preceding siblings. this is the case for objects whose rule doesnt
 
 ;; TODO: this uses nconc all the time which causes squared complexity
 (defmethod cltpt/base:text-object-convert ((obj org-table)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (let* ((match (cltpt/base:text-object-match obj))
          (changes)
          (match-begin (cltpt/combinator:match-begin-absolute match))
          (escape-regions)
          (open-tag
            (cltpt/base:pcase backend
-             (cltpt/html:*html* "<table>")
-             (cltpt/latex:*latex*
+             (:html "<table>")
+             (:latex
               (let* ((first-row-match
                        (cltpt/combinator:find-submatch
                         match
@@ -1325,10 +1320,10 @@ they are preceding siblings. this is the case for objects whose rule doesnt
     (cltpt/latex-previews:generate-previews-for-latex mylist)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-document)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   ;; by ensuring the previews are generated before conversion we avoid having
   ;; to compile every preview individually later on.
-  (when (eq backend cltpt/html:*html*)
+  (when (eq backend :html)
     (ensure-latex-previews-generated obj))
   (list :text (cltpt/base:text-object-text obj)
         :escape t
@@ -1362,11 +1357,11 @@ GENERATES the text-object definition with init/finalize/convert methods."
              t))
      (defmethod cltpt/base:text-object-finalize ((obj ,name))
        (compress-contents-region-by-one obj))
-     (defmethod cltpt/base:text-object-convert ((obj ,name) (backend cltpt/base:text-format))
+     (defmethod cltpt/base:text-object-convert ((obj ,name) backend)
        (cond
-         ((eq backend cltpt/latex:*latex*)
+         ((eq backend :latex)
           (cltpt/base:rewrap-within-tags obj ,latex-open ,latex-close))
-         ((eq backend cltpt/html:*html*)
+         ((eq backend :html)
           (cltpt/base:rewrap-within-tags obj ,html-open ,html-close))))))
 
 (define-inline-emph org-emph
@@ -1603,7 +1598,7 @@ code blocks without :exports default to code-only."
     (list export-code export-results)))
 
 (defmethod convert-block ((obj cltpt/base:text-object)
-                          (backend cltpt/base:text-format)
+                          backend
                           block-type
                           is-code
                           &optional is-verbatim)
@@ -1657,7 +1652,7 @@ code blocks without :exports default to code-only."
               (open-tag-args '(:discard-contained t))
               (code-open-tag
                 (cltpt/base:pcase backend
-                  (cltpt/html:*html*
+                  (:html
                    (cond
                      (is-code
                       (format nil
@@ -1672,7 +1667,7 @@ code blocks without :exports default to code-only."
                               "<div class='~A org-block' ~A>"
                               block-type
                               props-str))))
-                  (cltpt/latex:*latex*
+                  (:latex
                    (cond
                      (is-code
                       (format nil "\\begin{~A}" cltpt/latex:*latex-code-env*))
@@ -1682,12 +1677,12 @@ code blocks without :exports default to code-only."
                       (format nil "\\begin{~A}" block-type))))))
               (code-close-tag
                 (cltpt/base:pcase backend
-                  (cltpt/html:*html*
+                  (:html
                    (cond
                      (is-code "</code></pre></div>")
                      (is-verbatim "</pre></div>")
                      (t "</div>")))
-                  (cltpt/latex:*latex*
+                  (:latex
                    (cond
                      (is-code
                       (format nil "\\end{~A}" cltpt/latex:*latex-code-env*))
@@ -1698,15 +1693,15 @@ code blocks without :exports default to code-only."
               (changes)
               (results-open-tag
                 (cltpt/base:pcase backend
-                  (cltpt/html:*html* "<div class='org-babel-results'>")
-                  (cltpt/latex:*latex*
+                  (:html "<div class='org-babel-results'>")
+                  (:latex
                    (format nil
                            "\\begin{~A}"
                            cltpt/latex:*latex-code-env*))))
               (results-close-tag
                 (cltpt/base:pcase backend
-                  (cltpt/html:*html* "</div>")
-                  (cltpt/latex:*latex*
+                  (:html "</div>")
+                  (:latex
                    (format nil
                            "\\end{~A}"
                            cltpt/latex:*latex-code-env*))))
@@ -1951,7 +1946,7 @@ code blocks without :exports default to code-only."
                (push (cons kw val) (cltpt/base:text-object-property obj :keywords-alist))))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-src-block)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (convert-block obj backend nil t))
 
 (cltpt/base:define-text-object org-example-block
@@ -1981,7 +1976,7 @@ code blocks without :exports default to code-only."
   (init-org-src-block obj str1))
 
 (defmethod cltpt/base:text-object-convert ((obj org-example-block)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (convert-block obj backend "example" nil t))
 
 (defun org-block-no-kw-rule ()
@@ -2066,7 +2061,7 @@ code blocks without :exports default to code-only."
                :text-obj obj))))))
 
 (defmethod cltpt/base:text-object-convert ((obj org-block)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (convert-block obj backend (cltpt/base:text-object-property obj :type) nil))
 
 ;; an "export block" is very similar to an src-block, just some slight differences.
@@ -2084,12 +2079,12 @@ code blocks without :exports default to code-only."
   (init-org-src-block obj str1))
 
 (defmethod cltpt/base:text-object-convert ((obj org-export-block)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (let* ((match (cltpt/base:text-object-match obj))
          (lang-match (cltpt/combinator:find-submatch match 'lang))
          (lang (cltpt/base:text-object-match-text obj lang-match)))
     ;; we only export if the destination matches the lang set by the export block
-    (if (string= (cltpt/base:text-format-name backend) lang)
+    (if (string-equal (symbol-name backend) lang)
         (list :text (cltpt/base:text-object-contents obj)
               :recurse nil
               :escape nil)
@@ -2120,7 +2115,7 @@ code blocks without :exports default to code-only."
               :find-last-end t)))
 
 (defmethod cltpt/base:text-object-convert ((obj org-drawer)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (cltpt/base:rewrap-within-tags
    obj
    ""

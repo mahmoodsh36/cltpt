@@ -283,7 +283,7 @@ inserts rather than replaces."
      #'handle-obj)
     (cltpt/buffer:apply-scheduled-changes
      doc
-     :on-apply (cltpt/base:make-reparse-callback doc *org-mode*))))
+     :on-apply (cltpt/base:make-reparse-callback doc :org-mode))))
 
 (defmethod cltpt/base:convert-tree :before ((doc org-document) fmt-src fmt-dest &rest args)
   ;; evaluate blocks to prepare them for conversion.

@@ -8,12 +8,12 @@
    :today-timestamp :truncate-to-day
    :find-cons-if
 
-   :make-text-format :*simple-format*
-   :text-format-text-object-types :text-format-by-name
+   :format-name-to-keyword
+   :text-format-text-object-types
    :define-text-object
    :convert-file :text-macro :post-lexer-text-macro
    :text-format-escape :replace-chars-and-escapes
-   :text-format :text-format-conversion-template
+   :text-format-conversion-template
 
    :parse-file :parse
    :reparse-change-in-tree :make-reparse-callback
@@ -40,7 +40,7 @@
    :child-at-pos
    :text-object-rule-from-subclass
    :rebuild-text-object-rules
-   :text-format-name :text-format-from-alias :text-format-document-type
+   :text-format-document-type
    :text-object-clone :sort-text-objects :text-object-set-parent
    :text-object-adjust-to-parent :text-object-extend-in-parent :text-object-move
    :text-block :text-object-convert-options :text-object-contents-region

@@ -131,7 +131,7 @@ the function passes the state between recursive calls by returning two values:
 ;; TODO: this currently doesnt work incrementally with streams. it only works with fixed strings.
 ;; make it work with streams like the combinator. doing this might be tricky because it would make
 ;; backtracking costy as we would have to modify the document as we progress.
-(defmethod parse ((format text-format)
+(defmethod parse (format
                   input
                   &key
                     (text-object-types (text-format-text-object-types format))

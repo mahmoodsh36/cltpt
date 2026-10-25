@@ -19,12 +19,6 @@
    :text-object-begin-in-root :text-object-end-in-root
    :text-object-convert
    :convert-simple-format)
-  (:import-from :cltpt/html
-   :*html*)
-  (:import-from :cltpt/org-mode
-   :*org-mode*)
-  (:import-from :cltpt/latex
-   :*latex*)
   (:import-from
    :cltpt/file-utils
    :read-file :write-file
@@ -45,12 +39,6 @@
    :text-object-begin-in-root :text-object-end-in-root
    :text-object-convert
    :convert-simple-format
-
-   :*html*
-
-   :*org-mode*
-
-   :*latex*
 
    :read-file :write-file
    :join-paths))

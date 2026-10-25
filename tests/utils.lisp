@@ -164,7 +164,7 @@ returns T if all trees match, NIL otherwise."
    'identity
    (loop
      for type1
-       in (cltpt/base:text-format-text-object-types cltpt/org-mode:*org-mode*)
+       in (cltpt/base:text-format-text-object-types :org-mode)
      collect (cltpt/base:text-object-rule-from-subclass type1))))
 
 (defun rules-from-symbols (syms)

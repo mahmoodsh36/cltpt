@@ -14,8 +14,8 @@
                       dest-dir dest-dir-static
                       roamer
                       predicate)
-  (let* ((src-format (or src-format (cltpt/base:text-format-by-name src-format-name)))
-         (dest-format (or dest-format (cltpt/base:text-format-by-name dest-format-name)))
+  (let* ((src-format (or src-format (and src-format-name (cltpt/base:format-name-to-keyword src-format-name))))
+         (dest-format (or dest-format (and dest-format-name (cltpt/base:format-name-to-keyword dest-format-name))))
          (roamer (or roamer (cltpt/roam:roamer-from-files (or files rules)))))
     (when (and roamer filepath-format dest-format)
       (apply

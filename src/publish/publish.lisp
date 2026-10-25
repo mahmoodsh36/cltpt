@@ -51,10 +51,10 @@
   (let ((*current-template-file* (uiop:native-namestring (uiop:truename* template-file))))
     (cltpt/base:convert-tree
      (cltpt/base:parse
-      cltpt/base:*simple-format*
+      :simple
       (cltpt/file-utils:read-file template-file))
-     cltpt/base:*simple-format*
-     cltpt/html:*html*
+     :simple
+     :html
      :escape nil)))
 
 (defun convert-template (dest-dir template-file)
@@ -134,18 +134,18 @@
     :accessor template-file)))
 
 (defmethod cltpt/base:text-object-convert ((obj template)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (let ((*current-template-file* (template-file obj))
         (cltpt/base:*convert-info* (cltpt/base:merge-plist
                                     cltpt/base:*convert-info*
-                                    (list :src-fmt cltpt/base:*simple-format*
+                                    (list :src-fmt :simple
                                           :dest-fmt backend))))
     (list :text (cltpt/base:convert-tree
                  (cltpt/base:parse
-                  cltpt/base:*simple-format*
+                  :simple
                   (cltpt/file-utils:read-file (template-file obj)))
-                 cltpt/base:*simple-format*
-                 cltpt/html:*html*
+                 :simple
+                 :html
                  :escape nil)
           :escape nil)))
 
@@ -187,7 +187,7 @@ tries in order:
 ;; we have to do this because by default a dummy text-object is created that doesnt have a special
 ;; text-object-convert assigned to it and so its results get :escape t by the default one.
 (defmethod cltpt/base:text-object-convert ((obj unescaping-text-obj)
-                                           (backend cltpt/base:text-format))
+                                           backend)
   (list :text (cltpt/buffer:buffer-own-text obj)
         :escape nil))
 
@@ -215,14 +215,14 @@ tries in order:
             (dolist (node nodes)
               (let ((cltpt/roam:*roam-convert-data* (list :roamer rmr :node node))
                     (cltpt/base:*convert-info*
-                      (list :src-fmt cltpt/base:*simple-format*
-                            :dest-fmt cltpt/html:*html*)))
+                      (list :src-fmt :simple
+                            :dest-fmt :html)))
                 (format out
                         "~A~%"
                         (cltpt/base:convert-tree
                          template-item
-                         cltpt/base:*simple-format*
-                         cltpt/html:*html*
+                         :simple
+                         :html
                          :escape nil))))))))))
 
 (defun render-post-items ()
@@ -234,5 +234,5 @@ tries in order:
     (wrap-into-unescaping-obj
      (cltpt/base:convert-tree
       template-list
-      cltpt/base:*simple-format*
-      cltpt/html:*html*))))
+      :simple
+      :html))))

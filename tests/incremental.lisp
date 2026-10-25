@@ -10,6 +10,12 @@
 
 (in-suite incremental-suite)
 
+(defmethod cltpt/base:text-format-text-object-types ((fmt (eql :dummy)))
+  (list 'cltpt/latex:inline-math))
+
+(defmethod cltpt/base:text-format-document-type ((fmt (eql :dummy)))
+  'cltpt/base:document)
+
 ;; helper function to apply a change with reparsing
 (defun apply-change-with-reparse (obj format start end new-text)
   "schedule and apply a change with reparsing enabled."
@@ -28,7 +34,7 @@
 (defun test-buffer-reparse-callback ()
   "test that apply-scheduled-changes with make-reparse-callback produces correct reparsing."
   (let* ((text "start \\(math here\\) here")
-         (format (cltpt/base:make-text-format "dummy" (list 'cltpt/latex::inline-math)))
+         (format :dummy)
          (doc (cltpt/base:parse format text))
          (initial-children-count (length (cltpt/base:text-object-children doc))))
     (format t "num of children before: ~A~%" initial-children-count)
@@ -51,7 +57,7 @@
 
 (defun test-incremental-insertion ()
   (let* ((text "start \\(math here\\) end")
-         (format (cltpt/base:make-text-format "dummy" (list 'cltpt/latex::inline-math)))
+         (format :dummy)
          (doc (cltpt/base:parse format text))
          (initial-children (length (cltpt/base:text-object-children doc))))
     (apply-change-with-reparse doc format 20 20 " \\(more math\\)")
@@ -68,7 +74,7 @@
 
 (defun test-incremental-replacement ()
   (let* ((text "test \\(old math\\) here")
-         (format (cltpt/base:make-text-format "dummy" (list 'cltpt/latex::inline-math)))
+         (format :dummy)
          (doc (cltpt/base:parse format text))
          (initial-text (cltpt/base:text-object-text doc)))
     ;; replace "old" with "new"
@@ -97,7 +103,7 @@ content A.
 
 * section two
 more \\(inline math\\) text.")
-         (format cltpt/org-mode:*org-mode*)
+         (format :org-mode)
          (doc (cltpt/base:parse format text)))
     (let ((expected-initial-tree
             '(cltpt/org-mode::org-document

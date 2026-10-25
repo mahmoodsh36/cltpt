@@ -50,8 +50,8 @@ the '\\' and processes the char normally (replace or emit)."
 ;; prevent iterating through children (but maybe not escaping? specified regions
 ;; should still be escaped).
 (defmethod convert-tree ((text-obj text-object)
-                         (fmt-src text-format)
-                         (fmt-dest text-format)
+                         fmt-src
+                         fmt-dest
                          &key
                            (reparse nil reparse-supplied)
                            (recurse nil recurse-supplied)
@@ -208,8 +208,8 @@ the '\\' and processes the char normally (replace or emit)."
       (cltpt/buffer:apply-scheduled-changes text-obj))
     (text-object-text text-obj)))
 
-(defmethod convert-document ((src-fmt text-format)
-                             (dest-fmt text-format)
+(defmethod convert-document (src-fmt
+                             dest-fmt
                              (doc document))
   "convert a document from one text format to another.
 
@@ -248,7 +248,7 @@ before calling `convert-tree' on the given DOC."
     (if template
         (convert-tree
          (parse
-          *simple-format*
+          :simple
           template
           :text-object-types (list 'text-macro
                                    'post-lexer-text-macro))
@@ -262,9 +262,9 @@ before calling `convert-tree' on the given DOC."
 (defun convert-simple-format (format-str)
   "this function can be used for \"formatting strings\" with lisp code."
   (let* ((result (convert-tree
-                  (parse *simple-format* format-str)
-                  *simple-format*
-                  *simple-format*)))
+                  (parse :simple format-str)
+                  :simple
+                  :simple)))
     result))
 
 (defun filepath-format (filepath format-str &optional additional-data)

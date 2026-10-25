@@ -138,10 +138,9 @@ each rule is a plist that can contain the following params.
          (*roam-parse-data*
            (list :roamer rmr)))
     (loop for (file . file-rule) in file-rule-alist
-          do (let* ((fmt (if (cltpt/base:plistp file-rule)
-                             (cltpt/base:text-format-by-name
-                              (getf file-rule :format))
-                             (cltpt/base:text-format-from-alias
+          do (let* ((fmt (cltpt/base:format-name-to-keyword
+                          (if (cltpt/base:plistp file-rule)
+                              (getf file-rule :format)
                               (cltpt/file-utils:file-ext file-rule))))
                     (parsed (cltpt/base:parse-file
                              fmt
@@ -173,7 +172,7 @@ each rule is a plist that can contain the following params.
    (roamer-node-id-hashtable rmr)))
 
 (defmethod convert-all ((rmr roamer)
-                        (dest-format cltpt/base:text-format)
+                        dest-format
                         filepath-format
                         &key
                           dest-dir
@@ -278,6 +277,6 @@ each rule is a plist that can contain the following params.
   (or (getf *roam-convert-data* :roamer)
       (getf *roam-parse-data* :roamer)))
 
-(defmethod text-format-roam-types ((tf cltpt/base:text-format))
+(defmethod text-format-roam-types (tf)
   "names of sub-classes of `text-object' that should be considered when parsing for roam."
   (cltpt/base:text-format-text-object-types tf))
