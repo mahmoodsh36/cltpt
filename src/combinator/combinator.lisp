@@ -46,6 +46,11 @@
 ;; 7. to optimize and reduce the amount of redundant matching we could generalize the :on-char heuristic to a trie-based approach that works with a sequence instead of a single char.
 ;; 8. avoid calling (and perhaps cache calls to) match-{begin,end}-absolute.
 
+(defvar *escaped*)
+
+(defvar *literal-char-cache*
+  (make-hash-table :test 'eq :synchronized t))
+
 (declaim (inline context-parent-begin normalize-match context-copy make-context))
 
 ;; this is used to keep track of the rules being processed, so that a matcher
@@ -81,8 +86,6 @@ returns 0 if ctx is nil or has no parent match. result is cached."
                     :parent-match* parent-match
                     :parent-begin-cache nil)
       (make-context :parent-match* parent-match)))
-
-(defvar *escaped*)
 
 (defun plistp (list1)
   "check whether LIST1 is a plist."
@@ -147,9 +150,6 @@ returns the character if the rule starts with a known literal, NIL otherwise."
      (extract-literal-from-rule (getf rule :pattern)))
     ;; unknown pattern
     (t nil)))
-
-(defvar *literal-char-cache*
-  (make-hash-table :test 'eq :synchronized t))
 
 (defun extract-literal-from-rule-cached (rule)
   (multiple-value-bind (val found) (gethash rule *literal-char-cache*)
