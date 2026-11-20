@@ -71,10 +71,17 @@
                  subclass-name)))
 
 (defun org-mode-text-object-types-except (exceptions)
-  (reverse
-   (set-difference (org-mode-text-object-types)
-                   exceptions
-                   :test 'equal)))
+  (remove-if
+   (lambda (type)
+     (member type exceptions))
+   (org-mode-text-object-types)))
+
+(defun org-mode-text-object-rule-except (exceptions)
+  (loop for subclass-name in (org-mode-text-object-types-except exceptions)
+        when (boundp subclass-name)
+        collect (cltpt/combinator:copy-rule
+                 (cltpt/base:text-object-rule-from-subclass subclass-name)
+                 subclass-name)))
 
 ;; this is in order to try and reduce the work required to parse files
 ;; when fetching metadata through roam.
@@ -318,6 +325,9 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           :on-char #\<)
   :documentation "a timestamp/date. e.g. <2023-12-28 Thu 18:30:00>.")
 
+(defmethod cltpt/base:text-object-init :after ((obj org-timestamp) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline) t))
+
 (defun org-timestamp-match-to-time (obj match)
   ;; collect all needed submatches in a single tree walk instead of 7 separate walks.
   (let (day-match month-match year-match hour-match minute-match second-match)
@@ -385,9 +395,12 @@ MUST-HAVE-KEYWORDS determines whether keywords must exist for a match to succeed
           :on-char #\[)
   :documentation "a timestamp/date. e.g. [2023-12-28 Thu 18:30].")
 
+(defmethod cltpt/base:text-object-init :after ((obj org-timestamp-bracket) str1 match)
+  (setf (cltpt/base:text-object-property obj :is-inline) t))
+
 (cltpt/base:define-text-object org-list
   :rule `(org-list-matcher
-          ,(org-mode-inline-text-object-rule))
+          ,(org-mode-text-object-rule-except '(org-header org-list)))
   :documentation "org-mode list.")
 
 (defun get-list-type-from-obj (obj list-match)

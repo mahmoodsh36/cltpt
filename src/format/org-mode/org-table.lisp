@@ -166,8 +166,11 @@
 
 (defun org-table-matcher (ctx reader pos &optional inline-rules)
   "parses an org-mode table starting at pos. returns (values match-node, new-pos)."
-  (multiple-value-bind (first-line-start) (get-line-bounds reader pos)
-    (unless (and (= pos first-line-start)
+  (multiple-value-bind (first-line-start first-line-end) (get-line-bounds reader pos)
+    (unless (and (member pos
+                         (list first-line-start
+                               (cltpt/combinator:position-non-horizontal-whitespace
+                                reader first-line-start first-line-end)))
                  (is-table-line-at-pos-p reader pos))
       (return-from org-table-matcher (values nil pos))))
   (let* ((table-match (cltpt/combinator:make-match
@@ -183,8 +186,7 @@
         (return))
       (multiple-value-bind (line-start line-end)
           (get-line-bounds reader current-pos)
-        (unless (and (= current-pos line-start)
-                     (is-table-line-at-pos-p reader line-start))
+        (unless (is-table-line-at-pos-p reader line-start)
           (return))
         ;; push the row/hrule
         (if (is-hrule-line-at-pos-p reader line-start)

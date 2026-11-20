@@ -380,24 +380,23 @@ if PRE-COMPUTED-INDENT is supplied the count-leading-spaces call is skipped."
                                          (- (cltpt/combinator:match-end child-list-match)
                                             (cltpt/combinator:match-begin child-list-match)))))))
           ;; scan inline rules in content segments
-          (when inline-rules
-            (dolist (segment content-segments)
-              (let ((matches-in-segment (cltpt/combinator:scan-all-rules
-                                         ctx
-                                         reader
-                                         inline-rules
-                                         (car segment)
-                                         (cdr segment))))
-                (when matches-in-segment
-                  (dolist (m matches-in-segment)
-                    ;; convert from ctx-relative to content-node-relative
-                    (let ((abs-begin (+ (cltpt/combinator:match-begin m)
-                                        (cltpt/combinator:context-parent-begin ctx)))
-                          (abs-end (+ (cltpt/combinator:match-end m)
-                                      (cltpt/combinator:context-parent-begin ctx))))
-                      (setf (cltpt/combinator:match-begin m) (- abs-begin content-node-begin))
-                      (setf (cltpt/combinator:match-end m) (- abs-end content-node-begin))))
-                  (setf content-children (nconc content-children matches-in-segment))))))
+          ;; scan the whole content region at once so multi-line blocks can match.
+          (when (and inline-rules content-segments)
+            (let ((matches (cltpt/combinator:scan-all-rules
+                            ctx
+                            reader
+                            inline-rules
+                            content-node-begin
+                            end-of-content-text)))
+              (dolist (m matches)
+                ;; convert from ctx-relative to content-node-relative
+                (let ((abs-begin (+ (cltpt/combinator:match-begin m)
+                                    (cltpt/combinator:context-parent-begin ctx)))
+                      (abs-end (+ (cltpt/combinator:match-end m)
+                                  (cltpt/combinator:context-parent-begin ctx))))
+                  (setf (cltpt/combinator:match-begin m) (- abs-begin content-node-begin))
+                  (setf (cltpt/combinator:match-end m) (- abs-end content-node-begin))))
+              (setf content-children (nconc content-children matches))))
           (let* ((final-match-end (max end-of-content-text end-of-children))
                  (content-match (cltpt/combinator:make-match
                                  :id 'list-item-content

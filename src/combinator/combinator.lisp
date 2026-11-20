@@ -899,15 +899,24 @@ returns (values success-p end-pos) on success, or (values nil nil) on failure."
       (setf (match-rule result) rule)
       result)))
 
+(defun rule-on-char (rule)
+  (when (and (consp rule) (keywordp (car rule)))
+    (getf rule :on-char)))
+
 ;; the hash table thing is a heuristic that makes things slightly faster
 (defun hash-rules (rules)
-  "construct a hash table by :on-char of the list of plists RULES."
+  "map each :on-char to the rules to try at it, in RULES order (earlier rules win)."
   (let ((hash (make-hash-table :test 'eq)))
     (loop for rule in rules
-          do (when (and (consp rule) (keywordp (car rule)))
-               (let ((on-char (getf rule :on-char)))
-                 (when on-char
-                   (push rule (gethash on-char hash))))))
+          for on-char = (rule-on-char rule)
+          when on-char
+          do (setf (gethash on-char hash) t))
+    (loop for on-char being the hash-keys of hash
+          do (setf (gethash on-char hash)
+                   (remove-if-not (lambda (rule)
+                                    (let ((c (rule-on-char rule)))
+                                      (or (null c) (eql c on-char))))
+                                  rules)))
     hash))
 
 (defun scan-all-rules (ctx input rules &optional (start-idx 0) end-idx)
@@ -920,12 +929,7 @@ returns (values success-p end-pos) on success, or (values nil nil) on failure."
          (*reader-fast-buffer-length* (reader-fast-buffer-length reader))
          (i start-idx)
          (rule-hash (hash-rules rules))
-         ;; hash rules by :on-char to speed up iteration, we only call hashed
-         ;; rules when we see the :on-char they need. this way we avoid
-         ;; trying all rules at all locations
-         (hashed-rules (loop for value being the hash-values of rule-hash
-                             append value))
-         (unhashed-rules (set-difference rules hashed-rules :test #'eq))
+         (unhashed-rules (remove-if 'rule-on-char rules))
          (ctx (or ctx (make-context :rules rules :parent-match* nil))))
     (let ((ctx-parent-begin (context-parent-begin ctx)))
       (loop while (if end-idx
@@ -939,9 +943,7 @@ returns (values success-p end-pos) on success, or (values nil nil) on failure."
                                 (setf i (+ ctx-parent-begin (match-end match-result)))
                                 (push (match-set-children-parent match-result) events)
                                 (setf matched t)))))
-                   (loop for rule in (union unhashed-rules
-                                            (gethash current-char rule-hash)
-                                            :test #'eq)
+                   (loop for rule in (gethash current-char rule-hash unhashed-rules)
                          until matched
                          do (handle-rule rule)
                          finally (unless matched

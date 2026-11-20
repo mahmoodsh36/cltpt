@@ -1429,6 +1429,7 @@ plt.close()
      ;; links and images section
      (cltpt/org-mode::org-header
       (cltpt/org-mode::org-list
+       (cltpt/base:text-object)
        (cltpt/org-mode::web-link)
        (cltpt/org-mode::org-link)
        (cltpt/org-mode::org-link)
@@ -1476,7 +1477,9 @@ plt.close()
      (cltpt/org-mode::org-header
       ;; deadline
       (cltpt/org-mode::org-header
-       (cltpt/org-mode::org-list))
+       (cltpt/org-mode::org-list
+        (cltpt/org-mode::org-timestamp)
+        (cltpt/org-mode::org-timestamp)))
       ;; timestamps
       (cltpt/org-mode::org-header
        (cltpt/org-mode::org-list)))
