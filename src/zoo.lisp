@@ -111,19 +111,26 @@ empty when there is no depth."
     (cltpt/html::svg
      (let* ((preview (first (cltpt/latex-previews:generate-previews-for-latex
                              (list latex-code))))
-            (img-filepath (cltpt/latex-previews:preview-path preview))
-            (filename (cltpt/file-utils:file-basename img-filepath))
-            (img-url (if cltpt/html:*html-static-route*
-                         (cltpt/file-utils:join-paths cltpt/html:*html-static-route* filename)
-                         img-filepath)))
-       (if is-inline
+            (img-filepath (cltpt/latex-previews:preview-path preview)))
+       ;; a failed snippet shouldnt abort the whole export, fall back to its source.
+       (unless img-filepath
+         (warn "failed to compile latex preview for: ~A" latex-code)
+         (return-from latex-fragment-to-html
            (format nil
-                   "<img src='~A' class='inline-math'~A />"
-                   img-url
-                   (latex-baseline-style preview))
-           (format nil
-                   "<img src='~A' class='display-math' />"
-                   img-url))))))
+                   "<pre class='latex-error'>~A</pre>"
+                   (cltpt/base:text-format-escape :html latex-code nil nil))))
+       (let* ((filename (cltpt/file-utils:file-basename img-filepath))
+              (img-url (if cltpt/html:*html-static-route*
+                           (cltpt/file-utils:join-paths cltpt/html:*html-static-route* filename)
+                           img-filepath)))
+         (if is-inline
+             (format nil
+                     "<img src='~A' class='inline-math'~A />"
+                     img-url
+                     (latex-baseline-style preview))
+             (format nil
+                     "<img src='~A' class='display-math' />"
+                     img-url)))))))
 
 (defmethod cltpt/base:text-object-convert ((obj cltpt/latex:inline-math)
                                            (fmt (eql :html)))

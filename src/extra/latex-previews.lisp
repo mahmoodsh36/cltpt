@@ -489,10 +489,14 @@ PATH is NIL for a snippet that produced no image."
       (setf missing-snippets (nreverse missing-snippets))
       ;; compilation (only if needed)
       (when missing-snippets
-        (run-compilation-pipeline missing-snippets
-                                  pipeline-config
-                                  density
-                                  transparent)
+        ;; a failed compile leaves those snippets without an image instead of aborting the caller.
+        (handler-case
+            (run-compilation-pipeline missing-snippets
+                                      pipeline-config
+                                      density
+                                      transparent)
+          (error (c)
+            (warn "latex preview compilation failed: ~A" c)))
         ;; copy the newly compiled (and now hash-named) files from tmp to cache
         (dolist (snippet-cons missing-snippets)
           (let* ((hash (car snippet-cons))
